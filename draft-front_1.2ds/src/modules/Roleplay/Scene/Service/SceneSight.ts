@@ -4,8 +4,8 @@ import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUR
 /**
  * Высоты обзора из роста тела.
  *
- * Рост хранится целыми единицами сцены, проценты — целые. Поэтому глаз и цель
- * остаются целыми единицами, а в ипари переводятся делением на степень двойки:
+ * Рост хранится целыми единицами сцены, проценты — целые. Поэтому глаз
+ * остаётся целой единицей, а в ипари переводится делением на степень двойки:
  * дробных чисел в данных нет, результат — размерное число `{base|size}`.
  */
 
@@ -24,10 +24,7 @@ export function sceneSightEyeIpari(heightUnits: number, resolution: number): num
   return Math.round((height * SCENE_SURFACE.eyePercent) / 100) / base;
 }
 
-/** Точка тела цели, ипари: 75% роста. */
-export function sceneSightTargetIpari(heightUnits: number, resolution: number): number {
-  const base = Math.max(1, resolution);
-  const height = Math.max(1, heightUnits);
-
-  return Math.round((height * SCENE_SURFACE.targetPercent) / 100) / base;
+/** Тело цели целиком, ипари. */
+export function sceneBodyIpari(heightUnits: number, resolution: number): number {
+  return Math.max(1, heightUnits) / Math.max(1, resolution);
 }

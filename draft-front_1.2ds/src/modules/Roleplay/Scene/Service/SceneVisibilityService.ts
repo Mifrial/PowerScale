@@ -5,8 +5,8 @@ import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUR
 import { surfaceCenter, surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import {
   sceneBodyHeight,
+  sceneBodyIpari,
   sceneSightEyeIpari,
-  sceneSightTargetIpari,
 } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /**
@@ -15,23 +15,28 @@ import {
  * Луч идёт по мировым координатам и проверяет непрозрачные клетки сетки. Сами
  * перекрытия (препятствия, стволы, валун, настил) уже размечены
  * `SceneSurfaceService`, поэтому сервис не знает ни о Pixi, ни о типах
- * элементов. Высота учитывается: луч идёт из глаз наблюдателя к телу цели, и
- * клетка перекрывает его только тогда, когда луч проходит через её полосу
- * `sightBottom…sightTop`. Поэтому ствол закрывает токен, крона, начинающаяся
- * выше глаз, — нет, а настил не пускает луч сквозь себя, но не мешает смотреть
- * с него и из-под него.
+ * элементов.
  *
- * Глаза — 90% роста наблюдателя, тело цели — 75% её роста: рост у персонажей
- * разный, а фиксированных дробных высот в данных нет. Рост по умолчанию —
- * `SCENE_NAVIGATION.bodyHeightIpari`; сцена хранит его целыми единицами.
+ * Цель видна, если видна хотя бы одна точка её тела: луч проверяется не в одну
+ * высоту, а по всему росту. Клетка с полосой `sightBottom…sightTop` закрывает
+ * диапазон высот цели, поэтому по лучу собираются интервалы закрытых высот и
+ * проверяется, покрыли ли они тело целиком. Так низкий забор не скрывает
+ * голову, а ствол или стена скрывают всё.
+ *
+ * Глаза — 90% роста наблюдателя. Рост у персонажей разный, фиксированных
+ * дробных высот в данных нет: рост по умолчанию —
+ * `SCENE_NAVIGATION.bodyHeightIpari`, сцена хранит его целыми единицами.
  */
 export class SceneVisibilityService {
+  /** Закрытые высоты тела для текущего луча; переиспользуется без аллокаций. */
+  private readonly blocked: number[] = [];
+
   /**
    * Карта видимости из точки.
    *
    * @param radius Радиус обзора в единицах сцены; без него — всё поле.
    * @param eye Высота глаз наблюдателя, ипари.
-   * @param target Высота точки тела цели, ипари.
+   * @param body Высота тела цели, ипари.
    * @param level Уровень наблюдателя: 0 — поверхность, выше — настил.
    */
   map(
@@ -39,7 +44,7 @@ export class SceneVisibilityService {
     from: ScenePoint,
     radius = Number.POSITIVE_INFINITY,
     eye = sceneSightEyeIpari(sceneBodyHeight(grid.resolution), grid.resolution),
-    target = sceneSightTargetIpari(sceneBodyHeight(grid.resolution), grid.resolution),
+    body = sceneBodyIpari(sceneBodyHeight(grid.resolution), grid.resolution),
     level = 0,
   ): SceneVisibility {
     const visible = new Uint8Array(grid.columns * grid.rows);
@@ -67,7 +72,7 @@ export class SceneVisibilityService {
 
         if (
           index === origin ||
-          this.clearLine(grid, from, center, origin, index, eye, target, fromFloor, fromFloor, level, 0)
+          this.clearAny(grid, from, center, origin, index, eye, body, fromFloor, fromFloor, level, 0)
         ) {
           visible[index] = 1;
         }
@@ -78,7 +83,7 @@ export class SceneVisibilityService {
   }
 
   /**
-   * Видна ли точка из точки обзора.
+   * Видна ли любая точка тела цели из точки обзора.
    *
    * Уровни нужны настилу: с настила и из-под него луч стартует от своего пола,
    * поэтому мост не ослепляет ни того, кто на нём, ни того, кто под ним.
@@ -88,7 +93,7 @@ export class SceneVisibilityService {
     from: ScenePoint,
     to: ScenePoint,
     eye = sceneSightEyeIpari(sceneBodyHeight(grid.resolution), grid.resolution),
-    target = sceneSightTargetIpari(sceneBodyHeight(grid.resolution), grid.resolution),
+    body = sceneBodyIpari(sceneBodyHeight(grid.resolution), grid.resolution),
     fromLevel = 0,
     toLevel = 0,
   ): boolean {
@@ -105,7 +110,7 @@ export class SceneVisibilityService {
     const fromFloor = surfaceFloor(grid, from, fromLevel) / grid.resolution;
     const toFloor = surfaceFloor(grid, to, toLevel) / grid.resolution;
 
-    return this.clearLine(grid, from, to, origin, index, eye, target, fromFloor, toFloor, fromLevel, toLevel);
+    return this.clearAny(grid, from, to, origin, index, eye, body, fromFloor, toFloor, fromLevel, toLevel);
   }
 
   /**
@@ -129,6 +134,16 @@ export class SceneVisibilityService {
     return Math.min(height, clearance);
   }
 
+  /** Глаз внутри полосы исходной клетки: луч не выйдет наружу. */
+  private insideBand(grid: SceneSurfaceGrid, cell: number, height: number): boolean {
+    const bottom = grid.sightBottom[cell];
+    if (!Number.isFinite(bottom)) {
+      return false;
+    }
+
+    return height > bottom && height < grid.sightTop[cell];
+  }
+
   /**
    * Луч проходит через полосу потолка в клетке.
    *
@@ -145,19 +160,64 @@ export class SceneVisibilityService {
     return Math.max(start, finish) > grid.sightBottom[cell] && Math.min(start, finish) < top;
   }
 
+  /** Добавляет закрытый интервал высот тела с обрезкой по телу. */
+  private pushInterval(lo: number, hi: number, min: number, max: number): void {
+    const from = Math.max(min, lo);
+    const to = Math.min(max, hi);
+    if (to > from) {
+      this.blocked.push(from, to);
+    }
+  }
+
+  /** Покрыт ли весь рост цели закрытыми интервалами. */
+  private covered(min: number, max: number): boolean {
+    const values = this.blocked;
+    for (let index = 2; index < values.length; index += 2) {
+      const lo = values[index];
+      const hi = values[index + 1];
+      let cursor = index - 2;
+      while (cursor >= 0 && values[cursor] > lo) {
+        values[cursor + 2] = values[cursor];
+        values[cursor + 3] = values[cursor + 1];
+        cursor -= 2;
+      }
+      values[cursor + 2] = lo;
+      values[cursor + 3] = hi;
+    }
+
+    let reach = min;
+    for (let index = 0; index < values.length; index += 2) {
+      if (values[index] > reach) {
+        return false;
+      }
+      if (values[index + 1] > reach) {
+        reach = values[index + 1];
+      }
+      if (reach >= max) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /**
-   * Луч не пересекает непрозрачных клеток, кроме исходной и целевой.
+   * Видна ли хоть одна высота тела цели.
    *
    * Высота луча отсчитывается от пола: `fromFloor` и `toFloor` — в ипари.
+   * Для клетки на доле пути `t` полоса `bottom…top` закрывает такие высоты
+   * цели `finish`, при которых луч в этой клетке попадает в полосу:
+   * `finish ∈ (start + (bottom − start)/t, start + (top − start)/t)`.
+   * Интервалы сливаются, и цель видна, если они не покрыли весь рост.
    */
-  private clearLine(
+  private clearAny(
     grid: SceneSurfaceGrid,
     from: ScenePoint,
     to: ScenePoint,
     origin: number,
     target: number,
     eye: number,
-    targetHeight: number,
+    bodyHeight: number,
     fromFloor: number,
     toFloor: number,
     fromLevel: number,
@@ -167,12 +227,23 @@ export class SceneVisibilityService {
     const step = Math.max(1, grid.cell * SCENE_SURFACE.sightStep);
     const steps = Math.max(1, Math.ceil(distance / step));
     const start = fromFloor + this.eyeHeight(grid, origin, eye, fromLevel === 0);
-    const finish = toFloor + this.eyeHeight(grid, target, targetHeight, toLevel === 0);
+    const body = this.eyeHeight(grid, target, bodyHeight, toLevel === 0);
+    if (body <= 0) {
+      return false;
+    }
 
-    // Тонкий настил пересекается у самых концов луча, куда выборка по центрам
-    // клеток не попадает. Полоса с конечным верхом — потолок, а не стена:
-    // проверяем её в исходной и целевой клетке отдельно.
-    if (this.crossesCeiling(grid, origin, start, finish) || this.crossesCeiling(grid, target, start, finish)) {
+    if (this.insideBand(grid, origin, start)) {
+      return false;
+    }
+
+    const min = toFloor;
+    const max = toFloor + body;
+    this.blocked.length = 0;
+
+    // Тонкий настил у цели выборка по центрам клеток может проскочить.
+    // Проверяем его, только когда наблюдатель сам стоит в клетке настила:
+    // иначе луч подходит сбоку и может пройти над кромкой — с берега на мост.
+    if (Number.isFinite(grid.clearance[origin]) && this.crossesCeiling(grid, target, start, max)) {
       return false;
     }
 
@@ -182,16 +253,14 @@ export class SceneVisibilityService {
       if (cell < 0 || cell === origin || cell === target) {
         continue;
       }
-      // Высота луча идёт от глаз наблюдателя к телу цели. Клетка перекрывает,
-      // только если луч проходит через её полосу: выше потолка или ниже низа
-      // видно свободно. Границы полосы — свои: глаза под настилом упираются в
-      // его низ, и луч вдоль низа не должен считать себя внутри досок.
-      const height = start + (finish - start) * t;
-      if (height > grid.sightBottom[cell] && height < grid.sightTop[cell]) {
-        return false;
+      const bottom = grid.sightBottom[cell];
+      if (!Number.isFinite(bottom)) {
+        continue;
       }
+      const top = grid.sightTop[cell];
+      this.pushInterval(start + (bottom - start) / t, start + (top - start) / t, min, max);
     }
 
-    return true;
+    return !this.covered(min, max);
   }
 }

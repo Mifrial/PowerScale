@@ -14,8 +14,8 @@ import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfa
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 import {
   sceneBodyHeight,
+  sceneBodyIpari,
   sceneSightEyeIpari,
-  sceneSightTargetIpari,
 } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Цвет и прозрачность одной заливки. */
@@ -70,18 +70,9 @@ export class SceneOverlayService {
     if (options.visibility) {
       const from = observer ?? this.center(grid);
       const radius = options.radius ?? Math.max(1, resolution) * SCENE_OVERLAY.sightIpari;
-      const body = height ?? sceneBodyHeight(resolution);
-      fog = this.hiddenMask(
-        grid,
-        this.visibility.map(
-          grid,
-          from,
-          radius,
-          sceneSightEyeIpari(body, resolution),
-          sceneSightTargetIpari(sceneBodyHeight(resolution), resolution),
-          level,
-        ),
-      );
+      const eye = sceneSightEyeIpari(height ?? sceneBodyHeight(resolution), resolution);
+      const body = sceneBodyIpari(sceneBodyHeight(resolution), resolution);
+      fog = this.hiddenMask(grid, this.visibility.map(grid, from, radius, eye, body, level));
     }
 
     return { costs, fog };

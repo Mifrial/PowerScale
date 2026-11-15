@@ -20,8 +20,8 @@ import {
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 import {
   sceneBodyHeight,
+  sceneBodyIpari,
   sceneSightEyeIpari,
-  sceneSightTargetIpari,
 } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Внешние данные предпросмотра. */
@@ -471,7 +471,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           observerPoint,
           [actor.x, actor.y],
           sceneSightEyeIpari(observer.height ?? body, resolution),
-          sceneSightTargetIpari(actor.height ?? body, resolution),
+          sceneBodyIpari(actor.height ?? body, resolution),
           observer.level ?? 0,
           actor.level ?? 0,
         );
