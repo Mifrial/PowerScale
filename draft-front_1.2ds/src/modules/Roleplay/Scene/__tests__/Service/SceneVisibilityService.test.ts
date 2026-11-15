@@ -114,6 +114,33 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(low, [370, 560], [370, 80])).toBe(false);
   });
 
+  it('настил не пускает луч сквозь себя, но не мешает смотреть с него и из-под него', () => {
+    const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
+    const deck = (elevation: number): SceneElement =>
+      element(2, 'support', { type: 'rect', x: 240, y: 0, w: 160, h: 640 }, { kind: 'bridge', elevation, height: 16 });
+    const grid = surfaces.build(
+      large,
+      [element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }), deck(100)],
+      64,
+    );
+
+    // На настиле и под настилом видно вдоль своего уровня.
+    expect(service.sees(grid, [320, 560], [320, 80], undefined, undefined, 1, 1)).toBe(true);
+    expect(service.sees(grid, [320, 560], [320, 80], undefined, undefined, 0, 0)).toBe(true);
+
+    // Сквозь настил — нет: ни снизу вверх, ни сверху вниз.
+    expect(service.sees(grid, [320, 560], [320, 80], undefined, undefined, 1, 0)).toBe(false);
+    expect(service.sees(grid, [320, 560], [320, 80], undefined, undefined, 0, 1)).toBe(false);
+
+    // Настил на уровне пола ничего не перекрывает.
+    const flat = surfaces.build(
+      large,
+      [element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }), deck(0)],
+      64,
+    );
+    expect(service.sees(flat, [320, 560], [320, 80], undefined, undefined, 1, 0)).toBe(true);
+  });
+
   it('ограничивает обзор радиусом', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const visible = service.map(grid, [128, 128], 32);

@@ -3878,14 +3878,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/scene-plan-05-bridge-deck.md",
-                    "title": "Настилы, мосты и съезды",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": "2026-11-15",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/scene-plan-02-battleground.md",
                     "title": "План: минимальная карта и тактический предпросмотр",
                     "kind": "plan",
@@ -3899,6 +3891,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/scene-plan-05-bridge-deck.md",
+                    "title": "Настилы, мосты и съезды",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-15",
                     "hasStatus": true
                 },
                 {

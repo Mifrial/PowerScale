@@ -418,7 +418,19 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       }
 
       const distance = Math.hypot(actor.x - observer.x, actor.y - observer.y);
-      const visible = distance <= observer.sightRadius && visibility.sees(surface, observerPoint, [actor.x, actor.y]);
+      // Уровни важны настилу: тот, кто на мосту, смотрит над настилом, тот,
+      // кто под ним, — под настилом, и друг друга сквозь доски не видят.
+      const visible =
+        distance <= observer.sightRadius &&
+        visibility.sees(
+          surface,
+          observerPoint,
+          [actor.x, actor.y],
+          undefined,
+          undefined,
+          observer.level ?? 0,
+          actor.level ?? 0,
+        );
 
       return { ...actor, ghost: !visible, underDeck: under };
     });
@@ -464,6 +476,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.props.baseRadius ?? '',
             element.props.sightRadius ?? '',
             element.props.sightBottom ?? '',
+            JSON.stringify(element.props.footprint ?? null),
+            JSON.stringify(element.props.silhouette ?? null),
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',

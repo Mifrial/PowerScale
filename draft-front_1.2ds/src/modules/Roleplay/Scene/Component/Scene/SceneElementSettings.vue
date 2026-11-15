@@ -30,7 +30,7 @@ import {
 import { sceneDecorFootprintDefaults } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
-import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
+import type { SceneFootprint, SceneSilhouette } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
@@ -168,6 +168,9 @@ const silhouetteBottom = computed(() => {
 
   return silhouette?.bottom ?? decorDefaults.value.silhouette.bottom;
 });
+
+/** Потолок силуэта, единицы сцены; `0` — перекрытие до неба. */
+const silhouetteTop = computed(() => props.element.props.silhouette?.top ?? 0);
 
 const silhouettePointCount = computed(() => {
   const silhouette = props.element.props.silhouette;
@@ -432,45 +435,60 @@ function outlineRadius(points: ScenePoint[]): number {
   return Math.max(1, Math.round(radius));
 }
 
+/** Зона непрозрачности целиком: явная или снятая с основания. */
+function silhouetteZone(): SceneSilhouette {
+  const current = props.element.props.silhouette;
+  if (current !== undefined) {
+    return current;
+  }
+
+  // Неявная зона снята с основания: её смещение уже учтено, своё не навязываем.
+  return decorDefaults.value.silhouette;
+}
+
+/** Форма зоны без высот: общая часть правок вида, радиуса и смещения. */
+function silhouetteShape(): SceneFootprint {
+  const zone = silhouetteZone();
+
+  return zone.shape === 'polygon'
+    ? { shape: 'polygon', points: zone.points, ...offsetOf(zone) }
+    : { shape: 'circle', radius: zone.radius, ...offsetOf(zone) };
+}
+
+/** Зона с новой формой: низ и потолок переносятся из текущей. */
+function silhouetteWith(shape: SceneFootprint): SceneSilhouette {
+  const zone = silhouetteZone();
+
+  return { ...shape, bottom: zone.bottom, ...(zone.top === undefined ? {} : { top: zone.top }) };
+}
+
+/** Смещение, если оно задано: лишние поля в контракт не пишем. */
+function offsetOf(footprint: SceneFootprint): { offset?: ScenePoint } {
+  return footprint.offset === undefined ? {} : { offset: footprint.offset };
+}
+
 /** Радиус силуэта в единицах сцены; полигон не трогаем. */
 function patchSilhouetteRadius(value: number): void {
   patch({
-    silhouette: {
+    silhouette: silhouetteWith({
       shape: 'circle',
       radius: Math.max(1, Math.round(value)),
-      bottom: silhouetteBottom.value,
-      ...(silhouetteOffset.value[0] === 0 && silhouetteOffset.value[1] === 0 ? {} : { offset: silhouetteOffset.value }),
-    },
+      ...offsetOf(silhouetteZone()),
+    }),
   });
 }
 
 /** Низ силуэта: форму сохраняем, меняем только высоту. */
 function patchSilhouetteBottom(value: number): void {
-  patch({ silhouette: { ...silhouetteShape(), bottom: Math.max(0, Math.round(value)) } });
+  patch({ silhouette: { ...silhouetteZone(), bottom: Math.max(0, Math.round(value)) } });
 }
 
-/** Текущая форма силуэта без высоты: явная или снятая с основания. */
-function silhouetteShape(): SceneFootprint {
-  const current = props.element.props.silhouette;
-  if (current?.shape === 'polygon') {
-    return { shape: 'polygon', points: current.points, ...offsetOf(current) };
-  }
+/** Верх силуэта: `0` — потолка нет, перекрытие до неба. */
+function patchSilhouetteTop(value: number): void {
+  const { top: _top, ...rest } = silhouetteZone();
+  const parsed = Math.max(0, Math.round(value));
 
-  if (current?.shape === 'circle') {
-    return { shape: 'circle', radius: current.radius, ...offsetOf(current) };
-  }
-
-  const derived = decorDefaults.value.silhouette;
-
-  // Неявная зона снята с основания: её смещение уже учтено, своё не навязываем.
-  return derived.shape === 'polygon'
-    ? { shape: 'polygon', points: derived.points, ...offsetOf(derived) }
-    : { shape: 'circle', radius: derived.radius, ...offsetOf(derived) };
-}
-
-/** Смещение, если оно ненулевое: лишние поля в контракт не пишем. */
-function offsetOf(footprint: SceneFootprint): { offset?: ScenePoint } {
-  return footprint.offset === undefined ? {} : { offset: footprint.offset };
+  patch({ silhouette: parsed > 0 ? { ...rest, top: parsed } : rest });
 }
 
 /** Смещение всей зоны непрозрачности от якоря спрайта. */
@@ -478,42 +496,34 @@ function patchSilhouetteOffset(axis: 0 | 1, value: number): void {
   const current = silhouetteOffset.value;
   const offset: ScenePoint = axis === 0 ? [Math.round(value), current[1]] : [current[0], Math.round(value)];
 
-  patch({ silhouette: { ...silhouetteShape(), offset, bottom: silhouetteBottom.value } });
+  patch({ silhouette: silhouetteWith({ ...silhouetteShape(), offset }) });
 }
 
 /** Смена вида зоны непрозрачности: полигон начинается с восьмиугольника по кругу. */
 function patchSilhouetteKind(value: string | null): void {
   if (value === 'polygon') {
-    if (props.element.props.silhouette?.shape === 'polygon') {
-      return;
-    }
-
-    const shape = silhouetteShape();
-    if (shape.shape === 'polygon') {
-      patch({ silhouette: { ...shape, bottom: silhouetteBottom.value } });
-
+    const zone = silhouetteZone();
+    if (zone.shape === 'polygon') {
       return;
     }
 
     patch({
-      silhouette: {
+      silhouette: silhouetteWith({
         shape: 'polygon',
-        points: regularPolygon(Math.max(1, shape.radius)),
-        offset: silhouetteOffset.value,
-        bottom: silhouetteBottom.value,
-      },
+        points: regularPolygon(Math.max(1, zone.radius)),
+        ...offsetOf(zone),
+      }),
     });
 
     return;
   }
 
   patch({
-    silhouette: {
+    silhouette: silhouetteWith({
       shape: 'circle',
       radius: Math.max(1, silhouetteRadius.value),
-      offset: silhouetteOffset.value,
-      bottom: silhouetteBottom.value,
-    },
+      ...offsetOf(silhouetteZone()),
+    }),
   });
 }
 
@@ -527,7 +537,7 @@ function outlineSilhouette(): void {
 
 /** Отделяет зону непрозрачности от основания: копия становится явной. */
 function detachSilhouette(): void {
-  patch({ silhouette: { ...silhouetteShape(), bottom: silhouetteBottom.value } });
+  patch({ silhouette: silhouetteWith(silhouetteShape()) });
 }
 
 function onAsset(publicId: string | null): void {
@@ -1022,6 +1032,15 @@ function onAssetCleared(publicId: string | null): void {
           :min="0"
           :max="100000"
           @update:model-value="patchSilhouetteBottom"
+        />
+        <SceneDistanceField
+          :model-value="silhouetteTop"
+          :resolution="props.resolution"
+          label="Верх силуэта, ипари"
+          hint="0 — перекрывает до неба; у настила — высота его верха."
+          :min="0"
+          :max="100000"
+          @update:model-value="patchSilhouetteTop"
         />
       </template>
     </template>

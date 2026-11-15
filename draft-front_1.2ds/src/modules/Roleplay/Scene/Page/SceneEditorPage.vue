@@ -345,12 +345,14 @@ function applyOutline(shape: SceneShape): void {
 
   const offset = element.props.silhouette?.offset;
   const bottom = element.props.silhouette?.bottom ?? 0;
+  const top = element.props.silhouette?.top;
   const points = shape.points.map((point): ScenePoint => sceneSilhouetteLocalPoint(element, point));
   const silhouette = {
     shape: 'polygon' as const,
     points,
     bottom,
     ...(offset === undefined ? {} : { offset }),
+    ...(top === undefined ? {} : { top }),
   };
   state.updateElementProps(element.id, { ...element.props, silhouette });
   notice.value = 'Зона непрозрачности обведена';

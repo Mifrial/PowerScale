@@ -89,6 +89,7 @@ export function sceneObjectTemplateProps(meta: unknown, targetResolution: number
     silhouette: {
       ...scaleSceneFootprint(template.silhouette, factor),
       bottom: scaleLength(template.silhouette.bottom, factor),
+      ...(template.silhouette.top === undefined ? {} : { top: scaleLength(template.silhouette.top, factor) }),
     },
     speed: template.speed,
     blocksVision: template.blocksVision,
@@ -178,7 +179,11 @@ function parseSilhouette(value: unknown): SceneSilhouette | null {
     return null;
   }
 
-  return { ...footprint, bottom: clampInt(value.bottom, 0, MAX_SIZE, 0) };
+  return {
+    ...footprint,
+    bottom: clampInt(value.bottom, 0, MAX_SIZE, 0),
+    ...(value.top === undefined ? {} : { top: clampInt(value.top, 0, MAX_SIZE, 0) }),
+  };
 }
 
 /** Список точек: минимум три, каждая пара целых. */

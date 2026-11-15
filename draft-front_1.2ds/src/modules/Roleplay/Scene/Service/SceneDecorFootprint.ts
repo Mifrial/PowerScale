@@ -1,5 +1,5 @@
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
-import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
+import type { SceneFootprint, SceneSilhouette } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import type { SceneHandle } from '@/modules/Roleplay/Scene/Dto/SceneHandle';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -38,20 +38,21 @@ export function sceneDecorFootprint(element: FootprintElement, resolution: numbe
 }
 
 /**
- * Силуэт точечного декора в мировых координатах и его низ.
+ * Силуэт точечного декора в мировых координатах и его полоса высот.
  *
  * Явное поле `props.silhouette` — канон. Без него зона непрозрачности
  * совпадает с основанием: мастер уже нарисовал видимую массу объекта, и тень
  * должна начинаться от неё, а не от круга, посаженного на якорь. Старые сцены
  * без обоих полей живут на долях ширины спрайта.
  *
- * `bottom` возвращается в единицах сцены: у новой модели это явное поле, у
- * старой — доля ширины спрайта. Сетка поверхности переводит его в ипари.
+ * `bottom` и `top` возвращаются в единицах сцены: у новой модели это явные
+ * поля, у старой — доля ширины спрайта. Сетка поверхности переводит их в ипари.
+ * Без `top` перекрытие идёт до неба.
  */
 export function sceneDecorSilhouette(
   element: FootprintElement,
   resolution: number,
-): { area: SceneWorldFootprint; bottom: number } | null {
+): { area: SceneWorldFootprint; bottom: number; top?: number } | null {
   if (element.shape.type !== 'point') {
     return null;
   }
@@ -62,7 +63,9 @@ export function sceneDecorSilhouette(
   if (zone !== null) {
     const area = footprintWorld(zone.shape, center, rotation);
 
-    return area === null ? null : { area, bottom: Math.max(0, zone.bottom) };
+    return area === null
+      ? null
+      : { area, bottom: Math.max(0, zone.bottom), ...(zone.top === undefined ? {} : { top: zone.top }) };
   }
 
   const size = spriteSize(element, resolution);
@@ -82,11 +85,13 @@ export function sceneDecorSilhouette(
  *
  * `null` — новых полей нет, остаются старые проценты ширины спрайта.
  */
-function sceneSilhouetteZone(props: FootprintElement['props']): { shape: SceneFootprint; bottom: number } | null {
+function sceneSilhouetteZone(
+  props: FootprintElement['props'],
+): { shape: SceneFootprint; bottom: number; top?: number } | null {
   if (props.silhouette !== undefined && props.silhouette !== null) {
-    const { bottom, ...shape } = props.silhouette;
+    const { bottom, top, ...shape } = props.silhouette;
 
-    return { shape, bottom };
+    return { shape, bottom, ...(top === undefined ? {} : { top }) };
   }
 
   if (props.footprint !== undefined && props.footprint !== null) {
@@ -206,7 +211,7 @@ export function sceneFootprintLocalOffset(element: FootprintElement, offset: Sce
 export function sceneDecorFootprintDefaults(
   element: FootprintElement,
   resolution: number,
-): { footprint: SceneFootprint; silhouette: SceneFootprint & { bottom: number } } {
+): { footprint: SceneFootprint; silhouette: SceneSilhouette } {
   const size = spriteSize(element, resolution);
   const footprint = element.props.footprint ?? {
     shape: 'circle' as const,
@@ -215,7 +220,7 @@ export function sceneDecorFootprintDefaults(
   const zone = sceneSilhouetteZone(element.props);
   const silhouette =
     zone !== null
-      ? { ...zone.shape, bottom: zone.bottom }
+      ? { ...zone.shape, bottom: zone.bottom, ...(zone.top === undefined ? {} : { top: zone.top }) }
       : {
           shape: 'circle' as const,
           radius: Math.round(size * ((element.props.sightRadius ?? SCENE_SURFACE.decorSightRadius) / 100)),

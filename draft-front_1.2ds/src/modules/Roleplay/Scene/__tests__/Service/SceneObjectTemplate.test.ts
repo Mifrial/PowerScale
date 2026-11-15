@@ -67,7 +67,7 @@ describe('SceneObjectTemplate', () => {
           ],
           offset: [8, -4],
         },
-        silhouette: { shape: 'circle', radius: 60, bottom: 40 },
+        silhouette: { shape: 'circle', radius: 60, bottom: 40, top: 80 },
       }),
       RESOLUTION,
     );
@@ -90,7 +90,7 @@ describe('SceneObjectTemplate', () => {
       ],
       offset: [4, -2],
     });
-    expect(props?.silhouette).toEqual({ shape: 'circle', radius: 30, bottom: 20 });
+    expect(props?.silhouette).toEqual({ shape: 'circle', radius: 30, bottom: 20, top: 40 });
   });
 
   it('не применяет незнакомый или битый шаблон', () => {

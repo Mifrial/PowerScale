@@ -13,9 +13,11 @@ export type SceneFootprint =
   | { shape: 'polygon'; points: ScenePoint[]; handles?: SceneHandle[]; offset?: ScenePoint };
 
 /**
- * Силуэт: форма перекрытия обзора плюс низ над землёй.
+ * Силуэт: форма перекрытия обзора плюс полоса высот.
  *
  * `bottom` — на какой высоте начинается перекрытие. У кроны дерева оно выше
- * глаз, у валуна и стены — от земли.
+ * глаз, у валуна и стены — от земли. `top` — где перекрытие кончается: настил
+ * перекрывает только свою толщину, и сквозь него не видно, а над ним — видно.
+ * Нет поля — перекрытие до неба, как у ствола или стены.
  */
-export type SceneSilhouette = SceneFootprint & { bottom: number };
+export type SceneSilhouette = SceneFootprint & { bottom: number; top?: number };

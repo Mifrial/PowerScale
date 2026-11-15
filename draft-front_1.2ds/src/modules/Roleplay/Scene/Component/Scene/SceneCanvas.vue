@@ -155,11 +155,9 @@ function cssColor(color: number): string {
 
 const selectedActor = computed(() => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null);
 
-/** Точка обзора: выбранный актор, иначе первый актор или центр поля. */
-function observerOf(): ScenePoint | null {
-  const actor = selectedActor.value ?? props.actors?.[0] ?? null;
-
-  return actor === null ? null : [actor.x, actor.y];
+/** Актор, с которого строится обзор: выбранный, иначе первый. */
+function observerActor(): SceneActor | null {
+  return selectedActor.value ?? props.actors?.[0] ?? null;
 }
 
 /** Готовые полосы оверлеев; расчёт остаётся вне Pixi. */
@@ -170,11 +168,13 @@ function overlayPaint(): SceneOverlayPaint | null {
     return null;
   }
 
-  const sightRadius = selectedActor.value?.sightRadius;
+  const actor = observerActor();
+  const sightRadius = actor?.sightRadius;
   const effective =
     overlay.radius === null && sightRadius !== undefined ? { ...overlay, radius: sightRadius } : overlay;
+  const observer: ScenePoint | null = actor === null ? null : [actor.x, actor.y];
 
-  return overlays.paint(board, props.model.elements, props.model.resolution, effective, observerOf());
+  return overlays.paint(board, props.model.elements, props.model.resolution, effective, observer, actor?.level ?? 0);
 }
 
 /** Пересобирает оверлей под текущие настройки и данные сцены. */

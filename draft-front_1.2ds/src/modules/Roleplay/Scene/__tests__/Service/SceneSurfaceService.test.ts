@@ -142,6 +142,58 @@ describe('SceneSurfaceService', () => {
     expect(high.clearance[cellOf(high, 0, 0)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('настил перекрывает только свою толщину, а пол под ним остаётся прежним', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water', depth: 64 }, 10),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 100, height: 16 },
+          20,
+        ),
+      ],
+      64,
+    );
+    const cell = cellOf(grid, 8, 8);
+
+    // Низ и верх настила в ипари: сквозь эту полосу не видно, выше и ниже — видно.
+    expect(grid.sightBottom[cell]).toBeCloseTo(84 / 64);
+    expect(grid.sightTop[cell]).toBeCloseTo(100 / 64);
+    // Пол под настилом — вода, а не настил: обзор снизу идёт от неё.
+    expect(grid.ground[cell]).toBe(-64);
+    expect(grid.elevation[cell]).toBe(100);
+    // Вне настила полоса пуста: низ — небо, верх — ниже нуля.
+    expect(grid.sightBottom[cellOf(grid, 0, 0)]).toBe(Number.POSITIVE_INFINITY);
+    expect(grid.sightTop[cellOf(grid, 0, 0)]).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  it('держит потолок силуэта декора', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'decor',
+          { type: 'point', x: 128, y: 128 },
+          {
+            footprint: { shape: 'circle', radius: 10 },
+            silhouette: { shape: 'circle', radius: 24, bottom: 0, top: 48 },
+          },
+        ),
+      ],
+      64,
+    );
+
+    // Камень перекрывает от земли до своей высоты, но не до неба.
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(0);
+    expect(grid.sightTop[cellOf(grid, 8, 8)]).toBeCloseTo(48 / 64);
+  });
+
   it('опускает воду на глубину и делает берег наклонным', () => {
     const grid = service.build(
       board(),

@@ -343,7 +343,7 @@ export class SceneDraftService {
     element.props = { ...element.props, silhouette: { ...footprint, bottom: 0 } };
   }
 
-  /** Записывает полигон обратно в зону, сохраняя смещение формы и низ силуэта. */
+  /** Записывает полигон обратно в зону, сохраняя смещение формы и высоты силуэта. */
   private setZonePolygon(
     element: SceneDraftElement,
     zone: SceneDecorZone,
@@ -361,14 +361,20 @@ export class SceneDraftService {
     element.props =
       zone === 'footprint'
         ? { ...element.props, footprint: polygon }
-        : { ...element.props, silhouette: { ...polygon, bottom: this.silhouetteBottom(element) } };
+        : { ...element.props, silhouette: { ...polygon, ...this.silhouetteHeights(element) } };
   }
 
-  /** Низ силуэта: у полигона сохраняется, у новой зоны — ноль. */
-  private silhouetteBottom(element: SceneDraftElement): number {
+  /** Высоты силуэта: у полигона сохраняются, у новой зоны — от земли и до неба. */
+  private silhouetteHeights(element: SceneDraftElement): { bottom: number; top?: number } {
     const silhouette = element.props.silhouette;
+    if (silhouette === undefined || silhouette === null) {
+      return { bottom: 0 };
+    }
 
-    return silhouette === undefined || silhouette === null ? 0 : Math.max(0, silhouette.bottom);
+    return {
+      bottom: Math.max(0, silhouette.bottom),
+      ...(silhouette.top === undefined ? {} : { top: Math.max(0, silhouette.top) }),
+    };
   }
 
   /** Двигает вершину зоны; точка уже локальная. */

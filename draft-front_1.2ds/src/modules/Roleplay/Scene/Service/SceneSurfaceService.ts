@@ -70,6 +70,22 @@ export function surfaceUnderDeck(grid: SceneSurfaceGrid, x: number, y: number): 
   return Number.isFinite(clearance) && clearance > 0;
 }
 
+/**
+ * Высота пола под точкой, единицы сцены.
+ *
+ * Верхний уровень стоит на настиле, базовый — на поверхности под ним: под
+ * мостом это вода или берег. Обзор стартует от пола, поэтому луч с настила
+ * идёт над ним, а не сквозь него.
+ */
+export function surfaceFloor(grid: SceneSurfaceGrid, point: ScenePoint, level = 0): number {
+  const cell = surfaceIndex(grid, point[0], point[1]);
+  if (cell < 0) {
+    return 0;
+  }
+
+  return level > 0 ? grid.elevation[cell] : grid.ground[cell];
+}
+
 /** Обход клеток в границах фигуры. */
 type CellVisitor = (index: number, center: ScenePoint) => void;
 
@@ -93,6 +109,7 @@ export class SceneSurfaceService {
     const size = columns * rows;
     const grid: SceneSurfaceGrid = {
       cell,
+      resolution: Math.max(1, resolution),
       x: 0,
       y: 0,
       columns,
@@ -101,8 +118,10 @@ export class SceneSurfaceService {
       speeds: new Array<number>(size).fill(0),
       costs: new Array<number>(size).fill(Number.POSITIVE_INFINITY),
       elevation: new Float32Array(size),
+      ground: new Float32Array(size),
       clearance: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightBottom: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
+      sightTop: new Float32Array(size).fill(Number.NEGATIVE_INFINITY),
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
@@ -138,6 +157,7 @@ export class SceneSurfaceService {
         grid.kinds[index] = kind;
         grid.speeds[index] = this.speedOf(element, preset);
         grid.elevation[index] = elevation;
+        grid.ground[index] = elevation;
       });
 
       if (kind === 'water') {
@@ -203,11 +223,17 @@ export class SceneSurfaceService {
         const share = 1 - outward / bankCells;
         const index = (minRow + row) * grid.columns + (minColumn + column);
         grid.elevation[index] = Math.min(grid.elevation[index], -depth * share);
+        grid.ground[index] = Math.min(grid.ground[index], -depth * share);
       }
     }
   }
 
-  /** Мост и съезд — настил: проходимы и не перекрывают обзор. */
+  /**
+   * Мост и съезд — настил: проходим, перекрывает только свою толщину.
+   *
+   * Настил — потолок, а не стена: луч с настила идёт над ним, луч из-под
+   * настила — под ним, а сквозь настил не видно ни тому, ни другому.
+   */
   private paintBridges(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     for (const element of elements) {
       if (!isSceneDeck(element)) {
@@ -217,6 +243,10 @@ export class SceneSurfaceService {
       const preset = SCENE_SURFACE.speeds.bridge;
       const deckElevation = sceneSurfaceElevation(element);
       const thickness = sceneDeckThickness(element, resolution);
+      const base = grid.resolution;
+      // Настил на уровне пола ничего не перекрывает: обходить нечего.
+      const bottom = Math.max(0, deckElevation - thickness) / base;
+      const top = deckElevation / base;
       this.paintShape(
         grid,
         element.shape,
@@ -229,6 +259,9 @@ export class SceneSurfaceService {
           grid.kinds[index] = 'bridge';
           grid.speeds[index] = this.speedOf(element, preset);
           grid.elevation[index] = deckElevation;
+          if (top > 0) {
+            this.paintOccluder(grid, index, bottom, top);
+          }
         },
         sceneRotation(element),
       );
@@ -249,7 +282,7 @@ export class SceneSurfaceService {
           grid.speeds[index] = 0;
         }
         if (blocksVision) {
-          grid.sightBottom[index] = 0;
+          this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
         }
       });
     }
@@ -276,7 +309,7 @@ export class SceneSurfaceService {
         this.paintShape(grid, element.shape, (index) => {
           grid.speeds[index] = speed;
           if (blocksVision) {
-            grid.sightBottom[index] = 0;
+            this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
           }
         });
         continue;
@@ -284,24 +317,43 @@ export class SceneSurfaceService {
 
       const speed = this.decorSpeed(element);
       const blocksVision = element.props.blocksVision !== false;
+
+      // Силуэт первым: основание наследует его потолок на тех клетках, где
+      // силуэт накрывает место. Так валун с верхом виден насквозь сверху, а
+      // ствол дерева под кроной остаётся твёрдым до неба.
+      const covered = new Map<number, number>();
+      const silhouette = blocksVision ? sceneDecorSilhouette(element, resolution) : null;
+      if (silhouette !== null) {
+        const bottom = silhouette.bottom / base;
+        const top = silhouette.top === undefined ? Number.POSITIVE_INFINITY : silhouette.top / base;
+        this.paintArea(grid, silhouette.area, (index) => {
+          this.paintOccluder(grid, index, bottom, top);
+          covered.set(index, top);
+        });
+      }
+
       const footprint = sceneDecorFootprint(element, resolution);
       if (footprint !== null) {
         this.paintArea(grid, footprint, (index) => {
           grid.speeds[index] = speed;
           if (blocksVision) {
-            grid.sightBottom[index] = 0;
+            this.paintOccluder(grid, index, 0, covered.get(index) ?? Number.POSITIVE_INFINITY);
           }
         });
       }
-
-      const silhouette = blocksVision ? sceneDecorSilhouette(element, resolution) : null;
-      if (silhouette !== null) {
-        const bottom = silhouette.bottom / base;
-        this.paintArea(grid, silhouette.area, (index) => {
-          grid.sightBottom[index] = Math.min(grid.sightBottom[index], bottom);
-        });
-      }
     }
+  }
+
+  /**
+   * Полоса перекрытия клетки: низ и верх объединяются в оболочку.
+   *
+   * Клетка хранит одну полосу, поэтому пересекающиеся силуэты сливаются:
+   * стена и настил над ней дают общий диапазон. Для сцены этого достаточно —
+   * перекрытия ставят встык, а не друг над другом.
+   */
+  private paintOccluder(grid: SceneSurfaceGrid, index: number, bottom: number, top: number): void {
+    grid.sightBottom[index] = Math.min(grid.sightBottom[index], bottom);
+    grid.sightTop[index] = Math.max(grid.sightTop[index], top);
   }
 
   /** Скорость декора: явная или непроходимость по умолчанию. */
@@ -326,12 +378,13 @@ export class SceneSurfaceService {
         if (open) {
           grid.speeds[index] = Math.max(grid.speeds[index], SCENE_SURFACE.speeds.grass);
           grid.sightBottom[index] = Number.POSITIVE_INFINITY;
+          grid.sightTop[index] = Number.NEGATIVE_INFINITY;
 
           return;
         }
 
         grid.speeds[index] = 0;
-        grid.sightBottom[index] = 0;
+        this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
       });
     }
   }

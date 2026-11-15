@@ -45,8 +45,9 @@ export class SceneOverlayService {
     resolution: number,
     options: SceneOverlay,
     observer: ScenePoint | null,
+    level = 0,
   ): SceneOverlayPaint {
-    return this.build(this.grid(board, elements, resolution), options, resolution, observer);
+    return this.build(this.grid(board, elements, resolution), options, resolution, observer, level);
   }
 
   /** Собирает заливки для включённых оверлеев. */
@@ -55,13 +56,14 @@ export class SceneOverlayService {
     options: SceneOverlay,
     resolution: number,
     observer: ScenePoint | null,
+    level = 0,
   ): SceneOverlayPaint {
     const costs = options.costs ? this.costBands(grid) : [];
     let fog: SceneOverlayMask | null = null;
     if (options.visibility) {
       const from = observer ?? this.center(grid);
       const radius = options.radius ?? Math.max(1, resolution) * SCENE_OVERLAY.sightIpari;
-      fog = this.hiddenMask(grid, this.visibility.map(grid, from, radius));
+      fog = this.hiddenMask(grid, this.visibility.map(grid, from, radius, undefined, undefined, level));
     }
 
     return { costs, fog };
@@ -133,11 +135,16 @@ export class SceneOverlayService {
             element.kind,
             element.sortOrder,
             element.props.kind ?? '',
+            element.props.speed ?? '',
+            element.props.height ?? '',
+            element.props.elevation ?? '',
             element.props.rotation ?? '',
             element.props.scale ?? '',
             element.props.baseRadius ?? '',
             element.props.sightRadius ?? '',
             element.props.sightBottom ?? '',
+            JSON.stringify(element.props.footprint ?? null),
+            JSON.stringify(element.props.silhouette ?? null),
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',

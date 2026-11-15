@@ -824,6 +824,13 @@ final class SceneElementValidator
         $value = $this->fields->arrayValue($props, $key, $path);
         $silhouette['bottom'] = $this->fields->intValue($value, 'bottom', $path . '.bottom', 0, 100000);
 
+        // Потолок силуэта: без поля перекрытие идёт до неба. Нужен настилу,
+        // который перекрывает только свою толщину.
+        $top = $this->fields->optionalIntValue($value, 'top', $path . '.top', 0);
+        if ($top !== null) {
+            $silhouette['top'] = $top;
+        }
+
         return $silhouette;
     }
 

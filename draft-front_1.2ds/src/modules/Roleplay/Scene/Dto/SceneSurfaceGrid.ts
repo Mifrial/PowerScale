@@ -10,6 +10,8 @@ import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 export interface SceneSurfaceGrid {
   /** Размер клетки в единицах сцены. */
   cell: number;
+  /** Разрешение поля: единиц сцены в одной ипари. */
+  resolution: number;
   /** Левый верхний угол сетки в единицах сцены. */
   x: number;
   y: number;
@@ -30,6 +32,13 @@ export interface SceneSurfaceGrid {
    */
   elevation: Float32Array;
   /**
+   * Поверхность под клеткой, единицы сцены: пол под настилом.
+   *
+   * Настил поднимает `elevation`, но не стирает то, что под ним: вода, берег,
+   * дорога. Обзор с базового уровня стартует от этой высоты, а не от настила.
+   */
+  ground: Float32Array;
+  /**
    * Свободная высота над поверхностью клетки до ближайшего потолка, единицы
    * сцены; `Infinity` — открытое небо.
    *
@@ -46,4 +55,13 @@ export interface SceneSurfaceGrid {
    * игнорирует.
    */
   sightBottom: Float32Array;
+  /**
+   * Высота в ипари, до которой клетка перекрывает обзор.
+   *
+   * Вместе с `sightBottom` задаёт полосу. Пустая клетка — `sightBottom` равно
+   * `Infinity`, `sightTop` равно `-Infinity`: так объединение полос остаётся
+   * объединением, а не «до неба». Настил перекрывает только свою толщину,
+   * поэтому на мосту и под мостом видно по-своему, а сквозь настил — нет.
+   */
+  sightTop: Float32Array;
 }

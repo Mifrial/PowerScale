@@ -448,6 +448,7 @@ final class SceneElementValidatorTest extends TestCase
                         ['in' => [0, 0], 'out' => [0, 0]],
                     ],
                     'bottom' => 16,
+                    'top' => 96,
                     'offset' => [-2, 3],
                 ],
             ],
@@ -472,6 +473,7 @@ final class SceneElementValidatorTest extends TestCase
                 ],
                 'offset' => [-2, 3],
                 'bottom' => 16,
+                'top' => 96,
             ],
             $element['props']['silhouette'],
         );
