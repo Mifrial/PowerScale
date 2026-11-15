@@ -298,7 +298,13 @@ watch(
 );
 
 watch(
-  () => [selectedActor.value?.sightRadius, props.overlay?.visibility] as const,
+  () => [
+    props.selectedActorId,
+    selectedActor.value?.sightRadius,
+    selectedActor.value?.level,
+    selectedActor.value?.height,
+    props.overlay?.visibility,
+  ],
   () => {
     if (props.overlay?.visibility) {
       refreshOverlayNow();
