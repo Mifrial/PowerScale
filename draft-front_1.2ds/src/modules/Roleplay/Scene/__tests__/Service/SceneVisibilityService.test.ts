@@ -141,6 +141,30 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(flat, [320, 560], [320, 80], undefined, undefined, 1, 0)).toBe(true);
   });
 
+  it('под мостом на врезанном русле видно вдоль воды, но не на настил', () => {
+    const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
+    const grid = surfaces.build(
+      large,
+      [
+        element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 640, h: 640 }, { kind: 'grass' }),
+        element(2, 'terrain', { type: 'rect', x: 240, y: 0, w: 160, h: 640 }, { kind: 'water', depth: 96 }),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 240, y: 240, w: 160, h: 160 },
+          { kind: 'bridge', elevation: 0, height: 16 },
+        ),
+      ],
+      64,
+    );
+
+    // Оба под настилом: луч идёт вдоль воды под досками.
+    expect(service.sees(grid, [320, 300], [320, 380], undefined, undefined, 0, 0)).toBe(true);
+    // Сквозь доски — ни снизу вверх, ни сверху вниз.
+    expect(service.sees(grid, [320, 300], [320, 320], undefined, undefined, 0, 1)).toBe(false);
+    expect(service.sees(grid, [320, 300], [320, 320], undefined, undefined, 1, 0)).toBe(false);
+  });
+
   it('ограничивает обзор радиусом', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const visible = service.map(grid, [128, 128], 32);

@@ -9,10 +9,12 @@ import {
   isSceneDeck,
   sceneDeckBaseElevation,
   sceneDeckClearance,
+  sceneDeckLowestBaseElevation,
   sceneDeckThickness,
   sceneRampSlope,
   sceneSlopeElevation,
   sceneSurfaceElevation,
+  sceneSurfaceUnder,
   sceneWaterDepth,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 
@@ -91,6 +93,28 @@ describe('SceneHeight', () => {
     expect(sceneDeckClearance(high, [grass, high], RESOLUTION)).toBeGreaterThan(
       RESOLUTION * SCENE_NAVIGATION.bodyHeightIpari,
     );
+  });
+
+  it('видит воду под мостом и считает зазор от самого низкого места', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const water = element(
+      2,
+      'terrain',
+      { type: 'rect', x: 160, y: 0, w: 80, h: 2560 },
+      {
+        kind: 'water',
+        depth: 96,
+      },
+    );
+    const deck = element(3, 'support', deckShape, { kind: 'bridge', elevation: 0, height: 16 });
+
+    // Вода перекрывает луг: поверхность под мостом — вода, а не берег.
+    expect(sceneSurfaceUnder([200, 150], [grass, water], RESOLUTION)).toBe(-96);
+    expect(sceneSurfaceUnder([120, 150], [grass, water], RESOLUTION)).toBe(0);
+    // Берег под торцами выше воды, но просвет считается по воде.
+    expect(sceneDeckBaseElevation(deck, [grass, water, deck], RESOLUTION)).toBe(0);
+    expect(sceneDeckLowestBaseElevation(deck, [grass, water, deck], RESOLUTION)).toBe(-96);
+    expect(sceneDeckClearance(deck, [grass, water, deck], RESOLUTION)).toBe(80);
   });
 
   it('считает наклон съезда вдоль длинной стороны', () => {

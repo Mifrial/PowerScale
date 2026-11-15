@@ -8,6 +8,8 @@ import {
   sceneDeckBaseElevation,
   sceneDeckThickness,
   sceneRampSlope,
+  sceneSurfaceElevation,
+  sceneSurfaceUnder,
   type SceneHeightElement,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
@@ -206,6 +208,76 @@ export function sceneRampBaseBlocker(
       [band.x, band.y + band.h],
     ] as ScenePoint[]
   ).map((corner) => rotate(corner, center, frame.rotation));
+}
+
+/**
+ * Участки под настилом, где пройти нельзя.
+ *
+ * Настил может висеть над водой только серединой, а торцами лежать на берегу.
+ * Тогда под ним есть просвет, но не везде: закрываем именно те полосы, где
+ * низ настила ближе роста тела к поверхности под ним. Полосы считаются вдоль
+ * длинной стороны и возвращаются полигонами в мировых координатах.
+ *
+ * Пустой список — под настилом пройти можно везде.
+ */
+export function sceneDeckBaseBlockers(
+  element: SceneHeightElement,
+  elements: readonly SceneHeightElement[],
+  resolution: number,
+  pad = 0,
+): ScenePoint[][] {
+  const frame = sceneDeckFrame(element);
+  if (frame === null) {
+    return [];
+  }
+
+  const shape = frame.shape;
+  const horizontal = shape.w >= shape.h;
+  const length = horizontal ? shape.w : shape.h;
+  const center: ScenePoint = [shape.x + shape.w / 2, shape.y + shape.h / 2];
+  const radians = (frame.rotation * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const axis: ScenePoint = horizontal ? [cosine, sine] : [-sine, cosine];
+  const underside = sceneSurfaceElevation(element) - sceneDeckThickness(element, resolution);
+  const body = Math.max(1, resolution) * SCENE_NAVIGATION.bodyHeightIpari;
+  // Шаг вдоль настила — половина ипари: берег и вода успевают разойтись.
+  const step = Math.max(1, resolution / 2);
+  const count = Math.max(1, Math.ceil(length / step));
+  const bands: { from: number; to: number }[] = [];
+  let start: number | null = null;
+
+  for (let index = 0; index <= count; index += 1) {
+    const offset = -length / 2 + (length * index) / count;
+    const point: ScenePoint = [center[0] + axis[0] * offset, center[1] + axis[1] * offset];
+    const blocked = underside - sceneSurfaceUnder(point, elements, resolution, element.id) < body;
+    if (blocked && start === null) {
+      start = offset;
+    }
+    if (!blocked && start !== null) {
+      bands.push({ from: start, to: offset });
+      start = null;
+    }
+  }
+
+  if (start !== null) {
+    bands.push({ from: start, to: length / 2 });
+  }
+
+  return bands.map((band) => {
+    const rect = horizontal
+      ? { x: center[0] + band.from, y: shape.y - pad, w: band.to - band.from, h: shape.h + pad * 2 }
+      : { x: shape.x - pad, y: center[1] + band.from, w: shape.w + pad * 2, h: band.to - band.from };
+
+    return (
+      [
+        [rect.x, rect.y],
+        [rect.x + rect.w, rect.y],
+        [rect.x + rect.w, rect.y + rect.h],
+        [rect.x, rect.y + rect.h],
+      ] as ScenePoint[]
+    ).map((corner) => rotate(corner, center, frame.rotation));
+  });
 }
 
 /** Поворот точки вокруг центра на угол в градусах. */

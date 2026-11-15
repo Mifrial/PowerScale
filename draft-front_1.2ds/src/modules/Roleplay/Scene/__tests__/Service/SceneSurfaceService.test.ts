@@ -102,6 +102,31 @@ describe('SceneSurfaceService', () => {
     expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('настил на уровне берега перекрывает толщину над врезанным руслом', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water', depth: 96 }, 10),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 0, height: 16 },
+          20,
+        ),
+      ],
+      64,
+    );
+    const cell = cellOf(grid, 8, 8);
+
+    // Пол под мостом — вода, а полоса настила лежит ниже нуля поля.
+    expect(grid.ground[cell]).toBe(-96);
+    expect(grid.elevation[cell]).toBe(0);
+    expect(grid.sightBottom[cell]).toBeCloseTo(-16 / 64);
+    expect(grid.sightTop[cell]).toBe(0);
+  });
+
   it('считает высоту настила и зазор под ним', () => {
     const high = service.build(
       board(),

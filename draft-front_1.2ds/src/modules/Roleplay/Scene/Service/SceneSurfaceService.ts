@@ -244,8 +244,10 @@ export class SceneSurfaceService {
       const deckElevation = sceneSurfaceElevation(element);
       const thickness = sceneDeckThickness(element, resolution);
       const base = grid.resolution;
-      // Настил на уровне пола ничего не перекрывает: обходить нечего.
-      const bottom = Math.max(0, deckElevation - thickness) / base;
+      // Полоса настила в тех же координатах, что и пол: мост на уровне берега
+      // над врезанным руслом перекрывает свою толщину ниже нуля, и луч из-под
+      // него упирается в доски.
+      const bottom = (deckElevation - thickness) / base;
       const top = deckElevation / base;
       this.paintShape(
         grid,
@@ -254,12 +256,15 @@ export class SceneSurfaceService {
           // Клетка до настила — это поверхность под ним: вода, берег, дорога
           // или нижний настил. Зазор считается до низа настила и берётся
           // самый узкий, если настилов несколько.
-          const gap = deckElevation - thickness - grid.elevation[index];
+          const floor = grid.elevation[index];
+          const gap = deckElevation - thickness - floor;
           grid.clearance[index] = Math.min(grid.clearance[index], gap);
           grid.kinds[index] = 'bridge';
           grid.speeds[index] = this.speedOf(element, preset);
           grid.elevation[index] = deckElevation;
-          if (top > 0) {
+          // Настил на уровне пола не перекрывает: его полоса лежит под полом.
+          // Над врезанным руслом та же полоса уже над водой и закрывает луч.
+          if (top > bottom && top > floor / base) {
             this.paintOccluder(grid, index, bottom, top);
           }
         },

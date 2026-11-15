@@ -18,6 +18,7 @@ import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/S
 import {
   sceneDeckBaseElevation,
   sceneDeckClearance,
+  sceneDeckLowestBaseElevation,
   sceneDeckThickness,
   sceneRampSlope,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
@@ -241,8 +242,12 @@ const elevationHint = computed(() => {
     return 'Съезд садится низким концом на поверхность; высокий конец задаёт подъём.';
   }
 
+  if (deckClearance.value !== null && deckClearance.value >= bodyHeight.value) {
+    return 'Под настилом есть просвет; торцы, лежащие на поверхности, остаются закрытыми.';
+  }
+
   const required =
-    sceneDeckBaseElevation(props.element, props.elements, props.resolution) +
+    sceneDeckLowestBaseElevation(props.element, props.elements, props.resolution) +
     sceneDeckThickness(props.element, props.resolution) +
     bodyHeight.value;
 

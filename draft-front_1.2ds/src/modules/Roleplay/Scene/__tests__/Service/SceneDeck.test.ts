@@ -6,6 +6,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import {
+  sceneDeckBaseBlockers,
   sceneDeckEndEdge,
   sceneDeckFrame,
   sceneDeckLocalPoint,
@@ -152,5 +153,35 @@ describe('SceneDeck', () => {
 
     // 92.8 из 100 единиц подъёма ниже роста тела.
     expect(sceneRampBlockedShare(ramp, [grass, ramp], RESOLUTION)).toBeCloseTo(0.928, 3);
+  });
+
+  it('закрывает под мостом только торцы на берегу, оставляя воду', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const water = element(
+      2,
+      'terrain',
+      { type: 'rect', x: 160, y: 0, w: 80, h: 2560 },
+      {
+        kind: 'water',
+        depth: 96,
+      },
+    );
+    const deck = element(3, 'support', deckShape, { kind: 'bridge', elevation: 0, height: 16 });
+    const blockers = sceneDeckBaseBlockers(deck, [grass, water, deck], RESOLUTION);
+
+    // Два торца на берегу закрыты, середина над водой — нет.
+    expect(blockers).toHaveLength(2);
+    expect(blockers.some((ring) => contains(ring, [130, 150]))).toBe(true);
+    expect(blockers.some((ring) => contains(ring, [270, 150]))).toBe(true);
+    expect(blockers.some((ring) => contains(ring, [200, 150]))).toBe(false);
+  });
+
+  it('закрывает настил, лежащий на поверхности, целиком', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const deck = element(2, 'support', deckShape, { kind: 'bridge', elevation: 0, height: 16 });
+    const blockers = sceneDeckBaseBlockers(deck, [grass, deck], RESOLUTION);
+
+    expect(blockers).toHaveLength(1);
+    expect(blockers.some((ring) => contains(ring, [200, 150]))).toBe(true);
   });
 });

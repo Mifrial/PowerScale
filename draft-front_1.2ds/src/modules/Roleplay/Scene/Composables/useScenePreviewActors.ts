@@ -61,6 +61,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   let grid: SceneSurfaceGrid | null = null;
   let motion: Motion | null = null;
   let frame = 0;
+  // Где стоял маркер при прошлой сборке: так видно, переставили ли маркер,
+  // а не увели ли актора кликом.
+  const markerAnchors = new Map<number, ScenePoint>();
 
   const selectedActor = computed(() => actors.value.find((actor) => actor.id === selectedId.value) ?? null);
 
@@ -76,6 +79,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     if (!options.enabled()) {
       actors.value = [];
       selectedId.value = null;
+      markerAnchors.clear();
 
       return;
     }
@@ -84,6 +88,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     if (board === null) {
       actors.value = [];
       selectedId.value = null;
+      markerAnchors.clear();
 
       return;
     }
@@ -103,21 +108,24 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
       const role = element.props.role ?? 'player_start';
       const old = previous.get(element.id);
-      // Маркер переставили — уровень берём по новому месту: на настиле он
-      // стоит на настиле, а не под ним.
-      const moved = old === undefined || old.x !== point.x || old.y !== point.y;
+      // Маркер переставили — актор идёт за ним и берёт уровень по новому
+      // месту: на настиле он стоит на настиле, а не под ним. Если двигали
+      // самого актора, его позиция и уровень остаются прежними.
+      const anchor = markerAnchors.get(element.id);
+      const markerMoved = anchor === undefined || anchor[0] !== point.x || anchor[1] !== point.y;
+      markerAnchors.set(element.id, [point.x, point.y]);
 
       return {
         id: element.id,
-        x: old?.x ?? point.x,
-        y: old?.y ?? point.y,
+        x: markerMoved ? point.x : (old?.x ?? point.x),
+        y: markerMoved ? point.y : (old?.y ?? point.y),
         facing: old?.facing ?? 0,
         radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
         tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
         ghost: old?.ghost ?? false,
-        level: moved ? markerLevel(point) : (old?.level ?? 0),
+        level: markerMoved ? markerLevel(point) : (old?.level ?? 0),
         underDeck: old?.underDeck ?? false,
         sightRadius:
           old?.sightRadius ??
@@ -497,6 +505,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.props.speed ?? '',
             element.props.height ?? '',
             element.props.elevation ?? '',
+            element.props.depth ?? '',
+            element.props.shoreWidth ?? '',
             element.props.rotation ?? '',
             element.props.scale ?? '',
             element.props.baseRadius ?? '',

@@ -78,14 +78,24 @@ export function sceneDeckThickness(element: SceneHeightElement, resolution: numb
   return Math.max(1, resolution) * SCENE_BRIDGE.thicknessIpari;
 }
 
-/** Самая высокая поверхность под точкой, единицы сцены. */
+/**
+ * Поверхность под точкой, единицы сцены.
+ *
+ * Слои выбираются по тому же порядку, что и в сетке поверхностей: опора
+ * перекрывает террейн, вода — остальной террейн. Иначе река, врезанная в луг,
+ * не видна расчёту высот: луг лежит на нуле, и зазор под мостом считался бы
+ * от берега, а не от воды. Вода может быть ниже нуля поля, поэтому нулём
+ * пользуемся только когда под точкой нет ни одной поверхности.
+ */
 export function sceneSurfaceUnder(
   point: ScenePoint,
   elements: readonly SceneHeightElement[],
   resolution: number,
   excludeId = -1,
 ): number {
-  let base = 0;
+  let support = Number.NEGATIVE_INFINITY;
+  let water = Number.NEGATIVE_INFINITY;
+  let terrain = Number.NEGATIVE_INFINITY;
   for (const element of elements) {
     if (element.id === excludeId) {
       continue;
@@ -97,10 +107,24 @@ export function sceneSurfaceUnder(
       continue;
     }
 
-    base = Math.max(base, sceneSurfaceElevation(element));
+    const elevation = sceneSurfaceElevation(element);
+    if (element.kind === 'support') {
+      support = Math.max(support, elevation);
+    } else if (element.props.kind === 'water') {
+      water = Math.max(water, elevation);
+    } else {
+      terrain = Math.max(terrain, elevation);
+    }
   }
 
-  return base;
+  if (support > Number.NEGATIVE_INFINITY) {
+    return support;
+  }
+  if (water > Number.NEGATIVE_INFINITY) {
+    return water;
+  }
+
+  return terrain > Number.NEGATIVE_INFINITY ? terrain : 0;
 }
 
 /**
@@ -115,20 +139,47 @@ export function sceneDeckBaseElevation(
   elements: readonly SceneHeightElement[],
   resolution: number,
 ): number {
+  let base = Number.NEGATIVE_INFINITY;
+  for (const point of sceneDeckSamples(deck)) {
+    base = Math.max(base, sceneSurfaceUnder(point, elements, resolution, deck.id));
+  }
+
+  return Number.isFinite(base) ? base : 0;
+}
+
+/**
+ * Самая низкая поверхность под настилом, единицы сцены.
+ *
+ * Мост через врезанное русло опирается торцами на берег, а серединой висит
+ * над водой. Для прохода важна именно вода: зазор под настилом — это просвет
+ * в самом низком месте, а не над берегом.
+ */
+export function sceneDeckLowestBaseElevation(
+  deck: SceneHeightElement,
+  elements: readonly SceneHeightElement[],
+  resolution: number,
+): number {
+  let base = Number.POSITIVE_INFINITY;
+  for (const point of sceneDeckSamples(deck)) {
+    base = Math.min(base, sceneSurfaceUnder(point, elements, resolution, deck.id));
+  }
+
+  return Number.isFinite(base) ? base : 0;
+}
+
+/** Точки вдоль длинной стороны настила: центр и две четверти. */
+function sceneDeckSamples(deck: SceneHeightElement): ScenePoint[] {
   const rotation = sceneRotation(deck);
   const shape = deck.shape;
   const center = sceneGeometryService.center(shape, rotation);
   const half = shape.type === 'rect' ? (shape.w >= shape.h ? shape.w : shape.h) / 2 : 0;
   const horizontal = shape.type === 'rect' && shape.w >= shape.h;
 
-  let base = 0;
-  for (const share of DECK_SAMPLES) {
+  return DECK_SAMPLES.map((share) => {
     const offset = (share - 0.5) * half * 2;
-    const point: ScenePoint = horizontal ? [center[0] + offset, center[1]] : [center[0], center[1] + offset];
-    base = Math.max(base, sceneSurfaceUnder(point, elements, resolution, deck.id));
-  }
 
-  return base;
+    return horizontal ? [center[0] + offset, center[1]] : [center[0], center[1] + offset];
+  });
 }
 
 /**
@@ -197,6 +248,6 @@ export function sceneDeckClearance(
   return (
     sceneSurfaceElevation(deck) -
     sceneDeckThickness(deck, resolution) -
-    sceneDeckBaseElevation(deck, elements, resolution)
+    sceneDeckLowestBaseElevation(deck, elements, resolution)
   );
 }

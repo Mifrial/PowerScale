@@ -485,6 +485,37 @@ describe('SceneNavigationService', () => {
     expect(onDeck).toBeNull();
   });
 
+  it('делает мост над врезанным руслом уровнем, а воду под ним — проходимой', () => {
+    const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20, depth: 96 }, 10);
+    const bridge = rect(3, 'support', 400, 300, 200, 100, { kind: 'bridge', speed: 150, elevation: 0, height: 16 }, 20);
+    const elements = [grass(), water, bridge];
+    const mesh = service.build(board, elements, 64, options);
+    if (mesh === null) {
+      throw new Error('ожидалась сетка навигации');
+    }
+
+    // На мосту два уровня: настил и вода под ним.
+    expect(service.levelsAt(mesh, [500, 350]).map((level) => level.level)).toEqual([1, 0]);
+    expect(service.levelsAt(mesh, [200, 350]).map((level) => level.level)).toEqual([0]);
+
+    // Под настилом вода остаётся проходимой: маршрут идёт по уровню 0.
+    const under = service.route(board, elements, 64, [500, 320], [500, 380], {
+      ...options,
+      fromLevel: 0,
+      toLevel: 0,
+    });
+    expect(under).not.toBeNull();
+    expect(under?.segments.every((segment) => segment.level === 0)).toBe(true);
+
+    // На настил можно войти с берега и идти по уровню 1.
+    const onDeck = service.route(board, elements, 64, [300, 350], [500, 350], {
+      ...options,
+      toLevel: 1,
+    });
+    expect(onDeck).not.toBeNull();
+    expect(onDeck?.segments.some((segment) => segment.level === 1)).toBe(true);
+  });
+
   it('спускает с торца настила, но не поднимает обратно', () => {
     // 1.4 ипари: спуск в пределах dropIpari, подъём выше climbIpari.
     const deck = rect(2, 'support', 450, 300, 100, 100, { kind: 'bridge', speed: 150, elevation: 90, height: 16 }, 20);

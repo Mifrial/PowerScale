@@ -7835,15 +7835,15 @@
             "kind": "plan",
             "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~, 2026-11-15 — срезы A, B, B3–B6 и B7 (LOS с потолком)",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-15 — срезы A, B, B3–B8 (LOS с потолком и мост",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-15",
-            "bytes": 25047,
-            "lines": 272,
+            "bytes": 28064,
+            "lines": 299,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7894,8 +7894,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 55315,
-            "lines": 614,
+            "bytes": 55782,
+            "lines": 618,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7927,8 +7927,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 33679,
-            "lines": 446,
+            "bytes": 34607,
+            "lines": 452,
             "modules": [
                 "Roleplay/Scene"
             ],

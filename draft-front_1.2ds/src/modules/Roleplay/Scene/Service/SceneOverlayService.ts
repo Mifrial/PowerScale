@@ -138,6 +138,8 @@ export class SceneOverlayService {
             element.props.speed ?? '',
             element.props.height ?? '',
             element.props.elevation ?? '',
+            element.props.depth ?? '',
+            element.props.shoreWidth ?? '',
             element.props.rotation ?? '',
             element.props.scale ?? '',
             element.props.baseRadius ?? '',

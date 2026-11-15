@@ -20,6 +20,7 @@ import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUR
 import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneDecorFootprint, type SceneWorldFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
+  sceneDeckBaseBlockers,
   sceneDeckEndEdge,
   sceneDeckFrame,
   sceneDeckRailHeight,
@@ -478,18 +479,23 @@ export class SceneNavigationService {
         const railElevation = elevation + sceneDeckRailHeight(resolution);
         const railSlope = slope === null ? null : sceneDeckRailSlope(slope, resolution);
 
-        if (deck && elevation > step) {
-          // Настил выше шага — отдельный уровень. Если зазор под ним меньше
-          // роста тела, базовый слой под настилом закрыт. У съезда закрыта
-          // только низкая часть: под высоким концом пройти можно.
+        // Настил отдельный уровень, если он выше шага над полем или если под
+        // ним есть место для тела: мост через врезанное русло стоит на уровне
+        // берега, но над водой он всё равно потолок.
+        const clearance = deck ? sceneDeckClearance(element, elements, resolution) : 0;
+        if (deck && (elevation > step || clearance >= bodyHeight)) {
+          // Под настилом закрыты только те полосы, где просвет меньше роста
+          // тела: у моста через реку это торцы на берегу, а вода под серединой
+          // остаётся проходимой. У съезда закрыта низкая часть.
           if (element.props.kind === 'ramp') {
             const rampBlocker = sceneRampBaseBlocker(element, elements, resolution, agentRadius);
             if (rampBlocker !== null) {
               blockers.push([rampBlocker]);
             }
-          } else if (sceneDeckClearance(element, elements, resolution) < bodyHeight) {
-            const blocker = this.polygonOf(element, resolution, agentRadius);
-            if (blocker !== null) blockers.push(blocker);
+          } else {
+            for (const band of sceneDeckBaseBlockers(element, elements, resolution, agentRadius)) {
+              blockers.push([band]);
+            }
           }
           if (speed > 0) {
             const deckBlockers = levelBlockers
@@ -1801,6 +1807,8 @@ export class SceneNavigationService {
           element.props.speed ?? '',
           element.props.height ?? '',
           element.props.elevation ?? '',
+          element.props.depth ?? '',
+          element.props.shoreWidth ?? '',
           element.props.rotation ?? '',
           element.props.scale ?? '',
           element.props.baseRadius ?? '',

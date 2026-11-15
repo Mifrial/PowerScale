@@ -113,6 +113,22 @@ export class SceneVisibilityService {
   }
 
   /**
+   * Луч проходит через полосу потолка в клетке.
+   *
+   * Берутся только полосы с конечным верхом: у стены и ствола верх — небо, и
+   * их ловит обычная выборка по клеткам. Полоса настила тонкая, поэтому её
+   * пересечение считается по концам луча, а не по центрам клеток.
+   */
+  private crossesCeiling(grid: SceneSurfaceGrid, cell: number, start: number, finish: number): boolean {
+    const top = grid.sightTop[cell];
+    if (!Number.isFinite(top)) {
+      return false;
+    }
+
+    return Math.max(start, finish) > grid.sightBottom[cell] && Math.min(start, finish) < top;
+  }
+
+  /**
    * Луч не пересекает непрозрачных клеток, кроме исходной и целевой.
    *
    * Высота луча отсчитывается от пола: `fromFloor` и `toFloor` — в ипари.
@@ -134,6 +150,13 @@ export class SceneVisibilityService {
     const start = fromFloor + this.eyeHeight(grid, origin, eye);
     const finish = toFloor + this.eyeHeight(grid, target, targetHeight);
 
+    // Тонкий настил пересекается у самых концов луча, куда выборка по центрам
+    // клеток не попадает. Полоса с конечным верхом — потолок, а не стена:
+    // проверяем её в исходной и целевой клетке отдельно.
+    if (this.crossesCeiling(grid, origin, start, finish) || this.crossesCeiling(grid, target, start, finish)) {
+      return false;
+    }
+
     for (let index = 1; index < steps; index += 1) {
       const t = index / steps;
       const cell = surfaceIndex(grid, from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t);
@@ -142,9 +165,10 @@ export class SceneVisibilityService {
       }
       // Высота луча идёт от глаз наблюдателя к телу цели. Клетка перекрывает,
       // только если луч проходит через её полосу: выше потолка или ниже низа
-      // видно свободно.
+      // видно свободно. Границы полосы — свои: глаза под настилом упираются в
+      // его низ, и луч вдоль низа не должен считать себя внутри досок.
       const height = start + (finish - start) * t;
-      if (grid.sightBottom[cell] <= height && height <= grid.sightTop[cell]) {
+      if (height > grid.sightBottom[cell] && height < grid.sightTop[cell]) {
         return false;
       }
     }
