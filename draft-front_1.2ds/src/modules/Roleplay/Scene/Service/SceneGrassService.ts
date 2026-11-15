@@ -147,15 +147,19 @@ export class SceneGrassService {
         continue;
       }
 
-      const blockers = elements.slice(order + 1).map((blocker) => {
-        const probe = this.geometry.probe(blocker.shape, sceneRotation(blocker));
+      const blockers = elements
+        .slice(order + 1)
+        // Остров лежит поверх воды: озеро под ним не вытаптывает траву.
+        .filter((blocker) => !(element.props.overWater === true && blocker.props.kind === 'water'))
+        .map((blocker) => {
+          const probe = this.geometry.probe(blocker.shape, sceneRotation(blocker));
 
-        return {
-          bounds: probe.bounds,
-          margin: this.blockMargin(blocker, spill),
-          probe,
-        };
-      });
+          return {
+            bounds: probe.bounds,
+            margin: this.blockMargin(blocker, spill),
+            probe,
+          };
+        });
       const area = this.geometry.probe(element.shape);
       const bounds = area.bounds;
       const minX = Math.max(board.x, bounds.x);
@@ -221,7 +225,7 @@ export class SceneGrassService {
   private cacheKey(elements: readonly SceneElement[], board: SceneBounds, base: number, layer: TuftLayer): string {
     const shapes = elements.map(
       (element) =>
-        `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${JSON.stringify(element.shape)}`,
+        `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${element.props.overWater === true ? 1 : 0}:${JSON.stringify(element.shape)}`,
     );
 
     return `${layer.spacingIpari}|${layer.heightIpari}|${base}|${board.x},${board.y},${board.width},${board.height}|${shapes.join(';')}`;

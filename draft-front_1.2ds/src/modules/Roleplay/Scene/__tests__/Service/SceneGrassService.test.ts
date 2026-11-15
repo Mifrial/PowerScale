@@ -107,6 +107,15 @@ describe('SceneGrassService', () => {
     }
   });
 
+  it('сажает траву на остров поверх воды', () => {
+    const lake = element(2, { type: 'rect', x: 200, y: 200, w: 600, h: 600 }, { kind: 'water' });
+    const island = element(3, { type: 'rect', x: 350, y: 350, w: 300, h: 300 }, { kind: 'grass', overWater: true });
+    const tufts = service.placeCarpet([grass(), lake, island], board, 64);
+    const onIsland = tufts.filter((tuft) => tuft.x > 360 && tuft.x < 640 && tuft.y > 360 && tuft.y < 640);
+
+    expect(onIsland.length).toBeGreaterThan(0);
+  });
+
   it('не сажает траву в русло реки и на его кромку', () => {
     const river = element(
       2,
