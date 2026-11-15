@@ -952,13 +952,7 @@ function drawLiveLine(context: CanvasRenderingContext2D): void {
   const layout = mapRibbonService.layout(line);
   const fillOpacity = mapRenderService.lineFillOpacity(line, map.fillOpacity);
   drawLineFill(context, line, layout, map.fillOpacity);
-  drawLineDepth(
-    context,
-    layout,
-    mapRenderService.lineDepth(line),
-    mapRenderService.lineDepthWidth(line),
-    fillOpacity,
-  );
+  drawLineDepth(context, layout, mapRenderService.lineDepth(line), mapRenderService.lineDepthWidth(line), fillOpacity);
   drawLineEdges(context, layout);
 }
 
@@ -1394,9 +1388,7 @@ function drawNodes(context: CanvasRenderingContext2D): void {
     context.lineWidth = isSelected ? 3 : 2;
     context.strokeStyle = isSelected ? '#1e88e5' : '#455a64';
     context.stroke();
-    const placement = node.placements.find(
-      (candidate) => candidate.variantId === variant.id && candidate.isPresent,
-    );
+    const placement = node.placements.find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
     const label = placement?.labelOverride || node.name;
     if (label) {
       context.font = '12px Roboto, sans-serif';
@@ -1800,15 +1792,21 @@ watch(
 // Карта и вариант меняются ссылкой; правки внутри черновика ловит revision.
 watch(() => [props.map, props.variant, props.route], invalidateStatic);
 watch(() => props.revision, invalidateStatic);
-watch(() => props.liveDrag, (value) => {
-  invalidateStatic();
-  if (value !== null) {
-    stopFlow();
-  } else if (flowAvailable.value) {
-    startFlow();
-  }
-});
-watch(() => [props.selectedIds, props.marquee], () => scheduleDraw());
+watch(
+  () => props.liveDrag,
+  (value) => {
+    invalidateStatic();
+    if (value !== null) {
+      stopFlow();
+    } else if (flowAvailable.value) {
+      startFlow();
+    }
+  },
+);
+watch(
+  () => [props.selectedIds, props.marquee],
+  () => scheduleDraw(),
+);
 watch(() => props.showLabels, invalidateStatic);
 // Вид — отдельно и неглубоко: панорама не должна обходить весь граф карты.
 watch(

@@ -276,9 +276,7 @@ export function useMapRecognition(params: {
     const variantId = params.variant.value?.id;
     if (!variantId || objects.length === 0) return 0;
 
-    const included = objects
-      .map((object, index) => ({ object, index }))
-      .filter((item) => !excluded.value[item.index]);
+    const included = objects.map((object, index) => ({ object, index })).filter((item) => !excluded.value[item.index]);
     if (included.length === 0) return 0;
 
     params.draft.beginHistory();
@@ -434,7 +432,10 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 function hexOf(red: number, green: number, blue: number): string {
-  const channel = (value: number): string => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
+  const channel = (value: number): string =>
+    Math.max(0, Math.min(255, Math.round(value)))
+      .toString(16)
+      .padStart(2, '0');
 
   return `#${channel(red)}${channel(green)}${channel(blue)}`;
 }

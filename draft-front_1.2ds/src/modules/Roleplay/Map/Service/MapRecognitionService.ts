@@ -43,7 +43,11 @@ export class MapRecognitionService {
       .slice(0, MAP_RECOGNITION.limits.maxSamples);
     if (samples.length === 0) return empty;
 
-    const tolerance = this.clamp(options.tolerance, MAP_RECOGNITION.limits.tolerance.min, MAP_RECOGNITION.limits.tolerance.max);
+    const tolerance = this.clamp(
+      options.tolerance,
+      MAP_RECOGNITION.limits.tolerance.min,
+      MAP_RECOGNITION.limits.tolerance.max,
+    );
     const minArea = this.clamp(options.minArea, MAP_RECOGNITION.limits.minArea.min, MAP_RECOGNITION.limits.minArea.max);
     const maxArea = Math.max(0, options.maxArea);
     const gap = this.clamp(options.gap, MAP_RECOGNITION.limits.gap.min, MAP_RECOGNITION.limits.gap.max);
@@ -92,15 +96,7 @@ export class MapRecognitionService {
       }
       const label = index + 1;
 
-      this.fillHoles(
-        labels,
-        image.width,
-        label,
-        component.minX,
-        component.minY,
-        component.maxX,
-        component.maxY,
-      );
+      this.fillHoles(labels, image.width, label, component.minX, component.minY, component.maxX, component.maxY);
       const loop = this.traceLargestLoop(
         labels,
         image.width,
@@ -130,7 +126,11 @@ export class MapRecognitionService {
         points: shape.points,
         handles: shape.handles,
         area: component.area,
-        color: this.toHex(component.sumR / component.area, component.sumG / component.area, component.sumB / component.area),
+        color: this.toHex(
+          component.sumR / component.area,
+          component.sumG / component.area,
+          component.sumB / component.area,
+        ),
       });
       verticesSum += shape.points.length;
       verticesMax = Math.max(verticesMax, shape.points.length);
@@ -406,7 +406,10 @@ export class MapRecognitionService {
             const sum = red + green + blue;
             if (sum === 0) continue;
             const pixelMax = Math.max(red, green, blue);
-            if (sample.max >= MAP_RECOGNITION.color.darkSampleLevel && pixelMax < sample.max * MAP_RECOGNITION.color.minLuminanceShare) {
+            if (
+              sample.max >= MAP_RECOGNITION.color.darkSampleLevel &&
+              pixelMax < sample.max * MAP_RECOGNITION.color.minLuminanceShare
+            ) {
               continue;
             }
             const chromaRed = red / sum;
@@ -625,8 +628,7 @@ export class MapRecognitionService {
         const current = kept[index];
         const next = kept[(index + 1) % kept.length];
         const loss = Math.abs(
-          (current[0] - previous[0]) * (next[1] - previous[1]) -
-            (current[1] - previous[1]) * (next[0] - previous[0]),
+          (current[0] - previous[0]) * (next[1] - previous[1]) - (current[1] - previous[1]) * (next[0] - previous[0]),
         );
         if (loss < worstLoss) {
           worstLoss = loss;
@@ -982,19 +984,14 @@ export class MapRecognitionService {
       syz += y * z;
       sz += z;
     }
-    const determinant =
-      sxx * (syy * count - sy * sy) - sxy * (sxy * count - sy * sx) + sx * (sxy * sy - syy * sx);
+    const determinant = sxx * (syy * count - sy * sy) - sxy * (sxy * count - sy * sx) + sx * (sxy * sy - syy * sx);
     if (Math.abs(determinant) < 1e-6) return null;
 
     const a =
-      (sxz * (syy * count - sy * sy) - sxy * (syz * count - sy * sz) + sx * (syz * sy - syy * sz)) /
-      determinant;
+      (sxz * (syy * count - sy * sy) - sxy * (syz * count - sy * sz) + sx * (syz * sy - syy * sz)) / determinant;
     const b =
-      (sxx * (syz * count - sy * sz) - sxz * (sxy * count - sy * sx) + sx * (sxy * sz - syz * sx)) /
-      determinant;
-    const c =
-      (sxx * (syy * sz - syz * sy) - sxy * (sxy * sz - syz * sx) + sxz * (sxy * sy - syy * sx)) /
-      determinant;
+      (sxx * (syz * count - sy * sz) - sxz * (sxy * count - sy * sx) + sx * (sxy * sz - syz * sx)) / determinant;
+    const c = (sxx * (syy * sz - syz * sy) - sxy * (sxy * sz - syz * sx) + sxz * (sxy * sy - syy * sx)) / determinant;
     const radiusSquared = c + (a * a) / 4 + (b * b) / 4;
     if (!Number.isFinite(radiusSquared) || radiusSquared <= 0) return null;
     const radius = Math.sqrt(radiusSquared);
@@ -1058,8 +1055,7 @@ export class MapRecognitionService {
         continue;
       }
       const cross =
-        (current[0] - previous[0]) * (next[1] - current[1]) -
-        (current[1] - previous[1]) * (next[0] - current[0]);
+        (current[0] - previous[0]) * (next[1] - current[1]) - (current[1] - previous[1]) * (next[0] - current[0]);
       if (Math.abs(cross) <= 0.01) continue;
       result.push(current);
     }
@@ -1100,7 +1096,10 @@ export class MapRecognitionService {
 
   /** Собирает `#rrggbb` из каналов. */
   private toHex(red: number, green: number, blue: number): string {
-    const channel = (value: number): string => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
+    const channel = (value: number): string =>
+      Math.max(0, Math.min(255, Math.round(value)))
+        .toString(16)
+        .padStart(2, '0');
 
     return `#${channel(red)}${channel(green)}${channel(blue)}`;
   }

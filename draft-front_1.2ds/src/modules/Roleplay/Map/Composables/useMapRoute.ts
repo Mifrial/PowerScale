@@ -8,10 +8,7 @@ import { MapRouteGrid } from '@/modules/Roleplay/Map/Service/MapRouteGrid';
 import { mapGeometryService } from '@/modules/Roleplay/Map/Service/Instance/mapGeometryService';
 
 /** Маршрут по черновику: локальная сетка без запроса. */
-export function useMapRoute(params: {
-  map: Ref<MapDetail | null>;
-  variant: Ref<MapVariant | null>;
-}) {
+export function useMapRoute(params: { map: Ref<MapDetail | null>; variant: Ref<MapVariant | null> }) {
   const route = ref<MapRoute | null>(null);
   const error = ref<string | null>(null);
   const from = ref<MapPoint | null>(null);
@@ -23,10 +20,7 @@ export function useMapRoute(params: {
     const width = variant?.baseFile?.width ?? 1200;
     const height = variant?.baseFile?.height ?? 900;
 
-    return [
-      Math.max(0, Math.min(width, Math.round(point[0]))),
-      Math.max(0, Math.min(height, Math.round(point[1]))),
-    ];
+    return [Math.max(0, Math.min(width, Math.round(point[0]))), Math.max(0, Math.min(height, Math.round(point[1])))];
   }
 
   function pick(point: MapPoint): void {

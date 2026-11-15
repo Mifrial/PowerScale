@@ -729,9 +729,7 @@ onUnmounted(() => {
 
     <div class="text-caption text-medium-emphasis mt-2">{{ editor.hint.value }}</div>
     <div v-if="mode === 'edit' && editor.selectedIds.value.length > 0" class="d-flex flex-wrap align-center ga-2 mt-1">
-      <v-chip size="small" color="primary" variant="tonal">
-        Выбрано: {{ editor.selectedIds.value.length }}
-      </v-chip>
+      <v-chip size="small" color="primary" variant="tonal"> Выбрано: {{ editor.selectedIds.value.length }} </v-chip>
       <v-btn size="small" color="error" variant="tonal" prepend-icon="mdi-delete" @click="deleteSelection">
         Удалить
       </v-btn>

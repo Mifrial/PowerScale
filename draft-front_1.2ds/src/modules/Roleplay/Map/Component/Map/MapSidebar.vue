@@ -86,9 +86,7 @@ const placeAreas = computed(() => {
 
   return props.map.areas
     .filter(
-      (area) =>
-        area.nodeId !== null &&
-        area.shapes.some((shape) => shape.variantId === variant.id && shape.isPresent),
+      (area) => area.nodeId !== null && area.shapes.some((shape) => shape.variantId === variant.id && shape.isPresent),
     )
     .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
 });
@@ -218,10 +216,7 @@ function edit(kind: MapHit['kind'], id: number): void {
           <v-list v-if="groupRows.length > 0" density="compact" nav>
             <v-list-group v-for="group in groupRows" :key="group.id" :value="group.id">
               <template #activator="{ props: activatorProps }">
-                <v-list-item
-                  v-bind="activatorProps"
-                  :title="group.label || `Группа #${group.id}`"
-                >
+                <v-list-item v-bind="activatorProps" :title="group.label || `Группа #${group.id}`">
                   <template #prepend>
                     <v-icon icon="mdi-folder-multiple-outline" />
                   </template>
@@ -298,10 +293,7 @@ function edit(kind: MapHit['kind'], id: number): void {
                 />
               </template>
             </v-list-item>
-            <v-list-item
-              v-if="!isExpanded('objects') && objectAreas.length > LIST_LIMIT"
-              @click="expand('objects')"
-            >
+            <v-list-item v-if="!isExpanded('objects') && objectAreas.length > LIST_LIMIT" @click="expand('objects')">
               <v-list-item-title class="text-caption text-primary">
                 Показать все ({{ objectAreas.length }})
               </v-list-item-title>
@@ -333,10 +325,7 @@ function edit(kind: MapHit['kind'], id: number): void {
                 />
               </template>
             </v-list-item>
-            <v-list-item
-              v-if="!isExpanded('surfaces') && surfaceAreas.length > LIST_LIMIT"
-              @click="expand('surfaces')"
-            >
+            <v-list-item v-if="!isExpanded('surfaces') && surfaceAreas.length > LIST_LIMIT" @click="expand('surfaces')">
               <v-list-item-title class="text-caption text-primary">
                 Показать все ({{ surfaceAreas.length }})
               </v-list-item-title>
@@ -371,7 +360,6 @@ function edit(kind: MapHit['kind'], id: number): void {
           </v-list>
         </v-expansion-panel-text>
       </v-expansion-panel>
-
     </v-expansion-panels>
   </div>
 </template>

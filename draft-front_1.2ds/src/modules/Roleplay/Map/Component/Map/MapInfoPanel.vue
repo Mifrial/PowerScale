@@ -71,9 +71,7 @@ function setVertexWidth(value: number | string): void {
   emit('width', line.value.id, props.activeIndex, width);
 }
 
-const title = computed(
-  () => node.value?.name || area.value?.label || line.value?.label || 'Объект карты',
-);
+const title = computed(() => node.value?.name || area.value?.label || line.value?.label || 'Объект карты');
 
 const areaPosition = computed(() => {
   if (!area.value) return '';
@@ -185,7 +183,8 @@ function remove(): void {
         </v-row>
         <div class="text-caption text-medium-emphasis mt-2">
           <template v-if="props.map.canEdit">
-            Кликните вершину на карте, чтобы увидеть ручки Безье (фиолетовые) и ручку ширины (оранжевый ромб). Shift при перетаскивании ромба масштабирует все ширины.
+            Кликните вершину на карте, чтобы увидеть ручки Безье (фиолетовые) и ручку ширины (оранжевый ромб). Shift при
+            перетаскивании ромба масштабирует все ширины.
             <span v-if="props.activeIndex !== null"> Сейчас выбрана точка {{ props.activeIndex + 1 }}.</span>
           </template>
           <template v-else>Ширина меняется по точкам вдоль осевой линии.</template>
@@ -194,7 +193,12 @@ function remove(): void {
     </v-card-text>
     <v-card-actions v-if="props.map.canEdit" class="flex-wrap">
       <template v-if="line">
-        <v-btn size="small" variant="text" prepend-icon="mdi-source-branch" @click="props.selected && emit('branch', props.selected)">
+        <v-btn
+          size="small"
+          variant="text"
+          prepend-icon="mdi-source-branch"
+          @click="props.selected && emit('branch', props.selected)"
+        >
           Ответвить
         </v-btn>
         <v-btn size="small" variant="text" prepend-icon="mdi-auto-fix" @click="emit('smooth')">Сгладить</v-btn>

@@ -113,16 +113,10 @@ export class MapRouteGrid {
       if (field.speeds[index] < 0) field.speeds[index] = DEFAULT_SPEED;
     }
 
-
     return field;
   }
 
-  findRoute(
-    field: RouteField,
-    from: MapPoint,
-    to: MapPoint,
-    millimetersPerPixel: number | null,
-  ): MapRoute {
+  findRoute(field: RouteField, from: MapPoint, to: MapPoint, millimetersPerPixel: number | null): MapRoute {
     const startCell = this.cellOf(field, from);
     const goalCell = this.cellOf(field, to);
     const startPassable = this.passable(field, startCell[0], startCell[1]);
@@ -212,7 +206,10 @@ export class MapRouteGrid {
     }
   }
 
-  private cellBounds(field: RouteField, polygon: MapPoint[]): {
+  private cellBounds(
+    field: RouteField,
+    polygon: MapPoint[],
+  ): {
     left: number;
     top: number;
     right: number;
@@ -246,11 +243,7 @@ export class MapRouteGrid {
     return polygon.some((point) => point[0] >= x0 && point[0] <= x1 && point[1] >= y0 && point[1] <= y1);
   }
 
-  private aStar(
-    field: RouteField,
-    start: MapPoint,
-    goal: MapPoint,
-  ): { cells: MapPoint[]; cost: number } | null {
+  private aStar(field: RouteField, start: MapPoint, goal: MapPoint): { cells: MapPoint[]; cost: number } | null {
     const columns = field.columns;
     const startKey = start[1] * columns + start[0];
     const goalKey = goal[1] * columns + goal[0];

@@ -46,8 +46,7 @@ const setGap = (value: number | string): void => props.recognition.updateSetting
 const setSimplify = (value: number | string): void => props.recognition.updateSettings({ simplify: Number(value) });
 const setMaxVertices = (value: number | string): void =>
   props.recognition.updateSettings({ maxVertices: Number(value) });
-const setSmoothArcs = (value: boolean | null): void =>
-  props.recognition.updateSettings({ smoothArcs: value === true });
+const setSmoothArcs = (value: boolean | null): void => props.recognition.updateSettings({ smoothArcs: value === true });
 
 const form = reactive({
   layer: 'object' as MapAreaLayer,
@@ -312,9 +311,7 @@ function create(): void {
               <v-btn size="small" variant="tonal" @click="props.recognition.setAllExcluded(true)">
                 Исключить все
               </v-btn>
-              <v-btn size="small" variant="tonal" @click="props.recognition.setAllExcluded(false)">
-                Вернуть все
-              </v-btn>
+              <v-btn size="small" variant="tonal" @click="props.recognition.setAllExcluded(false)"> Вернуть все </v-btn>
             </div>
 
             <v-divider class="my-3" />

@@ -77,9 +77,7 @@ function square(
   size: number,
   color: [number, number, number] = BROWN,
 ): MapRecognitionImage {
-  return paint(width, height, (x, y) =>
-    x >= left && x < left + size && y >= top && y < top + size ? color : null,
-  );
+  return paint(width, height, (x, y) => (x >= left && x < left + size && y >= top && y < top + size ? color : null));
 }
 
 const geometry = new MapGeometryService();
@@ -344,4 +342,3 @@ describe('MapRecognitionService shapes', () => {
     expect(isSimplePolygon(result.objects[0].points)).toBe(true);
   });
 });
-

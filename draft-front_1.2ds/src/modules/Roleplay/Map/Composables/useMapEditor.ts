@@ -349,9 +349,7 @@ export function useMapEditor(params: {
     const hits = hitListAt(point);
     if (hits.length === 0) return null;
     const current = params.selected.value;
-    const index = current === null
-      ? -1
-      : hits.findIndex((hit) => hit.kind === current.kind && hit.id === current.id);
+    const index = current === null ? -1 : hits.findIndex((hit) => hit.kind === current.kind && hit.id === current.id);
 
     return hits[(index + 1) % hits.length] ?? hits[0];
   }
@@ -695,28 +693,19 @@ export function useMapEditor(params: {
   }
 
   /** Объекты слоя `object` в текущем варианте; `rect` — фильтр по рамке. */
-  function collectObjectIds(
-    rect: { minX: number; maxX: number; minY: number; maxY: number } | null,
-  ): number[] {
+  function collectObjectIds(rect: { minX: number; maxX: number; minY: number; maxY: number } | null): number[] {
     const variant = params.variant.value;
     const map = params.map.value;
     if (!variant || !map) return [];
     const ids: number[] = [];
     for (const area of toRaw(map).areas) {
       if (area.layer !== 'object') continue;
-      const shape = toRaw(area.shapes).find(
-        (candidate) => candidate.variantId === variant.id && candidate.isPresent,
-      );
+      const shape = toRaw(area.shapes).find((candidate) => candidate.variantId === variant.id && candidate.isPresent);
       if (!shape) continue;
       if (rect !== null) {
         const bounds = mapGeometryService.contourBounds(toRaw(shape.path), toRaw(shape.handles ?? []));
         if (bounds === null) continue;
-        if (
-          bounds.maxX < rect.minX ||
-          bounds.minX > rect.maxX ||
-          bounds.maxY < rect.minY ||
-          bounds.minY > rect.maxY
-        ) {
+        if (bounds.maxX < rect.minX || bounds.minX > rect.maxX || bounds.maxY < rect.minY || bounds.minY > rect.maxY) {
           continue;
         }
       }
@@ -1029,10 +1018,7 @@ export function useMapEditor(params: {
     const width = line.widths[bestSegment] + (line.widths[bestSegment + 1] - line.widths[bestSegment]) * bestT;
 
     params.draft.beginHistory();
-    params.draft.setLineHandle(line.id, bestSegment, 'out', [
-      split.left[1][0] - start[0],
-      split.left[1][1] - start[1],
-    ]);
+    params.draft.setLineHandle(line.id, bestSegment, 'out', [split.left[1][0] - start[0], split.left[1][1] - start[1]]);
     params.draft.setLineHandle(line.id, bestSegment + 1, 'in', [
       split.right[2][0] - end[0],
       split.right[2][1] - end[1],

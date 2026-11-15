@@ -9,7 +9,4 @@ export type MapEditTarget =
   | { kind: 'line-width'; id: number; index: number };
 
 /** Вершина объекта в редакторе. */
-export type MapVertexTarget = Extract<
-  MapEditTarget,
-  { kind: 'area-vertex' | 'line-vertex' }
->;
+export type MapVertexTarget = Extract<MapEditTarget, { kind: 'area-vertex' | 'line-vertex' }>;
