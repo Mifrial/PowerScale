@@ -54,6 +54,16 @@
 Так ствол (низ `0`) закрывает токен, крона с низом `2.3` — нет: луч проходит под
 ней. Валун высотой около 2 ипари закрывает, потому что его низ на земле.
 
+### Витрина и runtime
+
+`SceneVisibilityService.map` — витрина: конечный радиус, CPU, пересчёт по
+событию. Runtime-туман, occupancy-блок 8 байт и `InstanceLayer` леса — слой
+Game. Граница и бюджеты зафиксированы в
+[`scene-system.md`](scene-system.md#витрина-и-runtime) и
+[`battlegroundLockedDecisions.md`](../specs/battlegroundLockedDecisions.md):
+клиентский fog GPU/WASM ≤100 мс, сотни DDA по акторам, лес — инстансы с
+LOD/culling, сетка vis = `occupancyCell` с потолком ≤1024².
+
 ### Авторский слой
 
 - валидатор `SceneElementValidator::decorProps` принимает три свойства с
@@ -83,5 +93,7 @@
 
 - полноценный 3D-LOS с интервалами `lo/hi` и высотой клетки — канон
   [`battleground-system.md`](battleground-system.md), отдельный слой Game;
+- runtime-туман, occupancy-блок 8 байт и инстансинг леса — слой Game
+  ([`scene-system.md`](scene-system.md#витрина-и-runtime));
 - точная полигональная коллизия ствола и кроны (сейчас круги);
 - пересчёт существующих сцен: новые свойства необязательны.

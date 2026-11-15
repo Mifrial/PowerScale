@@ -1808,7 +1808,9 @@
                 "docs/specs/battlegroundIdeaContext.md",
                 "docs/specs/battlegroundImplementationPlan.md",
                 "docs/specs/battlegroundPerformanceBenchmarkPlan.md",
-                "docs/tr/battleground-system.md"
+                "docs/tr/battleground-system.md",
+                "docs/tr/scene-plan-03-decor-occlusion.md",
+                "docs/tr/scene-system.md"
             ]
         },
         {
@@ -7842,12 +7844,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-13",
-            "bytes": 5678,
-            "lines": 88,
+            "bytes": 6498,
+            "lines": 100,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 2,
+            "linksCount": 4,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/scene-plan-02-battleground.md"
@@ -7977,12 +7979,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 35946,
-            "lines": 464,
+            "bytes": 38440,
+            "lines": 492,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 7,
+            "linksCount": 8,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7991,6 +7993,7 @@
                 "docs/tr/decisions.md",
                 "docs/tr/scene-plan-01.md",
                 "docs/tr/scene-plan-02-water-shaders.md",
+                "docs/tr/scene-plan-03-decor-occlusion.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/spatial-roadmap.md"
             ]
@@ -9179,8 +9182,8 @@
             ],
             "basis": null,
             "date": "2026-11-14",
-            "bytes": 40897,
-            "lines": 286,
+            "bytes": 39083,
+            "lines": 282,
             "modules": [
                 "Roleplay/Rule"
             ],
