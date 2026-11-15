@@ -645,10 +645,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'backdrop',
       'grid',
       'terrain',
+      'waterPlane',
+      'islands',
       'supports',
       'obstacles',
       'openings',
-      'waterPlane',
       'ground',
       'decor',
       'overlay',
@@ -704,13 +705,22 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const resolution = this.model?.resolution ?? 64;
     const zoom = this.zoom();
     const waterElements = terrainElements.filter((element) => element.props.kind === 'water');
+    const islandElements = terrainElements.filter((element) => element.props.overWater === true);
     for (const element of terrainElements) {
+      if (element.props.overWater === true) {
+        continue;
+      }
       this.drawTerrain(element);
     }
 
     for (const element of waterElements) {
       this.drawWaterPlane(element, resolution, zoom);
       this.drawWaterFoam(element, resolution, zoom);
+    }
+
+    // Остров лежит поверх воды и её плёнки, но под стенами, настилами и декором.
+    for (const element of islandElements) {
+      this.drawTerrain(element, this.layers.islands);
     }
 
     const bridgeElements = elements.filter((element) => this.isBridge(element));
@@ -1188,10 +1198,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private applyContentClip(board: SceneBoard): void {
     const names: SceneLayerName[] = [
       'terrain',
+      'waterPlane',
+      'islands',
       'supports',
       'obstacles',
       'openings',
-      'waterPlane',
       'ground',
       'decor',
       'overlay',
@@ -1357,8 +1368,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Террейн: кромка, поверхность или вода. */
-  private drawTerrain(element: SceneElement): void {
-    const layer = this.layers.terrain;
+  private drawTerrain(element: SceneElement, layer: Container | undefined = this.layers.terrain): void {
     if (layer === undefined) {
       return;
     }
@@ -1388,7 +1398,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     if (element.asset !== null) {
-      const sprite = this.terrainSprite(element);
+      const sprite = this.terrainSprite(element, layer);
       if (sprite !== null) {
         layer.addChild(sprite);
 
@@ -1535,7 +1545,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Спрайт террейна, обрезанный по фигуре. */
-  private terrainSprite(element: SceneElement): Sprite | null {
+  private terrainSprite(element: SceneElement, layer: Container): Sprite | null {
     const texture = this.textures.get(element.asset?.publicId ?? null);
     if (texture === null) {
       return null;
@@ -1555,7 +1565,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.painter.paint(mask, element.shape, undefined, undefined, this.zoom());
     mask.fill({ color: 0xffffff });
     sprite.mask = mask;
-    this.layers.terrain?.addChild(mask);
+    layer.addChild(mask);
 
     return sprite;
   }
