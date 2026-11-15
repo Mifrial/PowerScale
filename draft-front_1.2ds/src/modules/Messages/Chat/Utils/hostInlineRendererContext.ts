@@ -11,6 +11,7 @@ export function hostInlineRendererContext(
   return {
     tokenLabels,
     spaceId: data?.spaceId ?? null,
+    spaceCode: data?.spaceCode ?? null,
     rulesRevision: data?.rulesRevision ?? null,
     ...(openEntity ? { openEntity } : {}),
   };

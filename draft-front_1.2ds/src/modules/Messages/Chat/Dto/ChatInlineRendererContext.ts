@@ -3,5 +3,6 @@ export interface ChatInlineRendererContext {
   /** Подписи токенов по коду (`[[type:code]]`). */
   tokenLabels: Record<string, string>;
   spaceId?: number | null;
+  spaceCode?: string | null;
   rulesRevision?: number | null;
 }

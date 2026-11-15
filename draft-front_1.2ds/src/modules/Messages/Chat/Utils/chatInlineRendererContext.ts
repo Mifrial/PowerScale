@@ -8,6 +8,7 @@ export function chatInlineRendererContext(context: ChatRulesContext | null): Cha
   return {
     tokenLabels: context.tokenLabels,
     spaceId: context.spaceId,
+    spaceCode: context.spaceCode,
     rulesRevision: context.rulesRevision,
   };
 }
