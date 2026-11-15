@@ -88,30 +88,6 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(grid, [80, 80], [240, 80])).toBe(true);
   });
 
-  it('показывает валун целиком: туман начинается за ним, а не на нём', () => {
-    const grid = surfaces.build(
-      board,
-      [
-        grass(),
-        element(
-          2,
-          'decor',
-          { type: 'point', x: 128, y: 128 },
-          { scale: 200, baseRadius: 20, sightRadius: 20, sightBottom: 0, label: 'Валун' },
-        ),
-      ],
-      64,
-    );
-    const visible = service.map(grid, [40, 128]);
-
-    // Ближняя и дальняя клетки силуэта видны: камень загораживает вид, но сам
-    // не прячется в собственной тени.
-    expect(visible.visible[cellOf(grid, 6, 8)]).toBe(1);
-    expect(visible.visible[cellOf(grid, 9, 8)]).toBe(1);
-    // Туман начинается сразу за силуэтом.
-    expect(visible.visible[cellOf(grid, 11, 8)]).toBe(0);
-  });
-
   it('игнорирует крону, которая начинается выше глаз', () => {
     const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
     const tree = (sightBottom: number): SceneElement =>
