@@ -20,7 +20,7 @@ attachments: ChatAttachment[]
 
 `roll` является видом attachment payload. Старые `dice_result` и `send(text, rolls)` не являются текущим контрактом.
 
-Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора. Чип персонажа/НПС при наличии host-колбэка `openEntity` открывает боевую карточку (игровой чат), иначе — полную деталку в слайдере (заметки, мессенджер, летопись); игра и контекст деталки приходят ключами `gameId`/`entityContext` в inline-context хоста. Чип пользователя хранит логин: если профиля нет в каталоге, он догружается поиском по логину и попадает в каталог; «Объект скрыт» — только после неудачного поиска.
+Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора. Чип персонажа/НПС при наличии host-колбэка `openEntity` открывает боевую карточку (игровой чат), иначе — полную деталку в слайдере (заметки, мессенджер, летопись); игра и контекст деталки приходят ключами `gameId`/`entityContext` в inline-context хоста. Чип пользователя хранит логин: если профиля нет в каталоге, он догружается поиском по логину и попадает в каталог; «Объект скрыт» — только после неудачного поиска. Чип статьи кодекса `[[lore:<worldCode>/<articleCode>]]` хранит мир в значении, резолвит название через `lore.getArticle` и открывает `LoreArticleSlider`; недоступная статья — «Объект скрыт».
 
 `IChatApi` предоставляет `getChats`, `addPrivate`, `addGroup`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Inbox `getChats` и SSE `/api/chat/sync` показывают все чаты, где пользователь состоит членом, независимо от `type`; Chat при этом не знает о Game/Character. `private`/`group` остаются host-типами для create. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
 
@@ -40,7 +40,7 @@ Game может регистрировать действия, связанны�
 
 ### Plugin host
 
-`Messages/Chat` регистрирует opaque-контракты `IChatType`, `IChatTab`, `ICommandHandler`, content/inline renderers, `ITokenSource`, `IAttachmentProcessor` и `IChatToolbarExtension`. Базовые `private`/`group` и user inline chip принадлежат Chat/Core User. Game регистрирует `game`, `game_discussion`, `/roll`, roll renderer/processor и toolbar; Rule — `[[rule:...]]`; Character — `character_discussion`.
+`Messages/Chat` регистрирует opaque-контракты `IChatType`, `IChatTab`, `ICommandHandler`, content/inline renderers, `ITokenSource`, `IAttachmentProcessor` и `IChatToolbarExtension`. Базовые `private`/`group` и user inline chip принадлежат Chat/Core User. Game регистрирует `game`, `game_discussion`, `/roll`, roll renderer/processor и toolbar; Rule — `[[rule:...]]`; Character — `character_discussion`; Lore — `[[lore:...]]` и источник «Статья» с выбором мира.
 
 ### Message and inline model
 
@@ -64,7 +64,7 @@ interface ChatAttachment {
 
 Сообщения могут нести `thread?: { id, parentId?, kind }` для свёртки атаки/хода/раунда. Свёрнутая группа — строка-резюме; разворот атаки вверх. По умолчанию раскрыты текущий и предыдущий раунд/ход и идущая атака; завершённая атака складывается. Это frontend current, не Chat→Game import.
 
-Текст разбирается в `InlineSegment[]` с `text`/`token`; syntax — `[[type:param1,param2]]`. Недоступный объект рендерится как «Объект скрыт». `inlineContentToText` используется для preview списка чатов.
+Текст разбирается в `InlineSegment[]` с `text`/`token`; syntax — `[[type:param1,param2]]`. Недоступный объект рендерится как «Объект скрыт». `inlineContentToText` используется для preview списка чатов. Источник токена может объявить область поиска (`scopeLabel` + `loadScopes`), как «Мир» у статей кодекса; `search(query, scope?)` получает выбранную область.
 
 ### Chat state and pagination
 

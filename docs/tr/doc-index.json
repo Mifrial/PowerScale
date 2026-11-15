@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 361,
-        "plans": 239,
+        "documents": 362,
+        "plans": 240,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 264,
+            "tr": 265,
             "tz": 2
         },
         "byZoneState": {
@@ -70,7 +70,7 @@
             },
             "tr": {
                 "нет": 27,
-                "СДЕЛАНО": 155,
+                "СДЕЛАНО": 156,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 36,
                 "ПЛАН": 10,
@@ -86,7 +86,7 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 58,
-            "СДЕЛАНО": 157,
+            "СДЕЛАНО": 158,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 36,
@@ -334,11 +334,11 @@
             }
         },
         "—": {
-            "docs": 137,
+            "docs": 138,
             "state": {
                 "СНИМОК": 58,
                 "нет": 47,
-                "СДЕЛАНО": 10,
+                "СДЕЛАНО": 11,
                 "ПЛАН": 6,
                 "ОТЛОЖЕН": 5,
                 "ЧАСТИЧНО": 7,
@@ -347,8 +347,8 @@
             "layer": {
                 "PHP": 8,
                 "НИГДЕ": 5,
-                "VUE": 13,
-                "МОК": 1
+                "VUE": 14,
+                "МОК": 2
             }
         }
     },
@@ -2157,10 +2157,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 22134,
-            "lines": 175,
+            "bytes": 22266,
+            "lines": 176,
             "modules": [],
-            "linksCount": 133,
+            "linksCount": 134,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2247,7 +2247,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 33618,
+            "bytes": 33708,
             "lines": 298,
             "modules": [],
             "linksCount": 37,
@@ -3268,7 +3268,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 12992,
+            "bytes": 13612,
             "lines": 126,
             "modules": [
                 "Messages/Chat"
@@ -3324,7 +3324,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-18",
-            "bytes": 16381,
+            "bytes": 16433,
             "lines": 184,
             "modules": [],
             "linksCount": 12,
@@ -3504,8 +3504,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 32379,
-            "lines": 147,
+            "bytes": 33000,
+            "lines": 148,
             "modules": [],
             "linksCount": 19,
             "brokenLinks": [],
@@ -5380,6 +5380,29 @@
             ]
         },
         {
+            "path": "docs/tr/lore-plan-02-inline-links.md",
+            "title": "План 02 — inline-ссылки кодекса в заметках и чатах",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~ — 2026-11-15",
+            "layers": [
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-15",
+            "bytes": 12376,
+            "lines": 188,
+            "modules": [],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md"
+            ]
+        },
+        {
             "path": "docs/tr/lore-system.md",
             "title": "Кодекс мира (`Roleplay/Lore`)",
             "zone": "tr",
@@ -5390,8 +5413,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-11-15",
-            "bytes": 17012,
-            "lines": 236,
+            "bytes": 18676,
+            "lines": 252,
             "modules": [],
             "linksCount": 4,
             "brokenLinks": [],
@@ -6323,8 +6346,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-15",
-            "bytes": 15524,
-            "lines": 217,
+            "bytes": 15683,
+            "lines": 219,
             "modules": [
                 "Messages/Notes"
             ],

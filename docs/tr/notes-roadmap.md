@@ -52,7 +52,9 @@ Character/Game как контракт заметок)
 - `Notes → Inline, Engine, UI, User`;
 - `Character → Notes` (слайдер), `Game → Notes` (слайдер и регистрация
   хоста); `Map → Notes` — позже;
-- `Notes ↛ Chat`, `Notes ↛ Character/Game/Map/Rule`.
+- `Lore → Inline` — чип статьи и источник «Статья» с выбором мира; `Notes` и
+  `Chat` о Lore не знают;
+- `Notes ↛ Chat`, `Notes ↛ Character/Game/Map/Rule/Lore`.
 
 Ребро PHP: `Notes` → SmartTable + `IUserAccess` + `IUserAccounts`. Хосты позже
 вызывают `INotes::deactivateForHost()` при удалении/архивации сущности.

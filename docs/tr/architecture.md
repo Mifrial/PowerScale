@@ -192,7 +192,7 @@ Auth зависит от User: после входа и выхода Auth выз
 - RuleSpace → Engine, UI, User, Rule, Keyword, Mechanic (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; PHP RuleSpace ↛ Keyword; PHP RuleSpace ↛ Mechanic; Vue ↛ Versioning
 - Character → Engine, UI, User, Rule, RuleSpace, Keyword, Mechanic, Chat (плагин), Notes (плагин), Notifications (публично, отправка). Не Game. Не Versioning
 - Game → Engine, UI, User, Rule, RuleSpace, Character, Keyword, Mechanic, Chat (плагин), Notes (плагин), Notifications (публично, отправка). Не Versioning
-- Lore → Engine, UI, User (публично), Keyword (публично), Rule и RuleSpace (публично, только выбор правил для ссылок). PHP: SmartTable + `IUserAccess`/`IUserAccounts`/`IKeywords`; Rule/RuleSpace не импортирует. Не Character/Game/Chat/Notes
+- Lore → Engine, UI, User (публично), Keyword (публично), Rule и RuleSpace (публично, только выбор правил для ссылок), Messages/Inline (публично: чип статьи и источник ссылок). PHP: SmartTable + `IUserAccess`/`IUserAccounts`/`IKeywords`; Rule/RuleSpace не импортирует. Не Character/Game/Chat/Notes
 - Messages/Inline → Engine, UI. Доменных модулей не знает: рендереры и источники токенов регистрируют потребители. Chat реэкспортирует его публичный API
 - Messages/Notes → Engine, UI, User, Inline. Хосты регистрируют себя через `registerNoteHost`; модуль не знает доменных модулей и не проверяет доступ к сущности
 - Library/Asset → Engine, UI, User, Core/File (публично). PHP: SmartTable, User, File, Kernel. Не Roleplay: коллекции объявляют потребители. Vue: диалог, поле выбора и HTTP-транспорт ([`asset-library-plan-01.md`](asset-library-plan-01.md))

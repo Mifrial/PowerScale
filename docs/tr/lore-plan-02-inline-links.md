@@ -183,5 +183,5 @@ value -> `${worldCode}/${articleCode}`, label -> title
   `[[lore:myth/...]]`, чип после сохранения, слайдер, вложенная статья,
   правило, «Объект скрыт» для несуществующей статьи. Тестовые статьи
   (`inline-check`, `inline-target`) заархивированы, тестовая заметка удалена.
-- Тесты: 44 passed по `Roleplay/Lore` + `Messages/Inline`; `vue-tsc` — в
+- Тесты: 161 passed по `Messages` + `Roleplay/Lore` (25 файлов); `vue-tsc` — в
   затронутых файлах ошибок нет; `docs-check`/`maps-check` зелёные.

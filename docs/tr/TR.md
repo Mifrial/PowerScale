@@ -122,6 +122,7 @@
 - [План локаций 1](scene-plan-01.md) — authoring-срез: список, редактор, сохранение.
 - [Кодекс мира](lore-system.md) — миры, дерево разделов, статьи с inline-ссылками, видимость и файл `powerscale.lore`.
 - [План кодекса 1](lore-plan-01.md) — backend, файл мира, читалка и редактор.
+- [План кодекса 2](lore-plan-02-inline-links.md) — inline-ссылки статей в заметках и чатах.
 - [Система battleground](battleground-system.md) — `GameScene`, occupancy, LOS и движение; authoring-слой локаций вынесен в [`scene-system.md`](scene-system.md).
 - [Система Chat](chat-system.md) — host, attachments и plugin-контракты. PHP — [`chat-roadmap.md`](chat-roadmap.md).
 - [Пользователи и авторизация](auth-system.md) — профили, группы, права и сессии.

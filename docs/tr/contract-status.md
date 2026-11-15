@@ -27,7 +27,7 @@
 - `character-system.md` — Character, versions, creation, validation, inventory и membership;
 - `game-system.md` — Game, sessions, combat, abstract movement, chronicle, economy и loot;
 - `scene-system.md` — SceneLocation, SceneBoard, SceneElement, SceneEnclosure, snapshot, permissions и copy-to-game contract;
-- `lore-system.md` — миры кодекса, разделы, статьи, видимость/readers, ссылки и формат `powerscale.lore`;
+- `lore-system.md` — миры кодекса, разделы, статьи, видимость/readers, ссылки (в статьях, заметках и чатах) и формат `powerscale.lore`;
 - `scene-renderer.md` — PixiJS/WebGL renderer локаций, слои, камера, hit-test и инстансинг;
 - `battleground-system.md` — SceneTemplate, GameScene, SceneBoard, Enclosure, SupportSurface, Token, Obstacle, Watercourse, Opening, occupancy, projection, sceneVersion, spatial combat context, SSE сцены;
 - `chat-system.md` — Chat protocol, attachments, commands, sync и visibility;
