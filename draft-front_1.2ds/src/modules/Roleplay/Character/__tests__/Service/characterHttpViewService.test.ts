@@ -79,6 +79,73 @@ describe('CharacterHttpViewService.versionFromStored', () => {
     expect(version?.budgets?.osTotal).toBeNull();
   });
 
+  it('снимок NPC сохраняет мощь ядра, донора и цели формы способности', () => {
+    const version = characterHttpViewService.versionFromStored({
+      spaceCode: 'razrabotka',
+      rulesRevision: 50,
+      choices: {
+        name: 'Колдунец',
+        raceCode: 'kogir',
+        abilities: [{ ruleCode: 'discharge', level: 1, zone: 'or', targets: { core: 5 } }],
+        inventory: [
+          {
+            id: 5,
+            ruleCode: 'magic-core',
+            quantity: 1,
+            equipped: true,
+            parameters: { power: dim(4) },
+            grantedBy: { ruleCode: 'magic-core-capacity' },
+            payload: { volume: 30, recorded_spells: [{ ruleCode: 'spark', level: 1 }] },
+          },
+        ],
+      },
+      sheet: { money: 0, resources: [] },
+    });
+
+    expect(version?.inventory[0]).toMatchObject({
+      id: 5,
+      parameters: { power: dim(4) },
+      grantedBy: { ruleCode: 'magic-core-capacity' },
+      payload: { volume: 30, recorded_spells: [{ ruleCode: 'spark', level: 1 }] },
+    });
+    expect(version?.abilities[0]?.targets).toEqual({ core: 5 });
+  });
+
+  it('снимок NPC отдаёт ману и Объём кристалла', () => {
+    const version = characterHttpViewService.versionFromStored({
+      spaceCode: 'razrabotka',
+      rulesRevision: 51,
+      choices: { name: 'Колдунец', raceCode: 'kogir', abilities: [], inventory: [] },
+      sheet: {
+        money: 0,
+        resources: [],
+        items: {
+          'inventory:5': {
+            ruleCode: 'magic-crystal',
+            inventoryId: 5,
+            maxPower: dim(4),
+            volume: 30,
+            occupied: 10,
+            mana: 12,
+            manaMax: 20,
+          },
+        },
+      },
+    });
+
+    expect(version?.items).toEqual([
+      {
+        inventoryId: 5,
+        ruleCode: 'magic-crystal',
+        maxPower: dim(4),
+        volume: 30,
+        occupied: 10,
+        mana: 12,
+        manaMax: 20,
+      },
+    ]);
+  });
+
   it('уже собранную CharacterVersion не ломает', () => {
     const current = characterHttpViewService.versionOf({
       name: 'Герой',
@@ -380,5 +447,41 @@ describe('CharacterHttpViewService.migratedDetailOf', () => {
     expect(detail.character.id).toBe(3);
     expect(detail.character.rulesRevision).toBe(4);
     expect(detail.actualVersion).toBe(5);
+  });
+});
+
+describe('CharacterHttpViewService: sourcePowers', () => {
+  it('читает эффективную мощь источников из sheet', () => {
+    const version = characterHttpViewService.versionOf({
+      name: 'Колдунец',
+      spaceCode: 'razrabotka',
+      rulesRevision: 50,
+      choices: { name: 'Колдунец', abilities: [], inventory: [] },
+      sheet: {
+        sourcePowers: [
+          {
+            inventoryId: 5,
+            ruleCode: 'magic-core',
+            characteristicCode: 'magic-power',
+            base: { base: 4, size: 0 },
+            bonus: 1,
+            value: { base: 5, size: 0 },
+            contributions: [{ sourceRuleCode: 'core-flow-optimization', delta: 1 }],
+          },
+        ],
+      },
+    });
+
+    expect(version.sourcePowers).toEqual([
+      {
+        inventoryId: 5,
+        ruleCode: 'magic-core',
+        characteristicCode: 'magic-power',
+        base: { base: 4, size: 0 },
+        bonus: 1,
+        value: { base: 5, size: 0 },
+        contributions: [{ sourceRuleCode: 'core-flow-optimization', delta: 1 }],
+      },
+    ]);
   });
 });

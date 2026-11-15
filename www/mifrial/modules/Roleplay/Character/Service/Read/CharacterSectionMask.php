@@ -34,10 +34,11 @@ final class CharacterSectionMask
             'osSurchargeTotal',
             'characteristics',
             'senses',
+            'sourcePowers',
         ],
         'resources' => ['money', 'resources'],
         'abilities' => ['abilityLevels', 'coveredPaths'],
-        'inventory' => ['equippedModifiers'],
+        'inventory' => ['equippedModifiers', 'items'],
     ];
 
     /**

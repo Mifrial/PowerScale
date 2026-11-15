@@ -29,6 +29,7 @@ final class CharacterSaveKeys
         'grantedBy',
         'studyPairId',
         'studyPairRole',
+        'targets',
     ];
 
     /**
@@ -48,6 +49,9 @@ final class CharacterSaveKeys
         'modifiers',
         'durabilityLeft',
         'note',
+        'parameters',
+        'grantedBy',
+        'payload',
     ];
 
     /**

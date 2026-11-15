@@ -193,6 +193,7 @@ export class CharacterHttpSaveService {
     const row: Record<string, unknown> = { ruleCode: ability.ruleCode, level: ability.level };
     if (ability.zone !== undefined) row.zone = ability.zone;
     if (ability.parameters !== undefined) row.parameters = ability.parameters;
+    if (ability.targets !== undefined) row.targets = ability.targets;
     if (ability.domain !== undefined) row.domain = ability.domain;
     if (ability.domainCode !== undefined) row.domainCode = ability.domainCode;
 
@@ -212,6 +213,9 @@ export class CharacterHttpSaveService {
     if (item.modifierRuleCodes !== undefined) row.modifiers = item.modifierRuleCodes;
     if (item.durabilityLeft !== undefined) row.durabilityLeft = item.durabilityLeft;
     if (item.note !== undefined) row.note = item.note;
+    if (item.parameters !== undefined) row.parameters = item.parameters;
+    if (item.payload !== undefined) row.payload = item.payload;
+    if (item.grantedBy !== undefined) row.grantedBy = item.grantedBy;
 
     return row;
   }

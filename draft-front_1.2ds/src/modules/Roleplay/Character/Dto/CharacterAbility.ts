@@ -27,4 +27,6 @@ export interface CharacterAbility {
    * не списывает бюджет; апгрейд сверх gifted-уровня оплачивается разницей.
    */
   gifted?: boolean;
+  /** Выбранные цели формы способности: ключ → id строки инвентаря. */
+  targets?: Record<string, number>;
 }

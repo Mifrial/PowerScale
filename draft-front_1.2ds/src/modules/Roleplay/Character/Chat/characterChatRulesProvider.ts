@@ -30,6 +30,11 @@ export const characterChatRulesProvider: IChatRulesProvider = {
     if (!character) return null;
     const revision = await useSpaceRevision().fetchRevision(character.spaceId, character.rulesRevision);
 
-    return characterChatRulesContextService.build(revision.rules, character.spaceId, character.rulesRevision);
+    return characterChatRulesContextService.build(
+      revision.rules,
+      character.spaceId,
+      character.rulesRevision,
+      character.spaceCode,
+    );
   },
 };

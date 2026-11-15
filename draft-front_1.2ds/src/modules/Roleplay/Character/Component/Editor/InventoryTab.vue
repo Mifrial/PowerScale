@@ -22,6 +22,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
@@ -41,6 +42,8 @@ const props = withDefaults(
     /** Боевая карточка: экип через оверлей, без черновика редактора. */
     onToggleEquipped?: (itemId: number) => void;
     onSetOccupyHands?: (itemId: number, occupyHands: number) => void;
+    /** Мана и объём предметов-хранилищ из `sheet.items`. */
+    storageItems?: ItemStorageValue[];
     listHeight?: string;
   }>(),
   { variant: 'editor', canEdit: true, listHeight: 'calc(100vh - 300px)' },
@@ -95,7 +98,7 @@ function featureKeywordsOf(rule: Rule): { id: number; name: string }[] {
     .map((keywordId) => ({ id: keywordId, name: keywordNameById.value.get(keywordId) ?? `#${keywordId}` }));
 }
 
-/** Предметы каталога закупки: тип item с ценой и без innate (R5). */
+/** Предметы каталога: покупные (цена, не innate) и врождённые хранилища (кристалл). */
 const catalog = computed<(InventoryCatalogItem & Record<string, unknown>)[]>(() =>
   props.rules
     .filter((rule) => rule.type === 'item')
@@ -104,14 +107,16 @@ const catalog = computed<(InventoryCatalogItem & Record<string, unknown>)[]>(() 
 
       return { rule, spec, cost: spec?.cost_gm ?? null, innate: spec?.innate ?? false };
     })
-    .filter((entry): entry is { rule: Rule; spec: ItemSpec | undefined; cost: number; innate: boolean } => {
-      return entry.cost !== null && !entry.innate;
-    })
-    .map(({ rule, spec, cost }) => ({
+    .filter(
+      (entry): entry is { rule: Rule; spec: ItemSpec | undefined; cost: number | null; innate: boolean } =>
+        (entry.cost !== null && !entry.innate) || entry.spec?.storage !== undefined,
+    )
+    .map(({ rule, spec, cost, innate }) => ({
       ruleCode: rule.code,
       name: rule.name,
       description: rule.description,
-      cost,
+      cost: cost ?? 0,
+      innate,
       section: sectionOf(rule),
       subtitle: categoryLabelOf(spec),
       type: typeOf(rule, spec),
@@ -180,12 +185,21 @@ function itemViewFromOwned(owned: InventoryItem): InventoryCatalogItem | null {
 
 type SheetListItem = InventoryCatalogItem & { inventoryId: number; instanceEquipped: boolean };
 
+const storageByInventoryId = computed(
+  () => new Map((props.storageItems ?? []).map((entry) => [entry.inventoryId, entry])),
+);
+
 const ownedList = computed<SheetListItem[]>(() => {
   const rows: SheetListItem[] = [];
   for (const owned of props.build.inventory) {
     const item = itemViewFromOwned(owned);
     if (!item) continue;
-    rows.push({ ...item, inventoryId: owned.id, instanceEquipped: owned.equipped });
+    rows.push({
+      ...item,
+      inventoryId: owned.id,
+      instanceEquipped: owned.equipped,
+      storage: storageByInventoryId.value.get(owned.id),
+    });
   }
 
   return rows;
@@ -278,7 +292,8 @@ function costOf(item: InventoryCatalogItem, modifierRuleCodes: readonly string[]
 }
 
 function isInstanced(item: InventoryCatalogItem): boolean {
-  return Boolean(item.spec?.weapon || item.spec?.armor || item.spec?.shield);
+  // Хранилище (кристалл) — тоже экземпляр: у каждой строки свой Объём, мана и записи.
+  return Boolean(item.spec?.weapon || item.spec?.armor || item.spec?.shield || item.spec?.storage);
 }
 
 /** Базовая линия шага «Инвентарь» (R2): снапшот на входе в шаг. */
@@ -349,7 +364,8 @@ const catalogRows = computed<InventoryListRow[]>(() => {
 
   const rows: InventoryListRow[] = [];
   for (const item of filteredRows.value.filter((entry) => passesFilters(entry))) {
-    if (!equippedOnly.value) {
+    // Врождённые предметы (кристалл) не продаются: строка каталога у них не нужна.
+    if (!equippedOnly.value && item.innate !== true) {
       rows.push({ ...item, rowKind: 'shop', inventoryId: null });
     }
     if (!isInstanced(item)) continue;
@@ -479,6 +495,12 @@ function setOccupyHands(itemId: number, occupyHands: number): void {
     return;
   }
   const next = characterBuildService.setItemOccupyHands(currentBuild(), itemId, occupyHands, props.rules);
+  mutateBuild({ inventory: next.inventory });
+}
+
+/** Поля `payload` экземпляра: Объём и состав записей кристалла. */
+function setItemPayload(itemId: number, key: string, value: unknown): void {
+  const next = characterBuildService.setItemPayload(currentBuild(), itemId, { [key]: value });
   mutateBuild({ inventory: next.inventory });
 }
 
@@ -646,6 +668,7 @@ watch(showWeaponSkills, (val) => {
         <InventoryItemRow
           :item="item"
           :rules="rules"
+          :keywords="keywords"
           :characteristic-values="characteristicValues"
           :movement-step="movementStep"
           :abilities="build.abilities"
@@ -670,6 +693,8 @@ watch(showWeaponSkills, (val) => {
           :occupy-hands="ownedOf(item)?.occupyHands"
           :available-hands="item.inventoryId !== null ? getRemainingHandsFor(item.inventoryId) : undefined"
           :can-adjust-hands="(variant === 'editor' || canEdit) && item.rowKind === 'owned'"
+          :storage="item.storage"
+          :payload="item.rowKind === 'owned' ? ownedOf(item)?.payload : undefined"
           @update:open="(open) => setOpen(itemKey(item), open)"
           @buy="buy"
           @cancel="cancel"
@@ -679,6 +704,7 @@ watch(showWeaponSkills, (val) => {
           @train="train"
           @open-skills="openWeaponSkills"
           @open-modifiers="item.inventoryId !== null && openModifiers(item.inventoryId)"
+          @set-payload="(key, value) => item.inventoryId !== null && setItemPayload(item.inventoryId, key, value)"
         />
       </template>
     </VirtualList>

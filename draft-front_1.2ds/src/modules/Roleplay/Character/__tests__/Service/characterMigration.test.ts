@@ -68,6 +68,86 @@ function makeRules(): Rule[] {
   ];
 }
 
+/** Правила с магическим ядром: способность выдаёт предмет, предмет даёт `magic-power`. */
+function makeCoreRules(): Rule[] {
+  return [
+    ...makeRules(),
+    base(20, 'magic-power', 'characteristic', 'Магическая мощь', { type: 'characteristic', group: 'magic' }),
+    base(21, 'magic-core-capacity', 'ability', 'Врождённое ядро', {
+      type: 'trait',
+      zones: { os: { kind: 'array', levels_cost: [2] } },
+      requirements: [],
+      parameters: [
+        {
+          code: 'x',
+          label: 'X',
+          resolution: 'purchase',
+          kind: 'dimensional',
+          default: dim(3),
+          min: dim(3, -1),
+          max: dim(5, 1),
+        },
+      ],
+      grants: [
+        {
+          level: 1,
+          grants: [{ type: 'item', item_code: 'magic-core', quantity: 1, parameters: { power: 'x' } }],
+        },
+      ],
+      parent_ability_code: null,
+    }),
+    base(22, 'magic-core', 'item', 'Магическое ядро', {
+      category: 'equipment',
+      cost_gm: null,
+      weight: null,
+      innate: true,
+      special_rule_codes: [],
+      grants: [
+        {
+          type: 'characteristic_parameter',
+          characteristic_code: 'magic-power',
+          parameter_code: 'power',
+          per_unit: 1,
+          permanent: true,
+        },
+      ],
+    }),
+  ];
+}
+
+/** Старая ревизия: ядро есть, но мощь ещё не привязана к экземпляру. */
+function makeLegacyCoreRules(): Rule[] {
+  return [
+    ...makeRules(),
+    base(20, 'magic-power', 'characteristic', 'Магическая мощь', { type: 'characteristic', group: 'magic' }),
+    base(21, 'magic-core-capacity', 'ability', 'Врождённое ядро', {
+      type: 'trait',
+      zones: { os: { kind: 'array', levels_cost: [2] } },
+      requirements: [],
+      parameters: [
+        {
+          code: 'x',
+          label: 'X',
+          resolution: 'purchase',
+          kind: 'dimensional',
+          default: dim(3),
+          min: dim(3, -1),
+          max: dim(5, 1),
+        },
+      ],
+      grants: [{ level: 1, grants: [{ type: 'item', item_code: 'magic-core', quantity: 1 }] }],
+      parent_ability_code: null,
+    }),
+    base(22, 'magic-core', 'item', 'Магическое ядро', {
+      category: 'equipment',
+      cost_gm: null,
+      weight: null,
+      innate: true,
+      special_rule_codes: [],
+    }),
+  ];
+}
+
 function makeVersion(senses: CharacterVersion['senses'] = []): CharacterVersion {
   return {
     name: 'Тест',
@@ -378,6 +458,26 @@ describe('CharacterMigrationService', () => {
     expect(result.version.raceRuleCode).toBeNull();
   });
 
+  it('грант ядра меняет состав → конфликт, diff предмета и путь в редактор', () => {
+    const rules = makeCoreRules();
+    const version: CharacterVersion = {
+      ...makeVersion(),
+      abilities: [{ ruleCode: 'magic-core-capacity', level: 1, parameters: { x: dim(4) } }],
+    };
+    const result = migrate(version, makeLegacyCoreRules(), rules);
+
+    expect(result.kind).toBe('conflicts');
+    const item = result.diffs.find((diff) => diff.label === 'Инвентарь');
+    expect(item?.tone).toBe('green');
+    expect(item?.after).toContain('Магическое ядро 4');
+    expect(
+      result.version.inventory.some(
+        (row) => row.ruleCode === 'magic-core' && row.grantedBy?.ruleCode === 'magic-core-capacity',
+      ),
+    ).toBe(true);
+    expect(result.diffs.some((diff) => diff.label === 'Магическая мощь' && diff.tone === 'green')).toBe(true);
+  });
+
   it('compareCurrent: добавленная способность и изменение характеристики видны в сравнении', () => {
     const oldRules = makeRules();
     const newRules = [
@@ -513,5 +613,64 @@ describe('CharacterMigrationService', () => {
     expect(
       withKeywords.problems.some((problem) => problem.kind === 'unmetRequirement' && problem.label === 'Силовой удар'),
     ).toBe(false);
+  });
+
+  it('дар без ссылки расы снимается при миграции и показывается проблемой', () => {
+    const catalog: Keyword[] = [{ id: 1, code: 'gift', name: 'Дар', description: '', active: true }];
+    const gift: Rule = {
+      ...base(20, 'gift-core', 'ability', 'Врождённое ядро', {
+        type: 'trait',
+        zones: { os: { kind: 'array', levels_cost: [2] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+      }),
+      keywordIds: [1],
+    };
+    const rulesWith = (withReference: boolean): Rule[] =>
+      [...makeRules(), gift].map((rule) =>
+        rule.code === 'human'
+          ? {
+              ...rule,
+              spec: {
+                ...(rule.spec as unknown as Record<string, unknown>),
+                abilities: withReference ? [{ ability_code: 'gift-core', automatic: false }] : [],
+              } as Rule['spec'],
+            }
+          : rule,
+      );
+    const version: CharacterVersion = {
+      ...makeVersion(),
+      abilities: [{ ruleCode: 'gift-core', level: 1 }],
+    };
+    const limits = {
+      osTotal: version.budgets?.osTotal ?? null,
+      orTotal: version.points.orTotal,
+      moneyBudget: version.budgets?.moneyBudget ?? null,
+    };
+    const migrateWith = (withReference: boolean) =>
+      service.migrate({
+        version,
+        oldRules: rulesWith(withReference),
+        oldSpaceId: 1,
+        newRules: rulesWith(withReference),
+        newSpaceId: 2,
+        newSpaceCode: 'new-space',
+        newRevision: 2,
+        effectiveLimits: limits,
+        keywords: catalog,
+      });
+
+    const withoutReference = migrateWith(false);
+    expect(withoutReference.version.abilities.some((ability) => ability.ruleCode === 'gift-core')).toBe(false);
+    expect(
+      withoutReference.problems.some(
+        (problem) => problem.kind === 'unavailableGift' && problem.label === 'Врождённое ядро',
+      ),
+    ).toBe(true);
+
+    const withReference = migrateWith(true);
+    expect(withReference.version.abilities.some((ability) => ability.ruleCode === 'gift-core')).toBe(true);
+    expect(withReference.problems.some((problem) => problem.kind === 'unavailableGift')).toBe(false);
   });
 });

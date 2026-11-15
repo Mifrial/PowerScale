@@ -71,11 +71,13 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import { RequirementEvaluator } from '@/modules/Roleplay/Character/Service/RequirementEvaluator';
 import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import { grantedItemService } from '@/modules/Roleplay/Character/Service/GrantedItemService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
+import { spellSourcePowerService } from '@/modules/Roleplay/Character/Service/Instance/spellSourcePowerService';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 import { nativeLanguageService } from '@/modules/Roleplay/Character/Service/Instance/nativeLanguageService';
 import { skillStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/skillStudyUnlockService';
@@ -107,6 +109,7 @@ export class CharacterEditorService {
     private readonly nativeLanguage = nativeLanguageService,
     private readonly skillStudyUnlock = skillStudyUnlockService,
     private readonly sourceDeltas = aggregateSourceDeltasService,
+    private readonly grantedItems = grantedItemService,
   ) {}
 
   build(
@@ -118,8 +121,12 @@ export class CharacterEditorService {
   ): CharacterEditorModel {
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
     const geared = this.racialInnateGear.applyRacialInnateGear(build, rules);
-    const synced = this.nativeLanguage.syncNativeSpeech(
+    const granted = this.grantedItems.apply(
       { ...build, abilities: geared.abilities, inventory: geared.inventory },
+      rules,
+    );
+    const synced = this.nativeLanguage.syncNativeSpeech(
+      { ...build, abilities: granted.abilities, inventory: granted.inventory },
       rules,
     );
     const race = this.buildRace(synced, reference);
@@ -150,8 +157,12 @@ export class CharacterEditorService {
     mechanics: Mechanic[] = [],
   ): CharacterVersion {
     const geared = this.racialInnateGear.applyRacialInnateGear(build, rules);
-    const synced = this.nativeLanguage.syncNativeSpeech(
+    const granted = this.grantedItems.apply(
       { ...build, abilities: geared.abilities, inventory: geared.inventory },
+      rules,
+    );
+    const synced = this.nativeLanguage.syncNativeSpeech(
+      { ...build, abilities: granted.abilities, inventory: granted.inventory },
       rules,
     );
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
@@ -169,7 +180,7 @@ export class CharacterEditorService {
       rulesRevision: synced.rulesRevision,
       raceRuleCode: synced.raceRuleCode,
       characteristics: characteristics.map((value) => ({
-        ruleCode: value.ruleCode,
+        ruleCode: value.code,
         base: value.base,
         modifiers: value.modifiers,
       })),
@@ -385,17 +396,61 @@ export class CharacterEditorService {
       }
     }
 
-    // 3.3) Экипированное снаряжение: гранты предмета (в т.ч. characteristic_modify).
+    // 3.3) Экипированное снаряжение и врождённые предметы: гранты предмета.
+    const itemSources = new Map<string, number>();
     for (const item of build.inventory) {
       const itemSpec = this.effectiveEquippedSpec(item, reference, keywords);
       if (!itemSpec || item.ruleCode === null) continue;
       for (const grant of itemSpec.grants ?? []) {
+        if (grant.type === 'characteristic_parameter') {
+          const value = item.parameters?.[grant.parameter_code];
+          if (!value) continue;
+          const number = { base: value.base * grant.per_unit, size: value.size };
+          const current = bases.get(grant.characteristic_code);
+          if (!current || CharacteristicNumber.from(current).modifyDiffTo(CharacteristicNumber.from(number)) < 0) {
+            bases.set(grant.characteristic_code, number);
+            ruleCodes.set(grant.characteristic_code, item.ruleCode);
+            itemSources.set(grant.characteristic_code, item.id);
+          }
+          continue;
+        }
         if (grant.type !== 'characteristic_modify') continue;
         const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, bases, reference, keywords));
         const entry = { role: 'от предмета', sourceRuleCode: item.ruleCode, delta };
         const list = deltas.get(grant.characteristic_code);
         if (list) list.push(entry);
         else deltas.set(grant.characteristic_code, [entry]);
+      }
+    }
+
+    // 3.3.1) Бонус `spell_source_power` к мощи источника: тот же вклад, что
+    //      сервер складывает в sheet.sourcePowers. Применяется к лучшему экземпляру.
+    if (itemSources.size > 0) {
+      const levels = new Map<string, number>();
+      for (const ability of build.abilities) {
+        if (ability.level < 1) continue;
+        levels.set(ability.ruleCode, Math.max(levels.get(ability.ruleCode) ?? 0, ability.level));
+      }
+      for (const [code, level] of this.derivedAbilityLevels(build, reference, keywords)) {
+        if (level > 0) levels.set(code, Math.max(levels.get(code) ?? 0, level));
+      }
+      for (const [code, itemId] of itemSources) {
+        const contributions = spellSourcePowerService.contributions({
+          rules: reference.rules(),
+          keywords,
+          abilities: build.abilities,
+          levels,
+          characteristicValues: bases,
+          inventory: build.inventory,
+          sourceKey: `inventory:${itemId}`,
+        });
+        for (const [sourceCode, delta] of Object.entries(contributions)) {
+          if (delta === 0) continue;
+          const entry = { role: 'от способности', sourceRuleCode: sourceCode, delta };
+          const list = deltas.get(code);
+          if (list) list.push(entry);
+          else deltas.set(code, [entry]);
+        }
       }
     }
 
@@ -1160,9 +1215,13 @@ export class CharacterEditorService {
       const racial = racialCodes.has(rule.code);
       // Видна в каталоге этапа: общая черта (common), предоставленная расой, черта характеристик
       // (свой блок «Характеристики» — EditorInnateMatrix) или уже взятая; иначе скрыта.
+      // Дар (gift — параметрическая способность вроде «Ядро X»/«Кристалл X») сверх этого
+      // требует ссылки расы: «Даёт способности» (automatic) или «Даёт приобрести» (покупка).
+      // Без ссылки расы дар недоступен, даже если у него признак «Характеристика».
       const hasCommon = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'common');
       const characteristic = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'characteristic');
-      const visible = hasCommon || racial || characteristic || instances.length > 0;
+      const gift = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'gift');
+      const visible = hasCommon || racial || (characteristic && !gift) || instances.length > 0;
       // Получена даром-навыком особенности (D100): уровень из гранта, снять нельзя.
       const giftedLevel = giftedLevels.get(rule.code) ?? 0;
       const gifted = giftedLevel > 0;
@@ -1495,6 +1554,16 @@ export class CharacterEditorService {
       if (raceFixed !== null) {
         if (this.dimLessThan(min, raceFixed)) min = raceFixed;
         if (tableCosts) freeStepCost = tableCosts[new DimensionalNumber(raceFixed).toString()] ?? 0;
+      }
+
+      // Автоматический дар расы («Даёт способности»: кристалл 4↓) — бесплатная база:
+      // ниже неё не спускаемся, а её ступень в таблице цен бесплатна.
+      if (autoValue !== undefined) {
+        if (this.dimLessThan(min, autoValue)) min = autoValue;
+        if (tableCosts) {
+          const autoCost = tableCosts[new DimensionalNumber(autoValue).toString()] ?? 0;
+          if (autoCost > freeStepCost) freeStepCost = autoCost;
+        }
       }
 
       if (parameter.linked) {
@@ -2140,10 +2209,10 @@ export class CharacterEditorService {
     reference: CharacterReferenceService,
     keywords: Keyword[],
   ): ItemSpec | null {
-    if (!item.equipped || item.ruleCode === null) return null;
+    if (item.ruleCode === null) return null;
     const rule = reference.ruleByCode(item.ruleCode);
     const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
-    if (!rule || !spec) return null;
+    if (!rule || !spec || (!item.equipped && spec.innate !== true)) return null;
     const byId = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
     const codes = (rule.keywordIds ?? []).map((id) => byId.get(id)).filter((code): code is string => Boolean(code));
     const modifiers = (item.modifierRuleCodes ?? [])
@@ -2606,6 +2675,22 @@ export class CharacterEditorService {
     }
 
     const auto = this.toNumber(autoValues.get(rule.code)?.[code] ?? { base: 0, size: 0 });
+    // Пул таблиц может стоять в любой покупаемой зоне (`os` у дара, `or` у «Физического развития»).
+    const sumTables = Object.values(spec.zones ?? {}).find((cost) => cost?.kind === 'parameter_sum_tables');
+    if (sumTables?.kind === 'parameter_sum_tables') {
+      // Таблица цен пула: ключ — ступень параметра («4↓», «30»), а не число.
+      // У automatic-дара расы (кристалл 4↓) его ступень бесплатна.
+      const table = sumTables.tables[code] ?? {};
+      const autoValue = autoValues.get(rule.code)?.[code];
+      const fallback = spec.parameters?.find((p) => p.code === code)?.default;
+      // Не заданный параметр у взятого дара остаётся на automatic-базе расы (кристалл 4↓).
+      const value = chosen ?? autoValue ?? fallback;
+      if (value === undefined) return 0;
+      const label = new DimensionalNumber(typeof value === 'number' ? { base: value, size: 0 } : value).toString();
+      const free = autoValue === undefined ? 0 : (table[new DimensionalNumber(autoValue).toString()] ?? 0);
+
+      return Math.max(0, (table[label] ?? 0) - free);
+    }
     if (chosen !== undefined) return Math.max(0, this.toNumber(chosen) - auto);
 
     const parameter = spec.parameters?.find((p) => p.code === code);

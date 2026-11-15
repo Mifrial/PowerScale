@@ -35,6 +35,8 @@ export { CharacterApiError } from '@/modules/Roleplay/Character/Service/Characte
 export { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
 export { characterHttpSaveService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpSaveService';
 export { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
+export { formulaEvaluationService } from '@/modules/Roleplay/Character/Service/Instance/formulaEvaluationService';
+export { spellSourcePowerService } from '@/modules/Roleplay/Character/Service/Instance/spellSourcePowerService';
 export { useAttackFavorites } from '@/modules/Roleplay/Character/Composables/useAttackFavorites';
 export { useCharacterDraft } from '@/modules/Roleplay/Character/Composables/useCharacterDraft';
 export { useCharacterCatalog } from '@/modules/Roleplay/Character/Composables/useCharacterCatalog';
@@ -147,10 +149,12 @@ export function registerCharacterModule(): void {
         revision.rules,
         detail.character.spaceId,
         detail.character.rulesRevision,
+        detail.character.spaceCode,
       );
       const inlineContext: Record<string, unknown> = {
         tokenLabels: context.tokenLabels,
         spaceId: context.spaceId,
+        spaceCode: context.spaceCode,
         rulesRevision: context.rulesRevision,
       };
 

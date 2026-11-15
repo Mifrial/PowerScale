@@ -47,6 +47,10 @@ final class CharacterSheetLive
 
     private readonly CharacterDerivedLevels $derivedLevels;
 
+    private readonly CharacterSheetSourcePowers $sourcePowers;
+
+    private readonly CharacterSheetItems $items;
+
     /**
      * Собирает части расчёта.
      *
@@ -67,7 +71,7 @@ final class CharacterSheetLive
         $this->choiceAssembler = new CharacterChoiceAssembler();
         $this->characteristics = new CharacterLiveCharacteristics(
             $evaluations,
-            new CharacterLiveBases($grantReader, $parameters),
+            new CharacterLiveBases($grantReader, $parameters, $equipped),
             new CharacterLiveDeltas($evaluations, $grantReader, $parameters, $equipped, new CharacterStateDeltas()),
             $senses,
             $equipped,
@@ -82,6 +86,10 @@ final class CharacterSheetLive
         $this->arithmetic = new CharacterResourceArithmetic();
         $this->weaponFamilies = new CharacterWeaponFamilyMastery($equipped);
         $this->derivedLevels = new CharacterDerivedLevels();
+        $this->sourcePowers = new CharacterSheetSourcePowers(
+            new CharacterSpellSourceBonus($evaluations),
+        );
+        $this->items = new CharacterSheetItems();
     }
 
     /**
@@ -107,6 +115,8 @@ final class CharacterSheetLive
             $chosen,
             $requirementLevels,
         );
+        $sheet = $this->sourcePowers->apply($slice, $model, $sheet, $choices);
+        $sheet = $this->items->apply($slice, $sheet, $choices);
 
         $sheet['senses'] = $this->characteristics->activeSenses($slice, $model, $validation, $levels);
         $sheet['weaponFamilyMastery'] = $this->weaponFamilies->compute($slice, $model, $live);

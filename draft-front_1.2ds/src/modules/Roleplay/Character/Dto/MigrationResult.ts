@@ -5,7 +5,14 @@ export interface MigrationResult {
   kind: 'ok' | 'resolved' | 'conflicts';
   version: CharacterVersion;
   problems: {
-    kind: 'removedRule' | 'raceRemoved' | 'raceBroken' | 'lostCharacteristic' | 'unmetRequirement' | 'budgetOverrun';
+    kind:
+      | 'removedRule'
+      | 'raceRemoved'
+      | 'raceBroken'
+      | 'lostCharacteristic'
+      | 'unmetRequirement'
+      | 'unavailableGift'
+      | 'budgetOverrun';
     label: string;
     detail: string | null;
   }[];

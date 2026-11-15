@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Dto;
 
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
+
 /**
- * Экземпляр предмета: код правила и признак надетости.
+ * Экземпляр предмета: код правила, признак надетости и параметры экземпляра.
  */
 final class CharacterInventoryChoice
 {
@@ -16,6 +18,9 @@ final class CharacterInventoryChoice
      * @param bool $equipped Надет.
      * @param int $quantity Количество. Нет ключа во входе — 1.
      * @param array<int, string> $modifiers Коды модификаторов.
+     * @param array<string, DimensionalNumber> $parameters Параметры экземпляра.
+     * @param string|null $grantedByRuleCode Код способности-донора или null.
+     * @param array<string, mixed> $payload Выборы экземпляра: Объём, записи заклинаний.
      *
      * @return void
      */
@@ -24,6 +29,9 @@ final class CharacterInventoryChoice
         private readonly bool $equipped,
         private readonly int $quantity = 1,
         private readonly array $modifiers = [],
+        private readonly array $parameters = [],
+        private readonly ?string $grantedByRuleCode = null,
+        private readonly array $payload = [],
     ) {
     }
 
@@ -65,5 +73,35 @@ final class CharacterInventoryChoice
     public function getModifiers(): array
     {
         return $this->modifiers;
+    }
+
+    /**
+     * Параметры экземпляра.
+     *
+     * @return array<string, DimensionalNumber> Код → значение.
+     */
+    public function getParameters(): array
+    {
+        return $this->parameters;
+    }
+
+    /**
+     * Способность, из гранта которой получен предмет.
+     *
+     * @return string|null Код или null.
+     */
+    public function getGrantedByRuleCode(): ?string
+    {
+        return $this->grantedByRuleCode;
+    }
+
+    /**
+     * Выборы экземпляра, не сводимые к размерному числу.
+     *
+     * @return array<string, mixed> Ключ → значение.
+     */
+    public function getPayload(): array
+    {
+        return $this->payload;
     }
 }

@@ -97,11 +97,13 @@ const notesContext = computed<ChatRulesContext>(() =>
     rules.value,
     detail.value?.character.spaceId,
     detail.value?.version.rulesRevision,
+    detail.value?.character.spaceCode,
   ),
 );
 const notesInline = computed<Record<string, unknown>>(() => ({
   tokenLabels: notesContext.value.tokenLabels,
   spaceId: notesContext.value.spaceId,
+  spaceCode: notesContext.value.spaceCode,
   rulesRevision: notesContext.value.rulesRevision,
 }));
 const notesSources = computed(() => notesContext.value.tokenSources);

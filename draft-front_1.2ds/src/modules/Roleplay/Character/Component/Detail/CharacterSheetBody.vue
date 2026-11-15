@@ -235,6 +235,7 @@ watch(
             :keywords="keywords"
             :can-edit="canEdit"
             :ensure-draft="ensureDraft"
+            :storage-items="shownVersion.items ?? []"
           />
           <div v-else-if="rulesLoading" class="d-flex justify-center pa-8">
             <v-progress-circular indeterminate width="2" size="28" color="primary" />
@@ -256,6 +257,7 @@ watch(
             v-if="activeTab === 'discussion'"
             :discussion-chat-id="discussionChatId"
             :space-id="spaceId ?? 0"
+            :space-code="version?.spaceCode ?? null"
             :rules-revision="shownVersion.rulesRevision"
           />
         </v-window-item>
@@ -286,6 +288,7 @@ watch(
       v-model:open="ruleSlider.state.open"
       :rule-code="ruleSlider.state.ruleCode"
       :space-id="spaceId"
+      :space-code="version?.spaceCode ?? null"
       :rules-revision="version?.rulesRevision ?? null"
       :rules="rules"
       :keywords="keywords"

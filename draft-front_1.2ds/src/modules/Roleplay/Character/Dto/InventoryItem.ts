@@ -1,3 +1,5 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+
 /**
  * Предмет в инвентаре персонажа. `ruleCode` — предмет из правил; **null — кастомный
  * «предмет мастера»** (создан ведущим на ходу): имя/описание задаёт мастер, правила нет.
@@ -22,4 +24,13 @@ export interface InventoryItem {
   modifierRuleCodes?: string[];
   /** Сколько слотов рук занимает в покое (в диапазоне occupy_hands предмета). */
   occupyHands?: number;
+  /** Параметры экземпляра предмета (например, мощь магического ядра). */
+  parameters?: Record<string, DimensionalNumberValue>;
+  /**
+   * Выборы экземпляра, не сводимые к размерному числу: Объём кристалла,
+   * записанные в него заклинания. Пишет сервер, клиент только сохраняет.
+   */
+  payload?: Record<string, unknown>;
+  /** Способность, из гранта которой получен предмет. */
+  grantedBy?: { ruleCode: string };
 }

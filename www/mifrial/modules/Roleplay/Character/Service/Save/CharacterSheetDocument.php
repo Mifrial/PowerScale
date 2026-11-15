@@ -19,11 +19,16 @@ final class CharacterSheetDocument
      * @param CharacterValidation $validation Результат валидатора.
      * @param int $money Наличные.
      * @param array<int, array{ruleCode: string, current: int|array{base: int, size: int}}>|null $resources Typed resource rows.
+     * @param array<string, mixed>|null $items Рантайм предметов-хранилищ или null.
      *
      * @return array<string, mixed> Sheet.
      */
-    public function build(CharacterValidation $validation, int $money, ?array $resources = null): array
-    {
+    public function build(
+        CharacterValidation $validation,
+        int $money,
+        ?array $resources = null,
+        ?array $items = null,
+    ): array {
         $sheet = [
             'abilityLevels' => $validation->getAbilityLevels(),
             'racialAbilityCodes' => $validation->getRacialAbilityCodes(),
@@ -38,6 +43,10 @@ final class CharacterSheetDocument
 
         if ($resources !== null) {
             $sheet['resources'] = $resources;
+        }
+
+        if ($items !== null) {
+            $sheet['items'] = $items;
         }
 
         return $sheet;

@@ -23,6 +23,7 @@ final class CharacterAbilityChoice
      * @param string|null $studyPairId Id пары или null.
      * @param string|null $studyPairRole Charged, free или null.
      * @param array<string, int> $parameters Скалярные параметры формулы.
+     * @param array<string, int> $targets Выбранные цели формы: ключ → id строки инвентаря.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class CharacterAbilityChoice
         private readonly ?string $studyPairId,
         private readonly ?string $studyPairRole,
         private readonly array $parameters = [],
+        private readonly array $targets = [],
     ) {
     }
 
@@ -126,5 +128,15 @@ final class CharacterAbilityChoice
     public function getParameters(): array
     {
         return $this->parameters;
+    }
+
+    /**
+     * Выбранные цели формы способности.
+     *
+     * @return array<string, int> Ключ → id строки инвентаря.
+     */
+    public function getTargets(): array
+    {
+        return $this->targets;
     }
 }

@@ -7,6 +7,8 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
+import type { SpellSourcePowerValue } from '@/modules/Roleplay/Character/Dto/SpellSourcePowerValue';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 
 export interface CharacterVersion {
   name: string;
@@ -42,4 +44,8 @@ export interface CharacterVersion {
   nativeLanguageText?: string | null;
   /** Закупки PHP-листа; нет в мок-версии. Нужны, чтобы edit не восстанавливал ступени по базе. */
   characteristicPurchases?: CharacteristicPurchase[];
+  /** Эффективная мощь источников, посчитанная сервером (`sheet.sourcePowers`). */
+  sourcePowers?: SpellSourcePowerValue[];
+  /** Предметы-хранилища магии: предел мощи, Объём и текущая мана (`sheet.items`). */
+  items?: ItemStorageValue[];
 }

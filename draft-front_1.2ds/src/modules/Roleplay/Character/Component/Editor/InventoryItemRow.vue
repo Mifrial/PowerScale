@@ -16,14 +16,20 @@ import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaCon
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import type { InventoryCatalogItem } from '@/modules/Roleplay/Character/Dto/Editor/InventoryCatalogItem';
 import type { InventoryRowMode } from '@/modules/Roleplay/Character/Enum/InventoryRowMode';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
+import ItemStorageEditor from '@/modules/Roleplay/Character/Component/Editor/ItemStorageEditor.vue';
+import type { RecordedSpellEntry } from '@/modules/Roleplay/Character/Service/ItemStorageService';
 
 const props = defineProps<{
   item: InventoryCatalogItem;
   /** Правила ревизии (для имён/семей в профилях и блоке владения). */
   rules: Rule[];
+  /** Словарь признаков: ограничение записей кристалла. */
+  keywords?: Keyword[];
   /** Значения характеристик по коду — для оценки профилей оружия. */
   characteristicValues: Map<string, DimensionalNumberValue>;
   /** Шаг перемещения расы — для перевода дистанции в шагах в ипари. */
@@ -55,6 +61,10 @@ const props = defineProps<{
   allowEquip?: boolean;
   /** Прокачка владения и выбор модов. На карточке в этом заходе — выкл. */
   allowAbilityEdit?: boolean;
+  /** Рантайм предмета-хранилища: мана и Объём. */
+  storage?: ItemStorageValue;
+  /** `payload` экземпляра: Объём и записи заклинаний. */
+  payload?: Record<string, unknown>;
 }>();
 
 const emit = defineEmits<{
@@ -67,6 +77,7 @@ const emit = defineEmits<{
   train: [mastery: ItemMasteryView, level: number];
   'open-skills': [familyCode: string, keywordCode: string | null];
   'open-modifiers': [];
+  'set-payload': [key: string, value: unknown];
 }>();
 
 const selectedEffects = computed(() =>
@@ -108,6 +119,17 @@ const canCancel = computed(() => showPurchase.value && props.ownedQty > props.ba
 const params = computed(() =>
   itemWeaponProfilesService.itemParamsView(effectiveSpec.value, props.characteristicValues, props.rules),
 );
+
+/** Блок хранилища магии: Объём и записи заклинаний. */
+const storageSpec = computed(() => effectiveSpec.value?.storage ?? null);
+
+/** Состав записей пишется в `payload` ключом из спеки предмета. */
+function setRecorded(recorded: RecordedSpellEntry[]): void {
+  const key = storageSpec.value?.recorded_parameter;
+  if (!key) return;
+
+  emit('set-payload', key, recorded);
+}
 
 const occupySpec = computed(() => characterHandsService.occupyHandsSpec(effectiveSpec.value));
 const currentOccupyHands = computed(() => props.occupyHands ?? occupySpec.value?.min ?? 0);
@@ -208,6 +230,8 @@ const open = computed({
         <LightChip v-if="item.section" variant="outlined">{{ item.section }}</LightChip>
         <LightChip v-if="item.spec?.innate" color="secondary">врождённое</LightChip>
         <LightChip v-if="mode === 'owned' && ownedQty > 1" variant="outlined">{{ ownedQty }} шт.</LightChip>
+        <LightChip v-if="storage" variant="outlined">мана {{ storage.mana }} / {{ storage.manaMax }}</LightChip>
+        <LightChip v-if="storage" variant="outlined">объём {{ storage.occupied }} / {{ storage.volume }}</LightChip>
         <LightChip v-if="equipped && mode === 'owned'" color="primary">
           экипировано{{ ownedQty > 1 ? `: ${ownedQty}` : '' }}
         </LightChip>
@@ -305,6 +329,17 @@ const open = computed({
         <div v-for="resistance in params.resistanceLabels" :key="resistance" class="param-cell">
           {{ resistance }}
         </div>
+      </div>
+
+      <div v-if="storageSpec && mode === 'owned'" class="item-row__storage">
+        <ItemStorageEditor
+          :payload="payload"
+          :storage="storageSpec"
+          :rules="rules"
+          :keywords="keywords"
+          :can-edit="allowAbilityEdit"
+          @update:recorded="setRecorded"
+        />
       </div>
 
       <div v-if="params?.defenseLines.length" class="item-row__defense">
@@ -440,6 +475,10 @@ const open = computed({
 
 /* Параметры оружия/щита над профилями: одиночные ячейки с пробелами между ними,
    две ячейки блокирования — одна группа без внутреннего пробела; ряд центрируется. */
+.item-row__storage {
+  margin-bottom: 8px;
+}
+
 .item-row__params {
   display: flex;
   flex-wrap: wrap;

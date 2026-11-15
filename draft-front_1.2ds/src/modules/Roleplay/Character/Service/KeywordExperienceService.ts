@@ -100,10 +100,11 @@ export class KeywordExperienceService {
         return [typeof value === 'number' ? value : (cost.costs[String(value)] ?? 0)];
       }
       case 'parameter_sum_tables': {
+        // resolveParameter отдаёт цену текущей ступени параметра (уже с вычетом
+        // бесплатной automatic-ступени расы), поэтому пул — их сумма.
         let sum = 0;
-        for (const [code, table] of Object.entries(cost.tables)) {
-          const value = resolveParameter?.(code) ?? 0;
-          sum += table[String(value)] ?? 0;
+        for (const code of Object.keys(cost.tables)) {
+          sum += resolveParameter?.(code) ?? 0;
         }
 
         return [sum];

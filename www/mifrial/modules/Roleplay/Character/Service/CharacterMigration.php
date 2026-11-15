@@ -9,6 +9,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Dto\Action\MigrateCharacterInput;
 use Mifrial\Roleplay\Character\Dto\CharacterProblem;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
+use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
@@ -16,6 +17,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterSaveRejectedException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
+use Mifrial\Roleplay\Character\Service\Save\CharacterItemInstances;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveAssembly;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveKeys;
 
@@ -29,6 +31,8 @@ final class CharacterMigration
     private readonly CharacterRevisionRemap $remap;
 
     private readonly CharacterMigrationResume $resume;
+
+    private readonly CharacterItemInstances $instances;
 
     /**
      * Собирает сценарий.
@@ -51,6 +55,7 @@ final class CharacterMigration
         $this->keys = new CharacterSaveKeys();
         $this->remap = new CharacterRevisionRemap();
         $this->resume = new CharacterMigrationResume();
+        $this->instances = new CharacterItemInstances();
     }
 
     /**
@@ -76,8 +81,8 @@ final class CharacterMigration
         $this->assertTargetRevision($input->revision, $record);
         $prepared = $this->prepare($input, $record);
         $built = $this->build($record, $input, $prepared);
-        if ($built['problems'] !== []) {
-            return $this->conflicts($input->revision, $built);
+        if ($built['problems'] !== [] || $prepared['itemDiffs'] !== []) {
+            return $this->conflicts($input->revision, $built, $prepared['itemDiffs']);
         }
 
         return $this->savedView(
@@ -183,7 +188,8 @@ final class CharacterMigration
      *     limits: array<mixed>,
      *     money: int,
      *     expectedSheet: array<mixed>|null,
-     *     choices: array<string, mixed>
+     *     choices: array<string, mixed>,
+     *     itemDiffs: array<int, array{label: string, before: string, after: string, tone: string, explanation: string|null}>
      * } Поля сборки.
      *
      * @throws CharacterInvalidException Если продолжение неполное.
@@ -216,7 +222,8 @@ final class CharacterMigration
      *     limits: array<mixed>,
      *     money: int,
      *     expectedSheet: null,
-     *     choices: array<string, mixed>
+     *     choices: array<string, mixed>,
+     *     itemDiffs: array<int, array{label: string, before: string, after: string, tone: string, explanation: string|null}>
      * } Поля сборки.
      *
      * @throws CharacterNotFoundException Если нет ревизии.
@@ -227,10 +234,12 @@ final class CharacterMigration
         $source = $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision());
         $target = $this->ruleSlices->get($record->getSpaceId(), $input->revision);
         $remapped = $this->remap->remap($stored, $source, $target);
-        $choices = $remapped['choices'];
+        $remappedChoices = $remapped['choices'];
+        $preview = $this->instances->preview($target, $remappedChoices);
+        $choices = $preview['choices'];
 
         return [
-            'changed' => $remapped['changed'],
+            'changed' => $remapped['changed'] || $preview['changed'],
             'name' => $this->stringOf($choices, 'name', $record->getName()),
             'raceCode' => $this->stringOf($choices, 'raceCode', ''),
             'abilities' => $this->listOf($choices, 'abilities'),
@@ -242,6 +251,11 @@ final class CharacterMigration
             'money' => $this->sheetMoney($record),
             'expectedSheet' => null,
             'choices' => $this->choiceDocument($choices, $record),
+            'itemDiffs' => $this->itemDiffs(
+                $target,
+                $this->listOf($remappedChoices, 'inventory'),
+                $this->listOf($choices, 'inventory'),
+            ),
         ];
     }
 
@@ -289,18 +303,213 @@ final class CharacterMigration
      *
      * @param int $revision Целевая ревизия.
      * @param array{problems: array<int, CharacterProblem>, choices: array<string, mixed>, sheet: array<string, mixed>} $built Сборка.
+     * @param array<int, array{label: string, before: string, after: string, tone: string, explanation: string|null}> $diffs
+     *     Изменения состава, требующие редактора.
      *
      * @return array<string, mixed> Отчёт.
      */
-    private function conflicts(int $revision, array $built): array
+    private function conflicts(int $revision, array $built, array $diffs = []): array
     {
         return [
             'kind' => 'conflicts',
             'problems' => CharacterSaveRejectedException::rows($built['problems']),
+            'diffs' => $diffs,
             'revision' => $revision,
             'choices' => $built['choices'],
             'sheet' => $built['sheet'],
         ];
+    }
+
+    /**
+     * Изменения состава инвентаря между ремапом и предпросмотром выдачи.
+     *
+     * @param CharacterRuleSlice $slice Целевая ревизия.
+     * @param array<mixed> $before До предпросмотра.
+     * @param array<mixed> $after После предпросмотра.
+     *
+     * @return array<int, array{label: string, before: string, after: string, tone: string, explanation: string|null}>
+     *     Изменения.
+     */
+    private function itemDiffs(CharacterRuleSlice $slice, array $before, array $after): array
+    {
+        $beforeById = $this->itemsById($before);
+        $afterById = $this->itemsById($after);
+        $diffs = [];
+        foreach ($afterById as $id => $item) {
+            $old = $beforeById[$id] ?? null;
+            if ($old === null) {
+                if ($this->donorOf($item) === '') {
+                    continue;
+                }
+
+                $diffs[] = $this->itemDiff(
+                    'Инвентарь',
+                    '—',
+                    $this->itemLabel($slice, $item),
+                    'green',
+                    'предмет выдан способностью',
+                );
+                continue;
+            }
+
+            if ($this->donorOf($old) === '' && $this->donorOf($item) === '') {
+                continue;
+            }
+
+            if ($this->itemState($old) === $this->itemState($item)) {
+                continue;
+            }
+
+            $diffs[] = $this->itemDiff(
+                $this->itemLabel($slice, $item),
+                $this->itemLabel($slice, $old),
+                $this->itemLabel($slice, $item),
+                'changed',
+                'привязка экземпляра',
+            );
+        }
+
+        foreach ($beforeById as $id => $item) {
+            if (isset($afterById[$id]) || $this->donorOf($item) === '') {
+                continue;
+            }
+
+            $diffs[] = $this->itemDiff(
+                'Инвентарь',
+                $this->itemLabel($slice, $item),
+                '—',
+                'red',
+                'предмет потерян',
+            );
+        }
+
+        return $diffs;
+    }
+
+    /**
+     * Строки инвентаря по id.
+     *
+     * @param array<mixed> $inventory Строки.
+     *
+     * @return array<int, array<string, mixed>> Id → строка.
+     */
+    private function itemsById(array $inventory): array
+    {
+        $rows = [];
+        foreach ($inventory as $item) {
+            if (is_array($item) && is_int($item['id'] ?? null)) {
+                $rows[$item['id']] = $item;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Состояние выданной строки без учёта порядка ключей.
+     *
+     * @param array<string, mixed> $item Строка.
+     *
+     * @return string Отпечаток.
+     */
+    private function itemState(array $item): string
+    {
+        $parameters = json_encode($item['parameters'] ?? null);
+
+        return ($parameters === false ? '' : $parameters) . '|' . $this->donorOf($item);
+    }
+
+    /**
+     * Код донора строки.
+     *
+     * @param array<string, mixed> $item Строка.
+     *
+     * @return string Код или пустая строка.
+     */
+    private function donorOf(array $item): string
+    {
+        $grant = is_array($item['grantedBy'] ?? null) ? $item['grantedBy'] : [];
+        $donor = $grant['ruleCode'] ?? null;
+
+        return is_string($donor) ? $donor : '';
+    }
+
+    /**
+     * Подпись строки инвентаря с параметрами экземпляра.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $item Строка.
+     *
+     * @return string Подпись.
+     */
+    private function itemLabel(CharacterRuleSlice $slice, array $item): string
+    {
+        $code = is_string($item['ruleCode'] ?? null) ? $item['ruleCode'] : '';
+        $rule = $code === '' ? null : $slice->findLive($code);
+        $custom = is_array($item['custom'] ?? null) ? $item['custom'] : [];
+        $name = $rule !== null
+            ? $rule->getName()
+            : (is_string($custom['name'] ?? null) ? $custom['name'] : $code);
+        $values = [];
+        foreach (is_array($item['parameters'] ?? null) ? $item['parameters'] : [] as $value) {
+            if (is_array($value)) {
+                $values[] = $this->dimensionalText($value);
+            }
+        }
+
+        return $values === [] ? $name : $name . ' ' . implode(', ', $values);
+    }
+
+    /**
+     * Одна строка диффа.
+     *
+     * @param string $label Подпись.
+     * @param string $before До.
+     * @param string $after После.
+     * @param string $tone Тон.
+     * @param string|null $explanation Пояснение.
+     *
+     * @return array{label: string, before: string, after: string, tone: string, explanation: string|null} Строка.
+     */
+    private function itemDiff(
+        string $label,
+        string $before,
+        string $after,
+        string $tone,
+        ?string $explanation,
+    ): array {
+        return [
+            'label' => $label,
+            'before' => $before,
+            'after' => $after,
+            'tone' => $tone,
+            'explanation' => $explanation,
+        ];
+    }
+
+    /**
+     * Размерное число в текст формата фронта: 4, 4↓, 3↑2.
+     *
+     * @param array<string, mixed> $value Значение.
+     *
+     * @return string Текст.
+     */
+    private function dimensionalText(array $value): string
+    {
+        if (!is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+            return '?';
+        }
+
+        $base = (string) $value['base'];
+        $size = $value['size'];
+        if ($size === 0) {
+            return $base;
+        }
+
+        $arrow = $size > 0 ? '↑' : '↓';
+        $power = abs($size);
+
+        return $base . $arrow . ($power > 1 ? (string) $power : '');
     }
 
     /**

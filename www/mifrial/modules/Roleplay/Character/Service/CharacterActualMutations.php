@@ -161,8 +161,9 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $sheet = $this->resourceCurrents($sheet, $slice, $operations);
         $sheet = $this->refillTurnResources($sheet, $slice, $operations);
         $sheet = $this->refillCheckTokenResources($sheet, $slice, $operations);
+        $sheet = $this->itemMana($this->moneyOnSheet($sheet, $operations, $choices), $operations);
         $sheet = $this->stateRows->append(
-            $this->moneyOnSheet($sheet, $operations, $choices),
+            $sheet,
             $operations,
             $slice,
         );
@@ -364,6 +365,12 @@ final class CharacterActualMutations implements ICharacterActualMutations
             return $this->applyMoney($choices, $operation);
         }
 
+        if ($kind === 'spendItemMana' || $kind === 'refillItemMana') {
+            $this->assertItemManaShape($operation);
+
+            return $choices;
+        }
+
         if ($kind === 'putState') {
             $this->stateRows->accept($operation);
 
@@ -460,6 +467,73 @@ final class CharacterActualMutations implements ICharacterActualMutations
             if (is_array($operation) && ($operation['kind'] ?? null) === 'setMoney') {
                 $sheet['money'] = $choices['money'];
             }
+        }
+
+        return $sheet;
+    }
+
+    /**
+     * Форма операции списания маны предмета.
+     *
+     * @param mixed $operation Операция.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если форма чужая.
+     */
+    private function assertItemManaShape(mixed $operation): void
+    {
+        $sourceKey = is_array($operation) ? ($operation['sourceKey'] ?? null) : null;
+        $amount = is_array($operation) ? ($operation['amount'] ?? null) : null;
+        if (!is_string($sourceKey) || $sourceKey === '' || !is_int($amount) || $amount < 0) {
+            throw new CharacterInvalidException('Character item mana operation is invalid');
+        }
+    }
+
+    /**
+     * Меняет ману предметов-хранилищ: списание и пополнение до лимита.
+     *
+     * @param array<string, mixed> $sheet Sheet.
+     * @param array<int, mixed> $operations Операции.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException Если строки нет или маны мало.
+     */
+    private function itemMana(array $sheet, array $operations): array
+    {
+        foreach ($operations as $operation) {
+            if (!is_array($operation)) {
+                continue;
+            }
+
+            $kind = $operation['kind'] ?? null;
+            if ($kind !== 'spendItemMana' && $kind !== 'refillItemMana') {
+                continue;
+            }
+
+            $sourceKey = $operation['sourceKey'];
+            $amount = $operation['amount'];
+            $items = $sheet['items'] ?? null;
+            $row = is_array($items) ? ($items[$sourceKey] ?? null) : null;
+            if (!is_array($row)) {
+                throw new CharacterInvalidException('Character item mana source is missing');
+            }
+
+            $before = is_int($row['mana'] ?? null) ? $row['mana'] : 0;
+            if ($kind === 'spendItemMana') {
+                if ($amount > $before) {
+                    throw new CharacterInvalidException('Character item mana is not enough');
+                }
+
+                $after = $before - $amount;
+            } else {
+                $max = is_int($row['manaMax'] ?? null) ? $row['manaMax'] : $before;
+                $after = min($max, $before + $amount);
+            }
+
+            $items[$sourceKey] = [...$row, 'mana' => $after];
+            $sheet['items'] = $items;
         }
 
         return $sheet;

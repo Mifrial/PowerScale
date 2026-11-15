@@ -67,6 +67,46 @@ final class CharacterRaceAbilityCodes
     }
 
     /**
+     * Автоматические ссылки расы с параметрами-парами: код способности → параметр → пара.
+     *
+     * Значение `automatic` — то, с которым раса даёт способность (кристалл 4↓);
+     * его же использует выдача предмета-гранта, если экземпляр параметр не задал.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string|null $raceCode Код расы.
+     *
+     * @return array<string, array<string, array{base: int, size: int}>> Значения.
+     */
+    public function getAutomaticParameters(CharacterRuleSlice $slice, ?string $raceCode): array
+    {
+        if ($raceCode === null) {
+            return [];
+        }
+
+        $race = $slice->findLive($raceCode);
+        if ($race === null || $race->getType() !== 'race') {
+            return [];
+        }
+
+        $values = [];
+        foreach ($this->collectRefs($slice, $raceCode, $race->getType(), []) as $ref) {
+            $code = $ref->getAbilityCode();
+            if (!$ref->isAutomatic() || $code === '' || isset($values[$code])) {
+                continue;
+            }
+
+            $parameters = [];
+            foreach ($ref->getParameters() as $parameterCode => $number) {
+                $parameters[$parameterCode] = ['base' => $number->getBase(), 'size' => $number->getSize()];
+            }
+
+            $values[$code] = $parameters;
+        }
+
+        return $values;
+    }
+
+    /**
      * Скаляры параметров ссылки расы на способность. Нет ссылки — пусто.
      *
      * @param CharacterRuleSlice $slice Срез.

@@ -209,10 +209,10 @@ describe('CharacterOverviewService: формулы атак', () => {
         ...(rules[1]!.spec as object),
         occupy_hands: { min: 1, max: 2 },
         weapon: {
-          ...((rules[1]!.spec as { weapon: object }).weapon),
+          ...(rules[1]!.spec as { weapon: object }).weapon,
           weapon_profiles: [
             {
-              ...(((rules[1]!.spec as { weapon: { weapon_profiles: object[] } }).weapon.weapon_profiles[0]) as object),
+              ...((rules[1]!.spec as { weapon: { weapon_profiles: object[] } }).weapon.weapon_profiles[0] as object),
               damage: {
                 formula: {
                   type: 'actionCharacteristic',

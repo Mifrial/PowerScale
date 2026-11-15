@@ -27,7 +27,19 @@ const props = defineProps<{
 
 const draftStore = useCharacterDraftStore();
 const confirmDialog = ref(false);
+const pendingLoss = ref<RaceChangeLoss | null>(null);
 const collapsedKeys = ref<Set<string>>(new Set());
+
+/** Что сбросится при смене расы: имена способностей, предметов и число покупок характеристик. */
+interface RaceChangeLoss {
+  abilities: string[];
+  items: string[];
+  purchases: number;
+}
+
+function hasLoss(loss: RaceChangeLoss): boolean {
+  return loss.abilities.length > 0 || loss.items.length > 0 || loss.purchases > 0;
+}
 
 function toggleCollapse(key: string): void {
   const next = new Set(collapsedKeys.value);
@@ -237,10 +249,28 @@ const selectedAccessAbilities = computed<AbilityEntry[]>(() => {
 
 const isSelected = computed(() => props.build.raceRuleCode === selectedRaceId.value);
 
+/** Что потеряется, если применить выбранную расу. Показывает конкретные способности и предметы. */
+function lossOf(ruleCode: string): RaceChangeLoss {
+  const next = characterBuildService.applyRace(props.build, ruleCode, props.rules, props.config, props.keywords);
+  const keptAbilities = new Set(next.abilities.map((ability) => ability.ruleCode));
+  const lostAbilities = props.build.abilities.filter((ability) => !keptAbilities.has(ability.ruleCode));
+  const keptItems = new Set(next.inventory.map((item) => item.id));
+  const lostItems = props.build.inventory.filter((item) => !keptItems.has(item.id));
+  const nameOf = (code: string | null): string =>
+    (code ? byCode.value.get(code)?.name : null) ?? code ?? 'предмет мастера';
+
+  return {
+    abilities: [...new Set(lostAbilities.map((ability) => nameOf(ability.ruleCode)))],
+    items: [...new Set(lostItems.map((item) => nameOf(item.ruleCode)))],
+    purchases: Math.max(0, props.build.characteristicPurchases.length - next.characteristicPurchases.length),
+  };
+}
+
 function chooseRace(): void {
   if (!selectedRaceId.value || isSelected.value) return;
-  const hasChoices = props.build.abilities.length > 0 || props.build.characteristicPurchases.length > 0;
-  if (hasChoices) {
+  const loss = lossOf(selectedRaceId.value);
+  if (hasLoss(loss)) {
+    pendingLoss.value = loss;
     confirmDialog.value = true;
 
     return;
@@ -251,6 +281,7 @@ function chooseRace(): void {
 function confirmRaceChange(): void {
   if (selectedRaceId.value) applyRace(selectedRaceId.value);
   confirmDialog.value = false;
+  pendingLoss.value = null;
 }
 
 function applyRace(ruleCode: string): void {
@@ -374,11 +405,17 @@ function applyRace(ruleCode: string): void {
         </v-card>
       </div>
 
-      <v-dialog v-model="confirmDialog" max-width="420">
+      <v-dialog v-model="confirmDialog" max-width="480">
         <v-card>
           <v-card-title>Смена расы</v-card-title>
           <v-card-text>
-            При смене расы будут сброшены несовместимые покупки характеристик и способности. Продолжить?
+            <p class="mb-2">При смене расы будут сброшены:</p>
+            <ul v-if="pendingLoss" class="loss-list">
+              <li v-if="pendingLoss.abilities.length">Способности: {{ pendingLoss.abilities.join(', ') }}</li>
+              <li v-if="pendingLoss.items.length">Предметы: {{ pendingLoss.items.join(', ') }}</li>
+              <li v-if="pendingLoss.purchases > 0">Покупки характеристик: {{ pendingLoss.purchases }}</li>
+            </ul>
+            <p class="mt-2 mb-0">Продолжить?</p>
           </v-card-text>
           <v-card-actions>
             <v-spacer />
@@ -483,6 +520,11 @@ function applyRace(ruleCode: string): void {
 
 .muted-text {
   color: rgba(var(--v-theme-on-surface), 0.72);
+}
+
+.loss-list {
+  margin: 0;
+  padding-left: 20px;
 }
 
 @media (max-width: 960px) {

@@ -1,5 +1,6 @@
 import type { InventoryItemType } from '@/modules/Roleplay/Character/Enum/InventoryItemType';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 
 export type InventoryCatalogItem = {
   ruleCode: string;
@@ -12,4 +13,6 @@ export type InventoryCatalogItem = {
   spec: ItemSpec | undefined;
   featureKeywords: { id: number; name: string }[];
   keywordIds: number[];
+  /** Рантайм хранилища (`sheet.items`) для строки инвентаря. */
+  storage?: ItemStorageValue;
 };

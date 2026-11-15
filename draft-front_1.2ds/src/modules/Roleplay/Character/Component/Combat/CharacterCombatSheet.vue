@@ -134,6 +134,7 @@ function onSetOccupyHands(itemId: number, occupyHands: number): void {
     :can-edit="canEdit"
     :on-toggle-equipped="onToggleEquipped"
     :on-set-occupy-hands="onSetOccupyHands"
+    :storage-items="version?.items ?? []"
     list-height="calc(100vh - 160px)"
   />
   <div v-else-if="pane === 'inventory'" class="text-medium-emphasis text-body-2 pa-4">Инвентарь недоступен</div>
@@ -143,6 +144,7 @@ function onSetOccupyHands(itemId: number, occupyHands: number): void {
     v-model:open="ruleSlider.state.open"
     :rule-code="ruleSlider.state.ruleCode"
     :space-id="spaceId"
+    :space-code="version?.spaceCode ?? null"
     :rules-revision="rulesRevision"
     :rules="rules"
     :keywords="keywords"

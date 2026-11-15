@@ -4,13 +4,27 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service;
 
+use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
 
 /**
  * Перенос choices на целевой срез по code. Записи не делает.
  */
 final class CharacterRevisionRemap
 {
+    private readonly CharacterRaceAbilityCodes $raceAbilityCodes;
+
+    /**
+     * Создаёт переносчик.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->raceAbilityCodes = new CharacterRaceAbilityCodes();
+    }
+
     /**
      * Собирает choices целевой ревизии из сохранённых.
      *
@@ -24,8 +38,12 @@ final class CharacterRevisionRemap
     {
         $changed = false;
         $raceCode = $this->raceCode($stored, $target, $changed);
-        $abilities = $this->abilities($this->rows($stored, 'abilities'), $target, $changed);
-        $inventory = $this->inventory($this->rows($stored, 'inventory'), $source, $target, $changed);
+        $allowed = array_fill_keys(
+            $this->raceAbilityCodes->getCodes($target, $raceCode === '' ? null : $raceCode),
+            true,
+        );
+        $abilities = $this->abilities($this->rows($stored, 'abilities'), $target, $allowed, $changed);
+        $inventory = $this->inventory($this->rows($stored, 'inventory'), $source, $target, $allowed, $changed);
         $choices = $stored;
         $choices['raceCode'] = $raceCode;
         $choices['abilities'] = $abilities;
@@ -65,13 +83,17 @@ final class CharacterRevisionRemap
     /**
      * Способности с живым code. Остальные строки снимаются.
      *
+     * Дар (`gift` — «Ядро X»/«Кристалл X») снимается и тогда, когда правила
+     * живое, но раса на него больше не ссылается.
+     *
      * @param array<mixed> $abilities Список.
      * @param CharacterRuleSlice $target Срез цели.
+     * @param array<string, true> $allowed Ссылки расы.
      * @param bool $changed Признак правки.
      *
      * @return array<int, mixed> Список.
      */
-    private function abilities(array $abilities, CharacterRuleSlice $target, bool &$changed): array
+    private function abilities(array $abilities, CharacterRuleSlice $target, array $allowed, bool &$changed): array
     {
         $rows = [];
         foreach ($abilities as $ability) {
@@ -81,7 +103,13 @@ final class CharacterRevisionRemap
             }
 
             $ruleCode = $ability['ruleCode'] ?? null;
-            if (is_string($ruleCode) && $target->findLive($ruleCode) === null) {
+            if (!is_string($ruleCode)) {
+                $rows[] = $ability;
+                continue;
+            }
+
+            $rule = $target->findLive($ruleCode);
+            if ($rule === null || $this->isUnavailableGift($rule, $allowed)) {
                 $changed = true;
                 continue;
             }
@@ -93,11 +121,26 @@ final class CharacterRevisionRemap
     }
 
     /**
+     * Дар, на который раса не ссылается.
+     *
+     * @param CharacterResolvedRule $rule Правило.
+     * @param array<string, true> $allowed Ссылки расы.
+     *
+     * @return bool true, если дар недоступен.
+     */
+    private function isUnavailableGift(CharacterResolvedRule $rule, array $allowed): bool
+    {
+        return !isset($allowed[$rule->getCode()])
+            && in_array('gift', $rule->getKeywordCodes(), true);
+    }
+
+    /**
      * Живой предмет остаётся. Без живого code — custom с именем исходного правила.
      *
      * @param array<mixed> $inventory Список.
      * @param CharacterRuleSlice $source Срез источника.
      * @param CharacterRuleSlice $target Срез цели.
+     * @param array<string, true> $allowed Ссылки расы.
      * @param bool $changed Признак правки.
      *
      * @return array<int, mixed> Список.
@@ -106,6 +149,7 @@ final class CharacterRevisionRemap
         array $inventory,
         CharacterRuleSlice $source,
         CharacterRuleSlice $target,
+        array $allowed,
         bool &$changed,
     ): array {
         $rows = [];
@@ -115,7 +159,10 @@ final class CharacterRevisionRemap
                 continue;
             }
 
-            $rows[] = $this->item($item, $source, $target, $changed);
+            $next = $this->item($item, $source, $target, $allowed, $changed);
+            if ($next !== null) {
+                $rows[] = $next;
+            }
         }
 
         return $rows;
@@ -127,12 +174,24 @@ final class CharacterRevisionRemap
      * @param array<mixed> $item Строка.
      * @param CharacterRuleSlice $source Срез источника.
      * @param CharacterRuleSlice $target Срез цели.
+     * @param array<string, true> $allowed Ссылки расы.
      * @param bool $changed Признак правки.
      *
-     * @return array<mixed> Строка.
+     * @return array<mixed>|null Строка или null, если предмет выдан снятым даром.
      */
-    private function item(array $item, CharacterRuleSlice $source, CharacterRuleSlice $target, bool &$changed): array
-    {
+    private function item(
+        array $item,
+        CharacterRuleSlice $source,
+        CharacterRuleSlice $target,
+        array $allowed,
+        bool &$changed,
+    ): ?array {
+        if ($this->hasUnavailableGiftDonor($item, $target, $allowed)) {
+            $changed = true;
+
+            return null;
+        }
+
         $ruleCode = $item['ruleCode'] ?? null;
         if (!is_string($ruleCode)) {
             return $item;
@@ -151,6 +210,28 @@ final class CharacterRevisionRemap
         ];
 
         return $item;
+    }
+
+    /**
+     * Предмет выдан даром, на который раса больше не ссылается.
+     *
+     * @param array<mixed> $item Строка.
+     * @param CharacterRuleSlice $target Срез цели.
+     * @param array<string, true> $allowed Ссылки расы.
+     *
+     * @return bool true, если предмет нужно снять.
+     */
+    private function hasUnavailableGiftDonor(array $item, CharacterRuleSlice $target, array $allowed): bool
+    {
+        $grant = is_array($item['grantedBy'] ?? null) ? $item['grantedBy'] : [];
+        $donor = $grant['ruleCode'] ?? null;
+        if (!is_string($donor) || $donor === '') {
+            return false;
+        }
+
+        $rule = $target->findLive($donor);
+
+        return $rule !== null && $this->isUnavailableGift($rule, $allowed);
     }
 
     /**

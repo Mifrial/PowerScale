@@ -150,6 +150,47 @@ const rules: Rule[] = [
     parent_ability_code: null,
     parameters: [{ code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1) }],
   }),
+  base(null, 'magic-crystal-capacity', 'ability', 'Кристалл', {
+    type: 'trait',
+    zones: {
+      os: {
+        kind: 'parameter_sum_tables',
+        max_level: 205,
+        tables: {
+          x: { '3': 4, '4': 6, '5': 8 },
+          volume: { '20': 0, '30': 1, '40': 2 },
+        },
+      },
+    },
+    requirements: [],
+    grants: [
+      {
+        level: 1,
+        grants: [
+          {
+            type: 'item',
+            item_code: 'magic-crystal',
+            quantity: 1,
+            parameters: { max_power: 'x' },
+            payload: { volume: 'volume' },
+          },
+        ],
+      },
+    ],
+    parent_ability_code: null,
+    parameters: [
+      {
+        code: 'x',
+        label: 'Мощь',
+        kind: 'dimensional',
+        resolution: 'purchase',
+        default: dim(3),
+        min: dim(3, -1),
+        max: dim(5, 1),
+      },
+      { code: 'volume', label: 'Объём', kind: 'scalar', resolution: 'purchase', default: 20, min: 20, max: 200 },
+    ],
+  }),
   base(null, 'mobility', 'ability', 'Манёвренность', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [2, 2] } },
@@ -363,6 +404,111 @@ describe('CharacterEditorService.build', () => {
     expect(zone?.levelCosts).toEqual([6]);
   });
 
+  it('кристалл: мощность и Объём покупаются одним пулом, цена складывается', () => {
+    const model = service.build(
+      makeBuild({
+        abilities: [
+          { ruleCode: 'magic-crystal-capacity', level: 24, parameters: { x: dim(4), volume: 30 } },
+        ],
+      }),
+      rules,
+      config,
+    );
+
+    const crystal = model.abilities.find((entry) => entry.code === 'magic-crystal-capacity');
+    expect(crystal?.zones[0]?.levelCosts).toEqual([7]); // мощь 6 + Объём 30 → 1
+    expect(crystal?.parameters.map((parameter) => parameter.value.base)).toEqual([4, 30]);
+    expect(model.budgets.os.spent).toBe(7);
+  });
+
+  it('дар без ссылки расы скрыт, automatic-ссылка даёт его с базой 4↓', () => {
+    const giftKeyword: Keyword = { id: 60, code: 'gift', name: 'Дар', description: '', active: true };
+    const characteristicKeyword: Keyword = {
+      id: 61,
+      code: 'characteristic',
+      name: 'Характеристика',
+      description: '',
+      active: true,
+    };
+    const crystal: Rule = {
+      ...base(null, 'magic-crystal-capacity', 'ability', 'Кристалл X', {
+        type: 'trait',
+        zones: {
+          os: {
+            kind: 'parameter_sum_tables',
+            max_level: 205,
+            tables: {
+              x: { '3': 4, '4': 6, '5': 8, '3↓': 1, '4↓': 2, '5↓': 3 },
+              volume: { '20': 0, '30': 1, '40': 2 },
+            },
+          },
+        },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        parameters: [
+          {
+            code: 'x',
+            label: 'Мощь',
+            kind: 'dimensional',
+            resolution: 'purchase',
+            default: dim(3),
+            min: dim(3, -1),
+            max: dim(5, 1),
+          },
+          { code: 'volume', label: 'Объём', kind: 'scalar', resolution: 'purchase', default: 20, min: 20, max: 200 },
+        ],
+      }),
+      keywordIds: [60, 61],
+    };
+    const yappi: Rule = base(null, 'yappi', 'race', 'Яппи', {
+      parent_race_code: null,
+      cost_os: 0,
+      characteristics: [],
+      abilities: [
+        {
+          ability_code: 'magic-crystal-capacity',
+          automatic: true,
+          parameters: { x: dim(4, -1) },
+        },
+        {
+          ability_code: 'magic-crystal-capacity',
+          automatic: false,
+          parameters: { x: dim(5) },
+        },
+      ],
+    });
+    const giftRules = [...rules.filter((rule) => rule.code !== 'magic-crystal-capacity'), crystal, yappi];
+    const keywords = [giftKeyword, characteristicKeyword];
+
+    const withoutRace = service.build(makeBuild(), giftRules, config, keywords);
+    expect(withoutRace.abilities.find((item) => item.code === 'magic-crystal-capacity')?.visible).toBe(false);
+
+    const withRace = service.build(makeBuild({ raceRuleCode: 'yappi' }), giftRules, config, keywords);
+    const gift = withRace.abilities.find((item) => item.code === 'magic-crystal-capacity');
+    expect(gift?.visible).toBe(true);
+    expect(gift?.automatic).toBe(true);
+    expect(gift?.parameters[0].value).toEqual(dim(4, -1));
+    expect(gift?.parameters[0].min).toEqual(dim(4, -1));
+    expect(gift?.parameters[0].freeStepCost).toBe(2);
+    expect(gift?.parameters[0].max).toEqual(dim(5));
+
+    // Взяли только Объём: мощь остаётся automatic-базой 4↓ и не оплачивается, Объём 30 → 1 ОС.
+    const volumeOnly = service.build(
+      makeBuild({
+        raceRuleCode: 'yappi',
+        abilities: [{ ruleCode: 'magic-crystal-capacity', level: 30, parameters: { volume: dim(30) } }],
+      }),
+      giftRules,
+      config,
+      keywords,
+    );
+    expect(volumeOnly.budgets.os.spent).toBe(1);
+    expect(volumeOnly.abilities.find((item) => item.code === 'magic-crystal-capacity')?.parameters[0].value).toEqual(
+      dim(4, -1),
+    );
+  });
+
   it('механика «Общие»: 3-я и последующие общие черты доплачивают +2 ОС к os.spent', () => {
     const commonKeyword: Keyword = { id: 20, code: 'common', name: 'Общая', description: '', active: true };
     const surchargeMechanic: Mechanic = {
@@ -509,6 +655,67 @@ describe('CharacterEditorService.toVersion', () => {
     const dexterity = version.characteristics.find((c) => c.ruleCode === 'dexterity');
     expect(dexterity?.base).toEqual(dim(4));
     expect(dexterity?.modifiers[0]).toMatchObject({ delta: 1 });
+  });
+});
+
+describe('CharacterEditorService: мощь источника', () => {
+  const flowRules: Rule[] = [
+    ...rules,
+    base(null, 'magic-power', 'characteristic', 'Магическая мощь', {
+      type: 'characteristic',
+      group: 'magic',
+    }),
+    base(null, 'magic-core', 'item', 'Магическое ядро', {
+      type: 'item',
+      category: 'equipment',
+      cost_gm: null,
+      weight: null,
+      innate: true,
+      special_rule_codes: [],
+      grants: [
+        {
+          type: 'characteristic_parameter',
+          characteristic_code: 'magic-power',
+          parameter_code: 'power',
+          per_unit: 1,
+          permanent: true,
+        },
+      ],
+    }),
+    base(null, 'core-flow-optimization', 'ability', 'Оптимизация потоков', {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      spell_source_power: {
+        scope: { kind: 'item', item_code: 'magic-core' },
+        path_scoped: true,
+        amount: { type: 'ability_level', ability_code: 'core-flow-optimization', multiplier: 1 },
+      },
+    }),
+  ];
+
+  it('добавляет бонус spell_source_power к мощи ядра в листе', () => {
+    const build = makeBuild({
+      raceRuleCode: 'human',
+      abilities: [ability('core-flow-optimization', 1)],
+      inventory: [
+        {
+          id: 5,
+          ruleCode: 'magic-core',
+          quantity: 1,
+          equipped: true,
+          parameters: { power: dim(4) },
+        },
+      ],
+    });
+    const model = service.build(build, flowRules, config);
+    const magicPower = model.characteristics.find((row) => row.code === 'magic-power');
+
+    expect(magicPower?.base).toEqual(dim(4));
+    expect(magicPower?.delta).toBe(1);
+    expect(magicPower?.value).toEqual(dim(5));
   });
 });
 

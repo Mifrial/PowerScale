@@ -5,7 +5,12 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 /** Имена и источники ссылок на правила ревизии — без бросков (RollEngine живёт в Game). */
 export class CharacterChatRulesContextService {
-  build(rules: Rule[], spaceId?: number | null, rulesRevision?: number | null): ChatRulesContext {
+  build(
+    rules: Rule[],
+    spaceId?: number | null,
+    rulesRevision?: number | null,
+    spaceCode?: string | null,
+  ): ChatRulesContext {
     const tokenLabels: Record<string, string> = {};
     for (const rule of rules) tokenLabels[rule.code] = rule.name;
 
@@ -31,6 +36,7 @@ export class CharacterChatRulesContextService {
       tokenSources,
       processAttachments: (attachments) => attachments,
       spaceId,
+      spaceCode,
       rulesRevision,
     };
   }

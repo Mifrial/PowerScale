@@ -10,14 +10,23 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
+import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { grantedItemService } from '@/modules/Roleplay/Character/Service/GrantedItemService';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 
 export type MigrationProblemKind =
-  'removedRule' | 'raceRemoved' | 'raceBroken' | 'lostCharacteristic' | 'unmetRequirement' | 'budgetOverrun';
+  | 'removedRule'
+  | 'raceRemoved'
+  | 'raceBroken'
+  | 'lostCharacteristic'
+  | 'unmetRequirement'
+  | 'unavailableGift'
+  | 'budgetOverrun';
 
 /** Проблема миграции: удалённое правило, снятая раса, потерянные характеристики, требования, перерасход. */
 export interface MigrationProblem {
@@ -198,15 +207,44 @@ export class CharacterMigrationService {
       budgets: { osTotal: input.effectiveLimits.osTotal, moneyBudget: input.effectiveLimits.moneyBudget },
     };
 
+    // Дар, на который раса в новой ревизии не ссылается, снимается: «Ядро X»/«Кристалл X»
+    // без ссылки расы нелегален, даже если правило живое.
+    const unavailableGifts = this.unavailableGifts(migrated, input);
+    const unavailableGiftCodes = new Set(unavailableGifts.map((entry) => entry.code));
+    const withAvailableGifts: CharacterVersion =
+      unavailableGiftCodes.size > 0
+        ? {
+            ...migrated,
+            abilities: migrated.abilities.filter((ability) => !unavailableGiftCodes.has(ability.ruleCode)),
+          }
+        : migrated;
+    for (const gift of unavailableGifts) {
+      problems.push({
+        kind: 'unavailableGift',
+        label: gift.label,
+        detail: 'Раса не даёт этот дар в новой версии правил',
+      });
+    }
+
     // Способности с невыполненными требованиями сбрасываются (конфликт-редактор открывается уже без них).
-    const droppedAbilities = this.unmetAbilities(migrated, input);
+    const droppedAbilities = this.unmetAbilities(withAvailableGifts, input);
     const droppedCodes = new Set(droppedAbilities.map((entry) => entry.code));
-    const finalAbilities = migrated.abilities.filter((ability) => !droppedCodes.has(ability.ruleCode));
+    const finalAbilities = withAvailableGifts.abilities.filter((ability) => !droppedCodes.has(ability.ruleCode));
     for (const dropped of droppedAbilities) {
       problems.push({ kind: 'unmetRequirement', label: dropped.label, detail: dropped.reason });
     }
 
-    const finalVersion: CharacterVersion = { ...migrated, abilities: finalAbilities };
+    const finalVersion: CharacterVersion = { ...withAvailableGifts, abilities: finalAbilities };
+
+    // Предметы, выданные способностями (ядро), материализуются как в редакторе: миграция их
+    // не записывает, но показывает в отчёте и отправляет персонажа в редактор.
+    const grantedVersion: CharacterVersion = {
+      ...finalVersion,
+      inventory: grantedItemService.apply(
+        characterBuildService.fromVersion(finalVersion, input.newSpaceId, newRules),
+        newRules,
+      ).inventory,
+    };
 
     const config = this.configOf(input.effectiveLimits);
     const oldModel = characterEditorService.build(
@@ -217,7 +255,7 @@ export class CharacterMigrationService {
       input.mechanics ?? [],
     );
     const newModel = characterEditorService.build(
-      characterBuildService.fromVersion(finalVersion, input.newSpaceId, newRules),
+      characterBuildService.fromVersion(grantedVersion, input.newSpaceId, newRules),
       newRules,
       config,
       input.keywords ?? [],
@@ -227,13 +265,14 @@ export class CharacterMigrationService {
     const codeById = new Map(oldRules.map((rule) => [rule.code, rule.code]));
     const newCodeById = new Map(newRules.map((rule) => [rule.code, rule.code]));
     const abilityChanges = this.abilityChanges(oldModel, newModel, oldRules, newRules, codeById, newCodeById);
-    const diffs = this.diffsOf(oldModel, newModel, codeById, newCodeById, abilityChanges);
+    const inventoryDiffs = this.inventoryDiffs(version, grantedVersion, oldRules, newRules);
+    const diffs = [...inventoryDiffs, ...this.diffsOf(oldModel, newModel, codeById, newCodeById, abilityChanges)];
 
     // Хранящиеся характеристики, которые новая модель не может вывести (раса не даёт базу) —
     // персонаж их потеряет в редакторе. Если теряется вся база — раса некорректна, сбрасываем её.
     const lostProblems = this.lostCharacteristicProblems(finalVersion, newModel, oldRules, newCodeById, newRules);
     const brokenRace = lostProblems.some((problem) => problem.kind === 'raceBroken');
-    const finalWithRace = brokenRace ? { ...finalVersion, raceRuleCode: null } : finalVersion;
+    const finalWithRace = brokenRace ? { ...grantedVersion, raceRuleCode: null } : grantedVersion;
     problems.push(...lostProblems);
 
     const budgetOverruns: MigrationProblem[] = [];
@@ -249,7 +288,7 @@ export class CharacterMigrationService {
     }
 
     const allProblems = [...problems, ...budgetOverruns];
-    const hasConflicts = allProblems.length > 0;
+    const hasConflicts = allProblems.length > 0 || inventoryDiffs.length > 0;
     const kind: MigrationKind = hasConflicts
       ? 'conflicts'
       : diffs.length > 0 || abilityChanges.length > 0 || convertedItems > 0
@@ -292,7 +331,9 @@ export class CharacterMigrationService {
     );
     const newModel = characterEditorService.build(draftBuild, newRules, config, keywords ?? [], mechanics ?? []);
     const abilities = this.abilityChanges(oldModel, newModel, oldRules, newRules, oldCodeById, newCodeById);
-    const diffs = this.diffsOf(oldModel, newModel, oldCodeById, newCodeById, abilities);
+    const version = characterEditorService.toVersion(draftBuild, newRules, config, keywords ?? [], mechanics ?? []);
+    const inventoryDiffs = this.inventoryDiffs(originalVersion, version, oldRules, newRules);
+    const diffs = [...inventoryDiffs, ...this.diffsOf(oldModel, newModel, oldCodeById, newCodeById, abilities)];
 
     const overruns: MigrationProblem[] = [];
     const budgets: { label: string; budget: { exceeded: boolean } }[] = [
@@ -306,9 +347,12 @@ export class CharacterMigrationService {
         overruns.push({ kind: 'budgetOverrun', label: entry.label, detail: 'Превышен реальный лимит' });
     }
 
-    const version = characterEditorService.toVersion(draftBuild, newRules, config, keywords ?? [], mechanics ?? []);
     const kind: MigrationKind =
-      overruns.length > 0 ? 'conflicts' : diffs.length > 0 || abilities.length > 0 ? 'resolved' : 'ok';
+      overruns.length > 0 || inventoryDiffs.length > 0
+        ? 'conflicts'
+        : diffs.length > 0 || abilities.length > 0
+          ? 'resolved'
+          : 'ok';
 
     return { kind, version, problems: overruns, diffs, abilities, convertedItems: 0 };
   }
@@ -357,6 +401,28 @@ export class CharacterMigrationService {
       orTotal: effectiveLimits.orTotal,
       moneyBudget: effectiveLimits.moneyBudget,
     };
+  }
+
+  /** Дары, на которые раса в новой ревизии не ссылается ни automatic-, ни покупкой. */
+  private unavailableGifts(version: CharacterVersion, input: MigrationInput): { code: string; label: string }[] {
+    const keywordCodes = new Map((input.keywords ?? []).map((keyword) => [keyword.id, keyword.code]));
+    const rulesByCode = new Map(input.newRules.map((rule) => [rule.code, rule]));
+    const allowed = new Set(
+      raceSpecService.referencedAbilities(version.raceRuleCode, rulesByCode).map((ref) => ref.ability_code),
+    );
+    const result: { code: string; label: string }[] = [];
+    const seen = new Set<string>();
+    for (const ability of version.abilities) {
+      if (seen.has(ability.ruleCode)) continue;
+      const rule = rulesByCode.get(ability.ruleCode);
+      if (!rule) continue;
+      const gift = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'gift');
+      if (!gift || allowed.has(rule.code)) continue;
+      seen.add(rule.code);
+      result.push({ code: rule.code, label: rule.name });
+    }
+
+    return result;
   }
 
   /** Способности с невыполненными требованиями (кроме automatic/gifted/derived) + причина. */
@@ -587,17 +653,17 @@ export class CharacterMigrationService {
     for (const code of new Set([...oldChars.keys(), ...newChars.keys()])) {
       const oldValue = oldChars.get(code);
       const newValue = newChars.get(code);
-      if (!oldValue || !newValue) continue;
-      const before = dimValue(oldValue.value);
-      const after = dimValue(newValue.value);
+      if (!oldValue && !newValue) continue;
+      const before = oldValue ? dimValue(oldValue.value) : '—';
+      const after = newValue ? dimValue(newValue.value) : '—';
       if (before === after) continue;
       // Пояснение: значение ограничено потолком снаряжения (следует за другой характеристикой).
-      const cap = newValue.modifiers.find((modifier) => modifier.limit);
+      const cap = newValue?.modifiers.find((modifier) => modifier.limit);
       diffs.push({
-        label: newValue.name,
+        label: (newValue ?? oldValue)?.name ?? code,
         before,
         after,
-        tone: 'changed',
+        tone: !oldValue ? 'green' : !newValue ? 'red' : 'changed',
         explanation: cap?.limitFormula ? `потолок снаряжения: ${cap.limitFormula}` : undefined,
       });
     }
@@ -661,6 +727,74 @@ export class CharacterMigrationService {
     }
 
     return diffs;
+  }
+
+  /**
+   * Изменения инвентаря, которые вносит редактор: выданные способностями предметы и их привязка.
+   * Обычные предметы (без `grantedBy`) не сравниваются — их перенос показывает `convertedItems`.
+   */
+  private inventoryDiffs(
+    before: CharacterVersion,
+    after: CharacterVersion,
+    oldRules: Rule[],
+    newRules: Rule[],
+  ): MigrationDiffItem[] {
+    const diffs: MigrationDiffItem[] = [];
+    const oldRows = new Map<number, InventoryItem>(before.inventory.map((item) => [item.id, item]));
+    const newRows = new Map<number, InventoryItem>(after.inventory.map((item) => [item.id, item]));
+
+    for (const [id, item] of newRows) {
+      const old = oldRows.get(id);
+      if (!old) {
+        if (!item.grantedBy) continue;
+        diffs.push({
+          label: 'Инвентарь',
+          before: '—',
+          after: this.itemLabel(item, newRules),
+          tone: 'green',
+          explanation: 'предмет выдан способностью',
+        });
+        continue;
+      }
+
+      if (!old.grantedBy && !item.grantedBy) continue;
+      if (this.itemState(old) === this.itemState(item)) continue;
+      diffs.push({
+        label: this.itemLabel(item, newRules),
+        before: this.itemLabel(old, newRules),
+        after: this.itemLabel(item, newRules),
+        tone: 'changed',
+        explanation: 'привязка экземпляра',
+      });
+    }
+
+    for (const [id, item] of oldRows) {
+      if (newRows.has(id) || !item.grantedBy) continue;
+      diffs.push({
+        label: 'Инвентарь',
+        before: this.itemLabel(item, oldRules),
+        after: '—',
+        tone: 'red',
+        explanation: 'предмет потерян',
+      });
+    }
+
+    return diffs;
+  }
+
+  /** Отпечаток выданного предмета: код, параметры экземпляра и донор. */
+  private itemState(item: InventoryItem): string {
+    return `${item.ruleCode ?? ''}|${JSON.stringify(item.parameters ?? null)}|${item.grantedBy?.ruleCode ?? ''}`;
+  }
+
+  /** Подпись предмета: имя правила и значения параметров экземпляра. */
+  private itemLabel(item: InventoryItem, rules: Rule[]): string {
+    const name = item.ruleCode
+      ? (rules.find((rule) => rule.code === item.ruleCode)?.name ?? item.ruleCode)
+      : (item.name ?? 'предмет мастера');
+    const values = Object.values(item.parameters ?? {}).map((value) => dimValue(value));
+
+    return values.length === 0 ? name : `${name} ${values.join(', ')}`;
   }
 
   /** Пояснение бюджетного сдвига по способностям: сброшенные/пересчитанные. */

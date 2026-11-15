@@ -712,7 +712,9 @@ describe('CharacterEditorService с каталогом правил (интег�
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
 
     const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
-    expect(potential?.visible).toBe(true);
+    // Дар без ссылки расы скрыт (см. гейт «Даёт способности / Даёт приобрести»),
+    // но лестница и цена spec считаются всегда.
+    expect(potential?.visible).toBe(false);
     expect(potential?.characteristic).toBe(true);
     expect(potential?.characteristicCode).toBe('magic-power');
     const param = potential?.parameters[0];
@@ -796,7 +798,8 @@ describe('CharacterEditorService с каталогом правил (интег�
   });
 
   it('Врождённые черты характеристик не попадают в каталог этапа «Основа» (BaseTab фильтрует)', () => {
-    const model = service.build(makeBuild(), ruleCatalog, config, keywords);
+    const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
+    const model = service.build(makeBuild({ raceRuleCode: ahtar?.code ?? '' }), ruleCatalog, config, keywords);
 
     const innate = model.abilities.filter((a) => a.characteristic);
     expect(innate.length).toBeGreaterThanOrEqual(6);

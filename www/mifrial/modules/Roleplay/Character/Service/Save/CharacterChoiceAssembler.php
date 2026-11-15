@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterCharacteristicPurchase;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
 use Mifrial\Roleplay\Character\Dto\CharacterInventoryChoice;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Собирает CharacterChoices из уже проверенного входа. Лишние поля выбора остаются в JSON choices.
@@ -114,7 +115,33 @@ final class CharacterChoiceAssembler
             is_string($ability['studyPairId'] ?? null) ? $ability['studyPairId'] : null,
             is_string($ability['studyPairRole'] ?? null) ? $ability['studyPairRole'] : null,
             $this->abilityParameters($ability['parameters'] ?? null),
+            $this->targets($ability['targets'] ?? null),
         );
+    }
+
+    /**
+     * Цели формы: ключ → положительный id строки инвентаря.
+     *
+     * @param mixed $raw Карта или null.
+     *
+     * @return array<string, int> Код → id.
+     */
+    private function targets(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $targets = [];
+        foreach ($raw as $code => $value) {
+            if (!is_string($code) || $code === '' || !is_int($value) || $value < 1) {
+                continue;
+            }
+
+            $targets[$code] = $value;
+        }
+
+        return $targets;
     }
 
     /**
@@ -177,16 +204,99 @@ final class CharacterChoiceAssembler
         $choices = [];
         foreach ($inventory as $item) {
             if (is_array($item) && is_string($item['ruleCode'] ?? null)) {
+                $grant = is_array($item['grantedBy'] ?? null) ? $item['grantedBy'] : [];
                 $choices[] = new CharacterInventoryChoice(
                     $item['ruleCode'],
                     ($item['equipped'] ?? false) === true,
                     is_int($item['quantity'] ?? null) ? $item['quantity'] : 1,
                     $this->modifierCodes($item['modifiers'] ?? null),
+                    $this->instanceParameters($item['parameters'] ?? null),
+                    is_string($grant['ruleCode'] ?? null) && $grant['ruleCode'] !== ''
+                        ? $grant['ruleCode']
+                        : null,
+                    $this->instancePayload($item['payload'] ?? null),
                 );
             }
         }
 
         return $choices;
+    }
+
+    /**
+     * Параметры экземпляра предмета: число или размерный объект.
+     *
+     * @param mixed $raw Карта или null.
+     *
+     * @return array<string, DimensionalNumber> Код → значение.
+     */
+    private function instanceParameters(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($raw as $code => $value) {
+            if (!is_string($code) || $code === '') {
+                continue;
+            }
+
+            $number = $this->dimensionalValue($value);
+            if ($number !== null) {
+                $values[$code] = $number;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Размерное значение параметра экземпляра.
+     *
+     * @param mixed $value Число или объект.
+     *
+     * @return DimensionalNumber|null Значение или null.
+     */
+    private function dimensionalValue(mixed $value): ?DimensionalNumber
+    {
+        if (is_int($value)) {
+            return new DimensionalNumber($value, 0);
+        }
+
+        if (!is_array($value) && !$value instanceof DimensionalNumber) {
+            return null;
+        }
+
+        $base = is_array($value) ? ($value['base'] ?? null) : $value->getBase();
+        $size = is_array($value) ? ($value['size'] ?? null) : $value->getSize();
+        if (!is_int($base) || !is_int($size) || abs($size) > 20) {
+            return null;
+        }
+
+        return new DimensionalNumber($base, $size);
+    }
+
+    /**
+     * Выборы экземпляра, не сводимые к размерному числу.
+     *
+     * @param mixed $raw Карта или null.
+     *
+     * @return array<string, mixed> Ключ → значение.
+     */
+    private function instancePayload(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $values = [];
+        foreach ($raw as $code => $value) {
+            if (is_string($code) && $code !== '') {
+                $values[$code] = $value;
+            }
+        }
+
+        return $values;
     }
 
     /**

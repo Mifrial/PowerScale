@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+import { grantedItemService } from '@/modules/Roleplay/Character/Service/GrantedItemService';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
@@ -82,7 +83,13 @@ function setPurchase(code: string, cost: number): void {
 
 function setInnateParameter(ruleCode: string, code: string, value: number | { base: number; size: number }): void {
   const next = characterBuildService.setAbilityParameter(props.build, ruleCode, code, value, props.rules);
-  draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
+  // Дар с предметом (кристалл) пересобирает строку инвентаря сразу: мощь и Объём
+  // видны в инвентаре без сохранения.
+  const geared = grantedItemService.apply(
+    { ...props.build, abilities: next.abilities, inventory: props.build.inventory },
+    props.rules,
+  );
+  draftStore.patchBuild(props.draftKey, { abilities: geared.abilities, inventory: geared.inventory });
 }
 </script>
 

@@ -39,6 +39,8 @@ final class CharacterSaveAssembly
 
     private readonly CharacterRequirementGate $requirementGate;
 
+    private readonly CharacterItemInstances $itemInstances;
+
     /**
      * Собирает части прогона.
      *
@@ -63,6 +65,7 @@ final class CharacterSaveAssembly
         $this->resourceStorage = new CharacterResourceStorage();
         $this->pathStudy = new CharacterPathStudy();
         $this->requirementGate = new CharacterRequirementGate();
+        $this->itemInstances = new CharacterItemInstances();
     }
 
     /**
@@ -93,6 +96,8 @@ final class CharacterSaveAssembly
         ?array $previousChoices = null,
     ): array {
         $slice = $this->ruleSlices->get($spaceId, $revision);
+        $instances = $this->itemInstances->normalize($slice, $choices);
+        $choices = $instances['choices'];
         $model = $this->assembleModel($choices, $active);
         $validation = $this->sheets->validate($slice, $model);
         $limits = $this->listOf($choices, 'limits');
@@ -113,7 +118,7 @@ final class CharacterSaveAssembly
             $expectedSheet,
             $choices,
             $name,
-            [...$studied, ...$required],
+            [...$instances['problems'], ...$studied, ...$required],
         );
     }
 
@@ -331,11 +336,13 @@ final class CharacterSaveAssembly
     ): array {
         $previousRows = $this->previousRows($previousSheet, $slice);
         $resourceRows = $this->resourceLimits->buildRows($slice, $validation, $model, $previousRows);
+        $items = is_array($previousSheet['items'] ?? null) ? $previousSheet['items'] : null;
 
         return $this->sheetDocument->build(
             $validation,
             $money,
             $this->resourceStorage->serializeRows($resourceRows),
+            $items,
         );
     }
 

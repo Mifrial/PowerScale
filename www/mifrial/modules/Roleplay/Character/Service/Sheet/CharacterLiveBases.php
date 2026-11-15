@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicParameterGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Race\RaceSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Базы характеристик: раса, закупки, гранты и automatic.
@@ -26,12 +27,14 @@ final class CharacterLiveBases
      *
      * @param CharacterAbilityGrantReader $grantReader Гранты способностей.
      * @param CharacterGrantParameters $parameters Параметры формул грантов.
+     * @param CharacterEquippedLive $equipped Предметы с параметрами экземпляра.
      *
      * @return void
      */
     public function __construct(
         private readonly CharacterAbilityGrantReader $grantReader,
         private readonly CharacterGrantParameters $parameters,
+        private readonly CharacterEquippedLive $equipped,
     ) {
     }
 
@@ -53,6 +56,7 @@ final class CharacterLiveBases
     ): array {
         $bases = $this->raceBases($slice, $choices, $validation);
         $bases = $this->grantBases($bases, $slice, $choices, $abilityLevels);
+        $bases = $this->itemBases($bases, $slice, $choices);
 
         return $this->automaticBases($bases, $slice);
     }
@@ -84,6 +88,46 @@ final class CharacterLiveBases
                 $values = $this->parameters->forGrant($slice, $choices, $grant);
                 $value = $values[$body->getParameterCode()] ?? 0;
                 $bases[$body->getCharacteristicCode()] = new CharacteristicNumber($value * $body->getPerUnit(), 0);
+            }
+        }
+
+        return $bases;
+    }
+
+    /**
+     * Базы от грантов предметов с параметрами экземпляра.
+     *
+     * Ядро даёт `magic-power` от своего `power`; при нескольких ядрах
+     * побеждает лучшая база, значения не складываются.
+     *
+     * @param array<string, CharacteristicNumber> $bases Базы.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     *
+     * @return array<string, CharacteristicNumber> Базы.
+     */
+    private function itemBases(array $bases, CharacterRuleSlice $slice, CharacterChoices $choices): array
+    {
+        foreach ($this->equipped->equippedOrInnate($slice, $choices) as $item) {
+            foreach ($item['spec']->getGrants() as $grant) {
+                if (!$grant instanceof CharacteristicParameterGrant) {
+                    continue;
+                }
+
+                $value = $item['parameters'][$grant->getParameterCode()] ?? null;
+                if (!$value instanceof DimensionalNumber) {
+                    continue;
+                }
+
+                $number = new CharacteristicNumber(
+                    $value->getBase() * $grant->getPerUnit(),
+                    $value->getSize(),
+                );
+                $code = $grant->getCharacteristicCode();
+                $current = $bases[$code] ?? null;
+                if (!$current instanceof CharacteristicNumber || $current->characteristicCompare($number) < 0) {
+                    $bases[$code] = $number;
+                }
             }
         }
 

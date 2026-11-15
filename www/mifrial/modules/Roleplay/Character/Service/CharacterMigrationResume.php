@@ -44,7 +44,8 @@ final class CharacterMigrationResume
      *     limits: array<mixed>,
      *     money: int,
      *     expectedSheet: array<mixed>|null,
-     *     choices: array<string, mixed>
+     *     choices: array<string, mixed>,
+     *     itemDiffs: array<int, array{label: string, before: string, after: string, tone: string, explanation: string|null}>
      * } Поля сборки.
      *
      * @throws CharacterInvalidException Если набор неполный.
@@ -72,6 +73,7 @@ final class CharacterMigrationResume
             'money' => $this->money($input, $record),
             'expectedSheet' => $input->expectedSheet->isPresent() ? $input->expectedSheet->getValue() : null,
             'choices' => $choices,
+            'itemDiffs' => [],
         ];
     }
 

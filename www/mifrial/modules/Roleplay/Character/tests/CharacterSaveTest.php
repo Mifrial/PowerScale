@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Exception\CharacterSaveRejectedException;
@@ -114,6 +115,76 @@ final class CharacterSaveTest extends TestCase
         self::assertSame(1, $view['actualVersion']);
         self::assertTrue($view['validation']['valid']);
         self::assertSame(0, $view['sheet']['money']);
+    }
+
+    /**
+     * Create пересчитывает мощь ядра из параметра донора, а не берёт клиентскую.
+     *
+     * @return void
+     */
+    public function testCreateRewritesCorePowerFromDonor(): void
+    {
+        $characters = $this->createMock(ICharacters::class);
+        $characters->expects(self::once())->method('add')->with(self::callback(
+            static function (NewCharacter $new): bool {
+                $rows = is_array($new->getChoices()['inventory'] ?? null) ? $new->getChoices()['inventory'] : [];
+                $power = $rows[0]['parameters']['power'] ?? null;
+
+                return $power === ['base' => 4, 'size' => 0];
+            },
+        ))->willReturn(9);
+        $characters->method('get')->willReturn($this->record(9, 1, ['money' => 0]));
+        $validation = new CharacterValidation([], ['magic-core-capacity' => 1], [], 0, [], [], [], true);
+        $save = $this->save($characters, $this->sheetsWith($validation), $this->coreSlice());
+        $save->create($this->createInput([
+            'abilities' => [[
+                'ruleCode' => 'magic-core-capacity',
+                'level' => 1,
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+            ]],
+            'inventory' => [[
+                'id' => 1,
+                'ruleCode' => 'magic-core',
+                'grantedBy' => ['ruleCode' => 'magic-core-capacity'],
+                'parameters' => ['power' => ['base' => 5, 'size' => 1]],
+            ]],
+        ]));
+    }
+
+    /**
+     * Create пишет Объём кристалла из параметра донора в `payload`, а не из клиентской строки.
+     *
+     * @return void
+     */
+    public function testCreateBindsCrystalVolumeFromDonor(): void
+    {
+        $characters = $this->createMock(ICharacters::class);
+        $characters->expects(self::once())->method('add')->with(self::callback(
+            static function (NewCharacter $new): bool {
+                $rows = is_array($new->getChoices()['inventory'] ?? null) ? $new->getChoices()['inventory'] : [];
+                $power = $rows[0]['parameters']['max_power'] ?? null;
+                $volume = $rows[0]['payload']['volume'] ?? null;
+
+                return $power === ['base' => 4, 'size' => 0] && $volume === 30;
+            },
+        ))->willReturn(9);
+        $characters->method('get')->willReturn($this->record(9, 1, ['money' => 0]));
+        $validation = new CharacterValidation([], ['magic-crystal-capacity' => 1], [], 0, [], [], [], true);
+        $save = $this->save($characters, $this->sheetsWith($validation), $this->crystalSlice());
+        $save->create($this->createInput([
+            'abilities' => [[
+                'ruleCode' => 'magic-crystal-capacity',
+                'level' => 1,
+                'parameters' => ['x' => ['base' => 4, 'size' => 0], 'volume' => 30],
+            ]],
+            'inventory' => [[
+                'id' => 1,
+                'ruleCode' => 'magic-crystal',
+                'grantedBy' => ['ruleCode' => 'magic-crystal-capacity'],
+                'parameters' => ['max_power' => ['base' => 5, 'size' => 1]],
+                'payload' => ['volume' => 200],
+            ]],
+        ]));
     }
 
     /**
@@ -302,6 +373,120 @@ final class CharacterSaveTest extends TestCase
         return new CharacterRuleSlice(1, 1, 'world', [
             new CharacterResolvedRule(
                 new RuleVersionRecord(10, 1, 'sword', true, 'item', 'sword', '', ['cost_gm' => 10], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+        ], []);
+    }
+
+    /**
+     * Срез ядра: способность с привязкой `power` и предмет с грантом характеристики.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function coreSlice(): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(1, 1, 'world', [
+            new CharacterResolvedRule(
+                new RuleVersionRecord(1, 1, 'magic-core-capacity', true, 'ability', 'Ядро', '', [
+                    'type' => 'trait',
+                    'parameters' => [[
+                        'code' => 'x',
+                        'label' => 'X',
+                        'kind' => 'dimensional',
+                        'resolution' => 'purchase',
+                        'default' => ['base' => 3, 'size' => 0],
+                        'min' => ['base' => 3, 'size' => -1],
+                        'max' => ['base' => 5, 'size' => 1],
+                    ]],
+                    'grants' => [[
+                        'level' => 1,
+                        'grants' => [[
+                            'type' => 'item',
+                            'item_code' => 'magic-core',
+                            'quantity' => 1,
+                            'parameters' => ['power' => 'x'],
+                        ]],
+                    ]],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(2, 1, 'magic-core', true, 'item', 'Ядро', '', [
+                    'category' => 'equipment',
+                    'innate' => true,
+                    'special_rule_codes' => [],
+                    'grants' => [[
+                        'type' => 'characteristic_parameter',
+                        'characteristic_code' => 'magic-power',
+                        'parameter_code' => 'power',
+                        'per_unit' => 1,
+                        'permanent' => true,
+                    ]],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(3, 1, 'magic-power', true, 'characteristic', 'Мощь', '', ['group' => 'magic'], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+        ], []);
+    }
+
+    /**
+     * Срез кристалла: трейт с привязкой мощи и Объёма и предмет-хранилище.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function crystalSlice(): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(1, 1, 'world', [
+            new CharacterResolvedRule(
+                new RuleVersionRecord(1, 1, 'magic-crystal-capacity', true, 'ability', 'Кристалл', '', [
+                    'type' => 'trait',
+                    'parameters' => [[
+                        'code' => 'x',
+                        'label' => 'X',
+                        'kind' => 'dimensional',
+                        'resolution' => 'purchase',
+                        'default' => ['base' => 3, 'size' => 0],
+                        'min' => ['base' => 3, 'size' => -1],
+                        'max' => ['base' => 5, 'size' => 1],
+                    ], [
+                        'code' => 'volume',
+                        'label' => 'Объём',
+                        'kind' => 'scalar',
+                        'resolution' => 'purchase',
+                        'default' => 20,
+                        'min' => 20,
+                        'max' => 200,
+                    ]],
+                    'grants' => [[
+                        'level' => 1,
+                        'grants' => [[
+                            'type' => 'item',
+                            'item_code' => 'magic-crystal',
+                            'quantity' => 1,
+                            'parameters' => ['max_power' => 'x'],
+                            'payload' => ['volume' => 'volume'],
+                        ]],
+                    ]],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(2, 1, 'magic-crystal', true, 'item', 'Кристалл', '', [
+                    'category' => 'equipment',
+                    'innate' => true,
+                    'special_rule_codes' => [],
+                    'storage' => [
+                        'power_parameter' => 'max_power',
+                        'volume_parameter' => 'volume',
+                        'recorded_parameter' => 'recorded_spells',
+                        'volume_base' => 20,
+                        'volume_increment' => 10,
+                        'min_volume_power_delta' => 3,
+                    ],
+                ], [], [], 'needs_work', '', DateTime::now()),
                 [],
             ),
         ], []);

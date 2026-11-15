@@ -158,6 +158,106 @@ const giftSteps = computed(() => {
   );
 });
 
+/** Дополнительные параметры покупки (второй и далее): у дара с пулом их несколько. */
+interface ExtraParameterRow {
+  ability: EditorAbility;
+  parameter: EditorAbilityParameter;
+  label: string;
+}
+
+const extraParameterRows = computed<ExtraParameterRow[]>(() =>
+  innateAbilities.value.flatMap((ability) =>
+    ability.parameters.slice(1).map((parameter) => ({
+      ability,
+      parameter,
+      label: `${giftName(ability)} · ${parameter.label}`,
+    })),
+  ),
+);
+
+/** Индекс текущей ступени параметра; -1 — значение не выбрано. */
+function stepIndex(param: EditorAbilityParameter): number {
+  return param.steps.findIndex((step) => sameStep(step.value, param.value));
+}
+
+function canStepUpExtra(param: EditorAbilityParameter): boolean {
+  if (param.steps.length) {
+    const index = stepIndex(param);
+
+    return index >= 0 ? index < param.steps.length - 1 : param.value.base < param.max.base;
+  }
+
+  return param.value.base < param.max.base;
+}
+
+function canStepDownExtra(param: EditorAbilityParameter): boolean {
+  if (param.steps.length) {
+    return stepIndex(param) > 0;
+  }
+
+  return param.value.base > param.min.base;
+}
+
+/** Цена следующей ступени (табличной или по единице). */
+function nextStepCost(param: EditorAbilityParameter): number {
+  if (param.steps.length) {
+    const index = stepIndex(param);
+    const next = param.steps[index + 1] ?? (index < 0 ? param.steps[0] : undefined);
+    if (!next) return 0;
+    const previous = index < 0 ? 0 : (param.steps[index]?.cost ?? 0);
+
+    return Math.max(0, next.cost - previous);
+  }
+
+  return param.perUnit;
+}
+
+/** Цена текущей ступени (возврат при шаге вниз). */
+function prevStepCost(param: EditorAbilityParameter): number {
+  if (param.steps.length) {
+    const index = stepIndex(param);
+    if (index <= 0) return 0;
+    const current = param.steps[index]?.cost ?? 0;
+    const previous = param.steps[index - 1]?.cost ?? 0;
+
+    return Math.max(0, current - previous);
+  }
+
+  return param.perUnit;
+}
+
+function stepExtraUp(row: ExtraParameterRow): void {
+  const param = row.parameter;
+  if (!canStepUpExtra(param)) return;
+  if (param.steps.length) {
+    const index = stepIndex(param);
+    const next = index < 0 ? param.steps[0] : param.steps[index + 1];
+    if (next) emit('set-parameter', row.ability.ruleCode, param.code, next.value);
+
+    return;
+  }
+  emit('set-parameter', row.ability.ruleCode, param.code, param.value.base + 1);
+}
+
+function stepExtraDown(row: ExtraParameterRow): void {
+  const param = row.parameter;
+  if (!canStepDownExtra(param)) return;
+  if (param.steps.length) {
+    const index = stepIndex(param);
+    const previous = param.steps[index - 1];
+    if (previous) emit('set-parameter', row.ability.ruleCode, param.code, previous.value);
+
+    return;
+  }
+  emit('set-parameter', row.ability.ruleCode, param.code, param.value.base - 1);
+}
+
+function extraValueLabel(param: EditorAbilityParameter): string {
+  if (param.value.base === 0) return '—';
+
+  return param.steps.length ? valueLabel(param.value) : String(param.value.base);
+}
+
 function costAt(param: EditorAbilityParameter, value: { base: number; size: number }): number {
   const cost = param.steps.find((step) => sameStep(step.value, value))?.cost ?? param.costs?.[valueLabel(value)] ?? 0;
 
@@ -243,6 +343,44 @@ function select(ability: EditorAbility, value: { base: number; size: number }): 
               >
                 {{ costAt(row.parameter, step.value) }}
               </button>
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+
+      <v-table v-if="extraParameterRows.length" density="compact" class="innate-table mt-4">
+        <thead>
+          <tr>
+            <th class="innate-name-col">Параметр</th>
+            <th class="text-center">Значение</th>
+            <th class="text-center">Ступень</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in extraParameterRows" :key="`${row.ability.ruleCode}:${row.parameter.code}`">
+            <td class="font-weight-medium">{{ row.label }}</td>
+            <td class="text-center font-weight-medium">{{ extraValueLabel(row.parameter) }}</td>
+            <td class="text-center">
+              <div class="d-flex align-center justify-center ga-1">
+                <button
+                  type="button"
+                  class="purchase-cell"
+                  :disabled="!canStepDownExtra(row.parameter)"
+                  :title="`Уменьшить: ${prevStepCost(row.parameter)} ОС`"
+                  @click="stepExtraDown(row)"
+                >
+                  − {{ prevStepCost(row.parameter) }}
+                </button>
+                <button
+                  type="button"
+                  class="purchase-cell"
+                  :disabled="!canStepUpExtra(row.parameter)"
+                  :title="`Увеличить: ${nextStepCost(row.parameter)} ОС`"
+                  @click="stepExtraUp(row)"
+                >
+                  + {{ nextStepCost(row.parameter) }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>

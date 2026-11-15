@@ -246,6 +246,35 @@ final class CharacterMigrationTest extends TestCase
     }
 
     /**
+     * Грант предмета при миграции требует редактора: состав меняется, запись не идёт.
+     *
+     * @return void
+     */
+    public function testGrantedItemRoutesToEditor(): void
+    {
+        $abilities = [[
+            'ruleCode' => 'magic-core-capacity',
+            'level' => 1,
+            'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+        ]];
+        $characters = $this->charactersNeverWrites($this->record(1, 1, $abilities));
+        $migration = $this->migration(
+            $characters,
+            $this->cleanSheets(),
+            $this->grantSlice(1),
+            $this->grantSlice(2),
+        );
+        $result = $migration->migrate($this->input(2));
+
+        self::assertSame('conflicts', $result['kind']);
+        self::assertSame([], $result['problems']);
+        self::assertCount(1, $result['diffs']);
+        self::assertSame('green', $result['diffs'][0]['tone']);
+        self::assertStringContainsString('Магическое ядро', $result['diffs'][0]['after']);
+        self::assertSame('magic-core', $result['choices']['inventory'][1]['ruleCode']);
+    }
+
+    /**
      * Валидатор без problems.
      *
      * @return ICharacterSheets Порт.
@@ -322,10 +351,10 @@ final class CharacterMigrationTest extends TestCase
      *
      * @return ICharacters&MockObject Фасад.
      */
-    private function charactersNeverWrites(): ICharacters
+    private function charactersNeverWrites(?CharacterRecord $record = null): ICharacters
     {
         $characters = $this->createMock(ICharacters::class);
-        $characters->method('get')->willReturn($this->record());
+        $characters->method('get')->willReturn($record ?? $this->record());
         $characters->expects(self::never())->method('replaceMigrated');
 
         return $characters;
@@ -470,6 +499,67 @@ final class CharacterMigrationTest extends TestCase
     }
 
     /**
+     * Срез с грантом ядра: способность с параметром `x` и предмет с мощью.
+     *
+     * @param int $revision Номер.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function grantSlice(int $revision): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(1, $revision, 'world', [
+            new CharacterResolvedRule(
+                new RuleVersionRecord(20, 1, 'magic-core-capacity', true, 'ability', 'Ядро', '', [
+                    'type' => 'trait',
+                    'parameters' => [[
+                        'code' => 'x',
+                        'label' => 'X',
+                        'kind' => 'dimensional',
+                        'resolution' => 'purchase',
+                        'default' => ['base' => 3, 'size' => 0],
+                        'min' => ['base' => 3, 'size' => -1],
+                        'max' => ['base' => 5, 'size' => 1],
+                    ]],
+                    'grants' => [[
+                        'level' => 1,
+                        'grants' => [[
+                            'type' => 'item',
+                            'item_code' => 'magic-core',
+                            'quantity' => 1,
+                            'parameters' => ['power' => 'x'],
+                        ]],
+                    ]],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(21, 1, 'magic-core', true, 'item', 'Магическое ядро', '', [
+                    'category' => 'equipment',
+                    'innate' => true,
+                    'special_rule_codes' => [],
+                    'grants' => [[
+                        'type' => 'characteristic_parameter',
+                        'characteristic_code' => 'magic-power',
+                        'parameter_code' => 'power',
+                        'per_unit' => 1,
+                        'permanent' => true,
+                    ]],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(22, 1, 'sword', true, 'item', 'Меч', '', [
+                    'category' => 'other',
+                    'cost_gm' => 10,
+                    'weight' => null,
+                    'special_rule_codes' => [],
+                ], [], [], 'needs_work', '', DateTime::now()),
+                [],
+            ),
+        ], []);
+    }
+
+    /**
      * Actual с предметом, способностью и наличными.
      *
      * @param int $rulesRevision Ревизия.
@@ -477,8 +567,11 @@ final class CharacterMigrationTest extends TestCase
      *
      * @return CharacterRecord Строка.
      */
-    private function record(int $rulesRevision = 1, int $actualVersion = 1): CharacterRecord
-    {
+    private function record(
+        int $rulesRevision = 1,
+        int $actualVersion = 1,
+        array $abilities = [['ruleCode' => 'bolt', 'level' => 1]],
+    ): CharacterRecord {
         $moment = DateTime::now();
 
         return CharacterRecord::fromNormalized([
@@ -493,7 +586,7 @@ final class CharacterMigrationTest extends TestCase
                 'name' => 'Hero',
                 'raceCode' => 'human',
                 'limits' => ['os' => null, 'or' => null, 'money' => 10],
-                'abilities' => [['ruleCode' => 'bolt', 'level' => 1]],
+                'abilities' => $abilities,
                 'inventory' => [[
                     'ruleCode' => 'sword',
                     'quantity' => 1,

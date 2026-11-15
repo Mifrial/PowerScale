@@ -8,6 +8,8 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
+import type { SpellSourcePowerValue } from '@/modules/Roleplay/Character/Dto/SpellSourcePowerValue';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import type { ResourceLimitBonus } from '@/modules/Roleplay/Character/Dto/ResourceLimitBonus';
 import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceValue';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
@@ -132,6 +134,8 @@ export class CharacterHttpViewService {
         osTotal: typeof limits.os === 'number' ? limits.os : null,
         moneyBudget: typeof limits.money === 'number' ? limits.money : null,
       },
+      sourcePowers: this.sourcePowersOf(input.sheet.sourcePowers),
+      items: this.itemsOf(input.sheet.items),
     };
   }
 
@@ -343,6 +347,8 @@ export class CharacterHttpViewService {
       if (record.gifted === true) ability.gifted = true;
       const parameters = this.parametersOf(record.parameters);
       if (parameters) ability.parameters = parameters;
+      const targets = this.targetsOf(record.targets);
+      if (targets) ability.targets = targets;
 
       return [ability];
     });
@@ -357,6 +363,11 @@ export class CharacterHttpViewService {
       const id = this.intOf(record.id);
       if (id <= 0) return [];
 
+      const parameters = this.dimensionalParametersOf(record.parameters);
+      const payload = this.payloadOf(record.payload);
+      const grantedBy = this.recordOf(record.grantedBy);
+      const grantedByCode = this.stringOf(grantedBy.ruleCode);
+
       return [
         {
           id,
@@ -369,9 +380,104 @@ export class CharacterHttpViewService {
           modifierRuleCodes: Array.isArray(record.modifiers)
             ? record.modifiers.filter((code): code is string => typeof code === 'string')
             : undefined,
+          ...(parameters ? { parameters } : {}),
+          ...(payload ? { payload } : {}),
+          ...(grantedByCode !== '' ? { grantedBy: { ruleCode: grantedByCode } } : {}),
         },
       ];
     });
+  }
+
+  /** Цели формы способности: код цели → id строки инвентаря. */
+  private targetsOf(raw: unknown): Record<string, number> | undefined {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const targets: Record<string, number> = {};
+    for (const [code, value] of Object.entries(this.recordOf(raw))) {
+      const id = typeof value === 'number' ? value : Number(value);
+      if (Number.isInteger(id) && id > 0) targets[code] = id;
+    }
+
+    return Object.keys(targets).length > 0 ? targets : undefined;
+  }
+
+  /** Размерные параметры экземпляра предмета. */
+  private dimensionalParametersOf(raw: unknown): Record<string, DimensionalNumberValue> | undefined {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const parameters: Record<string, DimensionalNumberValue> = {};
+    for (const [code, value] of Object.entries(this.recordOf(raw))) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        parameters[code] = this.dimOf(value);
+      }
+    }
+
+    return Object.keys(parameters).length > 0 ? parameters : undefined;
+  }
+
+  /** Выборы экземпляра предмета: Объём и записи заклинаний. */
+  private payloadOf(raw: unknown): Record<string, unknown> | undefined {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const payload = this.recordOf(raw);
+
+    return Object.keys(payload).length > 0 ? payload : undefined;
+  }
+
+  /** Предметы-хранилища магии из sheet. */
+  private itemsOf(raw: unknown): ItemStorageValue[] | undefined {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const rows: ItemStorageValue[] = [];
+    for (const value of Object.values(this.recordOf(raw))) {
+      const record = this.recordOf(value);
+      const inventoryId = this.intOf(record.inventoryId);
+      const ruleCode = this.stringOf(record.ruleCode);
+      if (inventoryId <= 0 || ruleCode === '') continue;
+      rows.push({
+        inventoryId,
+        ruleCode,
+        maxPower: this.dimOf(this.recordOf(record.maxPower)),
+        volume: this.intOf(record.volume),
+        occupied: this.intOf(record.occupied),
+        mana: this.intOf(record.mana),
+        manaMax: this.intOf(record.manaMax),
+      });
+    }
+
+    return rows.length > 0 ? rows : undefined;
+  }
+
+  /** Эффективная мощь источников из sheet. */
+  private sourcePowersOf(raw: unknown): SpellSourcePowerValue[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const rows: SpellSourcePowerValue[] = [];
+    for (const row of raw) {
+      const record = this.recordOf(row);
+      const inventoryId = this.intOf(record.inventoryId);
+      const ruleCode = this.stringOf(record.ruleCode);
+      const characteristicCode = this.stringOf(record.characteristicCode);
+      if (inventoryId <= 0 || ruleCode === '' || characteristicCode === '') continue;
+      const base = this.recordOf(record.base);
+      const value = this.recordOf(record.value);
+      const contributions = Array.isArray(record.contributions)
+        ? record.contributions.flatMap((entry) => {
+            const item = this.recordOf(entry);
+            const sourceRuleCode = this.stringOf(item.sourceRuleCode);
+            const delta = this.intOf(item.delta);
+
+            return sourceRuleCode === '' ? [] : [{ sourceRuleCode, delta }];
+          })
+        : [];
+
+      rows.push({
+        inventoryId,
+        ruleCode,
+        characteristicCode,
+        base: this.dimOf(base),
+        bonus: this.intOf(record.bonus),
+        value: this.dimOf(value),
+        contributions,
+      });
+    }
+
+    return rows.length > 0 ? rows : undefined;
   }
 
   private parametersOf(raw: unknown): CharacterAbility['parameters'] | undefined {

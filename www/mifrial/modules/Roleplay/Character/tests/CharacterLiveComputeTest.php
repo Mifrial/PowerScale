@@ -93,6 +93,113 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * `magic-power` берётся из owned-ядра; лучшее ядро побеждает.
+     *
+     * @return void
+     */
+    public function testMagicPowerComesFromOwnedCore(): void
+    {
+        $core = $this->item('magic-core', [
+            'innate' => true,
+            'grants' => [[
+                'type' => 'characteristic_parameter',
+                'characteristic_code' => 'magic-power',
+                'parameter_code' => 'power',
+                'per_unit' => 1,
+                'permanent' => true,
+            ]],
+        ]);
+        $slice = $this->slice([
+            $this->rule('magic-power', 'characteristic', ['group' => 'magic']),
+            $core,
+        ]);
+
+        $one = Character::fromDocument($slice, [
+            'inventory' => [[
+                'id' => 1,
+                'ruleCode' => 'magic-core',
+                'quantity' => 1,
+                'equipped' => false,
+                'parameters' => ['power' => ['base' => 4, 'size' => 0]],
+                'grantedBy' => ['ruleCode' => 'magic-core-capacity'],
+            ]],
+        ], [], $this->sheets());
+        self::assertSame(4, $this->valueBase($one->getSheet(), 'magic-power'));
+
+        $two = Character::fromDocument($slice, [
+            'inventory' => [
+                [
+                    'id' => 1,
+                    'ruleCode' => 'magic-core',
+                    'quantity' => 1,
+                    'equipped' => false,
+                    'parameters' => ['power' => ['base' => 4, 'size' => 0]],
+                ],
+                [
+                    'id' => 2,
+                    'ruleCode' => 'magic-core',
+                    'quantity' => 1,
+                    'equipped' => false,
+                    'parameters' => ['power' => ['base' => 5, 'size' => -1]],
+                ],
+            ],
+        ], [], $this->sheets());
+        self::assertSame(4, $this->valueBase($two->getSheet(), 'magic-power'));
+    }
+
+    /**
+     * «Оптимизация потоков» поднимает эффективную мощь ядра в листе.
+     *
+     * @return void
+     */
+    public function testSpellSourcePowerRaisesMagicPowerInSheet(): void
+    {
+        $core = $this->item('magic-core', [
+            'innate' => true,
+            'grants' => [[
+                'type' => 'characteristic_parameter',
+                'characteristic_code' => 'magic-power',
+                'parameter_code' => 'power',
+                'per_unit' => 1,
+                'permanent' => true,
+            ]],
+        ]);
+        $flow = $this->ability('core-flow-optimization', [
+            'type' => 'skill',
+            'zones' => [],
+            'requirements' => [],
+            'grants' => [],
+            'spell_source_power' => [
+                'scope' => ['kind' => 'item', 'item_code' => 'magic-core'],
+                'path_scoped' => true,
+                'amount' => ['type' => 'ability_level', 'ability_code' => 'core-flow-optimization', 'multiplier' => 1],
+            ],
+            'parent_ability_code' => null,
+        ]);
+        $slice = $this->slice([
+            $this->rule('magic-power', 'characteristic', ['group' => 'magic']),
+            $core,
+            $flow,
+        ]);
+
+        $character = Character::fromDocument($slice, [
+            'abilities' => [['ruleCode' => 'core-flow-optimization', 'level' => 1]],
+            'inventory' => [[
+                'id' => 1,
+                'ruleCode' => 'magic-core',
+                'quantity' => 1,
+                'equipped' => true,
+                'parameters' => ['power' => ['base' => 4, 'size' => 0]],
+            ]],
+        ], [], $this->sheets());
+        $sheet = $character->getSheet();
+        self::assertSame(5, $this->valueBase($sheet, 'magic-power'));
+        self::assertSame(1, $this->deltaOf($sheet, 'magic-power'));
+        self::assertSame(5, $sheet['sourcePowers'][0]['value']['base']);
+        self::assertSame(1, $sheet['sourcePowers'][0]['bonus']);
+    }
+
+    /**
      * Состояние characteristic_modify гасит способность по characteristic_value.
      *
      * @return void
@@ -645,6 +752,139 @@ final class CharacterLiveComputeTest extends TestCase
         );
 
         return $sheets;
+    }
+
+    /**
+     * Мана кристалла живёт в листе и переживает пересчёт.
+     *
+     * @return void
+     */
+    public function testCrystalManaLivesInSheetAndSurvivesRecount(): void
+    {
+        $slice = $this->slice([
+            $this->item('magic-crystal', [
+                'innate' => true,
+                'storage' => [
+                    'power_parameter' => 'max_power',
+                    'volume_parameter' => 'volume',
+                    'recorded_parameter' => 'recorded_spells',
+                    'volume_base' => 20,
+                    'volume_increment' => 10,
+                    'min_volume_power_delta' => 3,
+                ],
+            ]),
+            $this->ability('spark', [
+                'type' => 'spell',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'spell' => [
+                    'power' => ['base' => 3, 'size' => 0],
+                    'control' => ['base' => 3, 'size' => 0],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'instant'],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [],
+            ]),
+        ]);
+        $choices = ['inventory' => [[
+            'id' => 3,
+            'ruleCode' => 'magic-crystal',
+            'quantity' => 1,
+            'equipped' => true,
+            'parameters' => ['max_power' => ['base' => 3, 'size' => 0]],
+            'payload' => ['volume' => 20, 'recorded_spells' => [['ruleCode' => 'spark']]],
+        ]]];
+
+        $fresh = Character::fromDocument($slice, $choices, [], $this->sheets())->getSheet();
+        $row = is_array($fresh['items'] ?? null) ? ($fresh['items']['inventory:3'] ?? null) : null;
+        self::assertIsArray($row);
+        self::assertSame(['base' => 3, 'size' => 0], $row['maxPower']);
+        self::assertSame(20, $row['volume']);
+        self::assertSame(10, $row['occupied']);
+        self::assertSame(10, $row['mana']);
+        self::assertSame(10, $row['manaMax']);
+
+        $kept = Character::fromDocument($slice, $choices, ['items' => [
+            'inventory:3' => ['mana' => 4],
+        ]], $this->sheets())->getSheet();
+        self::assertSame(4, $kept['items']['inventory:3']['mana']);
+
+        $clamped = Character::fromDocument($slice, $choices, ['items' => [
+            'inventory:3' => ['mana' => 99],
+        ]], $this->sheets())->getSheet();
+        self::assertSame(10, $clamped['items']['inventory:3']['mana']);
+    }
+
+    /**
+     * Занятый Объём складывает заклинания и улучшения, лимит маны — остаток Объёма.
+     *
+     * @return void
+     */
+    public function testCrystalOccupiedVolumeSumsSpellsAndUpgrades(): void
+    {
+        $slice = $this->slice([
+            $this->item('magic-crystal', [
+                'innate' => true,
+                'storage' => [
+                    'power_parameter' => 'max_power',
+                    'volume_parameter' => 'volume',
+                    'recorded_parameter' => 'recorded_spells',
+                    'volume_base' => 20,
+                    'volume_increment' => 10,
+                    'min_volume_power_delta' => 3,
+                ],
+            ]),
+            $this->spell('spark', 1),
+            $this->spell('bolt', 2),
+            $this->spell('upgrade', 1, true),
+        ]);
+        $choices = ['inventory' => [[
+            'id' => 7,
+            'ruleCode' => 'magic-crystal',
+            'quantity' => 1,
+            'equipped' => true,
+            'parameters' => ['max_power' => ['base' => 4, 'size' => 0]],
+            'payload' => [
+                'volume' => 80,
+                'recorded_spells' => [
+                    ['ruleCode' => 'spark'],
+                    ['ruleCode' => 'bolt', 'upgrades' => ['upgrade']],
+                ],
+            ],
+        ]]];
+
+        $row = Character::fromDocument($slice, $choices, [], $this->sheets())->getSheet()['items']['inventory:7'];
+        self::assertSame(80, $row['volume']);
+        self::assertSame(40, $row['occupied']);
+        self::assertSame(40, $row['manaMax']);
+        self::assertSame(40, $row['mana']);
+    }
+
+    /**
+     * Заклинание или улучшение с ценой.
+     *
+     * @param string $code Код.
+     * @param int $cost Стоимость.
+     * @param bool $upgrade Карточка улучшения.
+     *
+     * @return CharacterResolvedRule Правило.
+     */
+    private function spell(string $code, int $cost, bool $upgrade = false): CharacterResolvedRule
+    {
+        return $this->ability($code, array_merge([
+            'type' => 'spell',
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [$cost]]],
+            'spell' => [
+                'power' => ['base' => 3, 'size' => 0],
+                'control' => ['base' => 3, 'size' => 0],
+                'targeting' => 'none',
+                'duration' => ['type' => 'instant'],
+            ],
+            'parameters' => [],
+            'hit_resolution' => ['type' => 'none'],
+            'action_components' => [],
+        ], $upgrade ? ['spell_upgrade' => []] : []));
     }
 
     /**

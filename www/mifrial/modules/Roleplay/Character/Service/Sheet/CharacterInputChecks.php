@@ -7,14 +7,25 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
+use Mifrial\Roleplay\Character\Dto\CharacterInventoryChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterProblemList;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterItemRecorded;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemStorage;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Проверки входа: имя, раса, ключ экземпляра, tombstone, свои правила.
  */
 final class CharacterInputChecks
 {
+    private readonly CharacterItemRecorded $recorded;
+
+    private readonly CharacterRaceAbilityCodes $raceAbilityCodes;
+
     /**
      * Принимает разбор active.
      *
@@ -25,6 +36,8 @@ final class CharacterInputChecks
     public function __construct(
         private readonly CharacterActiveInput $activeInput,
     ) {
+        $this->recorded = new CharacterItemRecorded();
+        $this->raceAbilityCodes = new CharacterRaceAbilityCodes();
     }
 
     /**
@@ -132,9 +145,13 @@ final class CharacterInputChecks
      */
     private function checkAbilities(CharacterRuleSlice $slice, CharacterChoices $choices, CharacterProblemList $problems): void
     {
+        $allowed = array_fill_keys(
+            $this->raceAbilityCodes->getCodes($slice, $choices->getRaceCode()),
+            true,
+        );
         $seen = [];
         foreach ($choices->getAbilities() as $index => $ability) {
-            $this->checkAbility($slice, $ability, $index, $seen, $problems);
+            $this->checkAbility($slice, $ability, $index, $seen, $allowed, $problems);
             $seen[$ability->instanceKey()] = true;
         }
     }
@@ -146,6 +163,7 @@ final class CharacterInputChecks
      * @param CharacterAbilityChoice $ability Выбор.
      * @param int $index Индекс.
      * @param array<string, true> $seen Уже виденные ключи.
+     * @param array<string, true> $allowed Ссылки расы.
      * @param CharacterProblemList $problems Накопитель.
      *
      * @return void
@@ -155,6 +173,7 @@ final class CharacterInputChecks
         CharacterAbilityChoice $ability,
         int $index,
         array $seen,
+        array $allowed,
         CharacterProblemList $problems,
     ): void {
         $path = 'abilities.' . $index;
@@ -164,6 +183,22 @@ final class CharacterInputChecks
 
         if ($slice->hasTombstone($ability->getRuleCode())) {
             $problems->add('CHARACTER_TOMBSTONE', 'Ability is tombstoned', 'reference', $path);
+
+            return;
+        }
+
+        $rule = $slice->findLive($ability->getRuleCode());
+        if (
+            $rule !== null
+            && !isset($allowed[$rule->getCode()])
+            && in_array('gift', $rule->getKeywordCodes(), true)
+        ) {
+            $problems->add(
+                'CHARACTER_ABILITY_RACE',
+                'Gift ability is not available to the race',
+                'reference',
+                $path . '.ruleCode',
+            );
         }
     }
 
@@ -182,7 +217,147 @@ final class CharacterInputChecks
             if ($slice->hasTombstone($item->getRuleCode())) {
                 $problems->add('CHARACTER_TOMBSTONE', 'Item is tombstoned', 'reference', 'inventory.' . $index);
             }
+
+            $this->checkStorage($slice, $item, $index, $problems);
         }
+    }
+
+    /**
+     * Объём предмета-хранилища: ступень покупки и нижняя граница от мощи.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterInventoryChoice $item Строка инвентаря.
+     * @param int $index Индекс строки.
+     * @param CharacterProblemList $problems Накопитель.
+     *
+     * @return void
+     */
+    private function checkStorage(
+        CharacterRuleSlice $slice,
+        CharacterInventoryChoice $item,
+        int $index,
+        CharacterProblemList $problems,
+    ): void {
+        $storage = $this->storageOf($slice, $item->getRuleCode());
+        if ($storage === null) {
+            return;
+        }
+
+        $power = $item->getParameters()[$storage->getPowerParameter()] ?? null;
+        if (!$power instanceof DimensionalNumber) {
+            $problems->add(
+                'CHARACTER_ITEM_VOLUME',
+                'Item storage power is missing',
+                'reference',
+                'inventory.' . $index . '.parameters.' . $storage->getPowerParameter(),
+            );
+
+            return;
+        }
+
+        $volume = $item->getPayload()[$storage->getVolumeParameter()] ?? null;
+        if (!is_int($volume)) {
+            $problems->add(
+                'CHARACTER_ITEM_VOLUME',
+                'Item storage volume is missing',
+                'input',
+                'inventory.' . $index . '.payload.' . $storage->getVolumeParameter(),
+            );
+
+            return;
+        }
+
+        $minimum = (new CharacteristicNumber($power->getBase(), $power->getSize()))
+            ->modify($storage->getMinVolumePowerDelta())
+            ->toInteger();
+        $step = $storage->getVolumeIncrement();
+        $base = $storage->getVolumeBase();
+        $volumePath = 'inventory.' . $index . '.payload.' . $storage->getVolumeParameter();
+        if ($volume < $minimum || $volume < $base || ($volume - $base) % $step !== 0) {
+            $problems->add(
+                'CHARACTER_ITEM_VOLUME',
+                'Item storage volume is below the power minimum',
+                'input',
+                $volumePath,
+            );
+
+            return;
+        }
+
+        $this->checkRecorded($slice, $storage, $item, $volume, $index, $problems);
+    }
+
+    /**
+     * Записи заклинаний: состав и занятый Объём.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param ItemStorage $storage Блок хранилища.
+     * @param CharacterInventoryChoice $item Строка инвентаря.
+     * @param int $volume Объём.
+     * @param int $index Индекс строки.
+     * @param CharacterProblemList $problems Накопитель.
+     *
+     * @return void
+     */
+    private function checkRecorded(
+        CharacterRuleSlice $slice,
+        ItemStorage $storage,
+        CharacterInventoryChoice $item,
+        int $volume,
+        int $index,
+        CharacterProblemList $problems,
+    ): void {
+        $parameter = $storage->getRecordedParameter();
+        if ($parameter === '') {
+            return;
+        }
+
+        $prefix = 'inventory.' . $index . '.payload.' . $parameter;
+        $raw = $item->getPayload()[$parameter] ?? [];
+        if (is_array($raw) && $raw === []) {
+            $problems->add(
+                'CHARACTER_ITEM_RECORDED',
+                'Item storage must contain a recorded spell',
+                'input',
+                $prefix,
+            );
+
+            return;
+        }
+
+        $occupied = $this->recorded->occupied(
+            $slice,
+            $raw,
+            $storage->getRecordedKeywords(),
+        );
+        foreach ($occupied['problems'] as $problem) {
+            $problems->add($problem['code'], $problem['message'], $problem['stage'], $prefix . '.' . $problem['key']);
+        }
+
+        if ($occupied['volume'] > $volume) {
+            $problems->add(
+                'CHARACTER_ITEM_VOLUME',
+                'Item recorded spells do not fit the volume',
+                'input',
+                $prefix,
+            );
+        }
+    }
+
+    /**
+     * Блок хранилища живого предмета.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $ruleCode Код предмета.
+     *
+     * @return ItemStorage|null Блок или null.
+     */
+    private function storageOf(CharacterRuleSlice $slice, string $ruleCode): ?ItemStorage
+    {
+        $rule = $slice->findLive($ruleCode);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+
+        return $spec instanceof ItemSpec ? $spec->getStorage() : null;
     }
 
     /**

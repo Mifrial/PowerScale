@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Spec\ItemModifierOperations;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Надетый предмет после стека модификаторов.
@@ -22,7 +23,11 @@ final class CharacterEquippedLive
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
      *
-     * @return array<int, array{ruleCode: string, spec: ItemSpec}> Предметы.
+     * @return array<int, array{
+     *     ruleCode: string,
+     *     spec: ItemSpec,
+     *     parameters: array<string, DimensionalNumber>
+     * }> Предметы.
      */
     public function equipped(CharacterRuleSlice $slice, CharacterChoices $choices): array
     {
@@ -34,7 +39,11 @@ final class CharacterEquippedLive
 
             $spec = $this->effective($slice, $item);
             if ($spec !== null) {
-                $rows[] = ['ruleCode' => $item->getRuleCode(), 'spec' => $spec];
+                $rows[] = [
+                    'ruleCode' => $item->getRuleCode(),
+                    'spec' => $spec,
+                    'parameters' => $item->getParameters(),
+                ];
             }
         }
 
@@ -47,7 +56,11 @@ final class CharacterEquippedLive
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
      *
-     * @return array<int, array{ruleCode: string, spec: ItemSpec}> Предметы.
+     * @return array<int, array{
+     *     ruleCode: string,
+     *     spec: ItemSpec,
+     *     parameters: array<string, DimensionalNumber>
+     * }> Предметы.
      */
     public function equippedOrInnate(CharacterRuleSlice $slice, CharacterChoices $choices): array
     {
@@ -55,7 +68,11 @@ final class CharacterEquippedLive
         foreach ($choices->getInventory() as $item) {
             $spec = $this->effective($slice, $item);
             if ($spec !== null && ($item->isEquipped() || $spec->isInnate())) {
-                $rows[] = ['ruleCode' => $item->getRuleCode(), 'spec' => $spec];
+                $rows[] = [
+                    'ruleCode' => $item->getRuleCode(),
+                    'spec' => $spec,
+                    'parameters' => $item->getParameters(),
+                ];
             }
         }
 

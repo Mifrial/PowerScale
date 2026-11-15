@@ -109,6 +109,66 @@ const fixtureRules: Rule[] = [
   }),
 ];
 
+const crystalItem = (): Rule =>
+  base(null, 'magic-crystal', 'item', 'Кристалл', {
+    category: 'equipment',
+    cost_gm: null,
+    weight: null,
+    innate: true,
+    special_rule_codes: [],
+    storage: {
+      power_parameter: 'max_power',
+      volume_parameter: 'volume',
+      recorded_parameter: 'recorded_spells',
+      volume_base: 20,
+      volume_increment: 10,
+      min_volume_power_delta: 3,
+    },
+  } satisfies ItemSpec);
+
+const crystalCapacity = (): Rule =>
+  base(null, 'magic-crystal-capacity', 'ability', 'Врождённый кристалл', {
+    type: 'trait',
+    zones: {
+      os: {
+        kind: 'parameter_sum_tables',
+        max_level: 205,
+        tables: {
+          x: { '4↓': 2, '5': 8 },
+          volume: { '20': 0, '30': 1 },
+        },
+      },
+    },
+    requirements: [],
+    grants: [
+      {
+        level: 1,
+        grants: [
+          {
+            type: 'item',
+            item_code: 'magic-crystal',
+            quantity: 1,
+            parameters: { max_power: 'x' },
+            payload: { volume: 'volume' },
+          },
+        ],
+      },
+    ],
+    parameters: [
+      { code: 'x', label: 'Мощь', kind: 'dimensional', resolution: 'purchase', default: dim(3) },
+      { code: 'volume', label: 'Объём', kind: 'scalar', resolution: 'purchase', default: 20 },
+    ],
+    parent_ability_code: null,
+  });
+
+const yappiRace = (): Rule =>
+  base(null, 'yappi', 'race', 'Яппи', {
+    parent_race_code: null,
+    cost_os: 0,
+    characteristics: [],
+    abilities: [{ ability_code: 'magic-crystal-capacity', automatic: true, parameters: { x: dim(4, -1) } }],
+  });
+
 function sheet(
   overrides: Partial<{
     raceRuleCode: string | null;
@@ -207,6 +267,43 @@ describe('applyRacialInnateGear', () => {
 
     expect(afterDrop.inventory).toEqual([]);
     expect(afterDrop.abilities).toEqual([expect.objectContaining({ domainCode: 'fam-hand', level: 2, gifted: false })]);
+  });
+});
+
+describe('дар расы с предметом', () => {
+  it('врождённый кристалл 4↓ появляется сразу с мощью и Объёмом', () => {
+    const rules = [...fixtureRules, crystalItem(), crystalCapacity(), yappiRace()];
+    const build: CharacterBuild = {
+      name: 'Тест',
+      shortDescription: null,
+      fullDescription: null,
+      spaceId: 1,
+      spaceCode: 'razrabotka',
+      rulesRevision: 5,
+      raceRuleCode: null,
+      characteristicPurchases: [],
+      abilities: [],
+      resources: [],
+      inventory: [],
+      states: [],
+      money: 0,
+      ageYears: null,
+      olTotal: 0,
+    };
+    const config: CharacterCreationConfig = { osTotal: 20, orTotal: 20, moneyBudget: 100 };
+
+    const next = characterBuildService.applyRace(build, 'yappi', rules, config, []);
+
+    expect(next.inventory).toEqual([
+      expect.objectContaining({
+        ruleCode: 'magic-crystal',
+        quantity: 1,
+        equipped: true,
+        parameters: { max_power: dim(4, -1) },
+        payload: { volume: 20 },
+        grantedBy: { ruleCode: 'magic-crystal-capacity' },
+      }),
+    ]);
   });
 });
 

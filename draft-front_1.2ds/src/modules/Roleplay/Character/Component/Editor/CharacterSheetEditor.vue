@@ -387,6 +387,7 @@ onMounted(() => {
           v-model:open="ruleSlider.state.open"
           :rule-code="ruleSlider.state.ruleCode"
           :space-id="draft.build.spaceId"
+          :space-code="draft.build.spaceCode"
           :rules-revision="draft.build.rulesRevision"
           :rules="rules"
           :keywords="keywords"

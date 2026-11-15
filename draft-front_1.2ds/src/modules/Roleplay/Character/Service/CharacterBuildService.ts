@@ -13,10 +13,17 @@ import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
-import { ethnicityTreeService, itemModifierService, scriptLiteracyService } from '@/modules/Roleplay/Rule/init';
+import {
+  ethnicityTreeService,
+  itemModifierService,
+  raceSpecService,
+  scriptLiteracyService,
+} from '@/modules/Roleplay/Rule/init';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import { grantedItemService } from '@/modules/Roleplay/Character/Service/GrantedItemService';
 import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
@@ -41,6 +48,7 @@ export class CharacterBuildService {
     private readonly nativeLanguage = nativeLanguageService,
     private readonly ethnicities = ethnicityTreeService,
     private readonly hands = characterHandsService,
+    private readonly grantedItems = grantedItemService,
   ) {}
 
   /**
@@ -557,28 +565,39 @@ export class CharacterBuildService {
       : undefined;
 
     if (purchaseCost?.kind === 'parameter_sum_tables') {
-      const paramMax = (parameterCode: string): number => {
-        const parameter =
-          spec && spec.type !== 'group' ? spec.parameters?.find((entry) => entry.code === parameterCode) : undefined;
-        if (!parameter?.max) return 6;
+      // Размерный параметр (мощь кристалла 4↓) остаётся парой база/размер: приведение
+      // к целому превратило бы 4↓ (2) в 4 и завысило мощь.
+      if (typeof value === 'number' && value === 0) {
+        const without = { ...existing?.parameters };
+        delete without[code];
+        const rest = Object.keys(purchaseCost.tables).reduce(
+          (sum, parameterCode) => sum + this.numericOf(without, parameterCode),
+          0,
+        );
+        if (rest <= 0) return { ...build, abilities: others };
 
-        return typeof parameter.max === 'number' ? parameter.max : parameter.max.base;
-      };
-      const numericOf = (parameterCode: string): number => {
-        const raw = parameters[parameterCode];
-        if (raw === undefined) return 0;
+        return { ...build, abilities: [...others, { ruleCode, level: rest, parameters: without }] };
+      }
 
-        return typeof raw === 'number' ? raw : raw.base;
-      };
-      let nextNumeric = typeof value === 'number' ? value : value.base;
-      nextNumeric = Math.max(0, Math.min(paramMax(code), nextNumeric));
-      const othersSum = Object.keys(purchaseCost.tables)
-        .filter((parameterCode) => parameterCode !== code)
-        .reduce((sum, parameterCode) => sum + numericOf(parameterCode), 0);
-      nextNumeric = Math.min(nextNumeric, Math.max(0, purchaseCost.max_level - othersSum));
-      parameters[code] = { base: nextNumeric, size: 0 };
+      const parameter =
+        spec && spec.type !== 'group' ? spec.parameters?.find((entry) => entry.code === code) : undefined;
+      const candidate = typeof value === 'number' ? { base: value, size: 0 } : { ...value };
+      const clamped = this.clampDimensional(candidate, parameter);
+      // Пул ограничен max_level (Физическое развитие: 9 пунктов): скалярный параметр
+      // сжимается до остатка; размерный (мощь кристалла) ограничен своими min/max.
+      if (clamped.size === 0) {
+        const othersSum = Object.keys(purchaseCost.tables)
+          .filter((parameterCode) => parameterCode !== code)
+          .reduce((sum, parameterCode) => sum + this.numericOf(parameters, parameterCode), 0);
+        const limit = Math.max(0, purchaseCost.max_level - othersSum);
+        if (clamped.base > limit) clamped.base = limit;
+      }
+      parameters[code] = clamped;
 
-      const level = Object.keys(purchaseCost.tables).reduce((sum, parameterCode) => sum + numericOf(parameterCode), 0);
+      const level = Object.keys(purchaseCost.tables).reduce(
+        (sum, parameterCode) => sum + this.numericOf(parameters, parameterCode),
+        0,
+      );
       if (level <= 0) return { ...build, abilities: others };
 
       const abilities = [...others, { ruleCode, level, parameters }];
@@ -779,6 +798,34 @@ export class CharacterBuildService {
     return { ...build, inventory };
   }
 
+  /**
+   * Поля `payload` экземпляра (Объём, записи заклинаний). Ключи, которых нет в патче, остаются;
+   * значение `undefined` убирает ключ. Сервер заново проверяет состав записей и Объём.
+   */
+  setItemPayload(build: CharacterBuild, itemId: number, patch: Record<string, unknown>): CharacterBuild {
+    const target = build.inventory.find((item) => item.id === itemId);
+    if (!target) return build;
+
+    const payload: Record<string, unknown> = { ...(target.payload ?? {}) };
+    let changed = false;
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) {
+        if (key in payload) {
+          delete payload[key];
+          changed = true;
+        }
+        continue;
+      }
+      if (JSON.stringify(payload[key]) === JSON.stringify(value)) continue;
+      payload[key] = value;
+      changed = true;
+    }
+
+    if (!changed) return build;
+
+    return { ...build, inventory: build.inventory.map((item) => (item.id === itemId ? { ...item, payload } : item)) };
+  }
+
   /** Сброс инвентаря к базовой линии (R2): копия снапшота, деньги восстанавливаются. */
   resetInventory(
     build: CharacterBuild,
@@ -869,7 +916,9 @@ export class CharacterBuildService {
   /**
    * Смена расы (ТР §7: изменение ранее сделанного выбора). Сбрасывает покупки характеристик
    * (привязаны к расовому профилю) и способности, ставшие недоступными (не расовые и не
-   * удовлетворяют требования уровня).
+   * удовлетворяют требования уровня). Дар (`gift` — «Ядро X»/«Кристалл X») без ссылки новой
+   * расы снимается, даже если правило живое: без ссылки расы он нелегален. Выданный даром
+   * предмет уходит следом — у него не остаётся донора.
    */
   applyRace(
     build: CharacterBuild,
@@ -885,10 +934,22 @@ export class CharacterBuildService {
     };
     const model = this.editor.build(withNewRace, rules, config, keywords);
     const abilityByRuleId = new Map(model.abilities.map((ability) => [ability.ruleCode, ability]));
+    const byCode = new Map(rules.map((rule) => [rule.code, rule]));
+    const keywordCodes = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+    const allowedGifts = new Set(
+      raceSpecService.referencedAbilities(raceRuleCode, byCode).map((ref) => ref.ability_code),
+    );
+    const unavailableGift = (ruleCode: string): boolean => {
+      const rule = byCode.get(ruleCode);
+      if (!rule || allowedGifts.has(rule.code)) return false;
+
+      return (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'gift');
+    };
 
     // Способность остаётся, если доступна в новой расе (automatic или требования выполнены) и
     // каждое выбранное значение параметра «X» лежит в её диапазоне [min, max] (потолок/минимум).
     const compatible = (ability: CharacterBuild['abilities'][number]): boolean => {
+      if (unavailableGift(ability.ruleCode)) return false;
       const editor = abilityByRuleId.get(ability.ruleCode);
       if (!editor || !(editor.automatic || editor.levels[0]?.met)) return false;
 
@@ -972,6 +1033,34 @@ export class CharacterBuildService {
 
   private sameDimensional(a: DimensionalNumberValue, b: DimensionalNumberValue): boolean {
     return a.base === b.base && a.size === b.size;
+  }
+
+  /** Число параметра для пула `parameter_sum_tables`: база, приведённая к целому (4↓ → 2). */
+  private numericOf(parameters: Record<string, number | DimensionalNumberValue> | undefined, code: string): number {
+    const raw = parameters?.[code];
+    if (raw === undefined) return 0;
+
+    return new DimensionalNumber(typeof raw === 'number' ? { base: raw, size: 0 } : raw).toNumber();
+  }
+
+  /** Ограничивает размерное значение интервалом [min, max] параметра, сохраняя пару база/размер. */
+  private clampDimensional(
+    value: DimensionalNumberValue,
+    parameter: AbilityParameter | undefined,
+  ): DimensionalNumberValue {
+    const dimOf = (raw: number | DimensionalNumberValue): DimensionalNumber =>
+      new DimensionalNumber(typeof raw === 'number' ? { base: raw, size: 0 } : raw);
+    let result = new DimensionalNumber(value);
+    if (parameter?.min !== undefined) {
+      const min = dimOf(parameter.min);
+      if (result.compare(min) < 0) result = min;
+    }
+    if (parameter?.max !== undefined) {
+      const max = dimOf(parameter.max);
+      if (result.compare(max) > 0) result = max;
+    }
+
+    return { base: result.value.base, size: result.value.size };
   }
 
   private purchasesOf(build: CharacterBuild, raceRuleCode: string | null, rules: Rule[]): CharacteristicPurchase[] {
@@ -1146,8 +1235,14 @@ export class CharacterBuildService {
       inventory: next.inventory,
       abilities: next.abilities,
     };
+    // Врождённые предметы из automatic-ссылок расы получают параметры и payload из
+    // гранта (кристалл Яппи 4↓): иначе строка появится только после сохранения.
+    const granted = rules.length > 0 ? this.grantedItems.apply(withGear, rules) : withGear;
 
-    return this.nativeLanguage.syncNativeSpeech(withGear, rules);
+    return this.nativeLanguage.syncNativeSpeech(
+      { ...withGear, inventory: granted.inventory, abilities: granted.abilities },
+      rules,
+    );
   }
 
   private sanitizeEthnicity(

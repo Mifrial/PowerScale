@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import { CharacterBuildService } from '@/modules/Roleplay/Character/Service/CharacterBuildService';
 
 const dim = (base: number, size = 0) => ({ base, size });
@@ -242,6 +243,56 @@ describe('CharacterBuildService', () => {
     expect(build.abilities).toEqual([]);
   });
 
+  it('setAbilityParameter сохраняет размер ступени пула (кристалл 4↓)', () => {
+    const crystal = base(null, 'magic-crystal-capacity', 'ability', 'Кристалл X', {
+      type: 'trait',
+      zones: {
+        os: {
+          kind: 'parameter_sum_tables',
+          max_level: 205,
+          tables: {
+            x: { '3': 4, '4': 6, '5': 8, '3↓': 1, '4↓': 2 },
+            volume: { '20': 0, '30': 1 },
+          },
+        },
+      },
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      parameters: [
+        {
+          code: 'x',
+          label: 'Мощь',
+          kind: 'dimensional',
+          resolution: 'purchase',
+          default: dim(3),
+          min: dim(3, -1),
+          max: dim(5),
+        },
+        { code: 'volume', label: 'Объём', kind: 'scalar', resolution: 'purchase', default: 20, min: 20, max: 200 },
+      ],
+    });
+    const crystalRules = [...rules, crystal];
+
+    let build = service.setAbilityParameter(
+      makeBuild(),
+      'magic-crystal-capacity',
+      'x',
+      { base: 4, size: -1 },
+      crystalRules,
+    );
+    expect(build.abilities).toEqual([
+      { ruleCode: 'magic-crystal-capacity', level: 2, parameters: { x: { base: 4, size: -1 } } },
+    ]);
+
+    build = service.setAbilityParameter(build, 'magic-crystal-capacity', 'volume', { base: 30, size: 0 }, crystalRules);
+    expect(build.abilities[0].parameters).toEqual({ x: { base: 4, size: -1 }, volume: { base: 30, size: 0 } });
+    expect(build.abilities[0].level).toBe(32); // 4↓ → 2, плюс Объём 30
+
+    build = service.setAbilityParameter(build, 'magic-crystal-capacity', 'volume', 0, crystalRules);
+    expect(build.abilities[0].parameters).toEqual({ x: { base: 4, size: -1 } });
+  });
+
   it('applyRace сбрасывает покупки, привязанные к старой расе', () => {
     const build = makeBuild({ characteristicPurchases: [{ characteristicCode: 'strength', cost: 1 }] });
     const next = service.applyRace(build, 'elf', rules, config, []);
@@ -300,6 +351,68 @@ describe('CharacterBuildService', () => {
     });
     const keep3 = service.applyRace(build3, 'race-magic4', all, config, []);
     expect(keep3.abilities).toEqual([{ ruleCode: 'magic-resistance', level: 1, parameters: { x: dim(3) } }]);
+  });
+
+  it('applyRace снимает дар без ссылки новой расы вместе с выданным предметом', () => {
+    const catalog: Keyword[] = [{ id: 1, code: 'gift', name: 'Дар', description: '', active: true }];
+    const giftRules = [
+      ...rules,
+      {
+        ...base(null, 'gift-crystal', 'ability', 'Врождённый кристалл', {
+          type: 'trait',
+          zones: { os: { kind: 'array', levels_cost: [2] } },
+          requirements: [],
+          grants: [
+            {
+              level: 1,
+              grants: [{ type: 'item', item_code: 'crystal', quantity: 1, parameters: { x: 'x' } }],
+            },
+          ],
+          parent_ability_code: null,
+          parameters: [
+            {
+              code: 'x',
+              label: 'X',
+              kind: 'scalar',
+              resolution: 'purchase',
+              default: dim(3),
+              min: dim(3),
+              max: dim(5),
+            },
+          ],
+        }),
+        keywordIds: [1],
+      },
+      base(null, 'crystal', 'item', 'Кристалл-хранилище', {
+        innate: true,
+        weight: null,
+        cost_gm: null,
+        category: 'equipment',
+        special_rule_codes: [],
+      }),
+      base(null, 'yappi', 'race', 'Яппи', {
+        parent_race_code: null,
+        cost_os: 0,
+        characteristics: [],
+        abilities: [{ ability_code: 'gift-crystal', automatic: true, parameters: { x: dim(4, -1) } }],
+      }),
+      base(null, 'alierets', 'race', 'Алиерц', {
+        parent_race_code: null,
+        cost_os: 0,
+        characteristics: [],
+        abilities: [],
+      }),
+    ];
+    const build = makeBuild({
+      raceRuleCode: 'yappi',
+      abilities: [{ ruleCode: 'gift-crystal', level: 1, parameters: { x: dim(4, -1) } }],
+      inventory: [{ id: 1, ruleCode: 'crystal', quantity: 1, equipped: true, grantedBy: { ruleCode: 'gift-crystal' } }],
+    });
+
+    const next = service.applyRace(build, 'alierets', giftRules, config, catalog);
+
+    expect(next.abilities).toEqual([]);
+    expect(next.inventory).toEqual([]);
   });
 
   it('setAbilityLevel не даёт взять ol-особенность сверх лимита числа (featureLimit)', () => {

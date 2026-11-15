@@ -24,6 +24,60 @@ const choices: CharacterBuild = {
 const config: CharacterCreationConfig = { osTotal: 10, orTotal: 8, moneyBudget: 100 };
 
 describe('CharacterHttpSaveService documentOf', () => {
+  it('передаёт параметры экземпляра и донора выданного предмета', () => {
+    const body = characterHttpSaveService.documentFromVersion(
+      {
+        name: 'Колдунец',
+        shortDescription: null,
+        fullDescription: null,
+        spaceCode: 'razrabotka',
+        rulesRevision: 50,
+        raceRuleCode: 'kogir',
+        characteristics: [],
+        resources: [],
+        abilities: [
+          { ruleCode: 'magic-core-capacity', level: 1, parameters: { x: { base: 4, size: 0 } } },
+          { ruleCode: 'discharge', level: 1, zone: 'or', targets: { core: 5 } },
+        ],
+        points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: 0 },
+        money: 0,
+        ageYears: 18,
+        inventory: [
+          {
+            id: 5,
+            ruleCode: 'magic-core',
+            quantity: 1,
+            equipped: true,
+            parameters: { power: { base: 4, size: 0 } },
+            grantedBy: { ruleCode: 'magic-core-capacity' },
+            payload: { volume: 30, recorded_spells: [{ ruleCode: 'spark', level: 1 }] },
+          },
+        ],
+        states: [],
+        senses: [],
+      },
+      config,
+    );
+
+    expect(body.inventory).toEqual([
+      {
+        id: 5,
+        quantity: 1,
+        equipped: true,
+        ruleCode: 'magic-core',
+        parameters: { power: { base: 4, size: 0 } },
+        grantedBy: { ruleCode: 'magic-core-capacity' },
+        payload: { volume: 30, recorded_spells: [{ ruleCode: 'spark', level: 1 }] },
+      },
+    ]);
+    expect(body.abilities).toContainEqual({
+      ruleCode: 'discharge',
+      level: 1,
+      zone: 'or',
+      targets: { core: 5 },
+    });
+  });
+
   it('документ NPC без spaceId и с пустыми лимитами', () => {
     const body = characterHttpSaveService.documentOf(choices, {
       osTotal: null,
