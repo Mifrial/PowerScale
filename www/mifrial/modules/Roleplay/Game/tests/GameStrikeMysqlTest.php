@@ -2268,6 +2268,9 @@ final class GameStrikeMysqlTest extends TestCase
     /**
      * Пустая мана кристалла не даёт сотворить.
      *
+     * Сборка валидна (Объём 40 на две записи по 10 и мощь 4), но кристалл
+     * разряжен предыдущими кастами: мана — рантайм листа, а не сборка.
+     *
      * @return void
      */
     public function testCrystalWithoutManaCannotCast(): void
@@ -2275,7 +2278,7 @@ final class GameStrikeMysqlTest extends TestCase
         $scene = $this->crystalScene([
             ['ruleCode' => 'discharge'],
             ['ruleCode' => 'lightning-strike'],
-        ]);
+        ], 0, true, false, 40);
         $inventoryId = $this->heroInventoryId($scene['hero']);
         self::assertGreaterThan(0, $inventoryId);
         self::assertSame(0, $this->itemManaOf($scene['hero'], $inventoryId));

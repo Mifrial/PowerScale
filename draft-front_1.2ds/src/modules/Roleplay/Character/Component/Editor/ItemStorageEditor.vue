@@ -2,17 +2,21 @@
 import { computed } from 'vue';
 import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import LightButton from '@/modules/Core/UI/Component/light/LightButton.vue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { itemStorageService } from '@/modules/Roleplay/Character/Service/Instance/itemStorageService';
 import type { RecordedSpellEntry } from '@/modules/Roleplay/Character/Service/ItemStorageService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemStorage } from '@/modules/Roleplay/Rule/Dto/Item/ItemStorage';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 const props = withDefaults(
   defineProps<{
     payload?: Record<string, unknown>;
     storage: ItemStorage;
     rules: Rule[];
+    /** Предельная мощь экземпляра: полный каст за ход тратит её целиком. */
+    maxPower?: DimensionalNumberValue;
     /** Словарь признаков: ограничение записей и подписи. */
     keywords?: Keyword[];
     /** Можно менять состав записей: редактор персонажа, не карточка. */
@@ -47,6 +51,24 @@ const occupied = computed(() => itemStorageService.occupied(recorded.value, prop
 
 const manaLimit = computed(() => itemStorageService.manaLimit(volume.value, occupied.value));
 
+/** Мощь целым числом или null, если экземпляр её не задал. */
+const powerValue = computed(() =>
+  props.maxPower ? DimensionalNumber.from(props.maxPower).toNumber() : null,
+);
+
+/** Свободного Объёма не хватит на каст полной мощью за один ход. */
+const manaLow = computed(
+  () => recorded.value.length > 0 && powerValue.value !== null && manaLimit.value < powerValue.value,
+);
+
+/** Подсказка, почему запись не подходит; пусто — подходит. */
+function fitHint(occupiedAfter: number): string {
+  if (occupiedAfter > volume.value) return ' · не влезает';
+  if (powerValue.value !== null && volume.value - occupiedAfter < powerValue.value) return ' · мало маны';
+
+  return '';
+}
+
 const rows = computed(() =>
   recorded.value.map((entry) => {
     const upgrades = (entry.upgrades ?? []).map((code) => ({
@@ -68,7 +90,7 @@ const rows = computed(() =>
           ruleCode: rule.code,
           name: rule.name,
           volume: itemStorageService.cardVolume(props.rules, rule.code),
-          fits: occupied.value + itemStorageService.cardVolume(props.rules, rule.code) <= volume.value,
+          hint: fitHint(occupied.value + itemStorageService.cardVolume(props.rules, rule.code)),
         })),
     };
   }),
@@ -85,7 +107,7 @@ const candidates = computed(() => {
       ruleCode: rule.code,
       name: rule.name,
       volume: itemStorageService.cardVolume(props.rules, rule.code),
-      fits: occupied.value + itemStorageService.cardVolume(props.rules, rule.code) <= volume.value,
+      hint: fitHint(occupied.value + itemStorageService.cardVolume(props.rules, rule.code)),
     }));
 });
 
@@ -124,6 +146,9 @@ function removeUpgrade(spellCode: string, upgradeCode: string): void {
     <p v-if="canEdit && recorded.length === 0" class="text-caption text-warning">
       Кристалл без записей сохранить нельзя — запишите хотя бы одно заклинание.
     </p>
+    <p v-if="canEdit && manaLow" class="text-caption text-warning">
+      Свободной маны {{ manaLimit }} меньше мощи {{ powerValue }} — на полный каст за ход её не хватит.
+    </p>
     <div v-if="rows.length" class="d-flex flex-column ga-2">
       <div v-for="row in rows" :key="row.ruleCode" class="d-flex flex-column ga-1">
         <div class="d-flex align-center ga-2">
@@ -160,10 +185,10 @@ function removeUpgrade(spellCode: string, upgradeCode: string): void {
           @update:model-value="(code) => addUpgrade(row.ruleCode, code)"
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :disabled="!item.raw.fits">
+            <v-list-item v-bind="itemProps" :disabled="item.raw.hint !== ''">
               <template #append>
                 <span class="text-caption text-medium-emphasis">
-                  {{ item.raw.volume }}<template v-if="!item.raw.fits"> · не влезает</template>
+                  {{ item.raw.volume }}{{ item.raw.hint }}
                 </span>
               </template>
             </v-list-item>
@@ -185,10 +210,10 @@ function removeUpgrade(spellCode: string, upgradeCode: string): void {
       @update:model-value="addSpell"
     >
       <template #item="{ props: itemProps, item }">
-        <v-list-item v-bind="itemProps" :disabled="!item.raw.fits">
+        <v-list-item v-bind="itemProps" :disabled="item.raw.hint !== ''">
           <template #append>
             <span class="text-caption text-medium-emphasis">
-              {{ item.raw.volume }}<template v-if="!item.raw.fits"> · не влезает</template>
+              {{ item.raw.volume }}{{ item.raw.hint }}
             </span>
           </template>
         </v-list-item>

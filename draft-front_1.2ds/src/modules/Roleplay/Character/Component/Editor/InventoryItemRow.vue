@@ -63,6 +63,8 @@ const props = defineProps<{
   allowAbilityEdit?: boolean;
   /** Рантайм предмета-хранилища: мана и Объём. */
   storage?: ItemStorageValue;
+  /** Предельная мощь экземпляра-хранилища: запас маны под полный каст. */
+  maxPower?: DimensionalNumberValue;
   /** `payload` экземпляра: Объём и записи заклинаний. */
   payload?: Record<string, unknown>;
 }>();
@@ -335,6 +337,7 @@ const open = computed({
         <ItemStorageEditor
           :payload="payload"
           :storage="storageSpec"
+          :max-power="maxPower"
           :rules="rules"
           :keywords="keywords"
           :can-edit="allowAbilityEdit"

@@ -296,7 +296,16 @@ final class CharacterInputChecks
             return;
         }
 
-        $this->checkRecorded($slice, $storage, $item, $volume, $index, $problems, $requireRecorded);
+        $this->checkRecorded(
+            $slice,
+            $storage,
+            $item,
+            $volume,
+            $power->toInteger(),
+            $index,
+            $problems,
+            $requireRecorded,
+        );
     }
 
     /**
@@ -306,6 +315,7 @@ final class CharacterInputChecks
      * @param ItemStorage $storage Блок хранилища.
      * @param CharacterInventoryChoice $item Строка инвентаря.
      * @param int $volume Объём.
+     * @param int $power Мощь хранилища целым числом.
      * @param int $index Индекс строки.
      * @param CharacterProblemList $problems Накопитель.
      * @param bool $requireRecorded Требовать непустые хранилища.
@@ -317,6 +327,7 @@ final class CharacterInputChecks
         ItemStorage $storage,
         CharacterInventoryChoice $item,
         int $volume,
+        int $power,
         int $index,
         CharacterProblemList $problems,
         bool $requireRecorded,
@@ -352,6 +363,19 @@ final class CharacterInputChecks
             $problems->add(
                 'CHARACTER_ITEM_VOLUME',
                 'Item recorded spells do not fit the volume',
+                'input',
+                $prefix,
+            );
+
+            return;
+        }
+
+        // Мана — свободный Объём; самый дешёвый по ходам каст тратит мощь целиком.
+        // Runtime терпит пустую ману: её сливает каст, и это не ошибка листа.
+        if ($requireRecorded && $volume - $occupied['volume'] < $power) {
+            $problems->add(
+                'CHARACTER_ITEM_MANA',
+                'Item storage has no mana for a full cast',
                 'input',
                 $prefix,
             );

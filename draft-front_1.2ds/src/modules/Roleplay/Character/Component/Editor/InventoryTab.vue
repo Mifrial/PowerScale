@@ -694,6 +694,11 @@ watch(showWeaponSkills, (val) => {
           :available-hands="item.inventoryId !== null ? getRemainingHandsFor(item.inventoryId) : undefined"
           :can-adjust-hands="(variant === 'editor' || canEdit) && item.rowKind === 'owned'"
           :storage="item.storage"
+          :max-power="
+            item.rowKind === 'owned'
+              ? ownedOf(item)?.parameters?.[item.spec?.storage?.power_parameter ?? '']
+              : undefined
+          "
           :payload="item.rowKind === 'owned' ? ownedOf(item)?.payload : undefined"
           @update:open="(open) => setOpen(itemKey(item), open)"
           @buy="buy"

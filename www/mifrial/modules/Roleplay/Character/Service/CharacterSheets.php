@@ -130,6 +130,9 @@ final class CharacterSheets implements ICharacterSheets
     /**
      * Пустой validate сохранённого документа choices. Запись не делает.
      *
+     * Допуск в игру не требует полноты хранилищ: старый пустой кристалл и
+     * разряженный Объём — забота редактора сборки, а не пропуска за стол.
+     *
      * @param int $spaceId Мир листа.
      * @param int $rulesRevision Ревизия листа.
      * @param array<string, mixed> $choices Документ choices.
@@ -148,7 +151,7 @@ final class CharacterSheets implements ICharacterSheets
 
         $slice = $this->ruleSlices->get($spaceId, $rulesRevision);
 
-        return $this->validate($slice, $assembled)->getProblems() === [];
+        return $this->validate($slice, $assembled, false)->getProblems() === [];
     }
 
     /**

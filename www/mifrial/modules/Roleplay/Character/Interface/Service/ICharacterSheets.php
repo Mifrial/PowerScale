@@ -44,6 +44,8 @@ interface ICharacterSheets
     /**
      * Пустой validate сохранённого документа choices. Запись не делает.
      *
+     * Полнота хранилищ не требуется: допуск в игру идёт по runtime-правилам.
+     *
      * @param int $spaceId Мир листа.
      * @param int $rulesRevision Ревизия листа.
      * @param array<string, mixed> $choices Документ choices.

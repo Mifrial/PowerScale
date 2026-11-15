@@ -165,17 +165,49 @@ final class CharacterItemStorageTest extends TestCase
     }
 
     /**
-     * Записанное улучшение занимает Объём отдельно.
+     * Записанное улучшение занимает Объём отдельно и съедает запас маны.
      *
      * @return void
      */
-    public function testRecordedUpgradeTakesVolume(): void
+    public function testRecordedUpgradeTakesVolumeAndMana(): void
     {
-        $item = $this->crystal([3, 0], 20, [
+        self::assertSame([], $this->codes($this->crystal([3, 0], 30, [
+            ['ruleCode' => 'spark'],
+        ])));
+
+        $item = $this->crystal([3, 0], 30, [
             ['ruleCode' => 'spark', 'upgrades' => ['careful']],
         ]);
 
-        self::assertSame(['CHARACTER_ITEM_VOLUME'], $this->codes($item));
+        self::assertSame(['CHARACTER_ITEM_MANA'], $this->codes($item));
+    }
+
+    /**
+     * Свободный Объём меньше мощи — полный каст за ход не оплатить.
+     *
+     * @return void
+     */
+    public function testRecordedSpellWithoutManaForFullCastIsRejected(): void
+    {
+        $item = $this->crystal([3, 0], 20, [
+            ['ruleCode' => 'zap'],
+        ]);
+
+        self::assertSame(['CHARACTER_ITEM_MANA'], $this->codes($item));
+    }
+
+    /**
+     * Runtime терпит пустую ману: её сливает каст, и это не ошибка листа.
+     *
+     * @return void
+     */
+    public function testEmptyManaIsToleratedInRuntime(): void
+    {
+        $item = $this->crystal([3, 0], 20, [
+            ['ruleCode' => 'zap'],
+        ]);
+
+        self::assertSame([], $this->codes($item, false));
     }
 
     /**
@@ -292,6 +324,7 @@ final class CharacterItemStorageTest extends TestCase
             ]),
             $this->rule('sword', 'item', []),
             $this->rule('spark', 'ability', $this->spell([1]), ['electromancy']),
+            $this->rule('zap', 'ability', $this->spell([2]), ['electromancy']),
             $this->rule('big-spell', 'ability', $this->spell([3]), ['electromancy']),
             $this->rule('frost', 'ability', $this->spell([1])),
             $this->rule('careful', 'ability', [

@@ -453,6 +453,47 @@ final class CharacterSheetsTest extends TestCase
     }
 
     /**
+     * Допуск в игру терпит старый пустой кристалл: полнота хранилища — дело редактора.
+     *
+     * @return void
+     */
+    public function testAcceptsStoredChoicesToleratesEmptyStorage(): void
+    {
+        $slice = new CharacterRuleSlice(1, 1, 'world', [
+            $this->rule('human', 'race', ['abilities' => []]),
+            $this->rule('magic-crystal', 'item', ['storage' => [
+                'power_parameter' => 'max_power',
+                'volume_parameter' => 'volume',
+                'recorded_parameter' => 'recorded_spells',
+                'volume_base' => 20,
+                'volume_increment' => 10,
+                'min_volume_power_delta' => 3,
+            ]]),
+        ], []);
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->with(1, 1)->willReturn($slice);
+        $sheets = $this->sheets($this->createMock(IMechanics::class), $slices);
+        $stored = [
+            'name' => 'Имя',
+            'raceCode' => 'human',
+            'abilities' => [],
+            'inventory' => [[
+                'id' => 1,
+                'ruleCode' => 'magic-crystal',
+                'quantity' => 1,
+                'equipped' => true,
+                'parameters' => ['max_power' => ['base' => 3, 'size' => 0]],
+                'payload' => ['volume' => 20, 'recorded_spells' => []],
+            ]],
+            'characteristicPurchases' => [],
+            'customRules' => [],
+            'active' => true,
+        ];
+
+        self::assertTrue($sheets->acceptsStoredChoices(1, 1, $stored));
+    }
+
+    /**
      * Цена вне лестницы purchased — отказ. Нулевая цена ступенью не считается.
      *
      * @return void
