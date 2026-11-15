@@ -55,7 +55,7 @@
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-real-plan-10-crystal.md](../../spell-real-plan-10-crystal.md) | план | `~В РАБОТЕ~` | 2026-11-14 |
-| [spell-real-plan-11-psionic-shaman.md](../../spell-real-plan-11-psionic-shaman.md) | план | `~В РАБОТЕ~` | 2026-11-15 |
+| [spell-real-plan-11-psionic-shaman.md](../../spell-real-plan-11-psionic-shaman.md) | план | `~В РАБОТЕ~` | 2026-11-16 |
 | [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
 | [rule-plan-01.md](../../rule-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [rule-plan-03.md](../../rule-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |

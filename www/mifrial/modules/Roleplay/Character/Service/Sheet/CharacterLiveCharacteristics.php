@@ -66,7 +66,7 @@ final class CharacterLiveCharacteristics
         $bases = $this->baseFrom($slice, $bases, $deltas);
         $values = $this->applied($bases, $deltas);
         $values = $this->derived($slice, $values);
-        $values = $this->aggregated($slice, $values);
+        $values = $this->aggregated($slice, $values, $deltas);
         $values = $this->capped($slice, $choices, $values);
 
         return $this->rows($bases, $values, $deltas);
@@ -179,10 +179,11 @@ final class CharacterLiveCharacteristics
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param array<string, CharacteristicNumber> $values Значения.
+     * @param array<string, array<int, array{source: string, delta: int}>> $deltas Дельты.
      *
      * @return array<string, CharacteristicNumber> Значения.
      */
-    private function aggregated(CharacterRuleSlice $slice, array $values): array
+    private function aggregated(CharacterRuleSlice $slice, array $values, array $deltas): array
     {
         foreach ($slice->getLiveRules() as $rule) {
             $spec = $rule->getSpec();
@@ -209,7 +210,12 @@ final class CharacterLiveCharacteristics
             }
 
             $points = $this->floorQuotient($sum, $aggregate->getPointsPerStep()) * $aggregate->getStep();
-            $values[$code] = $aggregate->getBase()->modify($points);
+            $delta = 0;
+            foreach ($deltas[$code] ?? [] as $row) {
+                $delta += $row['delta'];
+            }
+
+            $values[$code] = $this->shifted($aggregate->getBase()->modify($points), $delta);
         }
 
         return $values;
