@@ -303,29 +303,17 @@ async function createLinkedArticle(): Promise<void> {
     snackbar.value = exception instanceof LoreApiError ? exception.message : 'Не удалось создать статью';
   }
 }
-
-function formatDate(unix: number): string {
-  return new Date(unix * 1000).toLocaleString();
-}
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
-    <div class="d-flex align-center mb-4 ga-3 flex-wrap">
-      <div>
-        <h1 class="text-h5">{{ isNew ? 'Новая статья' : 'Редактирование статьи' }}</h1>
-        <div class="text-body-2 text-medium-emphasis">
-          Мир «{{ world?.name ?? worldCode }}»
-          <span v-if="article">· версия {{ article.version }} от {{ formatDate(article.updatedAt) }}</span>
-        </div>
-      </div>
-      <v-spacer />
-      <v-btn variant="text" @click="router.back()">Отмена</v-btn>
-      <v-btn variant="tonal" prepend-icon="mdi-eye" @click="previewOpen = !previewOpen">
+  <v-container>
+    <Teleport to="#editor-actions" defer>
+      <v-btn variant="text" size="small" @click="router.back()">Отмена</v-btn>
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-eye" @click="previewOpen = !previewOpen">
         {{ previewOpen ? 'Редактор' : 'Предпросмотр' }}
       </v-btn>
-      <v-btn color="primary" :loading="saving" :disabled="!canSubmit" @click="save()">Сохранить</v-btn>
-    </div>
+      <v-btn color="primary" size="small" :loading="saving" :disabled="!canSubmit" @click="save()">Сохранить</v-btn>
+    </Teleport>
 
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <v-alert v-if="rulesHint" type="info" variant="tonal" density="compact" class="mb-4">{{ rulesHint }}</v-alert>
@@ -334,9 +322,9 @@ function formatDate(unix: number): string {
 
     <v-row>
       <v-col cols="12" md="8">
-        <v-card variant="outlined">
+        <v-card>
           <v-card-text>
-            <v-text-field v-model="form.title" label="Заголовок" autofocus />
+            <v-text-field v-model="form.title" label="Заголовок" autofocus class="mb-2" />
             <v-row dense>
               <v-col cols="12" md="4">
                 <v-text-field
@@ -400,7 +388,7 @@ function formatDate(unix: number): string {
       </v-col>
 
       <v-col cols="12" md="4">
-        <v-card variant="outlined" class="mb-4">
+        <v-card class="mb-4">
           <v-card-title class="text-subtitle-2">Доступ</v-card-title>
           <v-card-text>
             <v-select
@@ -410,6 +398,7 @@ function formatDate(unix: number): string {
               item-value="value"
               label="Видимость"
               density="compact"
+              class="mb-3"
             />
             <LoreReadersField
               v-if="form.visibility === 'secret'"
@@ -421,10 +410,11 @@ function formatDate(unix: number): string {
             <v-alert v-else type="info" variant="tonal" density="compact" class="mt-3">
               Публичная статья видна всем, кому доступен мир.
             </v-alert>
+            <div class="text-caption text-medium-emphasis mt-3">Версия: {{ form.expectedVersion ?? '—' }}</div>
           </v-card-text>
         </v-card>
 
-        <v-card variant="outlined">
+        <v-card>
           <v-card-title class="text-subtitle-2">Признаки</v-card-title>
           <v-card-text>
             <v-select

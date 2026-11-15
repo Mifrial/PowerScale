@@ -60,17 +60,14 @@ function formatDate(unix: number): string {
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
-    <div class="d-flex align-center mb-4 ga-4 flex-wrap">
-      <div>
-        <h1 class="text-h5">Кодекс</h1>
-        <div class="text-body-2 text-medium-emphasis">Миры, разделы и статьи знаний</div>
-      </div>
-      <v-spacer />
-      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="createOpen = true"> Новый мир </v-btn>
-    </div>
+  <v-container>
+    <Teleport to="#editor-actions" defer>
+      <v-btn v-if="canCreate" color="primary" size="small" prepend-icon="mdi-plus" @click="createOpen = true">
+        Новый мир
+      </v-btn>
+    </Teleport>
 
-    <v-card variant="outlined">
+    <v-card>
       <v-card-text>
         <div class="d-flex align-center ga-3 mb-4 flex-wrap">
           <v-text-field

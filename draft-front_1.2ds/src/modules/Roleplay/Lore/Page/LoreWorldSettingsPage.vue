@@ -8,6 +8,7 @@ import type { LoreWorldVisibility } from '@/modules/Roleplay/Lore/Enum/LoreWorld
 import { LORE_WORLD_VISIBILITY_OPTIONS } from '@/modules/Roleplay/Lore/Constant/LORE_VISIBILITY_OPTIONS';
 import { getLoreApi } from '@/modules/Roleplay/Lore/init';
 import { LoreApiError } from '@/modules/Roleplay/Lore/Service/LoreApiError';
+import { useSpaceCatalog } from '@/modules/Roleplay/RuleSpace/init';
 import LoreConflictDialog from '@/modules/Roleplay/Lore/Component/LoreConflictDialog.vue';
 import LoreExportDialog from '@/modules/Roleplay/Lore/Component/LoreExportDialog.vue';
 import LoreImportDialog from '@/modules/Roleplay/Lore/Component/LoreImportDialog.vue';
@@ -15,6 +16,8 @@ import LoreSectionEditor from '@/modules/Roleplay/Lore/Component/LoreSectionEdit
 
 const route = useRoute();
 const router = useRouter();
+const spaceCatalog = useSpaceCatalog();
+
 const worldCode = computed(() => String(route.params.worldCode ?? ''));
 const world = ref<LoreWorldDetail | null>(null);
 const loading = ref(false);
@@ -22,8 +25,11 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const snackbar = ref<string | null>(null);
 const conflict = ref<LoreConflict | null>(null);
+const conflictTarget = ref<'meta' | 'sections' | 'archive'>('meta');
 const exportOpen = ref(false);
 const importOpen = ref(false);
+const activeTab = ref<'main' | 'sections'>('main');
+const sectionEditor = ref<InstanceType<typeof LoreSectionEditor> | null>(null);
 
 const meta = reactive({
   name: '',
@@ -34,7 +40,28 @@ const meta = reactive({
 });
 const sections = ref<LoreSectionInput[]>([]);
 
-onMounted(load);
+const spaceItems = computed(() => {
+  const items = spaceCatalog.spaces.value.map((space) => ({ title: space.name, value: space.code }));
+  if (meta.spaceCode !== '' && !items.some((item) => item.value === meta.spaceCode)) {
+    items.unshift({ title: `${meta.spaceCode} (нет доступа)`, value: meta.spaceCode });
+  }
+
+  return [{ title: '— Без пространства —', value: '' }, ...items];
+});
+const articleCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {};
+  for (const article of world.value?.articles ?? []) {
+    if (article.sectionCode === null) continue;
+    counts[article.sectionCode] = (counts[article.sectionCode] ?? 0) + 1;
+  }
+
+  return counts;
+});
+
+onMounted(async () => {
+  await load();
+  await spaceCatalog.fetchSpaces();
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -62,6 +89,15 @@ async function load(): Promise<void> {
   }
 }
 
+async function saveCurrent(): Promise<void> {
+  if (activeTab.value === 'sections') {
+    await saveSections();
+
+    return;
+  }
+  await saveMeta();
+}
+
 async function saveMeta(forcedVersion?: number): Promise<void> {
   if (meta.name.trim() === '') {
     error.value = 'Укажите название мира.';
@@ -71,22 +107,24 @@ async function saveMeta(forcedVersion?: number): Promise<void> {
   saving.value = true;
   error.value = null;
   try {
-    await getLoreApi().saveWorld({
+    const saved = await getLoreApi().saveWorld({
       world: {
         code: worldCode.value,
         name: meta.name.trim(),
         description: meta.description,
         visibility: meta.visibility,
-        spaceCode: meta.spaceCode.trim(),
+        spaceCode: meta.spaceCode,
       },
       version: forcedVersion ?? meta.version,
     });
+    meta.version = saved.version;
+    if (world.value) world.value = { ...world.value, ...saved };
     conflict.value = null;
     snackbar.value = 'Настройки мира сохранены.';
-    await load();
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
+      conflictTarget.value = 'meta';
     } else {
       error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось сохранить мир';
     }
@@ -95,17 +133,19 @@ async function saveMeta(forcedVersion?: number): Promise<void> {
   }
 }
 
-async function saveSections(): Promise<void> {
+async function saveSections(forcedVersion?: number): Promise<void> {
   saving.value = true;
   error.value = null;
   try {
-    const detail = await getLoreApi().saveTree(worldCode.value, sections.value, meta.version);
+    const detail = await getLoreApi().saveTree(worldCode.value, sections.value, forcedVersion ?? meta.version);
     world.value = detail;
     meta.version = detail.version;
+    conflict.value = null;
     snackbar.value = 'Дерево разделов сохранено.';
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
+      conflictTarget.value = 'sections';
     } else {
       error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось сохранить дерево';
     }
@@ -114,17 +154,23 @@ async function saveSections(): Promise<void> {
   }
 }
 
-async function toggleArchive(): Promise<void> {
+async function toggleArchive(forcedVersion?: number): Promise<void> {
   if (!world.value) return;
   saving.value = true;
   error.value = null;
   try {
-    await getLoreApi().archiveWorld(worldCode.value, !world.value.isArchived, meta.version);
-    await load();
-    snackbar.value = world.value?.isArchived ? 'Мир в архиве.' : 'Мир восстановлен.';
+    const saved = await getLoreApi().archiveWorld(
+      worldCode.value,
+      !world.value.isArchived,
+      forcedVersion ?? meta.version,
+    );
+    meta.version = saved.version;
+    world.value = { ...world.value, ...saved };
+    snackbar.value = saved.isArchived ? 'Мир в архиве.' : 'Мир восстановлен.';
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
+      conflictTarget.value = 'archive';
     } else {
       error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось изменить архив';
     }
@@ -136,12 +182,22 @@ async function toggleArchive(): Promise<void> {
 function overwrite(): void {
   const currentVersion = conflict.value?.currentVersion;
   if (currentVersion === undefined) return;
-  void saveMeta(currentVersion);
+  if (conflictTarget.value === 'sections') {
+    void saveSections(currentVersion);
+  } else if (conflictTarget.value === 'archive') {
+    void toggleArchive(currentVersion);
+  } else {
+    void saveMeta(currentVersion);
+  }
 }
 
 function reload(): void {
   conflict.value = null;
   void load();
+}
+
+function addSection(): void {
+  sectionEditor.value?.openRootCreate();
 }
 
 function imported(worldCodeValue: string): void {
@@ -151,72 +207,87 @@ function imported(worldCodeValue: string): void {
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
-    <div class="d-flex align-center mb-4 ga-3 flex-wrap">
-      <div>
-        <h1 class="text-h5">Настройки мира</h1>
-        <div class="text-body-2 text-medium-emphasis">{{ worldCode }}</div>
-      </div>
-      <v-spacer />
-      <v-btn
-        variant="text"
-        prepend-icon="mdi-arrow-left"
-        @click="router.push({ name: 'LoreWorld', params: { worldCode } })"
-      >
-        К миру
+  <v-container>
+    <Teleport to="#editor-actions" defer>
+      <v-btn v-if="world" variant="tonal" size="small" prepend-icon="mdi-download" @click="exportOpen = true">
+        Экспорт
       </v-btn>
-      <v-btn v-if="world" variant="tonal" prepend-icon="mdi-upload" @click="exportOpen = true">Экспорт</v-btn>
-      <v-btn v-if="world" variant="tonal" prepend-icon="mdi-download" @click="importOpen = true">Импорт</v-btn>
-    </div>
+      <v-btn v-if="world" variant="tonal" size="small" prepend-icon="mdi-upload" @click="importOpen = true">
+        Импорт
+      </v-btn>
+      <v-btn
+        v-if="world && world.canEdit && activeTab === 'sections'"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="addSection"
+      >
+        Раздел
+      </v-btn>
+      <v-btn v-if="world && world.canEdit" color="primary" size="small" :loading="saving" @click="saveCurrent">
+        Сохранить
+      </v-btn>
+    </Teleport>
 
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
-    <v-progress-linear v-if="loading" indeterminate class="mb-4" />
+    <div v-if="loading && !world" class="d-flex justify-center pa-8">
+      <v-progress-circular indeterminate width="2" size="28" color="primary" />
+    </div>
 
-    <v-row v-if="world">
-      <v-col cols="12" md="7">
-        <v-card variant="outlined">
-          <v-card-title>Мир</v-card-title>
-          <v-card-text>
-            <v-text-field v-model="meta.name" label="Название" />
-            <v-text-field
-              v-model="meta.spaceCode"
-              label="Код пространства правил"
-              hint="Необязательно: для ссылок на правила"
-              persistent-hint
-            />
-            <v-textarea v-model="meta.description" label="Описание" rows="4" auto-grow class="mt-4" />
-            <v-select
-              v-model="meta.visibility"
-              :items="LORE_WORLD_VISIBILITY_OPTIONS"
-              item-title="title"
-              item-value="value"
-              label="Видимость"
-              class="mt-2"
-            />
-            <div class="text-caption text-medium-emphasis">Версия: {{ meta.version }}</div>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn v-if="world.isArchived" variant="tonal" @click="toggleArchive">Восстановить мир</v-btn>
-            <v-btn v-else variant="tonal" color="warning" @click="toggleArchive">В архив</v-btn>
-            <v-btn color="primary" :loading="saving" @click="saveMeta()">Сохранить</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
+    <template v-if="world">
+      <v-tabs v-model="activeTab" color="primary" density="compact" class="mb-4">
+        <v-tab value="main">Основное</v-tab>
+        <v-tab value="sections">Разделы</v-tab>
+      </v-tabs>
 
-      <v-col cols="12" md="5">
-        <v-card variant="outlined">
-          <v-card-title>Дерево разделов</v-card-title>
-          <v-card-text>
-            <LoreSectionEditor v-model="sections" />
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn color="primary" :loading="saving" @click="saveSections">Сохранить дерево</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+      <v-window v-model="activeTab">
+        <v-window-item value="main">
+          <v-card max-width="760">
+            <v-card-text>
+              <v-text-field v-model="meta.name" label="Название" class="mb-4" />
+              <v-select
+                v-model="meta.spaceCode"
+                :items="spaceItems"
+                item-title="title"
+                item-value="value"
+                label="Пространство правил"
+                hint="Необязательно: по нему открываются ссылки на правила из статей"
+                persistent-hint
+                class="mb-4"
+              />
+              <v-textarea v-model="meta.description" label="Описание" rows="5" auto-grow class="mb-4" />
+              <v-select
+                v-model="meta.visibility"
+                :items="LORE_WORLD_VISIBILITY_OPTIONS"
+                item-title="title"
+                item-value="value"
+                label="Видимость"
+              />
+              <div class="text-caption text-medium-emphasis mt-4">Версия: {{ meta.version }}</div>
+            </v-card-text>
+            <v-card-actions v-if="world.canEdit">
+              <v-btn
+                variant="text"
+                :color="world.isArchived ? 'success' : 'warning'"
+                :prepend-icon="world.isArchived ? 'mdi-archive-arrow-up' : 'mdi-archive-arrow-down'"
+                :loading="saving"
+                @click="toggleArchive"
+              >
+                {{ world.isArchived ? 'Восстановить мир' : 'В архив' }}
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-window-item>
+
+        <v-window-item value="sections">
+          <v-card>
+            <v-card-text>
+              <LoreSectionEditor ref="sectionEditor" v-model="sections" :article-counts="articleCounts" />
+            </v-card-text>
+          </v-card>
+        </v-window-item>
+      </v-window>
+    </template>
 
     <LoreExportDialog v-if="world" v-model="exportOpen" :world="world" />
     <LoreImportDialog

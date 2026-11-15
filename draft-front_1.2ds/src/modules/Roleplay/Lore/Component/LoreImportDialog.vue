@@ -153,7 +153,7 @@ function close(): void {
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-2">{{ error }}</v-alert>
         <v-progress-linear v-if="loading" indeterminate class="my-3" />
 
-        <v-card v-if="report" variant="outlined" class="mt-3">
+        <v-card v-if="report" class="mt-3">
           <v-card-text>
             <div class="text-subtitle-2 mb-2">
               {{ report.dryRun ? 'Проверка без записи' : 'Импорт выполнен' }}: мир {{ report.worldCode }}

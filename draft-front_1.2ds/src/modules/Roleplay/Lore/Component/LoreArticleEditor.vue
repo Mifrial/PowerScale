@@ -272,8 +272,9 @@ onBeforeUnmount(() => editor.value?.destroy());
 
 <style scoped>
 .lore-editor {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 4px;
+  background: rgb(var(--v-theme-primaryLight));
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .lore-editor__toolbar {
@@ -282,7 +283,7 @@ onBeforeUnmount(() => editor.value?.destroy());
   gap: 2px;
   flex-wrap: wrap;
   padding: 4px;
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .lore-editor__content {

@@ -10,7 +10,6 @@ import { LoreApiError } from '@/modules/Roleplay/Lore/Service/LoreApiError';
 import { buildLoreTree } from '@/modules/Roleplay/Lore/Utils/loreTree';
 import { flattenLoreNav } from '@/modules/Roleplay/Lore/Utils/loreNav';
 import LoreArticleBody from '@/modules/Roleplay/Lore/Component/LoreArticleBody.vue';
-import LoreWorldNav from '@/modules/Roleplay/Lore/Component/LoreWorldNav.vue';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 
@@ -53,6 +52,13 @@ const sectionName = computed(() => {
 
   return world.value.sections.find((section) => section.code === code)?.name ?? code;
 });
+const siblingArticles = computed(() =>
+  world.value && article.value?.sectionCode
+    ? world.value.articles.filter(
+        (item) => item.sectionCode === article.value?.sectionCode && item.code !== article.value?.code,
+      )
+    : [],
+);
 const missingLinks = computed(() =>
   article.value
     ? article.value.links.filter((link) => link.type === 'lore' && !knownCodes.value.includes(link.code))
@@ -144,126 +150,127 @@ function formatDate(unix: number): string {
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
+  <v-container>
+    <Teleport to="#editor-actions" defer>
+      <v-btn v-if="article?.canEdit" variant="tonal" size="small" prepend-icon="mdi-pencil" @click="edit">
+        Редактировать
+      </v-btn>
+    </Teleport>
+
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
       {{ error }}
-      <v-btn variant="text" size="small" @click="load">Повторить</v-btn>
+      <template #append>
+        <v-btn variant="text" size="small" @click="load">Повторить</v-btn>
+      </template>
     </v-alert>
 
-    <v-progress-linear v-if="loading && !article" indeterminate class="mb-4" />
+    <div v-if="loading && !article" class="d-flex justify-center pa-8">
+      <v-progress-circular indeterminate width="2" size="28" color="primary" />
+    </div>
 
-    <v-row v-if="world && article">
-      <v-col cols="12" md="3">
-        <v-btn
-          variant="text"
-          prepend-icon="mdi-arrow-left"
-          class="mb-2"
-          @click="router.push({ name: 'LoreWorld', params: { worldCode } })"
-        >
-          {{ world.name }}
-        </v-btn>
-        <LoreWorldNav :world="world" :current-article-code="article.code" @open="openArticle" />
-        <v-card v-if="missingLinks.length > 0" variant="outlined" class="mt-3">
-          <v-card-title class="text-subtitle-2">Ненаписанные статьи</v-card-title>
-          <v-card-text class="text-body-2">
-            <v-chip
-              v-for="link in missingLinks"
-              :key="link.code"
-              size="small"
-              color="error"
-              variant="tonal"
-              class="mr-1 mb-1"
-              @click="openLoreLink(link.code)"
-            >
-              {{ link.code }}
-            </v-chip>
-          </v-card-text>
-        </v-card>
-      </v-col>
+    <template v-if="world && article">
+      <v-card class="mb-4">
+        <v-card-title class="d-flex align-center flex-wrap ga-2">
+          <span>{{ article.title }}</span>
+          <v-chip v-if="article.status === 'draft'" size="x-small" color="warning" variant="tonal">
+            {{ LORE_STATUS_LABELS.draft }}
+          </v-chip>
+          <v-chip v-if="article.visibility === 'secret'" size="x-small" color="warning" variant="tonal">
+            {{ LORE_VISIBILITY_LABELS.secret }}
+          </v-chip>
+          <v-chip v-if="article.isArchived" size="x-small" variant="tonal">архив</v-chip>
+        </v-card-title>
+        <v-card-subtitle> {{ sectionName }} · обновлено {{ formatDate(article.updatedAt) }} </v-card-subtitle>
+        <v-card-text v-if="article.summary.trim() !== ''" class="text-body-1 font-italic text-medium-emphasis">
+          {{ article.summary }}
+        </v-card-text>
+        <v-card-text>
+          <LoreArticleBody
+            :html="article.bodyHtml"
+            :known-codes="knownCodes"
+            @open-lore="openLoreLink"
+            @open-rule="openRuleLink"
+            @toc="toc = $event"
+          />
 
-      <v-col cols="12" md="9">
-        <v-card variant="outlined">
-          <v-card-title class="d-flex align-center flex-wrap ga-2">
-            <span>{{ article.title }}</span>
-            <v-chip v-if="article.status === 'draft'" size="small" color="warning" variant="tonal">
-              {{ LORE_STATUS_LABELS.draft }}
-            </v-chip>
-            <v-chip v-if="article.visibility === 'secret'" size="small" color="warning" variant="tonal">
-              {{ LORE_VISIBILITY_LABELS.secret }}
-            </v-chip>
-            <v-chip v-if="article.isArchived" size="small" variant="tonal">архив</v-chip>
-            <v-spacer />
-            <v-btn v-if="article.canEdit" size="small" variant="tonal" prepend-icon="mdi-pencil" @click="edit">
-              Редактировать
-            </v-btn>
-          </v-card-title>
-          <v-card-subtitle> {{ sectionName }} · обновлено {{ formatDate(article.updatedAt) }} </v-card-subtitle>
-          <v-card-text v-if="article.summary.trim() !== ''" class="text-body-1 font-italic text-medium-emphasis">
-            {{ article.summary }}
-          </v-card-text>
-          <v-card-text>
-            <LoreArticleBody
-              :html="article.bodyHtml"
-              :known-codes="knownCodes"
-              @open-lore="openLoreLink"
-              @open-rule="openRuleLink"
-              @toc="toc = $event"
-            />
-          </v-card-text>
-          <v-card-actions>
-            <v-btn
-              v-if="previousArticle"
-              variant="text"
-              prepend-icon="mdi-arrow-left"
-              @click="openArticle(previousArticle.code)"
-            >
-              {{ previousArticle.title }}
-            </v-btn>
-            <v-spacer />
-            <v-btn
-              v-if="nextArticle"
-              variant="text"
-              append-icon="mdi-arrow-right"
-              @click="openArticle(nextArticle.code)"
-            >
-              {{ nextArticle.title }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+          <div v-if="missingLinks.length > 0" class="mt-4">
+            <div class="text-caption text-medium-emphasis mb-1">Ненаписанные статьи</div>
+            <div class="d-flex flex-wrap ga-2">
+              <v-chip
+                v-for="link in missingLinks"
+                :key="link.code"
+                size="small"
+                color="error"
+                variant="tonal"
+                @click="openLoreLink(link.code)"
+              >
+                {{ link.code }}
+              </v-chip>
+            </div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn
+            v-if="previousArticle"
+            variant="text"
+            prepend-icon="mdi-arrow-left"
+            @click="openArticle(previousArticle.code)"
+          >
+            {{ previousArticle.title }}
+          </v-btn>
+          <v-spacer />
+          <v-btn v-if="nextArticle" variant="text" append-icon="mdi-arrow-right" @click="openArticle(nextArticle.code)">
+            {{ nextArticle.title }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
 
-        <v-row class="mt-2">
-          <v-col cols="12" md="6">
-            <v-card variant="outlined">
-              <v-card-title class="text-subtitle-2">Оглавление</v-card-title>
-              <v-card-text>
-                <div v-if="toc.length === 0" class="text-caption text-medium-emphasis">В статье нет заголовков.</div>
-                <div v-for="item in toc" :key="item.id" :style="{ paddingInlineStart: `${(item.level - 2) * 16}px` }">
-                  <a :href="`#${item.id}`" class="text-body-2">{{ item.title }}</a>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" md="6">
-            <v-card variant="outlined">
-              <v-card-title class="text-subtitle-2">Ссылки сюда</v-card-title>
-              <v-card-text>
-                <div v-if="article.backlinks.length === 0" class="text-caption text-medium-emphasis">
-                  На эту статью пока никто не ссылается.
-                </div>
-                <v-list v-else density="compact">
-                  <v-list-item
-                    v-for="backlink in article.backlinks"
-                    :key="backlink.articleId"
-                    :title="backlink.title"
-                    @click="openArticle(backlink.code)"
-                  />
-                </v-list>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-col>
-    </v-row>
+      <v-row>
+        <v-col cols="12" md="6">
+          <v-card>
+            <v-card-title class="text-subtitle-2">Оглавление</v-card-title>
+            <v-card-text>
+              <div v-if="toc.length === 0" class="text-caption text-medium-emphasis">В статье нет заголовков.</div>
+              <div v-for="item in toc" :key="item.id" :style="{ paddingInlineStart: `${(item.level - 2) * 16}px` }">
+                <a :href="`#${item.id}`" class="text-body-2">{{ item.title }}</a>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-card class="mb-4">
+            <v-card-title class="text-subtitle-2">Ссылки сюда</v-card-title>
+            <v-card-text>
+              <div v-if="article.backlinks.length === 0" class="text-caption text-medium-emphasis">
+                На эту статью пока никто не ссылается.
+              </div>
+              <v-list v-else density="compact">
+                <v-list-item
+                  v-for="backlink in article.backlinks"
+                  :key="backlink.articleId"
+                  :title="backlink.title"
+                  @click="openArticle(backlink.code)"
+                />
+              </v-list>
+            </v-card-text>
+          </v-card>
+          <v-card v-if="siblingArticles.length > 0">
+            <v-card-title class="text-subtitle-2">Ещё в разделе</v-card-title>
+            <v-card-text class="d-flex flex-wrap ga-2">
+              <v-chip
+                v-for="item in siblingArticles"
+                :key="item.code"
+                size="small"
+                variant="tonal"
+                @click="openArticle(item.code)"
+              >
+                {{ item.title }}
+              </v-chip>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+    </template>
 
     <RuleSlider v-model:open="ruleOpen" :rule-code="ruleCode" :space-id="ruleSpaceId" />
 
