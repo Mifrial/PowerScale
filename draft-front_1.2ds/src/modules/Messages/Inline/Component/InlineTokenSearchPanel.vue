@@ -29,7 +29,14 @@ const activeSource = computed(() => props.sources[activeSourceIndex.value] ?? nu
 
 watch(
   () => props.sources,
-  () => void selectSource(0),
+  (sources, previous) => {
+    const index = activeSourceIndex.value < sources.length ? activeSourceIndex.value : 0;
+    const next = sources[index];
+    const prev = previous?.[index];
+    // Новый массив тех же источников (фолбэк реестра) — не повод повторять поиск.
+    if (next !== undefined && next === prev) return;
+    void selectSource(index);
+  },
   { immediate: true },
 );
 

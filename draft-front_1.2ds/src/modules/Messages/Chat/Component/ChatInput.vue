@@ -53,6 +53,10 @@ const messageText = ref('');
 const pendingAttachments = ref<ChatAttachment[]>([]);
 const textAreaRef = ref<{ $el: HTMLElement } | null>(null);
 
+// Стабильная пустая ссылка: `[]` в шаблоне создавал бы новый массив на каждый рендер
+// и перезапускал поиск в пикере ссылок (у чата без контекста правил).
+const EMPTY_TOKEN_SOURCES: ITokenSource[] = [];
+
 const toolbarExtensions = getToolbarExtensions();
 
 // Расширения тулбара: 'bar' — над полем ввода, 'actions' — в колонку действий (у кнопки прикрепления).
@@ -226,7 +230,7 @@ async function handleSend() {
           </template>
           <InlineTokenPicker
             v-model="messageText"
-            :sources="tokenSources ?? []"
+            :sources="tokenSources ?? EMPTY_TOKEN_SOURCES"
             :target-ref="textAreaRef"
             :disabled="disabled"
           />
