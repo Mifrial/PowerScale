@@ -461,11 +461,11 @@ function silhouetteShape(): SceneFootprint {
   }
 
   const derived = decorDefaults.value.silhouette;
-  const offset = silhouetteOffset.value;
 
+  // Неявная зона снята с основания: её смещение уже учтено, своё не навязываем.
   return derived.shape === 'polygon'
-    ? { shape: 'polygon', points: derived.points, offset }
-    : { shape: 'circle', radius: derived.radius, offset };
+    ? { shape: 'polygon', points: derived.points, ...offsetOf(derived) }
+    : { shape: 'circle', radius: derived.radius, ...offsetOf(derived) };
 }
 
 /** Смещение, если оно ненулевое: лишние поля в контракт не пишем. */
