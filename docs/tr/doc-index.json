@@ -219,7 +219,7 @@
             },
             "layer": {
                 "VUE": 5,
-                "PHP": 3,
+                "PHP": 4,
                 "МОК": 2
             }
         },
@@ -3266,7 +3266,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 12692,
+            "bytes": 12992,
             "lines": 126,
             "modules": [
                 "Messages/Chat"
@@ -6288,12 +6288,13 @@
             "stateSource": "token",
             "statusRaw": "~В РАБОТЕ~ — 2026-11-15",
             "layers": [
+                "PHP",
                 "VUE"
             ],
             "basis": "PHP",
             "date": "2026-11-15",
-            "bytes": 22769,
-            "lines": 326,
+            "bytes": 25809,
+            "lines": 361,
             "modules": [
                 "Messages/Notes"
             ],
@@ -6320,8 +6321,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-15",
-            "bytes": 15329,
-            "lines": 215,
+            "bytes": 15524,
+            "lines": 217,
             "modules": [
                 "Messages/Notes"
             ],
@@ -9178,8 +9179,8 @@
             ],
             "basis": null,
             "date": "2026-11-14",
-            "bytes": 39083,
-            "lines": 282,
+            "bytes": 40897,
+            "lines": 286,
             "modules": [
                 "Roleplay/Rule"
             ],

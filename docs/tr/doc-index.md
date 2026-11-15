@@ -59,7 +59,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Core/User](module-map/Core/User.md) | 11 | 0 | 0 | 0 | 9 | 1 | 8 | 1 | 0 |
 | [Library/Asset](module-map/Library/Asset.md) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 1 |
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 0 | 0 | 0 | 8 | 1 | 8 | 4 | 1 |
-| [Messages/Notes](module-map/Messages/Notes.md) | 6 | 0 | 2 | 0 | 4 | 0 | 3 | 5 | 2 |
+| [Messages/Notes](module-map/Messages/Notes.md) | 6 | 0 | 2 | 0 | 4 | 0 | 4 | 5 | 2 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 18 | 1 | 0 | 3 | 11 | 2 | 14 | 3 | 0 |
 | [Roleplay/Game](module-map/Roleplay/Game.md) | 52 | 0 | 1 | 3 | 42 | 1 | 45 | 12 | 6 |
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
