@@ -85,22 +85,20 @@ onUnmounted(() => {
           @click="closeOnBackdrop && close()"
         />
         <div class="slide-panel" :style="{ width, maxWidth }">
-          <div class="slide-tabs">
-            <button type="button" class="slide-tab" aria-label="Закрыть" @click="close">
-              <v-icon>mdi-close</v-icon>
-            </button>
-            <router-link v-if="pageTo" v-slot="{ href, navigate }" :to="pageTo" custom>
-              <a
-                class="slide-tab"
-                :href="href"
-                :title="pageLabel"
-                :aria-label="pageLabel"
-                @click="onPageClick($event, navigate)"
-              >
-                <v-icon>mdi-open-in-new</v-icon>
-              </a>
-            </router-link>
+          <div class="slide-close-tab" aria-label="Закрыть" @click="close">
+            <v-icon>mdi-close</v-icon>
           </div>
+          <router-link v-if="pageTo" v-slot="{ href, navigate }" :to="pageTo" custom>
+            <a
+              class="slide-page-tab"
+              :href="href"
+              :title="pageLabel"
+              :aria-label="pageLabel"
+              @click="onPageClick($event, navigate)"
+            >
+              <v-icon>mdi-open-in-new</v-icon>
+            </a>
+          </router-link>
 
           <div v-if="$slots.header" class="slide-header">
             <slot name="header" />
@@ -142,24 +140,16 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.slide-tabs {
+.slide-close-tab,
+.slide-page-tab {
   position: absolute;
-  top: 10px;
   right: 100%;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.slide-tab {
   width: 36px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  border: 0;
   background:
     linear-gradient(
       to right,
@@ -172,19 +162,28 @@ onUnmounted(() => {
   border-radius: 8px 0 0 8px;
   cursor: pointer;
   color: rgba(var(--v-theme-on-surface), var(--v-text-disabled-opacity));
-  font: inherit;
-  line-height: 1;
-  text-decoration: none;
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
 }
-.slide-tab:hover,
-.slide-tab:focus-visible {
+
+.slide-close-tab {
+  top: 10px;
+}
+
+.slide-page-tab {
+  top: 46px;
+  text-decoration: none;
+}
+
+.slide-close-tab:hover,
+.slide-page-tab:hover,
+.slide-close-tab:focus-visible,
+.slide-page-tab:focus-visible {
   background-color: rgb(var(--v-theme-primaryLight));
   color: rgb(var(--v-theme-primary));
 }
-.slide-tab:focus-visible {
+.slide-page-tab:focus-visible {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: -2px;
 }
