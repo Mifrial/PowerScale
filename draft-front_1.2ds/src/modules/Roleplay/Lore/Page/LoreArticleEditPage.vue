@@ -367,6 +367,61 @@ function onSortOrderUpdate(value: number | null): void {
       <v-card-text>
         <v-text-field v-model="form.title" label="Заголовок" autofocus />
 
+        <v-textarea v-model="form.summary" label="Краткое описание" rows="2" auto-grow class="mt-3" />
+
+        <v-autocomplete
+          v-model="form.keywordIds"
+          :items="keywords"
+          item-title="name"
+          item-value="id"
+          label="Признаки"
+          multiple
+          chips
+          closable-chips
+          variant="outlined"
+          density="comfortable"
+          hide-details="auto"
+          class="mt-1"
+        />
+
+        <div class="mt-1">
+          <TreeSelect
+            v-model="form.sectionCode"
+            :items="sectionItems"
+            label="Раздел"
+            empty-text="В мире пока нет разделов"
+            search-label="Поиск по разделам"
+            placeholder="— Без раздела —"
+            clearable
+          />
+        </div>
+
+        <v-row dense class="mt-1">
+          <v-col cols="12" md="6">
+            <v-select
+              v-model="form.visibility"
+              :items="LORE_ARTICLE_VISIBILITY_OPTIONS"
+              item-title="title"
+              item-value="value"
+              label="Видимость"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <ClampedNumberField
+              :model-value="form.sortOrder"
+              label="Порядок"
+              :min="0"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+              @update:model-value="onSortOrderUpdate"
+            />
+          </v-col>
+        </v-row>
+
         <v-row dense class="mt-1">
           <v-col cols="12" md="6">
             <v-text-field
@@ -391,69 +446,9 @@ function onSortOrderUpdate(value: number | null): void {
           </v-col>
         </v-row>
 
-        <v-row dense class="mt-1">
-          <v-col cols="12" md="6">
-            <TreeSelect
-              v-model="form.sectionCode"
-              :items="sectionItems"
-              label="Раздел"
-              empty-text="В мире пока нет разделов"
-              search-label="Поиск по разделам"
-              placeholder="— Без раздела —"
-              clearable
-            />
-          </v-col>
-          <v-col cols="12" md="6">
-            <ClampedNumberField
-              :model-value="form.sortOrder"
-              label="Порядок"
-              :min="0"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-              @update:model-value="onSortOrderUpdate"
-            />
-          </v-col>
-        </v-row>
-
-        <v-textarea v-model="form.summary" label="Краткое описание" rows="2" auto-grow class="mt-3" />
-
-        <v-autocomplete
-          v-model="form.keywordIds"
-          :items="keywords"
-          item-title="name"
-          item-value="id"
-          label="Признаки"
-          multiple
-          chips
-          closable-chips
-          variant="outlined"
-          density="comfortable"
-          hide-details="auto"
-          class="mt-1"
-        />
-
-        <v-row dense class="mt-1">
-          <v-col cols="12" md="6">
-            <v-select
-              v-model="form.visibility"
-              :items="LORE_ARTICLE_VISIBILITY_OPTIONS"
-              item-title="title"
-              item-value="value"
-              label="Видимость"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-          </v-col>
-        </v-row>
-
         <div v-if="form.visibility === 'secret'" class="mt-3">
           <LoreReadersField v-model="form.readers" :readers="article?.readers ?? []" :world-code="worldCode" />
         </div>
-        <v-alert v-else type="info" variant="tonal" density="compact" class="mt-3">
-          Публичная статья видна всем, кому доступен мир.
-        </v-alert>
 
         <v-btn
           v-if="!isNew"
