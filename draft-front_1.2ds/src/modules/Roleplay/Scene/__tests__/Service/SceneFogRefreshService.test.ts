@@ -19,7 +19,10 @@ describe('SceneFogRefreshService', () => {
 
     expect(cadence.isDue([0, 0], resolution, 1000)).toBe(true);
     expect(cadence.isDue([cell, 0], resolution, 1000 + SCENE_OVERLAY.fogIntervalMs - 1)).toBe(false);
+    // Клетка уже другая, но интервал не вышел: расчёт нужно досчитать позже.
+    expect(cadence.isCellChanged([cell, 0], resolution)).toBe(true);
     expect(cadence.isDue([cell, 0], resolution, 1000 + SCENE_OVERLAY.fogIntervalMs)).toBe(true);
+    expect(cadence.isCellChanged([cell, 0], resolution)).toBe(false);
   });
 
   it('после сброса считает заново', () => {

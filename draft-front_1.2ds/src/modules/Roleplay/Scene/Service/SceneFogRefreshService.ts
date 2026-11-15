@@ -34,6 +34,11 @@ export class SceneFogRefreshService {
     return true;
   }
 
+  /** Сбросил ли наблюдатель грубую клетку с последнего расчёта. */
+  isCellChanged(observer: ScenePoint | null, resolution: number): boolean {
+    return this.cellOf(observer, resolution) !== this.cell;
+  }
+
   /** Сбрасывает каденцию: следующий расчёт обязателен. */
   reset(): void {
     this.cell = '';

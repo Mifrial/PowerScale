@@ -111,6 +111,7 @@ let widthTarget: SceneVertexTarget | null = null;
 
 const overlays = new SceneOverlayService();
 const fogRefresh = new SceneFogRefreshService();
+let fogTimer = 0;
 
 /** Статья легенды: цвет и подпись. */
 interface LegendEntry {
@@ -211,16 +212,42 @@ function refreshFog(): void {
     return;
   }
 
-  if (!fogRefresh.isDue(observerPoint(), props.model.resolution, performance.now())) {
+  const now = performance.now();
+  if (fogRefresh.isDue(observerPoint(), props.model.resolution, now)) {
+    refreshOverlay();
+
     return;
   }
 
-  refreshOverlay();
+  if (fogRefresh.isCellChanged(observerPoint(), props.model.resolution)) {
+    scheduleFogRefresh();
+  }
+}
+
+/**
+ * Досчитывает туман после остановки.
+ *
+ * Если актор перешёл в новую клетку раньше минимального интервала, расчёт
+ * откладывается: иначе после остановки маска осталась бы сдвинутой на клетку.
+ */
+function scheduleFogRefresh(): void {
+  if (fogTimer !== 0) {
+    return;
+  }
+
+  fogTimer = window.setTimeout(() => {
+    fogTimer = 0;
+    refreshFog();
+  }, SCENE_OVERLAY.fogIntervalMs);
 }
 
 /** Пересобирает оверлей принудительно: настройки, радиус, данные сцены. */
 function refreshOverlayNow(): void {
   fogRefresh.reset();
+  if (fogTimer !== 0) {
+    window.clearTimeout(fogTimer);
+    fogTimer = 0;
+  }
   refreshOverlay();
 }
 
@@ -255,6 +282,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onClickKeydown);
+  if (fogTimer !== 0) {
+    window.clearTimeout(fogTimer);
+    fogTimer = 0;
+  }
   observer?.disconnect();
   observer = null;
   renderer?.destroy();
