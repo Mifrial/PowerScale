@@ -1300,7 +1300,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
     private function accepted(CharacterRecord $record, array $choices): CharacterValidation
     {
         $slice = $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision());
-        $validation = $this->sheets->validate($slice, $this->modelOf($choices));
+        $validation = $this->sheets->validate($slice, $this->modelOf($choices), false);
         if ($validation->getProblems() !== []) {
             throw new CharacterSaveRejectedException($validation->getProblems());
         }

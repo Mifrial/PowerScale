@@ -80,13 +80,18 @@ final class CharacterSheets implements ICharacterSheets
      *
      * @param CharacterRuleSlice $slice Уже загруженный срез.
      * @param CharacterChoices $choices Выборы.
+     * @param bool $requireRecorded Требовать непустые хранилища (сохранение сборки, не runtime).
      *
      * @return CharacterValidation Снимок и отказы.
      */
-    public function validate(CharacterRuleSlice $slice, CharacterChoices $choices): CharacterValidation
+    public function validate(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        bool $requireRecorded = true,
+    ): CharacterValidation
     {
         $problems = new CharacterProblemList();
-        $this->inputChecks->check($slice, $choices, $problems);
+        $this->inputChecks->check($slice, $choices, $problems, $requireRecorded);
         $this->studyPairs->check($choices, $problems);
         $supportedMechanics = $this->mechanicSupport->check($slice, $problems);
         $levels = $this->getAbilityLevels($choices);

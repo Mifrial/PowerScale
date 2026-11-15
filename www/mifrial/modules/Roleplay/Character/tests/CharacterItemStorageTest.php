@@ -113,6 +113,16 @@ final class CharacterItemStorageTest extends TestCase
     }
 
     /**
+     * Runtime-операции не блокируются старым пустым кристаллом.
+     *
+     * @return void
+     */
+    public function testEmptyRecordedSpellsAreToleratedInRuntime(): void
+    {
+        self::assertSame([], $this->codes($this->crystal([3, 0], 20, []), false));
+    }
+
+    /**
      * Кристалл принимает только заклинания с разрешённым признаком.
      *
      * @return void
@@ -236,10 +246,11 @@ final class CharacterItemStorageTest extends TestCase
      * Отказы валидатора по одной строке.
      *
      * @param CharacterInventoryChoice $item Строка.
+     * @param bool $requireRecorded Требовать непустые хранилища.
      *
      * @return array<int, string> Коды.
      */
-    private function codes(CharacterInventoryChoice $item): array
+    private function codes(CharacterInventoryChoice $item, bool $requireRecorded = true): array
     {
         $application = (new ApplicationFactory())->boot(dirname(__DIR__, 4));
         $mechanics = $application->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
@@ -249,7 +260,7 @@ final class CharacterItemStorageTest extends TestCase
         $ruleSlices = $this->createMock(ICharacterRuleSlices::class);
         $sheets = new CharacterSheets(new CharacterOsSteps($engine, $mechanics), $mechanics, $ruleSlices);
         $choices = new CharacterChoices('Имя', 'human', [], [$item], [], [], true);
-        $validation = $sheets->validate($this->slice(), $choices);
+        $validation = $sheets->validate($this->slice(), $choices, $requireRecorded);
 
         $codes = [];
         foreach ($validation->getProblems() as $problem) {

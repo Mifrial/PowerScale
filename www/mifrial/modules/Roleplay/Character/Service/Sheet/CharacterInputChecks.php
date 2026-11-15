@@ -46,15 +46,20 @@ final class CharacterInputChecks
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
      * @param CharacterProblemList $problems Накопитель.
+     * @param bool $requireRecorded Требовать непустые хранилища (сохранение сборки).
      *
      * @return void
      */
-    public function check(CharacterRuleSlice $slice, CharacterChoices $choices, CharacterProblemList $problems): void
-    {
+    public function check(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        CharacterProblemList $problems,
+        bool $requireRecorded = true,
+    ): void {
         $this->checkName($choices, $problems);
         $this->checkRace($slice, $choices, $problems);
         $this->checkAbilities($slice, $choices, $problems);
-        $this->checkInventory($slice, $choices, $problems);
+        $this->checkInventory($slice, $choices, $problems, $requireRecorded);
         $this->checkCustomRules($choices, $problems);
         $this->checkActive($choices, $problems);
     }
@@ -208,17 +213,22 @@ final class CharacterInputChecks
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterChoices $choices Выборы.
      * @param CharacterProblemList $problems Накопитель.
+     * @param bool $requireRecorded Требовать непустые хранилища.
      *
      * @return void
      */
-    private function checkInventory(CharacterRuleSlice $slice, CharacterChoices $choices, CharacterProblemList $problems): void
-    {
+    private function checkInventory(
+        CharacterRuleSlice $slice,
+        CharacterChoices $choices,
+        CharacterProblemList $problems,
+        bool $requireRecorded,
+    ): void {
         foreach ($choices->getInventory() as $index => $item) {
             if ($slice->hasTombstone($item->getRuleCode())) {
                 $problems->add('CHARACTER_TOMBSTONE', 'Item is tombstoned', 'reference', 'inventory.' . $index);
             }
 
-            $this->checkStorage($slice, $item, $index, $problems);
+            $this->checkStorage($slice, $item, $index, $problems, $requireRecorded);
         }
     }
 
@@ -229,6 +239,7 @@ final class CharacterInputChecks
      * @param CharacterInventoryChoice $item Строка инвентаря.
      * @param int $index Индекс строки.
      * @param CharacterProblemList $problems Накопитель.
+     * @param bool $requireRecorded Требовать непустые хранилища.
      *
      * @return void
      */
@@ -237,6 +248,7 @@ final class CharacterInputChecks
         CharacterInventoryChoice $item,
         int $index,
         CharacterProblemList $problems,
+        bool $requireRecorded,
     ): void {
         $storage = $this->storageOf($slice, $item->getRuleCode());
         if ($storage === null) {
@@ -284,7 +296,7 @@ final class CharacterInputChecks
             return;
         }
 
-        $this->checkRecorded($slice, $storage, $item, $volume, $index, $problems);
+        $this->checkRecorded($slice, $storage, $item, $volume, $index, $problems, $requireRecorded);
     }
 
     /**
@@ -296,6 +308,7 @@ final class CharacterInputChecks
      * @param int $volume Объём.
      * @param int $index Индекс строки.
      * @param CharacterProblemList $problems Накопитель.
+     * @param bool $requireRecorded Требовать непустые хранилища.
      *
      * @return void
      */
@@ -306,6 +319,7 @@ final class CharacterInputChecks
         int $volume,
         int $index,
         CharacterProblemList $problems,
+        bool $requireRecorded,
     ): void {
         $parameter = $storage->getRecordedParameter();
         if ($parameter === '') {
@@ -314,7 +328,7 @@ final class CharacterInputChecks
 
         $prefix = 'inventory.' . $index . '.payload.' . $parameter;
         $raw = $item->getPayload()[$parameter] ?? [];
-        if (is_array($raw) && $raw === []) {
+        if ($requireRecorded && is_array($raw) && $raw === []) {
             $problems->add(
                 'CHARACTER_ITEM_RECORDED',
                 'Item storage must contain a recorded spell',
