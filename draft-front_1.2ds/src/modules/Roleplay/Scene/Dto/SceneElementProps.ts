@@ -27,4 +27,12 @@ export interface SceneElementProps {
   assetPublicId?: string;
   shoreKind?: string;
   shoreWidth?: number;
+  /**
+   * Глубина воды в единицах сцены: насколько русло ниже берега.
+   *
+   * `0` — вода вровень с берегом, как в старых сценах. Врезанное русло
+   * опускает поверхность воды, а береговая полоса (`shoreWidth`) становится
+   * наклонным откосом от берега к урезу.
+   */
+  depth?: number;
 }

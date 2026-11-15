@@ -664,21 +664,29 @@ final class SceneElementValidator
             ? 0
             : $this->intOrDefault($props, 'shoreWidth', $path . '.shoreWidth', 0, 0, 100000);
 
+        $normalized = [
+            'kind' => $terrainKind,
+            'shoreKind' => $shoreKind,
+            'shoreWidth' => $shoreWidth,
+            'speed' => $this->intOrDefault(
+                $props,
+                'speed',
+                $path . '.speed',
+                self::TERRAIN_SPEEDS[$terrainKind],
+                0,
+                10000,
+            ),
+            'label' => $this->label($props, $path . '.label'),
+        ];
+
+        // Глубину несёт только вода: у остального террейна русла нет, и поле
+        // молча отбрасывается, чтобы старые сцены не обрастали мусором.
+        if ($terrainKind === 'water') {
+            $normalized['depth'] = $this->intOrDefault($props, 'depth', $path . '.depth', 0, 0, 100000);
+        }
+
         return [
-            'props' => [
-                'kind' => $terrainKind,
-                'shoreKind' => $shoreKind,
-                'shoreWidth' => $shoreWidth,
-                'speed' => $this->intOrDefault(
-                    $props,
-                    'speed',
-                    $path . '.speed',
-                    self::TERRAIN_SPEEDS[$terrainKind],
-                    0,
-                    10000,
-                ),
-                'label' => $this->label($props, $path . '.label'),
-            ],
+            'props' => $normalized,
             'assetFileId' => $fileRecord?->getId(),
         ];
     }

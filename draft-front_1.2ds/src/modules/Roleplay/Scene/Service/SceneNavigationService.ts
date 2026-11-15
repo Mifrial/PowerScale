@@ -440,7 +440,7 @@ export class SceneNavigationService {
           const blocker = this.polygonOf(element, resolution, agentRadius);
           if (blocker !== null) {
             blockers.push(blocker);
-            levelBlockers.push({ elevation: sceneSurfaceElevation(element, resolution), polygon: blocker });
+            levelBlockers.push({ elevation: sceneSurfaceElevation(element), polygon: blocker });
           }
         }
         continue;
@@ -459,14 +459,14 @@ export class SceneNavigationService {
           carves.push(shape);
         } else {
           blockers.push(shape);
-          levelBlockers.push({ elevation: sceneSurfaceElevation(element, resolution), polygon: shape });
+          levelBlockers.push({ elevation: sceneSurfaceElevation(element), polygon: shape });
         }
         continue;
       }
 
       if (element.kind === 'terrain' || element.kind === 'support') {
         const speed = this.speedOf(element);
-        const elevation = sceneSurfaceElevation(element, resolution);
+        const elevation = sceneSurfaceElevation(element);
         const deck = isSceneDeck(element);
         const deckFrame = deck ? sceneDeckFrame(element) : null;
         const railBlocks =

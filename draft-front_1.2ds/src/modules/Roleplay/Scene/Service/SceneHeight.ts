@@ -4,7 +4,6 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
-import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
@@ -30,18 +29,38 @@ export function isSceneDeck(element: SceneHeightElement): boolean {
 }
 
 /**
+ * Глубина воды, единицы сцены.
+ *
+ * `0` — вода вровень с берегом: так выглядят старые сцены, у которых поля нет.
+ */
+export function sceneWaterDepth(element: SceneHeightElement): number {
+  const depth = element.props.depth;
+  if (typeof depth !== 'number' || !Number.isFinite(depth)) {
+    return 0;
+  }
+
+  return Math.max(0, depth);
+}
+
+/**
  * Высота верхней поверхности элемента над нулём поля, единицы сцены.
  *
- * Вода стоит на своей отметке (`SCENE_SURFACE.waterSurfaceIpari`), остальные
- * поверхности — на `props.elevation`, по умолчанию на нуле поля.
+ * Вода опущена на свою глубину (`props.depth`), остальные поверхности — на
+ * `props.elevation`, по умолчанию на нуле поля.
  */
-export function sceneSurfaceElevation(element: SceneHeightElement, resolution: number): number {
+export function sceneSurfaceElevation(element: SceneHeightElement): number {
   const elevation = element.props.elevation;
   if (typeof elevation === 'number' && Number.isFinite(elevation)) {
     return elevation;
   }
 
-  return element.props.kind === 'water' ? Math.max(1, resolution) * SCENE_SURFACE.waterSurfaceIpari : 0;
+  if (element.props.kind !== 'water') {
+    return 0;
+  }
+
+  const depth = sceneWaterDepth(element);
+
+  return depth > 0 ? -depth : 0;
 }
 
 /**
@@ -78,7 +97,7 @@ export function sceneSurfaceUnder(
       continue;
     }
 
-    base = Math.max(base, sceneSurfaceElevation(element, resolution));
+    base = Math.max(base, sceneSurfaceElevation(element));
   }
 
   return base;
@@ -141,7 +160,7 @@ export function sceneRampSlope(
   const from: ScenePoint = [center[0] - axis[0] * half, center[1] - axis[1] * half];
   const to: ScenePoint = [center[0] + axis[0] * half, center[1] + axis[1] * half];
   const low = sceneSurfaceUnder(from, elements, resolution, element.id);
-  const high = sceneSurfaceElevation(element, resolution);
+  const high = sceneSurfaceElevation(element);
 
   return high > low ? { from, to, low, high } : null;
 }
@@ -176,7 +195,7 @@ export function sceneDeckClearance(
   resolution: number,
 ): number {
   return (
-    sceneSurfaceElevation(deck, resolution) -
+    sceneSurfaceElevation(deck) -
     sceneDeckThickness(deck, resolution) -
     sceneDeckBaseElevation(deck, elements, resolution)
   );

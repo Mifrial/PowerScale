@@ -145,6 +145,76 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Глубина воды сохраняется, у остального террейна поле отбрасывается.
+     *
+     * @return void
+     */
+    public function testTerrainKeepsWaterDepthOnlyForWater(): void
+    {
+        $water = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water', 'depth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $grass = $this->validate([
+            'id' => -2,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'grass', 'depth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(32, $water['props']['depth']);
+        self::assertArrayNotHasKey('depth', $grass['props']);
+    }
+
+    /**
+     * Без глубины вода остаётся вровень с берегом.
+     *
+     * @return void
+     */
+    public function testWaterDepthDefaultsToZero(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(0, $element['props']['depth']);
+    }
+
+    /**
+     * Отрицательная глубина отклоняется.
+     *
+     * @return void
+     */
+    public function testWaterDepthMustNotBeNegative(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'water', 'depth' => -1],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
      * Неизвестный материал кромки отклоняется.
      *
      * @return void

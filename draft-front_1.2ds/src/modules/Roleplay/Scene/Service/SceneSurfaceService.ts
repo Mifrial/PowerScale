@@ -13,8 +13,14 @@ import {
   sceneDecorSilhouette,
   type SceneWorldFootprint,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
-import { isSceneDeck, sceneDeckThickness, sceneSurfaceElevation } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import {
+  isSceneDeck,
+  sceneDeckThickness,
+  sceneSurfaceElevation,
+  sceneWaterDepth,
+} from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
+import { signedDistanceField } from '@/modules/Roleplay/Scene/Service/SceneSurfaceDistance';
 
 /** Тип поверхности по виду террейна. */
 const TERRAIN_SURFACE: Readonly<Record<string, SceneSurfaceKind>> = {
@@ -100,7 +106,7 @@ export class SceneSurfaceService {
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
-    this.paintTerrain(grid, own, resolution);
+    this.paintTerrain(grid, own);
     this.paintBridges(grid, own, resolution);
     this.paintObstacles(grid, own);
     this.paintDecor(grid, own, resolution);
@@ -112,7 +118,7 @@ export class SceneSurfaceService {
   }
 
   /** Террейн: вода рисуется последней и перекрывает дорогу. */
-  private paintTerrain(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
+  private paintTerrain(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
     const terrain = elements
       .filter((element) => element.kind === 'terrain')
       .sort(
@@ -127,12 +133,77 @@ export class SceneSurfaceService {
       }
 
       const preset = SCENE_SURFACE.speeds[kind];
-      const elevation = sceneSurfaceElevation(element, resolution);
+      const elevation = sceneSurfaceElevation(element);
       this.paintShape(grid, element.shape, (index) => {
         grid.kinds[index] = kind;
         grid.speeds[index] = this.speedOf(element, preset);
         grid.elevation[index] = elevation;
       });
+
+      if (kind === 'water') {
+        this.paintWaterBank(grid, element);
+      }
+    }
+  }
+
+  /**
+   * Наклонный берег: полоса `shoreWidth` снаружи уреза опускается от отметки
+   * берега до поверхности воды.
+   *
+   * Высота линейна по расстоянию до уреза, поэтому вход в воду — наклон, а не
+   * обрыв. Полоса только опускает уже нарисованную поверхность: подъём дороги
+   * или настила она не трогает. Без `shoreWidth` откоса нет — вода остаётся на
+   * своей отметке с обрывом у уреза, и это осознанный выбор автора.
+   */
+  private paintWaterBank(grid: SceneSurfaceGrid, element: SceneElement): void {
+    const depth = sceneWaterDepth(element);
+    const width = element.props.shoreWidth ?? 0;
+    if (depth <= 0 || width <= 0) {
+      return;
+    }
+
+    const probe = this.geometry.probe(element.shape, 0);
+    const margin = width;
+    const bounds: SceneBounds = {
+      x: probe.bounds.x - margin,
+      y: probe.bounds.y - margin,
+      width: probe.bounds.width + margin * 2,
+      height: probe.bounds.height + margin * 2,
+    };
+    const minColumn = this.clamp(Math.floor((bounds.x - grid.x) / grid.cell), 0, grid.columns - 1);
+    const maxColumn = this.clamp(Math.floor((bounds.x + bounds.width - grid.x) / grid.cell), 0, grid.columns - 1);
+    const minRow = this.clamp(Math.floor((bounds.y - grid.y) / grid.cell), 0, grid.rows - 1);
+    const maxRow = this.clamp(Math.floor((bounds.y + bounds.height - grid.y) / grid.cell), 0, grid.rows - 1);
+    const columns = maxColumn - minColumn + 1;
+    const rows = maxRow - minRow + 1;
+
+    const mask = new Float32Array(columns * rows);
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const index = (minRow + row) * grid.columns + (minColumn + column);
+        mask[row * columns + column] = probe.contains(surfaceCenter(grid, index), 0) ? 1 : 0;
+      }
+    }
+
+    const signed = signedDistanceField(mask, columns, rows);
+    const bankCells = width / grid.cell;
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const local = row * columns + column;
+        // Внутри воды высоту уже задала сама вода.
+        if (signed[local] > 0) {
+          continue;
+        }
+
+        const outward = -signed[local];
+        if (outward >= bankCells) {
+          continue;
+        }
+
+        const share = 1 - outward / bankCells;
+        const index = (minRow + row) * grid.columns + (minColumn + column);
+        grid.elevation[index] = Math.min(grid.elevation[index], -depth * share);
+      }
     }
   }
 
@@ -144,7 +215,7 @@ export class SceneSurfaceService {
       }
 
       const preset = SCENE_SURFACE.speeds.bridge;
-      const deckElevation = sceneSurfaceElevation(element, resolution);
+      const deckElevation = sceneSurfaceElevation(element);
       const thickness = sceneDeckThickness(element, resolution);
       this.paintShape(
         grid,

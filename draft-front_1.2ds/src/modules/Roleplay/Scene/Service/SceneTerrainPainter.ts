@@ -19,6 +19,9 @@ import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sc
 /** Ширина мокрого берега в ипари. */
 const WET_IPARI = 0.3;
 
+/** Тёмный цвет откоса: русло читается по тени у уреза. */
+const BANK_COLOR = 0x1b2b33;
+
 /** Шаблоны, для которых есть фотоматериал CC0. */
 const MATERIALS: Record<string, SceneTerrainMaterial | undefined> = {
   grass: 'grass',
@@ -103,6 +106,77 @@ export class SceneTerrainPainter {
     }
 
     return graphics;
+  }
+
+  /**
+   * Откос берега: полоса снаружи уреза темнеет к воде.
+   *
+   * В плоской проекции глубину не видно напрямую, поэтому впадину читают по
+   * откосу: несколько полос от широкой и бледной к узкой и плотной дают
+   * градиент, а не ровную тёмную ленту. Сила тени растёт с глубиной, ширина
+   * полосы — это `shoreWidth`, то есть тот же берег, что опускается в сетке
+   * поверхностей.
+   */
+  paintBankSlope(
+    container: Container,
+    element: SceneElement,
+    resolution: number,
+    zoom: number,
+    depth: number,
+    endPads: readonly [number, number] = [0, 0],
+  ): void {
+    const width = element.props.shoreWidth ?? 0;
+    if (depth <= 0 || width <= 0) {
+      return;
+    }
+
+    const strength = Math.min(1, depth / Math.max(1, resolution * 0.5));
+    const bands: [number, number][] = [
+      [1, 0.05],
+      [0.74, 0.07],
+      [0.48, 0.09],
+      [0.22, 0.13],
+    ];
+    const graphics = new Graphics();
+    for (const [share, alpha] of bands) {
+      const bandWidth = Math.max(1, width * share);
+      if (element.shape.type === 'path') {
+        const outline = sceneRibbonService.outline(
+          element.shape.points,
+          element.shape.handles ?? [],
+          element.shape.widths,
+          sceneCurveService.toleranceFor(zoom),
+          bandWidth,
+          endPads[0],
+          endPads[1],
+        );
+        // Полоса идёт только по берегу: внутренность вырезается, чтобы тень не
+        // просвечивала сквозь полупрозрачную воду.
+        const water = sceneRibbonService.outline(
+          element.shape.points,
+          element.shape.handles ?? [],
+          element.shape.widths,
+          sceneCurveService.toleranceFor(zoom),
+          0,
+          endPads[0],
+          endPads[1],
+        );
+        graphics.poly(outline.flat()).fill({ color: BANK_COLOR, alpha: alpha * strength });
+        graphics.poly(water.flat()).cut();
+        continue;
+      }
+
+      this.trace(graphics, element.shape, zoom, endPads);
+      graphics.stroke({
+        color: BANK_COLOR,
+        width: bandWidth,
+        alpha: alpha * strength,
+        alignment: 0,
+        join: 'round',
+      });
+    }
+
+    container.addChild(graphics);
   }
 
   /** Сырой берег: тёмная полоса сразу за урезом, чтобы край не был резким. */

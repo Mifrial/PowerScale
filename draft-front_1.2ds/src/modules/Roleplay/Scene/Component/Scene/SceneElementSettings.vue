@@ -98,6 +98,13 @@ const defaultSpeed = computed(() => {
 });
 const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.value);
 
+/** Подсказка к глубине воды: без берега вход в воду остаётся обрывом. */
+const depthHint = computed(() =>
+  (props.element.props.shoreKind ?? 'none') === 'none'
+    ? '0 — вода вровень с берегом. Без береговой полосы вход в воду — обрыв.'
+    : '0 — вода вровень с берегом; больше — русло врезано, берег становится откосом.',
+);
+
 /** Основание и силуэт: явные поля или старые доли ширины спрайта. */
 const decorDefaults = computed(() => sceneDecorFootprintDefaults(props.element, props.resolution));
 
@@ -672,6 +679,16 @@ function onAssetCleared(publicId: string | null): void {
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ shoreWidth: value })"
+      />
+      <SceneDistanceField
+        v-if="props.element.props.kind === 'water'"
+        :model-value="props.element.props.depth ?? 0"
+        :resolution="props.resolution"
+        label="Глубина, ипари"
+        :hint="depthHint"
+        :min="0"
+        :max="props.resolution * 3"
+        @update:model-value="(value) => patch({ depth: value })"
       />
       <SceneDistanceField
         v-if="props.element.shape.type === 'path'"

@@ -95,7 +95,7 @@ export function sceneRampAttachment(
     : [-Math.sin(radians), Math.cos(radians)];
   const sign = end === 'end' ? 1 : -1;
   const edge: ScenePoint = [center[0] + axis[0] * half * sign, center[1] + axis[1] * half * sign];
-  const elevation = sceneSurfaceElevation(deck, resolution);
+  const elevation = sceneSurfaceElevation(deck);
   const base = sceneSurfaceUnder(edge, elements, resolution, deck.id);
   const rise = elevation - base;
   if (rise <= 0) {

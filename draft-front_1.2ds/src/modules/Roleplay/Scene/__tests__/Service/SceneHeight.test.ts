@@ -5,7 +5,6 @@ import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElemen
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
-import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import {
   isSceneDeck,
   sceneDeckBaseElevation,
@@ -14,6 +13,7 @@ import {
   sceneRampSlope,
   sceneSlopeElevation,
   sceneSurfaceElevation,
+  sceneWaterDepth,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 
 const RESOLUTION = 64;
@@ -37,14 +37,17 @@ const element = (
 const deckShape: SceneShape = { type: 'rect', x: 100, y: 100, w: 200, h: 60 };
 
 describe('SceneHeight', () => {
-  it('берёт высоту поверхности из props, у воды — из константы', () => {
-    expect(sceneSurfaceElevation(element(1, 'terrain', deckShape, { kind: 'grass' }), RESOLUTION)).toBe(0);
-    expect(sceneSurfaceElevation(element(2, 'terrain', deckShape, { kind: 'water' }), RESOLUTION)).toBe(
-      RESOLUTION * SCENE_SURFACE.waterSurfaceIpari,
-    );
-    expect(
-      sceneSurfaceElevation(element(3, 'support', deckShape, { kind: 'bridge', elevation: 120 }), RESOLUTION),
-    ).toBe(120);
+  it('берёт высоту поверхности из props, у воды — из глубины', () => {
+    expect(sceneSurfaceElevation(element(1, 'terrain', deckShape, { kind: 'grass' }))).toBe(0);
+    expect(sceneSurfaceElevation(element(2, 'terrain', deckShape, { kind: 'water' }))).toBe(0);
+    expect(sceneSurfaceElevation(element(4, 'terrain', deckShape, { kind: 'water', depth: 32 }))).toBe(-32);
+    expect(sceneSurfaceElevation(element(3, 'support', deckShape, { kind: 'bridge', elevation: 120 }))).toBe(120);
+  });
+
+  it('глубина воды: нет поля — ноль, отрицательная — ноль', () => {
+    expect(sceneWaterDepth(element(1, 'terrain', deckShape, { kind: 'water' }))).toBe(0);
+    expect(sceneWaterDepth(element(2, 'terrain', deckShape, { kind: 'water', depth: 24 }))).toBe(24);
+    expect(sceneWaterDepth(element(3, 'terrain', deckShape, { kind: 'water', depth: -24 }))).toBe(0);
   });
 
   it('без явной толщины берёт пресет настила', () => {

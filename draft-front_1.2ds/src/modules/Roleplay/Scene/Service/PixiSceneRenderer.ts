@@ -38,6 +38,7 @@ import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassSha
 import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
 import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
+import { sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
@@ -1357,8 +1358,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
     // гладкая полоса paintWaterBank дала бы вторую параллельную линию.
     const shaderWater = element.props.kind === 'water' && isShaderWater(element);
     this.terrain.paintShore(layer, element, resolution, zoom, endPads, !shaderWater);
-
     if (element.props.kind === 'water') {
+      // Откос рисуется под телом воды: видимой остаётся только полоса снаружи
+      // уреза. Шейдерная вода тоже получает откос — он лежит на берегу, а не
+      // на поверхности, и не спорит с мокрым краем шейдера.
+      this.terrain.paintBankSlope(layer, element, resolution, zoom, sceneWaterDepth(element), endPads);
       if (!shaderWater) {
         this.terrain.paintWaterBank(layer, element, resolution, zoom, endPads);
       }

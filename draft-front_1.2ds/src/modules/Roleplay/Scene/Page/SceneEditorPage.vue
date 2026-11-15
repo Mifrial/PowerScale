@@ -337,11 +337,14 @@ function applyOutline(shape: SceneShape): void {
 function onPath(points: ScenePoint[]): void {
   const definition = toolDefinition.value;
   if (definition === null) return;
-  const shoreWidth =
-    definition.shoreWidthIpari === undefined
-      ? undefined
-      : Math.max(1, Math.round(draft.value.resolution * definition.shoreWidthIpari));
-  state.createPath(definition, points, pathWidth.value, shoreWidth === undefined ? undefined : { shoreWidth });
+  const extra: SceneElementProps = {};
+  if (definition.shoreWidthIpari !== undefined) {
+    extra.shoreWidth = Math.max(1, Math.round(draft.value.resolution * definition.shoreWidthIpari));
+  }
+  if (definition.depthIpari !== undefined) {
+    extra.depth = Math.max(0, Math.round(draft.value.resolution * definition.depthIpari));
+  }
+  state.createPath(definition, points, pathWidth.value, Object.keys(extra).length === 0 ? undefined : extra);
 }
 
 /** Перетаскивание вершины полигона или ленты. */

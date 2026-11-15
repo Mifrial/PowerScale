@@ -3,6 +3,7 @@ import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import { signedDistanceField } from '@/modules/Roleplay/Scene/Service/SceneSurfaceDistance';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
@@ -136,9 +137,7 @@ export class SceneWaterDepthService {
     // и обводка — только там, где торец надо спрятать под обрезку.
     const fieldPast = Math.max(2, resolution * FIELD_END_IPARI);
     const fieldPads: readonly [number, number] =
-      element.shape.type === 'path'
-        ? [Math.max(endPads[0], fieldPast), Math.max(endPads[1], fieldPast)]
-        : [0, 0];
+      element.shape.type === 'path' ? [Math.max(endPads[0], fieldPast), Math.max(endPads[1], fieldPast)] : [0, 0];
     const contour = this.contour(element.shape, fieldPads);
     const span = contour.length >= 3 ? boundsOfPoints(contour) : water;
     const margin = Math.max(2, resolution * MARGIN_IPARI);
@@ -374,81 +373,4 @@ function boundsOfPoints(points: ScenePoint[]): SceneBounds {
   }
 
   return { x: minX, y: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
-}
-
-/**
- * Знаковая дистанция до границы маски в клетках: плюс внутри, минус снаружи.
- *
- * Урез проходит между клетками, а не по их центрам, поэтому расстояние
- * сдвинуто на полклетки: на границе силуэта значение равно нулю.
- */
-export function signedDistanceField(mask: Float32Array, cols: number, rows: number): Float32Array {
-  const inside = distanceTransform(mask, cols, rows);
-  const outside = distanceTransform(inverted(mask), cols, rows);
-  const far = Math.max(cols, rows);
-  const signed = new Float32Array(mask.length);
-  for (let index = 0; index < mask.length; index += 1) {
-    // У маски без единого противоположного пикселя расстояние бесконечно;
-    // для воды это значит «до берега дальше, чем есть поле».
-    const toLand = Number.isFinite(inside[index]) ? inside[index] : far;
-    const toWater = Number.isFinite(outside[index]) ? outside[index] : far;
-    signed[index] = mask[index] > 0.5 ? toLand - 0.5 : 0.5 - toWater;
-  }
-
-  return signed;
-}
-
-/** Дистанционное преобразование Шама: расстояние до границы в клетках. */
-function distanceTransform(mask: Float32Array, cols: number, rows: number): Float32Array {
-  const size = cols * rows;
-  const distance = new Float32Array(size);
-  const horizontal = 1;
-  const diagonal = Math.SQRT2;
-  for (let index = 0; index < size; index += 1) {
-    distance[index] = mask[index] > 0.5 ? Number.POSITIVE_INFINITY : 0;
-  }
-
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < cols; column += 1) {
-      const index = row * cols + column;
-      if (distance[index] === 0) {
-        continue;
-      }
-
-      let best = distance[index];
-      if (column > 0) best = Math.min(best, distance[index - 1] + horizontal);
-      if (row > 0) best = Math.min(best, distance[index - cols] + horizontal);
-      if (column > 0 && row > 0) best = Math.min(best, distance[index - cols - 1] + diagonal);
-      if (column < cols - 1 && row > 0) best = Math.min(best, distance[index - cols + 1] + diagonal);
-      distance[index] = best;
-    }
-  }
-
-  for (let row = rows - 1; row >= 0; row -= 1) {
-    for (let column = cols - 1; column >= 0; column -= 1) {
-      const index = row * cols + column;
-      if (distance[index] === 0) {
-        continue;
-      }
-
-      let best = distance[index];
-      if (column < cols - 1) best = Math.min(best, distance[index + 1] + horizontal);
-      if (row < rows - 1) best = Math.min(best, distance[index + cols] + horizontal);
-      if (column < cols - 1 && row < rows - 1) best = Math.min(best, distance[index + cols + 1] + diagonal);
-      if (column > 0 && row < rows - 1) best = Math.min(best, distance[index + cols - 1] + diagonal);
-      distance[index] = best;
-    }
-  }
-
-  return distance;
-}
-
-/** Инверсия маски: внутренность становится внешностью. */
-function inverted(mask: Float32Array): Float32Array {
-  const result = new Float32Array(mask.length);
-  for (let index = 0; index < mask.length; index += 1) {
-    result[index] = mask[index] > 0.5 ? 0 : 1;
-  }
-
-  return result;
 }

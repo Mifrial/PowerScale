@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signedDistanceField } from '@/modules/Roleplay/Scene/Service/SceneWaterDepthService';
+import { signedDistanceField } from '@/modules/Roleplay/Scene/Service/SceneSurfaceDistance';
 
 /** Маска из строк: `#` — вода, `.` — берег. */
 const maskOf = (rows: string[]): { mask: Float32Array; cols: number; rows: number } => {

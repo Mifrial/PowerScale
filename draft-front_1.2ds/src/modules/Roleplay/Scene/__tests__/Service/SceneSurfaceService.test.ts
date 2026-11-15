@@ -142,6 +142,65 @@ describe('SceneSurfaceService', () => {
     expect(high.clearance[cellOf(high, 0, 0)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('опускает воду на глубину и делает берег наклонным', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'terrain',
+          { type: 'rect', x: 96, y: 0, w: 64, h: 256 },
+          { kind: 'water', depth: 32, shoreWidth: 48 },
+          10,
+        ),
+      ],
+      64,
+    );
+
+    // Вода стоит на своей глубине.
+    expect(grid.elevation[cellOf(grid, 8, 0)]).toBe(-32);
+    // Берег у уреза опущен почти до воды, дальше поднимается к отметке поля.
+    const near = grid.elevation[cellOf(grid, 5, 0)];
+    const far = grid.elevation[cellOf(grid, 3, 0)];
+    expect(near).toBeLessThan(0);
+    expect(near).toBeLessThan(far);
+    expect(far).toBeLessThan(0);
+    // За пределами береговой полосы высота прежняя.
+    expect(grid.elevation[cellOf(grid, 0, 0)]).toBe(0);
+  });
+
+  it('без береговой полосы вода остаётся с обрывом у уреза', () => {
+    const grid = service.build(
+      board(),
+      [grass(), element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water', depth: 32 }, 10)],
+      64,
+    );
+
+    expect(grid.elevation[cellOf(grid, 8, 0)]).toBe(-32);
+    expect(grid.elevation[cellOf(grid, 5, 0)]).toBe(0);
+  });
+
+  it('под настилом над врезанной водой появляется зазор', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water', depth: 32 }, 10),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 96, y: 96, w: 64, h: 64 },
+          { kind: 'bridge', elevation: 0, height: 16 },
+          20,
+        ),
+      ],
+      64,
+    );
+
+    expect(grid.clearance[cellOf(grid, 8, 8)]).toBe(16);
+  });
+
   it('считает «под настилом» только при конечном положительном зазоре', () => {
     const grid = service.build(
       board(),

@@ -20,4 +20,6 @@ export interface SceneToolDefinition {
   widthIpari?: number;
   /** Ширина кромки в ипари для пресета. */
   shoreWidthIpari?: number;
+  /** Глубина воды в ипари для пресета. */
+  depthIpari?: number;
 }

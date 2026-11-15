@@ -1,4 +1,5 @@
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
+import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 
 /** Инструменты редактора локации. */
 export const SCENE_TOOLS: SceneToolDefinition[] = [
@@ -93,7 +94,8 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     group: 'terrain',
     variant: 'Река',
     widthIpari: 2,
-    shoreWidthIpari: 0.5,
+    shoreWidthIpari: 1.5,
+    depthIpari: SCENE_SURFACE.waterDepthIpari,
   },
   {
     id: 'terrain-road',
