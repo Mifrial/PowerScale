@@ -295,8 +295,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.model = model;
     this.contentBoxes.clear();
     for (const element of model.elements) {
-      if (element.asset !== null && element.asset.contentBox !== null) {
-        this.contentBoxes.set(element.asset.publicId, element.asset.contentBox);
+      if (element.asset === null) {
+        continue;
+      }
+
+      const box = element.asset.contentBox;
+      if (box !== null && box !== undefined) {
+        this.contentBoxes.set(element.asset.publicId, box);
       }
     }
 
