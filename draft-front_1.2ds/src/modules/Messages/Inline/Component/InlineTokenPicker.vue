@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue';
 import { getTokenSources } from '@/modules/Messages/Inline/init';
 import type { ITokenOption } from '@/modules/Messages/Inline/Interface/ITokenOption';
 import type { ITokenSource } from '@/modules/Messages/Inline/Interface/ITokenSource';
+import InlineTokenSearchPanel from '@/modules/Messages/Inline/Component/InlineTokenSearchPanel.vue';
 
 /**
  * Планировщик «Вставить ссылку»: поиск по источникам токенов и вставка `[[type:value]]`
@@ -28,45 +29,14 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
-const sources = computed(() => (props.sources.length > 0 ? props.sources : getTokenSources()));
-
+const availableSources = computed(() => (props.sources.length > 0 ? props.sources : getTokenSources()));
 const pickerOpen = ref(false);
-const activeSourceIndex = ref(0);
-const pickerQuery = ref('');
-const pickerResults = ref<ITokenOption[]>([]);
-const pickerLoading = ref(false);
-const pickerError = ref('');
+const pickerKey = ref(0);
 
-const activeSource = computed(() => sources.value[activeSourceIndex.value] ?? null);
-
-async function openPicker() {
-  if (!sources.value.length) return;
+function openPicker(): void {
+  if (!availableSources.value.length) return;
+  pickerKey.value += 1;
   pickerOpen.value = true;
-  activeSourceIndex.value = 0;
-  pickerQuery.value = '';
-  pickerError.value = '';
-  await runSearch();
-}
-
-async function runSearch() {
-  const source = activeSource.value;
-  if (!source) return;
-  pickerLoading.value = true;
-  pickerError.value = '';
-  try {
-    pickerResults.value = await source.search(pickerQuery.value);
-  } catch (e) {
-    pickerResults.value = [];
-    pickerError.value = e instanceof Error ? e.message : 'Не удалось загрузить список';
-  } finally {
-    pickerLoading.value = false;
-  }
-}
-
-function selectSource(index: number) {
-  activeSourceIndex.value = index;
-  pickerQuery.value = '';
-  void runSearch();
 }
 
 function getTextareaElement(): HTMLTextAreaElement | null {
@@ -78,18 +48,16 @@ function getTextareaElement(): HTMLTextAreaElement | null {
   return root.querySelector('textarea') ?? null;
 }
 
-function insertToken(option: ITokenOption) {
-  const source = activeSource.value;
-  if (!source) return;
-  const token = `[[${source.type}:${option.value}]]`;
-  const el = getTextareaElement();
-  if (el) {
-    const start = el.selectionStart ?? props.modelValue.length;
-    const end = el.selectionEnd ?? start;
+function insertToken(option: ITokenOption, sourceType: string): void {
+  const token = `[[${sourceType}:${option.value}]]`;
+  const element = getTextareaElement();
+  if (element) {
+    const start = element.selectionStart ?? props.modelValue.length;
+    const end = element.selectionEnd ?? start;
     emit('update:modelValue', props.modelValue.slice(0, start) + token + props.modelValue.slice(end));
     nextTick(() => {
-      el.focus();
-      el.selectionStart = el.selectionEnd = start + token.length;
+      element.focus();
+      element.selectionStart = element.selectionEnd = start + token.length;
     });
   } else {
     emit('update:modelValue', props.modelValue + token);
@@ -114,49 +82,6 @@ function insertToken(option: ITokenOption) {
       </v-btn>
     </template>
 
-    <v-card v-if="activeSource" min-width="280" max-width="340" elevation="8" border>
-      <v-card-text class="pa-2">
-        <div v-if="sources.length > 1" class="d-flex ga-1 mb-2 flex-wrap">
-          <v-chip
-            v-for="(src, si) in sources"
-            :key="src.type"
-            size="x-small"
-            variant="tonal"
-            :color="si === activeSourceIndex ? 'primary' : undefined"
-            @click="selectSource(si)"
-          >
-            {{ src.label }}
-          </v-chip>
-        </div>
-        <v-text-field
-          v-model="pickerQuery"
-          density="compact"
-          variant="outlined"
-          hide-details
-          :label="`Поиск: ${activeSource.label}`"
-          @update:model-value="runSearch"
-        />
-        <div v-if="pickerError" class="text-caption text-error pa-2 text-center">
-          <div class="mb-2">{{ pickerError }}</div>
-          <v-btn variant="tonal" color="primary" size="small" @click="runSearch"> Попробовать снова </v-btn>
-        </div>
-        <v-list v-else-if="!pickerLoading && pickerResults.length" dense class="mt-1" max-height="240">
-          <v-list-item
-            v-for="opt in pickerResults"
-            :key="opt.value"
-            density="compact"
-            :prepend-icon="activeSource.icon"
-            :title="opt.label"
-            @click="insertToken(opt)"
-          />
-        </v-list>
-        <div v-else-if="!pickerLoading" class="text-caption text-medium-emphasis pa-2 text-center">
-          Ничего не найдено
-        </div>
-        <div v-else class="d-flex justify-center pa-3">
-          <v-progress-circular indeterminate width="2" size="22" color="primary" />
-        </div>
-      </v-card-text>
-    </v-card>
+    <InlineTokenSearchPanel :key="pickerKey" :sources="availableSources" @select="insertToken" />
   </v-menu>
 </template>
