@@ -9224,12 +9224,12 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-15. Код срезов 11.1–11.3 и 12.1–12.3",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-16. Код срезов 11.1–11.3 и 12.1–12.3",
             "layers": [],
             "basis": null,
-            "date": "2026-11-15",
-            "bytes": 20101,
-            "lines": 279,
+            "date": "2026-11-16",
+            "bytes": 20527,
+            "lines": 281,
             "modules": [
                 "Roleplay/Rule"
             ],
