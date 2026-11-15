@@ -906,12 +906,7 @@ describe('mockDevelopmentImport (S14)', () => {
 
   it('Пачка 23 разделяет прочее и боевые манёвры', () => {
     expect(byCode.get('opyt-koordinatsii-atak')?.catalogSection).toBe('abilities-acquired-melee-combat-other');
-    for (const code of [
-      'obezoruzhit-protivnika',
-      'zastavit-otkrytsya',
-      'poymat-moment',
-      'smenit-pozitsiyu',
-    ]) {
+    for (const code of ['obezoruzhit-protivnika', 'zastavit-otkrytsya', 'poymat-moment', 'smenit-pozitsiyu']) {
       expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-maneuvers');
       expect(byCode.get(code)?.contentNote, code).toContain('Обязательная');
     }
@@ -1001,9 +996,7 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(razbit?.requirements).toEqual([
       {
         level: 1,
-        requirements: [
-          { type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } },
-        ],
+        requirements: [{ type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } }],
       },
     ]);
 

@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\DefenseSlot;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemCheckAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemHands;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemStorage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ResistanceSlot;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ShieldBlock;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
@@ -52,7 +53,55 @@ final class ItemSpecs
             self::blockProfile($document),
             AbilityGrants::flat($document),
             SpecShape::bool($document, 'projectile'),
+            self::storage($document),
         );
+    }
+
+    /**
+     * Хранилище магии, если ключ есть.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return ItemStorage|null Блок или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function storage(array $document): ?ItemStorage
+    {
+        $part = SpecShape::object($document, 'storage');
+        if ($part === null) {
+            return null;
+        }
+
+        return new ItemStorage(
+            self::requiredString($part, 'power_parameter'),
+            self::requiredString($part, 'volume_parameter'),
+            SpecShape::optionalString($part, 'recorded_parameter') ?? '',
+            SpecShape::int($part, 'volume_base'),
+            SpecShape::int($part, 'volume_increment'),
+            SpecShape::int($part, 'min_volume_power_delta'),
+            SpecShape::stringList($part, 'recorded_keywords'),
+        );
+    }
+
+    /**
+     * Непустая строка блока.
+     *
+     * @param array<string, mixed> $part Блок.
+     * @param string $key Ключ.
+     *
+     * @return string Значение.
+     *
+     * @throws RuleSpecShapeException Если строки нет.
+     */
+    private static function requiredString(array $part, string $key): string
+    {
+        $value = SpecShape::string($part, $key);
+        if ($value === '') {
+            throw new RuleSpecShapeException($key);
+        }
+
+        return $value;
     }
 
     /**

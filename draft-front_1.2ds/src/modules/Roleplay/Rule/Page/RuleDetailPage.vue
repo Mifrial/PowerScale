@@ -137,7 +137,13 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
       class="mb-4"
       @open-rule="openInlineRule"
     />
-    <RuleSlider v-model:open="inlineRuleOpen" :rule-code="inlineRuleId" :rules="ruleHost.effectiveRules" />
+    <RuleSlider
+      v-model:open="inlineRuleOpen"
+      :rule-code="inlineRuleId"
+      :space-code="code"
+      :ctx="ctx"
+      :rules="ruleHost.effectiveRules"
+    />
 
     <v-card v-if="mechanicRows.length" class="mb-4">
       <v-card-title>Механики</v-card-title>

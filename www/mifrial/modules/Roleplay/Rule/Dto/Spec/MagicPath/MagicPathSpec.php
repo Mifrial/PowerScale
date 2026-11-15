@@ -20,6 +20,8 @@ final class MagicPathSpec implements RuleSpec
      * @param string|null $controlCharacteristicCode Контроль.
      * @param MagicPathStudyCost|null $studyCost Цена изучения.
      * @param array<int, string> $includesPathCodes Включённые пути.
+     * @param bool $noControl Путь не использует Контроль.
+     * @param bool $recordedCasting Заклинания берутся из записей источника.
      *
      * @return void
      */
@@ -30,6 +32,8 @@ final class MagicPathSpec implements RuleSpec
         private readonly ?string $controlCharacteristicCode,
         private readonly ?MagicPathStudyCost $studyCost,
         private readonly array $includesPathCodes,
+        private readonly bool $noControl = false,
+        private readonly bool $recordedCasting = false,
     ) {
     }
 
@@ -101,5 +105,25 @@ final class MagicPathSpec implements RuleSpec
     public function getIncludesPathCodes(): array
     {
         return $this->includesPathCodes;
+    }
+
+    /**
+     * Путь не использует Контроль.
+     *
+     * @return bool true, если Контроль не участвует.
+     */
+    public function isControlless(): bool
+    {
+        return $this->noControl;
+    }
+
+    /**
+     * Заклинания пути кастуются из записей источника.
+     *
+     * @return bool true, если нужен источник с записями.
+     */
+    public function castsRecorded(): bool
+    {
+        return $this->recordedCasting;
     }
 }

@@ -1,5 +1,6 @@
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
+import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
 import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic';
 import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel';
@@ -170,6 +171,28 @@ export class RaceSpecService {
     const parent = spec?.parent_race_code ?? null;
 
     return [...own, ...this.collectInheritedAbilities(parent, rulesByCode, seen)];
+  }
+
+  /**
+   * Все ссылки расы и предков-видов: дальний вид → ближний вид → раса
+   * (последняя ссылка побеждает). Это и «Даёт способности» (automatic),
+   * и «Даёт приобрести» (покупка).
+   */
+  referencedAbilities(raceRuleCode: string | null, rulesByCode: Map<string, Rule>): RaceAbilityRef[] {
+    if (!raceRuleCode) return [];
+    const rule = rulesByCode.get(raceRuleCode);
+    if (!rule || (rule.type !== 'race' && rule.type !== 'species')) return [];
+    const spec = rule.spec as RaceSpec | SpeciesSpec | null | undefined;
+    const inherited = spec?.parent_race_code ? this.collectInheritedAbilities(spec.parent_race_code, rulesByCode) : [];
+
+    return [...inherited, ...(spec?.abilities ?? [])];
+  }
+
+  /**
+   * Автоматические ссылки расы и предков-видов. Это «Даёт способности» карточки расы.
+   */
+  automaticAbilities(raceRuleCode: string | null, rulesByCode: Map<string, Rule>): RaceAbilityRef[] {
+    return this.referencedAbilities(raceRuleCode, rulesByCode).filter((ref) => ref.automatic);
   }
 
   /** Код вида: сам `species` или предок расы по `parent_race_code`. */

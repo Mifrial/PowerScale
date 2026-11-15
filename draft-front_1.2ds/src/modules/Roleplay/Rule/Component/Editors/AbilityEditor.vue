@@ -167,9 +167,7 @@ const states = computed(() => ruleReferenceService.stateOptions(props.rules));
 const maneuverKeywordId = computed(
   () => catalogKeywords.value.find((keyword) => keyword.code === 'maneuver')?.id ?? null,
 );
-const actionKeywordId = computed(
-  () => catalogKeywords.value.find((keyword) => keyword.code === 'action')?.id ?? null,
-);
+const actionKeywordId = computed(() => catalogKeywords.value.find((keyword) => keyword.code === 'action')?.id ?? null);
 
 const maneuverOptions = computed(() =>
   props.rules

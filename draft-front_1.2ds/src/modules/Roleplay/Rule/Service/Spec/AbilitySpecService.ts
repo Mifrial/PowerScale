@@ -676,10 +676,7 @@ export class AbilitySpecService {
     return { ...spec, maneuver_boost: { ...current, ...patch } };
   }
 
-  patchManeuverBoostReplace(
-    spec: AbilitySpecDraft,
-    replaces: StrikeManeuverEffectSelector[],
-  ): AbilitySpecDraft {
+  patchManeuverBoostReplace(spec: AbilitySpecDraft, replaces: StrikeManeuverEffectSelector[]): AbilitySpecDraft {
     const current = spec.maneuver_boost ?? this.createEmptyManeuverBoost();
 
     return { ...spec, maneuver_boost: { ...current, replaces } };

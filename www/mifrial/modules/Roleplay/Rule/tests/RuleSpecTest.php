@@ -10,7 +10,11 @@ use Mifrial\Core\Kernel\Value\JsonObject;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ItemGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSourcePower;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\MoneyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Operation\MovementOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Zone\ParameterSumTablesZone;
@@ -60,6 +64,41 @@ final class RuleSpecTest extends TestCase
         self::assertSame(['grants' => 'nope'], $broken->getSpecDocument());
         self::assertInstanceOf(AbilityPlainSpec::class, $whole->getSpec());
         self::assertFalse($whole->isSpecBroken());
+    }
+
+    /**
+     * Заряд читает пределы траты из `spend`, как в контенте.
+     *
+     * @return void
+     */
+    public function testSpellChargeReadsSpendLimits(): void
+    {
+        $record = $this->record('ability', [
+            'type' => 'spell',
+            'spell' => [
+                'duration' => ['type' => 'instant'],
+                'charge' => [
+                    'state_code' => 'electrocharge',
+                    'grant' => 1,
+                    'default_cap' => 1,
+                    'spend' => [
+                        'amount' => 1,
+                        'action_points' => 2,
+                        'keyword_code' => 'electromancy',
+                        'creation_max' => 'turn_ap',
+                        'exclude_duration_types' => ['sustained'],
+                    ],
+                ],
+            ],
+        ]);
+        $spec = $record->getSpec();
+        self::assertInstanceOf(AbilitySpellSpec::class, $spec);
+        $charge = $spec->getSpell()->getCharge();
+        self::assertNotNull($charge);
+        self::assertSame('turn_ap', $charge->getCreationMax());
+        self::assertSame(['sustained'], $charge->getExcludedDurations());
+        self::assertSame(2, $charge->getActionPoints());
+        self::assertSame('electromancy', $charge->getKeywordCode());
     }
 
     /**
@@ -498,6 +537,57 @@ final class RuleSpecTest extends TestCase
         self::assertInstanceOf(ParameterSumTablesZone::class, $or);
         self::assertSame(0, $or->getTables()['strength']['0']);
         self::assertSame(2, $or->getTables()['strength']['1']);
+    }
+
+    /**
+     * Грант предмета связывает параметр экземпляра с параметром способности.
+     *
+     * @return void
+     */
+    public function testItemGrantBindsInstanceParameters(): void
+    {
+        $record = $this->record('ability', [
+            'type' => 'trait',
+            'grants' => [[
+                'level' => 1,
+                'grants' => [[
+                    'type' => 'item',
+                    'item_code' => 'magic-core',
+                    'quantity' => 1,
+                    'parameters' => ['power' => 'x'],
+                ]],
+            ]],
+        ]);
+        $spec = $record->getSpec();
+        self::assertInstanceOf(AbilityPlainSpec::class, $spec);
+        $grant = $spec->getBase()->getGrantBlocks()[0]->getGrants()[0];
+        self::assertInstanceOf(ItemGrant::class, $grant);
+        self::assertSame(['power' => 'x'], $grant->getParameters());
+    }
+
+    /**
+     * Бонус к мощи источника разбирается с областью и формулой.
+     *
+     * @return void
+     */
+    public function testSpellSourcePowerScopeAndAmount(): void
+    {
+        $record = $this->record('ability', [
+            'type' => 'skill',
+            'spell_source_power' => [
+                'scope' => ['kind' => 'item', 'item_code' => 'magic-core'],
+                'path_scoped' => true,
+                'amount' => ['type' => 'ability_level', 'ability_code' => 'core-flow-optimization', 'multiplier' => 1],
+            ],
+        ]);
+        $spec = $record->getSpec();
+        self::assertInstanceOf(AbilityPlainSpec::class, $spec);
+        $block = $spec->getBase()->getSpellSourcePower();
+        self::assertInstanceOf(SpellSourcePower::class, $block);
+        self::assertSame('item', $block->getScopeKind());
+        self::assertSame('magic-core', $block->getItemCode());
+        self::assertTrue($block->isPathScoped());
+        self::assertInstanceOf(AbilityLevelScalar::class, $block->getAmount());
     }
 
     /**

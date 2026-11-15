@@ -37,6 +37,7 @@ final class ItemSpec implements RuleSpec
      * @param BlockProfile|null $blockProfile Профиль блока.
      * @param array<int, AbilityGrant> $grants Гранты надетого предмета.
      * @param bool $projectile Признак снаряда.
+     * @param ItemStorage|null $storage Хранилище магии или null.
      *
      * @return void
      */
@@ -58,6 +59,7 @@ final class ItemSpec implements RuleSpec
         private readonly ?BlockProfile $blockProfile,
         private readonly array $grants = [],
         private readonly bool $projectile = false,
+        private readonly ?ItemStorage $storage = null,
     ) {
     }
 
@@ -239,5 +241,15 @@ final class ItemSpec implements RuleSpec
     public function isProjectile(): bool
     {
         return $this->projectile;
+    }
+
+    /**
+     * Хранилище магии.
+     *
+     * @return ItemStorage|null Блок или null.
+     */
+    public function getStorage(): ?ItemStorage
+    {
+        return $this->storage;
     }
 }

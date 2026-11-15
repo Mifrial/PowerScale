@@ -380,7 +380,42 @@ final class AbilityGrants
      */
     private static function item(array $row, bool $permanent): ItemGrant
     {
-        return new ItemGrant(SpecShape::string($row, 'item_code'), SpecShape::int($row, 'quantity'), $permanent);
+        return new ItemGrant(
+            SpecShape::string($row, 'item_code'),
+            SpecShape::int($row, 'quantity'),
+            $permanent,
+            self::itemParameters($row, 'parameters'),
+            self::itemParameters($row, 'payload'),
+        );
+    }
+
+    /**
+     * Параметры экземпляра предмета: код экземпляра → код параметра способности.
+     *
+     * @param array<string, mixed> $row Объект.
+     * @param string $key Ключ блока.
+     *
+     * @return array<string, string> Карта.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function itemParameters(array $row, string $key): array
+    {
+        $raw = SpecShape::object($row, $key);
+        if ($raw === null) {
+            return [];
+        }
+
+        $parameters = [];
+        foreach ($raw as $code => $value) {
+            if ($code === '' || !is_string($value) || $value === '') {
+                throw new RuleSpecShapeException($key);
+            }
+
+            $parameters[$code] = $value;
+        }
+
+        return $parameters;
     }
 
     /**

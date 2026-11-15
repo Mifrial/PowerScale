@@ -31,6 +31,8 @@ final class MagicPathSpecs
             SpecShape::optionalString($document, 'control_characteristic_code'),
             self::studyCost($document),
             SpecShape::stringList($document, 'includes_path_codes'),
+            SpecShape::bool($document, 'no_control'),
+            SpecShape::bool($document, 'recorded_casting'),
         );
     }
 

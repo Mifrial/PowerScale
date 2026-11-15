@@ -68,6 +68,8 @@ final class AbilityBase
      * @param ManeuverModifier|null $maneuver Обманный манёвр или null.
      * @param StrikeManeuver|null $strikeManeuver Объявленный манёвр при ударе или null.
      * @param ManeuverBoost|null $maneuverBoost Усиление манёвра или null.
+     * @param StudyPaths|null $study Правило изучения пути или null.
+     * @param SpellSourcePower|null $spellSourcePower Бонус к мощи источника или null.
      *
      * @return void
      */
@@ -119,6 +121,7 @@ final class AbilityBase
         private readonly ?StrikeManeuver $strikeManeuver = null,
         private readonly ?ManeuverBoost $maneuverBoost = null,
         private readonly ?StudyPaths $study = null,
+        private readonly ?SpellSourcePower $spellSourcePower = null,
     ) {
     }
 
@@ -590,5 +593,15 @@ final class AbilityBase
     public function getManeuverBoost(): ?ManeuverBoost
     {
         return $this->maneuverBoost;
+    }
+
+    /**
+     * Бонус к потолку мощи источника.
+     *
+     * @return SpellSourcePower|null Бонус или null.
+     */
+    public function getSpellSourcePower(): ?SpellSourcePower
+    {
+        return $this->spellSourcePower;
     }
 }

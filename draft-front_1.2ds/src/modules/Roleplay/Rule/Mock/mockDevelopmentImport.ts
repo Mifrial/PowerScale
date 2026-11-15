@@ -5884,9 +5884,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [
         {
           level: 1,
-          requirements: [
-            { type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } },
-          ],
+          requirements: [{ type: 'min_weapon_mastery_value', keyword_code: 'weapon', min: { base: 3, size: 0 } }],
         },
       ],
       grants: [],
@@ -5960,8 +5958,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 54, 65],
     mechanics: [],
     createdAt: 1786269600,
-    contentNote:
-      'S1: усиление «Разбить защиту» исполняется Game. Усиление защитных манёвров — обязательная доработка.',
+    contentNote: 'S1: усиление «Разбить защиту» исполняется Game. Усиление защитных манёвров — обязательная доработка.',
   },
   {
     id: 380,

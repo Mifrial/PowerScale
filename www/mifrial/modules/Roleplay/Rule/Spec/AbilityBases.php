@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityAggregate;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\DerivedLevel;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessCloseSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSourcePower;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StudyPaths;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 
@@ -75,6 +76,44 @@ final class AbilityBases
             StrikeManeuverSpecs::read($document),
             StrikeManeuverSpecs::boost($document),
             self::study($document),
+            self::spellSourcePower($document),
+        );
+    }
+
+    /**
+     * Бонус к мощи источника. Нет ключа — null.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return SpellSourcePower|null Бонус или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function spellSourcePower(array $document): ?SpellSourcePower
+    {
+        $row = SpecShape::object($document, 'spell_source_power');
+        if ($row === null) {
+            return null;
+        }
+
+        $scope = SpecShape::requireMap($row['scope'] ?? null, 'scope');
+        $kind = SpecShape::string($scope, 'kind');
+        $itemCode = null;
+        $targetCode = null;
+        if ($kind === 'item') {
+            $itemCode = SpecShape::string($scope, 'item_code');
+        } elseif ($kind === 'source') {
+            $targetCode = SpecShape::string($scope, 'target_code');
+        } elseif ($kind !== 'any' && $kind !== 'innate') {
+            throw new RuleSpecShapeException('scope');
+        }
+
+        return new SpellSourcePower(
+            $kind,
+            $itemCode,
+            $targetCode,
+            SpecShape::bool($row, 'path_scoped'),
+            Formulas::scalar($row, 'amount'),
         );
     }
 

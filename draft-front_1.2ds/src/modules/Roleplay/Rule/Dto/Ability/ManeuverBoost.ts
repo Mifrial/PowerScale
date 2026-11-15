@@ -1,4 +1,7 @@
-import type { StrikeManeuverEffect, StrikeManeuverEffectSelector } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeManeuver';
+import type {
+  StrikeManeuverEffect,
+  StrikeManeuverEffectSelector,
+} from '@/modules/Roleplay/Rule/Dto/Ability/StrikeManeuver';
 
 /** Подмена эффекта объявленного манёвра при высоком РУ. */
 export interface ManeuverBoost {

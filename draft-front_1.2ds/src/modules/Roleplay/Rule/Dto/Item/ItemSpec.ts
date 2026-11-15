@@ -3,6 +3,7 @@ import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile
 import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
+import type { ItemStorage } from '@/modules/Roleplay/Rule/Dto/Item/ItemStorage';
 
 /** Чистый слой: блоки подтипов опциональны, но типизированы. */
 export interface ItemSpec extends ItemSpecBase {
@@ -10,4 +11,6 @@ export interface ItemSpec extends ItemSpecBase {
   weapon?: WeaponBlock;
   armor?: ArmorBlock;
   shield?: ShieldBlock;
+  /** Хранилище магии (кристалл) или null. */
+  storage?: ItemStorage | null;
 }

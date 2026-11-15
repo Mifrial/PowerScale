@@ -158,6 +158,15 @@ final class SpellSpecs
         }
 
         $spend = SpecShape::object($charge, 'spend') ?? [];
+        $durations = SpecShape::stringList($spend, 'exclude_duration_types');
+        if ($durations === []) {
+            $durations = SpecShape::stringList($spend, 'excluded_durations');
+        }
+
+        $creationMax = SpecShape::string($spend, 'creation_max');
+        if ($creationMax === '') {
+            $creationMax = SpecShape::string($charge, 'creation_max');
+        }
 
         return new SpellCharge(
             SpecShape::string($charge, 'state_code'),
@@ -166,8 +175,8 @@ final class SpellSpecs
             SpecShape::int($spend, 'action_points'),
             SpecShape::int($spend, 'amount'),
             SpecShape::string($spend, 'keyword_code'),
-            SpecShape::stringList($spend, 'excluded_durations'),
-            SpecShape::string($charge, 'creation_max'),
+            $durations,
+            $creationMax,
         );
     }
 

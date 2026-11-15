@@ -34,7 +34,16 @@ export type Grant =
     }
   | { type: 'ability'; ability_code: string; level?: number; permanent?: boolean }
   | { type: 'keyword'; keyword_code: string; remove?: boolean; permanent?: boolean }
-  | { type: 'item'; item_code: string; quantity?: number; permanent?: boolean }
+  | {
+      type: 'item';
+      item_code: string;
+      quantity?: number;
+      /** Параметры экземпляра: код экземпляра → код параметра способности. */
+      parameters?: Record<string, string>;
+      /** Поля payload экземпляра: код поля → код параметра способности (напр. Объём кристалла). */
+      payload?: Record<string, string>;
+      permanent?: boolean;
+    }
   | { type: 'magic_path'; path_code: string; permanent?: boolean }
   | {
       type: 'magic_study';

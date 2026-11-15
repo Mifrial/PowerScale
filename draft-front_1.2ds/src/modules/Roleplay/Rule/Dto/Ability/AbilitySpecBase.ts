@@ -12,6 +12,7 @@ import type { StrikeManeuver } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeM
 import type { ManeuverBoost } from '@/modules/Roleplay/Rule/Dto/Ability/ManeuverBoost';
 import type { PushSpec } from '@/modules/Roleplay/Rule/Dto/Ability/PushSpec';
 import type { ProcessCloseSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessCloseSpec';
+import type { SpellSourcePowerSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSourcePowerSpec';
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {
@@ -157,6 +158,8 @@ export interface AbilitySpecBase {
    * (напр. «Ближний бой»: опыт ближнего боя → уровень при 2/8/16).
    */
   derived_level?: { source_keyword: string; thresholds: number[] } | null;
+  /** Бонус к потолку мощи источника при касте. */
+  spell_source_power?: SpellSourcePowerSpec;
   /** Изменение размерности собственного шага, задаваемое врождённой/расовой способностью. */
   movement_step_size_delta?: number;
 }

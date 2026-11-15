@@ -19,6 +19,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionCheckModifierEffe
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionDurabilityShaveEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionRollFaceRemapEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\CurrentActionRollScoreAdjustEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ItemManaRefillEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\LastStrikeSnapshotEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ModifierCheck;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Effect\ModifierOutcomeEffect;
@@ -280,6 +281,7 @@ final class ActionEffects
                 SpecShape::string($row, 'reaction'),
             ),
             'apply_state' => new ApplyStateEffect(SpecShape::string($row, 'state_code'), self::amount($row)),
+            'item_mana_refill' => new ItemManaRefillEffect(SpecShape::string($row, 'characteristic_code')),
             'action_modifier' => self::modifier($row),
             default => throw new RuleSpecShapeException($key),
         };

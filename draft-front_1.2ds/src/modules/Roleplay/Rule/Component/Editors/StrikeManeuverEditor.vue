@@ -26,10 +26,7 @@ function commit(next: AbilitySpecDraft) {
 
 function setHasStrikeManeuver(enabled: boolean) {
   commit(
-    abilitySpecService.setStrikeManeuver(
-      spec.value,
-      enabled ? abilitySpecService.createEmptyStrikeManeuver() : null,
-    ),
+    abilitySpecService.setStrikeManeuver(spec.value, enabled ? abilitySpecService.createEmptyStrikeManeuver() : null),
   );
 }
 
@@ -51,10 +48,7 @@ function removeManeuverEffect(index: number) {
 
 function setHasManeuverBoost(enabled: boolean) {
   commit(
-    abilitySpecService.setManeuverBoost(
-      spec.value,
-      enabled ? abilitySpecService.createEmptyManeuverBoost() : null,
-    ),
+    abilitySpecService.setManeuverBoost(spec.value, enabled ? abilitySpecService.createEmptyManeuverBoost() : null),
   );
 }
 
@@ -221,9 +215,7 @@ function replaceHint(): string {
           @click="removeManeuverEffect(index)"
         />
       </div>
-      <v-btn variant="text" size="small" class="align-self-start" @click="addManeuverEffect">
-        Добавить эффект
-      </v-btn>
+      <v-btn variant="text" size="small" class="align-self-start" @click="addManeuverEffect"> Добавить эффект </v-btn>
     </div>
 
     <v-divider class="my-3" />
@@ -321,9 +313,7 @@ function replaceHint(): string {
           @click="removeBoostEffect(index)"
         />
       </div>
-      <v-btn variant="text" size="small" class="align-self-start" @click="addBoostEffect">
-        Добавить эффект
-      </v-btn>
+      <v-btn variant="text" size="small" class="align-self-start" @click="addBoostEffect"> Добавить эффект </v-btn>
     </div>
   </div>
 </template>
