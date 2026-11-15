@@ -12,7 +12,11 @@ import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
-import { SceneSurfaceService, surfaceUnderDeck } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import {
+  SceneSurfaceService,
+  surfaceIndex,
+  surfaceUnderDeck,
+} from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 
 /** Внешние данные предпросмотра. */
@@ -99,6 +103,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
       const role = element.props.role ?? 'player_start';
       const old = previous.get(element.id);
+      // Маркер переставили — уровень берём по новому месту: на настиле он
+      // стоит на настиле, а не под ним.
+      const moved = old === undefined || old.x !== point.x || old.y !== point.y;
 
       return {
         id: element.id,
@@ -110,7 +117,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
         ghost: old?.ghost ?? false,
-        level: old?.level ?? 0,
+        level: moved ? markerLevel(point) : (old?.level ?? 0),
         underDeck: old?.underDeck ?? false,
         sightRadius:
           old?.sightRadius ??
@@ -123,6 +130,25 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       selectedId.value = actors.value[0]?.id ?? null;
     }
     select(selectedId.value);
+  }
+
+  /**
+   * Уровень маркера по месту.
+   *
+   * Настил — верхний уровень: маркер, поставленный на мост, стоит на мосту.
+   * Под настил актор попадает только выбором в меню уровня, иначе признак
+   * «под настилом» затемнял бы того, кто стоит на досках.
+   */
+  function markerLevel(point: { x: number; y: number }): number {
+    const board = options.board();
+    if (board === null) {
+      return 0;
+    }
+
+    const surface = surfaceGrid(board);
+    const cell = surfaceIndex(surface, point.x, point.y);
+
+    return cell >= 0 && surface.kinds[cell] === 'bridge' ? 1 : 0;
   }
 
   /** Выбирает актора и сбрасывает маршрут. */
