@@ -27,7 +27,9 @@ import {
   characterBuildService,
   characterEditorService,
   CharacterCombatSheet,
+  magicSourcePowerService,
 } from '@/modules/Roleplay/Character/init';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
 
@@ -494,6 +496,8 @@ const importantCharacteristics = computed(
 const magicCharacteristics = computed(
   () => overview.value?.characteristics.filter((item) => item.group === 'magic') ?? [],
 );
+/** Источники магии: у ядра мощь — характеристика, у кристалла — своя Предельная мощь. */
+const magicSources = computed(() => effectiveVersion.value?.items ?? []);
 const secondaryCharacteristics = computed(
   () => overview.value?.characteristics.filter((item) => item.group === 'secondary') ?? [],
 );
@@ -731,6 +735,23 @@ function isStarred(ruleCode: string): boolean {
   if (!model.value) return false;
 
   return (props.quickRolls[model.value.entityKey] ?? []).includes(ruleCode);
+}
+
+async function setSourceMana(storage: ItemStorageValue, value: number): Promise<void> {
+  if (!model.value) return;
+  error.value = null;
+  try {
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'setItemMana',
+      gameManualSheetClient.setItemManaDetails(`inventory:${storage.inventoryId}`, value),
+    );
+    notifyMutation();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось изменить ману источника';
+  }
 }
 
 async function applyResource(resource: ResourceOverview, current: DimensionalNumberValue): Promise<void> {
@@ -1209,7 +1230,7 @@ function onSheetToggleEquipped(itemId: number): void {
                     />
                   </div>
                 </template>
-                <template v-if="magicCharacteristics.length">
+                <template v-if="magicCharacteristics.length || magicSources.length">
                   <div class="combat-card-section__subtitle">Магические</div>
                   <div class="combat-card-characteristics">
                     <CombatCardCharacteristicTile
@@ -1224,6 +1245,18 @@ function onSheetToggleEquipped(itemId: number): void {
                       :star-enabled="model.canEdit"
                       @roll="onTileRoll"
                       @star-toggle="onStarToggle"
+                    />
+                    <CombatCardCharacteristicTile
+                      v-for="source in magicSources"
+                      :key="`source_${source.inventoryId}`"
+                      :characteristic="magicSourcePowerService.characteristicOf(source, rules)"
+                      :rules="rules"
+                      :rollable="chatId !== null"
+                      roll-name="Магическая мощь"
+                      :storage="source"
+                      :mana-editable="model.canEdit"
+                      @roll="onTileRoll"
+                      @apply-mana="setSourceMana"
                     />
                   </div>
                 </template>

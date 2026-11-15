@@ -26,6 +26,8 @@ export interface SpellCastOfferContext {
   pendingSignature?: string | null;
   sourceKey?: string;
   pathCode?: string | null;
+  /** Путь без Контроля: броска нет, успех решает сравнение мощи. */
+  noControl?: boolean;
   appliedUpgradeCodes?: string[];
   chargeSustainId?: string;
 }

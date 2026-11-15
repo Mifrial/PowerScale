@@ -18,6 +18,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import { spellSourcePowerService } from '@/modules/Roleplay/Character/init';
+import { magicPathSpecService } from '@/modules/Roleplay/Rule/init';
 
 /** Источники, пути и изученные заклинания для диалога сотворения. */
 export class SpellCastOptionsService {
@@ -176,11 +177,11 @@ export class SpellCastOptionsService {
     return options;
   }
 
-  characteristicValue(overview: CharacterOverview | null, ruleCode: string | null): DimensionalNumberValue {
-    if (!ruleCode) return { base: 3, size: 0 };
-    const found = overview?.characteristics.find((entry) => entry.ruleCode === ruleCode);
+  /** Характеристика листа или null: подставлять «3» вместо отсутствующего стата нельзя. */
+  characteristicValue(overview: CharacterOverview | null, ruleCode: string | null): DimensionalNumberValue | null {
+    if (!ruleCode) return null;
 
-    return found?.value ?? { base: 3, size: 0 };
+    return overview?.characteristics.find((entry) => entry.ruleCode === ruleCode)?.value ?? null;
   }
 
   defaultUsedPower(
@@ -189,8 +190,9 @@ export class SpellCastOptionsService {
     sourceKey = '',
     characteristicCode: string | null = null,
     rules: Rule[] = [],
-  ): DimensionalNumberValue {
+  ): DimensionalNumberValue | null {
     const base = this.characteristicValue(overview, characteristicCode);
+    if (!base) return null;
 
     return spellDeviationService.penalizeUsedPower(
       base,
@@ -200,7 +202,10 @@ export class SpellCastOptionsService {
 
   /**
    * Потолок мощи выбранного источника: мощь экземпляра, бонус формы и штраф отклонения.
-   * Источник без своей мощи откатывается на характеристику пути (legacy grant/characteristic).
+   *
+   * Порядок как у серверного `GameSpellSourcePower`: `sheet.sourcePowers`,
+   * Предельная мощь хранилища из `sheet.items`, параметр экземпляра, затем
+   * характеристика листа для legacy-источников. Нет стата — null, не `{3|0}`.
    */
   sourceCapOf(
     version: CharacterVersion | null,
@@ -209,12 +214,14 @@ export class SpellCastOptionsService {
     keywords: Keyword[],
     sourceKey: string,
     characteristicCode: string | null,
-  ): DimensionalNumberValue {
+  ): DimensionalNumberValue | null {
     const serverPower = this.serverSourcePower(version, sourceKey, characteristicCode);
     const base =
       serverPower?.value ??
+      this.storagePower(version, sourceKey) ??
       this.itemPower(version, rules, sourceKey, characteristicCode) ??
       this.characteristicValue(overview, characteristicCode);
+    if (!base) return null;
     const hasServerPowers = (version?.sourcePowers?.length ?? 0) > 0;
     const isInventory = sourceKey.startsWith('inventory:');
     const bonus =
@@ -231,8 +238,8 @@ export class SpellCastOptionsService {
    * Мана каста из предмета-хранилища: `мощь × ceil(Создание в ОД / лимит ОД хода)`.
    * Ядро маны не тратит, поэтому для него вызывающий цену не считает.
    */
-  manaCostOf(power: DimensionalNumberValue, creationAp: number, turnApMax: number): number {
-    if (creationAp <= 0 || turnApMax <= 0) {
+  manaCostOf(power: DimensionalNumberValue | null, creationAp: number, turnApMax: number): number {
+    if (!power || creationAp <= 0 || turnApMax <= 0) {
       return 0;
     }
 
@@ -270,6 +277,11 @@ export class SpellCastOptionsService {
     return row ? { value: row.value, bonus: row.bonus } : null;
   }
 
+  /** Предельная мощь предмета-хранилища из `sheet.items` — собственный стат источника. */
+  private storagePower(version: CharacterVersion | null, sourceKey: string): DimensionalNumberValue | null {
+    return this.storageOf(version, sourceKey)?.maxPower ?? null;
+  }
+
   /** Мощь предмета-источника из параметра экземпляра. */
   private itemPower(
     version: CharacterVersion | null,
@@ -283,8 +295,6 @@ export class SpellCastOptionsService {
     const inventoryId = Number(raw);
     const item = version.inventory.find((row) => row.id === inventoryId);
     if (!item || item.ruleCode === null) return null;
-    const storage = version.items?.find((entry) => entry.inventoryId === inventoryId);
-    if (storage) return storage.maxPower;
     const rule = rules.find((entry) => entry.code === item.ruleCode && entry.type === 'item');
     const spec = rule?.spec as ItemSpec | undefined;
     if (!spec) return null;
@@ -317,7 +327,7 @@ export class SpellCastOptionsService {
     });
   }
 
-  defaultControl(overview: CharacterOverview | null, characteristicCode: string | null): DimensionalNumberValue {
+  defaultControl(overview: CharacterOverview | null, characteristicCode: string | null): DimensionalNumberValue | null {
     return this.characteristicValue(overview, characteristicCode);
   }
 
@@ -390,10 +400,7 @@ export class SpellCastOptionsService {
     if (!rule || rule.type !== 'magic_path' || !rule.spec || typeof rule.spec !== 'object') {
       return null;
     }
-    if (!('type' in rule.spec) || rule.spec.type !== 'magic_path') {
-      return null;
-    }
 
-    return rule.spec;
+    return magicPathSpecService.resolve(rule.spec);
   }
 }

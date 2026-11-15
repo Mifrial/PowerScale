@@ -16,4 +16,6 @@ export interface SpellCastResolveInput {
   resistancePenetration?: number;
   /** Одноразовый модификатор сложности, уже разрешённый из pending-контекста. */
   trainingDifficultyDelta?: number;
+  /** Путь без Контроля: броска нет, успех решает сравнение мощи. */
+  noControl?: boolean;
 }

@@ -4,7 +4,8 @@ import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWound
 export interface GameManualSheetRequest {
   gameId: number;
   idempotencyKey: string;
-  operation: 'setResource' | 'addState' | 'patchState' | 'removeState' | 'setEquipped' | 'setOccupyHands';
+  operation:
+    'setResource' | 'addState' | 'patchState' | 'removeState' | 'setEquipped' | 'setOccupyHands' | 'setItemMana';
   target: GamePhpWoundParty;
   expectedSheetVersion: number;
   details: Record<string, unknown>;

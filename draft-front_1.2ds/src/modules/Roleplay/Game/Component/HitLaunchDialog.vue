@@ -2849,6 +2849,7 @@ async function finishSpellAfterHit(
       hasTarget: ctx.hasSpellTarget,
       targetResistanceAmount: ctx.targetResistanceAmount,
       trainingDifficultyDelta: ctx.trainingDifficultyDelta,
+      noControl: ctx.noControl === true,
     },
     checkCode: ctx.checkCode,
     castCheckCode: ctx.castCheckCode,
@@ -2870,7 +2871,7 @@ async function finishSpellAfterHit(
     appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
   };
   if (!spellCastExecutionService.isSpellAvailableForUse(executionInput)) {
-    throw new Error('Заклинание временно недоступно при текущем Интеллекте');
+    throw new Error('Заклинание недоступно: путь не открыт или не хватает характеристик');
   }
   const spent = await spendAp(accepted.initiator, ctx.spentAp);
   if (spent !== ctx.spentAp) {

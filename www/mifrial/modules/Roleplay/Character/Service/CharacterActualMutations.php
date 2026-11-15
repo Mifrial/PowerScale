@@ -365,7 +365,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
             return $this->applyMoney($choices, $operation);
         }
 
-        if ($kind === 'spendItemMana' || $kind === 'refillItemMana') {
+        if ($kind === 'spendItemMana' || $kind === 'refillItemMana' || $kind === 'setItemMana') {
             $this->assertItemManaShape($operation);
 
             return $choices;
@@ -473,7 +473,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
     }
 
     /**
-     * Форма операции списания маны предмета.
+     * Форма операции маны предмета.
      *
      * @param mixed $operation Операция.
      *
@@ -484,14 +484,27 @@ final class CharacterActualMutations implements ICharacterActualMutations
     private function assertItemManaShape(mixed $operation): void
     {
         $sourceKey = is_array($operation) ? ($operation['sourceKey'] ?? null) : null;
-        $amount = is_array($operation) ? ($operation['amount'] ?? null) : null;
-        if (!is_string($sourceKey) || $sourceKey === '' || !is_int($amount) || $amount < 0) {
+        if (!is_string($sourceKey) || $sourceKey === '') {
+            throw new CharacterInvalidException('Character item mana operation is invalid');
+        }
+
+        if (($operation['kind'] ?? null) === 'setItemMana') {
+            $value = $operation['value'] ?? null;
+            if (!is_int($value) || $value < 0) {
+                throw new CharacterInvalidException('Character item mana operation is invalid');
+            }
+
+            return;
+        }
+
+        $amount = $operation['amount'] ?? null;
+        if (!is_int($amount) || $amount < 0) {
             throw new CharacterInvalidException('Character item mana operation is invalid');
         }
     }
 
     /**
-     * Меняет ману предметов-хранилищ: списание и пополнение до лимита.
+     * Меняет ману предметов-хранилищ: списание, пополнение до лимита и правка.
      *
      * @param array<string, mixed> $sheet Sheet.
      * @param array<int, mixed> $operations Операции.
@@ -508,12 +521,11 @@ final class CharacterActualMutations implements ICharacterActualMutations
             }
 
             $kind = $operation['kind'] ?? null;
-            if ($kind !== 'spendItemMana' && $kind !== 'refillItemMana') {
+            if ($kind !== 'spendItemMana' && $kind !== 'refillItemMana' && $kind !== 'setItemMana') {
                 continue;
             }
 
             $sourceKey = $operation['sourceKey'];
-            $amount = $operation['amount'];
             $items = $sheet['items'] ?? null;
             $row = is_array($items) ? ($items[$sourceKey] ?? null) : null;
             if (!is_array($row)) {
@@ -521,15 +533,18 @@ final class CharacterActualMutations implements ICharacterActualMutations
             }
 
             $before = is_int($row['mana'] ?? null) ? $row['mana'] : 0;
+            $max = is_int($row['manaMax'] ?? null) ? $row['manaMax'] : $before;
             if ($kind === 'spendItemMana') {
+                $amount = $operation['amount'];
                 if ($amount > $before) {
                     throw new CharacterInvalidException('Character item mana is not enough');
                 }
 
                 $after = $before - $amount;
+            } elseif ($kind === 'refillItemMana') {
+                $after = min($max, $before + $operation['amount']);
             } else {
-                $max = is_int($row['manaMax'] ?? null) ? $row['manaMax'] : $before;
-                $after = min($max, $before + $amount);
+                $after = max(0, min($max, $operation['value']));
             }
 
             $items[$sourceKey] = [...$row, 'mana' => $after];

@@ -148,6 +148,58 @@ export class SpellCastDifficultyService {
     });
   }
 
+  /**
+   * Путь без Контроля: броска нет, успех решает сравнение мощи.
+   *
+   * Сопротивление и штраф тренировки сдвигают используемую мощь так же,
+   * как они сдвигали бы Сложность обычного каста.
+   */
+  controllessOutcome(input: {
+    requiredPower: DimensionalNumberValue;
+    usedPower: DimensionalNumberValue;
+    resistanceModify?: number;
+    resistancePenetration?: number;
+    requiredPowerDelta?: number;
+    trainingDifficultyDelta?: number;
+  }): {
+    success: boolean;
+    usedPower: DimensionalNumberValue;
+    requiredPower: DimensionalNumberValue;
+    effectivePower: DimensionalNumberValue;
+    resistance: number;
+  } {
+    const required = CharacteristicNumber.from(input.requiredPower).modifyWith(input.requiredPowerDelta ?? 0);
+    const resistance = Math.max(0, (input.resistanceModify ?? 0) - (input.resistancePenetration ?? 0));
+    const shift = resistance + (input.trainingDifficultyDelta ?? 0);
+    const used = CharacteristicNumber.from(input.usedPower);
+    const effective = shift === 0 ? used : used.modifyWith(-shift);
+
+    return {
+      success: required.modifyDiffTo(effective) <= 0,
+      usedPower: used.value,
+      requiredPower: required.value,
+      effectivePower: effective.value,
+      resistance,
+    };
+  }
+
+  formatControllessLine(outcome: {
+    success: boolean;
+    usedPower: DimensionalNumberValue;
+    requiredPower: DimensionalNumberValue;
+    effectivePower: DimensionalNumberValue;
+    resistance: number;
+  }): string {
+    const used = this.formatDifficulty(outcome.usedPower);
+    const required = this.formatDifficulty(outcome.requiredPower);
+    const left =
+      outcome.resistance > 0
+        ? `${used} − сопротивление ${outcome.resistance} = ${this.formatDifficulty(outcome.effectivePower)}`
+        : used;
+
+    return `Сотворение по Мощи: ${left} против ${required} — ${outcome.success ? 'успех' : 'недостаточно'}`;
+  }
+
   formatDifficulty(value: DimensionalNumberValue): string {
     return DimensionalNumber.from(value).toString();
   }

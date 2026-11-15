@@ -9,6 +9,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
 /**
  * Просмотр листа в контексте игры по видимым секциям (общий для персонажей-в-игре и НПС).
@@ -67,6 +68,8 @@ const sheetSummary = computed(() => {
 const sheetAbilities = computed(() => sheetSummary.value.abilities);
 const sheetCharacteristics = computed(() => sheetSummary.value.characteristics);
 const sheetResources = computed(() => sheetSummary.value.resources);
+/** Источники-хранилища: у кристалла нет характеристики, но есть Предельная мощь и мана. */
+const magicSources = computed(() => displayVersion.value?.items ?? []);
 
 function ruleName(ruleCode: string | null): string | null {
   if (!ruleCode) return null;
@@ -79,6 +82,10 @@ function itemName(item: { ruleCode: string | null; name?: string | null }): stri
   if (item.ruleCode === null) return item.name ?? 'Предмет мастера';
 
   return ruleName(item.ruleCode) ?? item.ruleCode;
+}
+
+function powerLabel(value: { base: number; size: number }): string {
+  return DimensionalNumber.from(value).toString();
 }
 
 function sectionVisible(section: SheetSection): boolean {
@@ -131,6 +138,19 @@ watch(
           <span class="text-body-2">{{ characteristic.name }}</span>
           <v-spacer />
           <span class="text-body-2">{{ characteristic.valueLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="sectionVisible('characteristics') && magicSources.length" class="sheet-block">
+      <div class="sheet-label">Магические источники</div>
+      <div class="d-flex flex-column">
+        <div v-for="source in magicSources" :key="source.inventoryId" class="sheet-row">
+          <span class="text-body-2">{{ itemName({ ruleCode: source.ruleCode }) }}</span>
+          <v-spacer />
+          <span class="text-body-2">
+            мощь {{ powerLabel(source.maxPower) }} · мана {{ source.mana }}/{{ source.manaMax }}
+          </span>
         </div>
       </div>
     </div>

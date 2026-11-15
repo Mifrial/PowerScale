@@ -2,10 +2,11 @@
 import { computed } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import type { OverviewModifier } from '@/modules/Roleplay/Character/Dto/Overview/OverviewModifier';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { SensePopup, weaponProficiencyService } from '@/modules/Roleplay/Character/init';
+import { MagicStorageRows, SensePopup, weaponProficiencyService } from '@/modules/Roleplay/Character/init';
 import { RuleLink } from '@/modules/Roleplay/Character/init';
 
 const props = withDefaults(
@@ -17,14 +18,24 @@ const props = withDefaults(
     rollable?: boolean;
     /** Бросок характеристики из попапа (показывается кубик в заголовке). */
     onRoll?: (characteristic: CharacteristicOverview) => void;
+    /** Строка хранилища: мана, Объём и ручная правка. */
+    storage?: ItemStorageValue | null;
+    /** Ручная правка маны (инструмент ведущего). */
+    manaEditable?: boolean;
   }>(),
   {
     senses: () => [],
     proficiencyLevels: () => new Map<string, number>(),
     rollable: false,
     onRoll: undefined,
+    storage: null,
+    manaEditable: false,
   },
 );
+
+const emit = defineEmits<{
+  applyMana: [storage: ItemStorageValue, value: number];
+}>();
 
 const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 
@@ -149,6 +160,14 @@ function signed(delta: number): string {
           <span v-if="modifier.scope" class="text-caption text-medium-emphasis">условно: {{ modifier.scope }}</span>
         </div>
       </template>
+
+      <MagicStorageRows
+        v-if="storage"
+        :storage="storage"
+        :rules="rules"
+        :editable="manaEditable"
+        @apply="(source, value) => emit('applyMana', source, value)"
+      />
 
       <template v-if="characteristic.derived && characteristic.derived.bases.length">
         <v-divider class="my-2" />

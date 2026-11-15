@@ -147,7 +147,7 @@ const hopLastKey = ref<CombatEntityKey | null>(null);
 let hopWait: ((value: { key: CombatEntityKey; distanceIpari: number } | null) => void) | null = null;
 const burstOpen = ref(false);
 let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
-const usedPower = ref<DimensionalNumberValue>({ base: 3, size: 0 });
+const usedPower = ref<DimensionalNumberValue | null>(null);
 const hasTarget = ref(false);
 const targetKey = ref<CombatEntityKey | null>(null);
 const parameterPower = ref<DimensionalNumberValue>({ base: 3, size: 0 });
@@ -351,6 +351,13 @@ const spellAvailable = computed(() => {
     rules: props.rules,
   });
 });
+/** Почему кнопка «Сотворить» недоступна: без выбранного заклинания это не про характеристику. */
+const spellUnavailableReason = computed(() => {
+  if (!spellCode.value) return 'Нет доступных заклинаний: проверьте путь волшебства и записи источника';
+  if (spellAvailable.value) return null;
+
+  return 'Заклинание недоступно: путь не открыт или не хватает характеристик';
+});
 const requiredHands = computed(() => characterHandsService.getRequiredHands(spellSpec.value?.action_components));
 const freeHands = computed(() =>
   characterHandsService.getRemainingHands(casterVersion.value?.inventory ?? [], props.rules),
@@ -539,18 +546,19 @@ const casterAp = computed(() => {
   return attackDamageService.actionPointsResource(overview.value, props.rules)?.current ?? { base: 0, size: 0 };
 });
 /** Источник-хранилище выбранного источника: у него есть мана и цена каста. */
-const selectedStorage = computed(() =>
-  spellCastOptionsService.storageOf(casterVersion.value, sourceKey.value),
-);
+const selectedStorage = computed(() => spellCastOptionsService.storageOf(casterVersion.value, sourceKey.value));
 const turnApMax = computed(() => electrochargeService.turnApMax(overview.value, props.rules));
-/** Цена каста в мане: мощь × ceil(Создание в ОД / лимит ОД хода). */
+/**
+ * Цена каста в мане: мощь × ceil(Создание в ОД / лимит ОД хода).
+ * Каст через электрозаряд ману не тратит: сила уже оплачена поддержанием Генератора.
+ */
 const manaCost = computed(() =>
-  selectedStorage.value
+  selectedStorage.value && !chargeSustain.value
     ? spellCastOptionsService.manaCostOf(usedPower.value, actionPointCost.value, turnApMax.value)
     : 0,
 );
 const manaShortage = computed(
-  () => selectedStorage.value !== null && manaCost.value > selectedStorage.value.mana,
+  () => !chargeSustain.value && selectedStorage.value !== null && manaCost.value > selectedStorage.value.mana,
 );
 const powerIsParameter = computed(() =>
   Boolean(spellSpec.value && 'type' in spellSpec.value.spell.power && spellSpec.value.spell.power.type === 'parameter'),
@@ -570,9 +578,16 @@ const entityItems = computed(() => {
   return [...characters, ...npcs];
 });
 
-const availableControl = computed(() =>
-  spellCastOptionsService.defaultControl(overview.value, selectedPath.value?.controlCharacteristicCode ?? null),
-);
+const availableControl = computed(() => {
+  // Путь без Контроля сравнивает требуемый контроль сам с собой: ни дефицита, ни преимущества.
+  if (selectedPath.value?.noControl) {
+    const required = spellSpec.value?.spell.control;
+
+    return required ? spellCastDifficultyService.resolveSpellValue(required, parameterValues.value) : null;
+  }
+
+  return spellCastOptionsService.defaultControl(overview.value, selectedPath.value?.controlCharacteristicCode ?? null);
+});
 const casterMaxPower = computed(() =>
   spellCastOptionsService.sourceCapOf(
     casterVersion.value,
@@ -587,7 +602,11 @@ const powerStatName = computed(() => {
   const code = selectedPath.value?.powerCharacteristicCode;
   if (!code) return 'Мощь';
 
-  return overview.value?.characteristics.find((entry) => entry.ruleCode === code)?.name ?? 'Мощь';
+  return (
+    overview.value?.characteristics.find((entry) => entry.ruleCode === code)?.name ??
+    props.rules.find((rule) => rule.code === code && rule.type === 'characteristic')?.name ??
+    'Мощь'
+  );
 });
 const controlStatName = computed(() => {
   const code = selectedPath.value?.controlCharacteristicCode;
@@ -595,7 +614,7 @@ const controlStatName = computed(() => {
 
   return overview.value?.characteristics.find((entry) => entry.ruleCode === code)?.name ?? 'Контроль';
 });
-const usedPowerLabel = computed(() => DimensionalNumber.from(usedPower.value).toString());
+const usedPowerLabel = computed(() => (usedPower.value ? DimensionalNumber.from(usedPower.value).toString() : '—'));
 const fixedSpellPower = computed(() => {
   if (!spellSpec.value || powerIsParameter.value) {
     return null;
@@ -669,7 +688,7 @@ const targetResistance = computed(() => {
 });
 
 const preview = computed(() => {
-  if (!spellCode.value) {
+  if (!spellCode.value || !usedPower.value || !availableControl.value) {
     return null;
   }
 
@@ -690,7 +709,11 @@ const preview = computed(() => {
   );
 });
 
-const controlLabel = computed(() => DimensionalNumber.from(availableControl.value).toString());
+const controlLabel = computed(() =>
+  selectedPath.value?.noControl || !availableControl.value
+    ? '—'
+    : DimensionalNumber.from(availableControl.value).toString(),
+);
 
 const checkCharacteristicCode = computed(() =>
   spellCastService.characteristicCodeForCheck(selectedPath.value?.checkCode ?? null, props.rules),
@@ -708,18 +731,30 @@ const checkCharacteristic = computed(() => {
 const selectedSpellItem = computed(() => spellItems.value.find((spell) => spell.ruleCode === spellCode.value) ?? null);
 
 const castCheckLine = computed(() => {
+  if (selectedPath.value?.noControl) {
+    if (!usedPower.value || !spellSpec.value) return '—';
+    const outcome = spellCastDifficultyService.controllessOutcome({
+      requiredPower: spellCastDifficultyService.resolveSpellValue(spellSpec.value.spell.power, parameterValues.value),
+      usedPower: usedPower.value,
+      resistanceModify: hasTarget.value ? targetResistance.value : 0,
+      resistancePenetration: resistancePenetration.value,
+      requiredPowerDelta: requiredPowerDelta.value,
+      trainingDifficultyDelta: actionEffectService.resolveForSpellCast(pendingSpellEffects.value, actionPointCost.value)
+        .difficultyDelta,
+    });
+
+    return spellCastDifficultyService.formatControllessLine(outcome);
+  }
   if (!preview.value) {
     return '—';
   }
 
-  const line = spellCastDifficultyService.formatCastCheckLine(
+  return spellCastDifficultyService.formatCastCheckLine(
     preview.value.needsCheck,
     preview.value.difficulty,
     checkCharacteristic.value?.name ?? null,
     checkCharacteristic.value?.value ?? null,
   );
-
-  return line;
 });
 
 async function loadCastContext(open: boolean): Promise<void> {
@@ -802,7 +837,11 @@ async function loadCastContext(open: boolean): Promise<void> {
     sourceKey.value,
     paths.value.find((path) => path.pathCode === pathCode.value)?.powerCharacteristicCode ?? null,
   );
-  if (sustain && DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0) {
+  if (
+    sustain &&
+    usedPower.value &&
+    DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0
+  ) {
     usedPower.value = { ...sustain.sustainPower };
   }
   setParameterPower(usedPower.value);
@@ -836,7 +875,9 @@ watch(spellCode, () => {
 });
 
 watch(sourceKey, () => {
-  usedPower.value = spellCastDifficultyService.clampToAtMost(usedPower.value, casterMaxPower.value);
+  if (usedPower.value && casterMaxPower.value) {
+    usedPower.value = spellCastDifficultyService.clampToAtMost(usedPower.value, casterMaxPower.value);
+  }
 });
 
 watch(upgradeOptions, (options) => {
@@ -875,7 +916,14 @@ function onSaturationStepsChange(value: number | null): void {
 }
 
 function setUsedPower(value: DimensionalNumberValue | null): void {
-  usedPower.value = spellCastDifficultyService.clampToAtMost(value ?? { base: 3, size: 0 }, casterMaxPower.value);
+  if (!value) {
+    usedPower.value = null;
+
+    return;
+  }
+  usedPower.value = casterMaxPower.value
+    ? spellCastDifficultyService.clampToAtMost(value, casterMaxPower.value)
+    : value;
 }
 
 function toggleCastOptions(): void {
@@ -931,13 +979,25 @@ async function runCast(): Promise<void> {
     await props.ensureRuntimeProjection?.(resolvedCasterKey.value);
     await ensureSelectedRuntimeProjections();
     if (!preview.value || !overview.value) return;
+    const power = usedPower.value;
+    if (!power) {
+      error.value = 'У источника нет доступной мощи';
+
+      return;
+    }
     if (gamePhpMode.isEnabled()) {
       await runPhpCast();
 
       return;
     }
+    const control = availableControl.value;
+    if (!control) {
+      error.value = 'У персонажа нет Контроля магии';
+
+      return;
+    }
     if (!spellAvailable.value) {
-      error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+      error.value = 'Заклинание недоступно: путь не открыт или не хватает характеристик';
 
       return;
     }
@@ -948,6 +1008,11 @@ async function runCast(): Promise<void> {
       return;
     }
     const characteristic = checkCharacteristic.value;
+    if (!selectedPath.value?.noControl && !characteristic) {
+      error.value = 'Проверка сотворения не нашла характеристику пути';
+
+      return;
+    }
     const touchKey = touchTargetKey.value === '' ? null : touchTargetKey.value;
     if (needsTouchAttack.value && touchKey) {
       const profile = selectedTouchProfile.value;
@@ -975,7 +1040,7 @@ async function runCast(): Promise<void> {
       const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
       const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, cost);
       if (!spellAvailable.value) {
-        error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+        error.value = 'Заклинание недоступно: путь не открыт или не хватает характеристик';
 
         return;
       }
@@ -1044,18 +1109,19 @@ async function runCast(): Promise<void> {
       currentActionPoints: casterAp.value,
       resolve: {
         spellCode: spellCode.value,
-        usedPower: usedPower.value,
-        availableControl: availableControl.value,
+        usedPower: power,
+        availableControl: control,
         parameterValues: parameterValues.value,
         hasTarget: hasTarget.value,
         targetResistanceAmount: targetResistance.value,
         requiredPowerDelta: requiredPowerDelta.value,
         resistancePenetration: resistancePenetration.value,
         trainingDifficultyDelta: pendingResolution.difficultyDelta,
+        noControl: selectedPath.value?.noControl === true,
       },
       checkCode: selectedPath.value?.checkCode ?? null,
       castCheckCode: selectedPath.value?.castCheckCode ?? null,
-      characteristicValue: characteristic?.value ?? { base: 3, size: 0 },
+      characteristicValue: characteristic?.value ?? power,
       characteristicName: characteristic?.name ?? selectedPath.value?.name ?? 'Сотворение',
       parameterPower: parameterPower.value,
       keywords: keywords.value,
@@ -1082,7 +1148,7 @@ async function runCast(): Promise<void> {
       return;
     }
     if (!spellCastExecutionService.isSpellAvailableForUse(executionInput)) {
-      error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+      error.value = 'Заклинание недоступно: путь не открыт или не хватает характеристик';
 
       return;
     }
@@ -1114,6 +1180,11 @@ async function runPhpCast(): Promise<void> {
   phpSaturationSteps.value = 0;
   if (!caster || !spellCode.value || !pathCode.value) {
     error.value = 'Выберите заклинание и путь';
+
+    return;
+  }
+  if (!usedPower.value) {
+    error.value = 'У источника нет доступной мощи';
 
     return;
   }
@@ -1196,6 +1267,12 @@ function participantOf(key: CombatEntityKey): { type: 'character' | 'npc'; id: n
  * Открывает окно удара касания: объявление и защита идут через game.runAction.
  */
 async function runPhpTouchCast(caster: CombatEntityKey): Promise<void> {
+  const power = usedPower.value;
+  if (!power) {
+    error.value = 'У источника нет доступной мощи';
+
+    return;
+  }
   const touchKey = touchTargetKey.value === '' ? null : touchTargetKey.value;
   if (!touchKey) {
     error.value = 'Выберите цель касания';
@@ -1228,7 +1305,7 @@ async function runPhpTouchCast(caster: CombatEntityKey): Promise<void> {
     parameters: castParameters.value,
     usedPower: {
       source: powerSource(sourceKey.value),
-      value: usedPower.value,
+      value: power,
     },
     ...(target ? { spellTarget: target } : {}),
     upgrades: spellCastUpgradeService.requestOf(selectedUpgradeOptions.value, appliedUpgradeValues.value),
@@ -1268,7 +1345,7 @@ async function settleCast(
       outcome.refuseReason === 'invalid_saturation'
         ? 'Нельзя потратить больше РУ, чем дала проверка'
         : outcome.refuseReason === 'unavailable_spell'
-          ? 'Способность временно недоступна при текущем Интеллекте'
+          ? 'Способность недоступна: путь или характеристика не позволяют применить её'
           : 'Недостаточно ОД для сотворения';
 
     return;
@@ -1357,6 +1434,11 @@ async function offerTouchHit(
   trainingDifficultyDelta: number,
   pendingSignature: string | null,
 ): Promise<CheckOffer> {
+  const power = usedPower.value;
+  const control = availableControl.value;
+  if (!power || !control) {
+    throw new Error('У источника нет доступной мощи или Контроля');
+  }
   const action = listAttackActions(props.rules, overview.value, 'strike', keywords.value).find(
     (item) => item.code === touchActionCode.value,
   );
@@ -1398,8 +1480,8 @@ async function offerTouchHit(
       },
       spellCast: {
         spellCode: spellCode.value,
-        usedPower: usedPower.value,
-        availableControl: availableControl.value,
+        usedPower: power,
+        availableControl: control,
         parameterValues: parameterValues.value,
         hasSpellTarget: hasTarget.value,
         spellTargetKey: hasTarget.value ? targetKey.value : null,
@@ -1407,7 +1489,7 @@ async function offerTouchHit(
         parameterPower: parameterPower.value,
         checkCode: selectedPath.value?.checkCode ?? null,
         castCheckCode: selectedPath.value?.castCheckCode ?? null,
-        characteristicValue: characteristic?.value ?? { base: 3, size: 0 },
+        characteristicValue: characteristic?.value ?? power,
         characteristicName: characteristic?.name ?? selectedPath.value?.name ?? 'Сотворение',
         touchActionCode: touchActionCode.value,
         touchActionName: action?.name ?? 'Касание',
@@ -1418,6 +1500,7 @@ async function offerTouchHit(
         pendingSignature,
         sourceKey: sourceKey.value,
         pathCode: pathCode.value || null,
+        noControl: selectedPath.value?.noControl === true,
         appliedUpgradeCodes: appliedUpgradeCodes.value,
         chargeSustainId: chargeSustain.value?.id,
       },
@@ -1841,10 +1924,15 @@ async function announceSpellApply(
 async function persistGeneratorIfNeeded(outcome: SpellCastExecutionResult): Promise<void> {
   const spec = spellSpec.value?.spell;
   const casterKey = resolvedCasterKey.value;
-  const castOk = !outcome.autoFail && (!outcome.cast?.needsCheck || Boolean(outcome.cast.roll?.check?.passed));
+  const castOk =
+    !outcome.autoFail &&
+    outcome.cast?.powerOk !== false &&
+    (!outcome.cast?.needsCheck || Boolean(outcome.cast.roll?.check?.passed));
   if (!spec || spec.duration.type !== 'sustained' || !castOk || !casterKey || !sourceKey.value) {
     return;
   }
+  const power = usedPower.value;
+  if (!power) return;
   const initiative = await getGameApi().getInitiative(props.gameId);
   const created = activeSpellService.createSustained({
     gameId: props.gameId,
@@ -1852,7 +1940,7 @@ async function persistGeneratorIfNeeded(outcome: SpellCastExecutionResult): Prom
     spellCode: spellCode.value,
     sourceKey: sourceKey.value,
     pathCode: pathCode.value || null,
-    usedPower: usedPower.value,
+    usedPower: power,
     requiredPower: spellCastDifficultyService.resolveSpellValue(spec.power, parameterValues.value),
     parameterValues: parameterValues.value,
     appliedUpgradeCodes: appliedUpgradeCodes.value,
@@ -1930,14 +2018,11 @@ async function applyArcaneBurst(
   deviation: SpellDeviationOutcome,
   chatId: number | null,
 ): Promise<void> {
+  const power = usedPower.value;
+  if (!power) return;
   const targetOverview = overviewOf(target.key);
   const grant = spellCastOptionsService.targetResistanceFromOverview(targetOverview, ARCANE_DAMAGE_TYPE_CODE);
-  const amount = spellDeviationService.explosionAmount(
-    usedPower.value,
-    target.distanceIpari,
-    deviation.dieDigit,
-    grant,
-  );
+  const amount = spellDeviationService.explosionAmount(power, target.distanceIpari, deviation.dieDigit, grant);
   const weapon = spellDeviationService.explosionWeaponDamage(amount);
   const applied = spellCastExecutionService.applySpellDamage(
     weapon,
@@ -2237,7 +2322,7 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
               />
             </div>
             <DimensionalNumberInput
-              v-if="showCastOptions"
+              v-if="showCastOptions && usedPower"
               :model-value="usedPower"
               label="Используемая мощь"
               :min="CHARACTERISTIC_BASE_RANGE.min"
@@ -2245,6 +2330,7 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
               class="mb-3"
               @update:model-value="setUsedPower"
             />
+            <div v-else-if="showCastOptions" class="text-caption text-medium-emphasis mb-3">Используемая мощь: —</div>
             <DimensionalNumberInput
               v-if="powerIsParameter"
               :model-value="parameterPower"
@@ -2337,7 +2423,7 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
             </template>
             <div class="text-caption text-medium-emphasis mt-2">
               Стоимость: {{ actionPointCost }} ОД · Доступно: {{ casterAp.base }} ОД
-              <template v-if="selectedStorage">
+              <template v-if="selectedStorage && !chargeSustain">
                 · Мана: {{ manaCost }} / {{ selectedStorage.mana }}
               </template>
             </div>
@@ -2348,8 +2434,8 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
               Без цели заклинания сотворение автоматически провалится
             </div>
             <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
-            <div v-if="!spellAvailable" class="text-caption text-warning mt-1">
-              Заклинание недоступно при текущем Интеллекте
+            <div v-if="spellUnavailableReason" class="text-caption text-warning mt-1">
+              {{ spellUnavailableReason }}
             </div>
             <ConcentrationTokenOption
               v-model="spendConcentration"

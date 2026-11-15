@@ -1,6 +1,11 @@
 import type { MagicPathStudyCost } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathStudyCost';
 
-/** Спека правила type='magic_path': проверка сотворения и правила цены изучения. */
+/**
+ * Спека правила type='magic_path': проверка сотворения и правила цены изучения.
+ *
+ * Опубликованный контент может идти без `type` и `study_cost`; нормализацию
+ * делает `magicPathSpecService.resolve`, а не проверка формы в потребителях.
+ */
 export interface MagicPathSpec {
   type: 'magic_path';
   /** Проверка характеристики пути (напр. check-willpower). */

@@ -57,6 +57,34 @@ final class GameItemManaRefill
     }
 
     /**
+     * Явная правка маны одной строки хранилища.
+     *
+     * Кнопка ГМ: значение клампится по `manaMax` в операции листа, поэтому
+     * форма принимает любое неотрицательное целое.
+     *
+     * @param array<string, mixed> $sheet Лист актора.
+     * @param string $sourceKey Ключ строки `sheet.items`.
+     * @param int $value Новое значение маны.
+     *
+     * @return array<string, mixed> Операция листа.
+     *
+     * @throws GameInvalidException Если строки нет.
+     */
+    public function setValue(array $sheet, string $sourceKey, int $value): array
+    {
+        $row = is_array($sheet['items'] ?? null) ? ($sheet['items'][$sourceKey] ?? null) : null;
+        if (!is_array($row)) {
+            throw new GameInvalidException('Game action mana storage is missing');
+        }
+
+        return [
+            'kind' => 'setItemMana',
+            'sourceKey' => $sourceKey,
+            'value' => $value,
+        ];
+    }
+
+    /**
      * Значение характеристики для прибавки.
      *
      * @param array<string, mixed> $sheet Лист.

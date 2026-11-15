@@ -119,6 +119,22 @@ function patchStudyCost(partial: Partial<NonNullable<MagicPathSpec['study_cost']
         class="mb-3"
         @update:model-value="patch({ control_characteristic_code: $event || null })"
       />
+      <v-checkbox
+        :model-value="inner.no_control === true"
+        label="Без Контроля магии: сравнение только по Мощи"
+        density="compact"
+        hide-details
+        class="mb-1"
+        @update:model-value="(value) => patch({ no_control: value === true })"
+      />
+      <v-checkbox
+        :model-value="inner.recorded_casting === true"
+        label="Заклинания берутся из записей источника"
+        density="compact"
+        hide-details
+        class="mb-3"
+        @update:model-value="(value) => patch({ recorded_casting: value === true })"
+      />
       <v-autocomplete
         :model-value="inner.includes_path_codes"
         :items="includePathOptions"

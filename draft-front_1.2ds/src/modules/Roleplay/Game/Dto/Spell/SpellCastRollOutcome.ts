@@ -6,4 +6,6 @@ export interface SpellCastRollOutcome {
   difficulty: DimensionalNumberValue;
   needsCheck: boolean;
   roll: DiceRollResult | null;
+  /** Путь без Контроля: хватило ли мощи после сопротивления цели. */
+  powerOk?: boolean;
 }

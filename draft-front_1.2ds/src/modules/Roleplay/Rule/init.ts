@@ -23,6 +23,7 @@ export { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/In
 export { advantageDropService } from '@/modules/Roleplay/Rule/Service/Instance/advantageDropService';
 export { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 export { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
+export { magicPathSpecService } from '@/modules/Roleplay/Rule/Service/Instance/magicPathSpecService';
 export { languageSpecService } from '@/modules/Roleplay/Rule/Service/Instance/languageSpecService';
 export { languageRelatednessService } from '@/modules/Roleplay/Rule/Service/Instance/languageRelatednessService';
 export { scriptSpecService } from '@/modules/Roleplay/Rule/Service/Instance/scriptSpecService';

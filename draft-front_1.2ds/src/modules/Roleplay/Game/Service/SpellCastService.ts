@@ -28,6 +28,27 @@ export class SpellCastService {
     efficiencyDeltas: readonly { sourceCode: string; delta: number }[] = [],
   ): SpellCastRollOutcome {
     const computed = spellCastDifficultyService.computeForSpell(input, rules);
+    if (input.noControl) {
+      const spec = spellCastDifficultyService.asSpellAbilitySpec(rules.find((entry) => entry.code === input.spellCode));
+      if (!spec) {
+        return { difficulty: computed.difficulty, needsCheck: false, roll: null };
+      }
+      const outcome = spellCastDifficultyService.controllessOutcome({
+        requiredPower: spellCastDifficultyService.resolveSpellValue(spec.spell.power, input.parameterValues),
+        usedPower: input.usedPower,
+        resistanceModify: input.hasTarget ? input.targetResistanceAmount : 0,
+        resistancePenetration: input.resistancePenetration,
+        requiredPowerDelta: input.requiredPowerDelta,
+        trainingDifficultyDelta: input.trainingDifficultyDelta,
+      });
+
+      return {
+        difficulty: computed.difficulty,
+        needsCheck: false,
+        roll: null,
+        powerOk: outcome.success,
+      };
+    }
     if (!computed.needsCheck || !castCheckCode) {
       return { difficulty: computed.difficulty, needsCheck: false, roll: null };
     }

@@ -74,4 +74,8 @@ export class GameManualSheetClient {
   occupyHandsDetails(inventoryId: number, occupyHands: number): Record<string, unknown> {
     return { inventoryId, occupyHands };
   }
+
+  setItemManaDetails(sourceKey: string, value: number): Record<string, unknown> {
+    return { sourceKey, value };
+  }
 }

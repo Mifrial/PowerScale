@@ -74,6 +74,15 @@ export const SensePopup = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue'),
 );
 
+export const MagicSourceTile = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/Characteristics/MagicSourceTile.vue'),
+);
+
+/** Строки хранилища в попапе характеристики — общие для деталки и боевой карточки. */
+export const MagicStorageRows = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/Characteristics/MagicStorageRows.vue'),
+);
+
 export const AttackTile = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue'),
 );
@@ -189,6 +198,7 @@ export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/I
 export { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 export { characterNoteContextService } from '@/modules/Roleplay/Character/Service/Instance/characterNoteContextService';
 export { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+export { magicSourcePowerService } from '@/modules/Roleplay/Character/Service/Instance/magicSourcePowerService';
 export { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 export { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 export { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';

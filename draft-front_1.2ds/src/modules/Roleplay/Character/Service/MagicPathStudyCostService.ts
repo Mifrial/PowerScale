@@ -4,6 +4,7 @@ import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicP
 import type { MagicPathStudyCost } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathStudyCost';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { magicPathSpecService } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Стоимость изучения заклинания в рамках пути: скидка из спеки пути и парные покупки
@@ -28,10 +29,9 @@ export class MagicPathStudyCostService {
   pathSpecOf(rules: Rule[], pathCode: string | null | undefined): MagicPathSpec | null {
     if (!pathCode) return null;
     const rule = rules.find((entry) => entry.code === pathCode && entry.type === 'magic_path');
-    const spec = rule?.spec as MagicPathSpec | undefined;
-    if (!spec || spec.type !== 'magic_path') return null;
+    if (!rule?.spec || typeof rule.spec !== 'object') return null;
 
-    return spec;
+    return magicPathSpecService.resolve(rule.spec);
   }
 
   instancePaid(

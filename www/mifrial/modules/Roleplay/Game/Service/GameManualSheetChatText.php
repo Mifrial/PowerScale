@@ -72,14 +72,41 @@ final class GameManualSheetChatText
      *
      * @return string Текст.
      */
-    private function body(string $operation, array $details, CharacterRuleSlice $slice, array $beforeSheet): string
-    {
+    private function body(
+        string $operation,
+        array $details,
+        CharacterRuleSlice $slice,
+        array $beforeSheet,
+    ): string {
         return match ($operation) {
             'setResource' => $this->resourceText($details, $slice, $beforeSheet),
             'setEquipped' => ($details['equipped'] ?? false) === true ? 'Экипирует предмет.' : 'Снимает предмет.',
             'setOccupyHands' => 'Меняет занятость рук предмета.',
+            'setItemMana' => $this->manaText($details, $slice, $beforeSheet),
             default => $this->stateText($operation, $details, $slice, $beforeSheet),
         };
+    }
+
+    /**
+     * Текст правки маны хранилища.
+     *
+     * @param array<string, mixed> $details Поля.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $beforeSheet Лист до.
+     *
+     * @return string Текст.
+     */
+    private function manaText(array $details, CharacterRuleSlice $slice, array $beforeSheet): string
+    {
+        $sourceKey = is_string($details['sourceKey'] ?? null) ? $details['sourceKey'] : '';
+        $row = is_array($beforeSheet['items'] ?? null) ? ($beforeSheet['items'][$sourceKey] ?? null) : null;
+        $before = is_array($row) && is_int($row['mana'] ?? null) ? $row['mana'] : 0;
+        $max = is_array($row) && is_int($row['manaMax'] ?? null) ? $row['manaMax'] : $before;
+        $value = is_int($details['value'] ?? null) ? $details['value'] : $before;
+        $ruleCode = is_array($row) && is_string($row['ruleCode'] ?? null) ? $row['ruleCode'] : '';
+        $name = $ruleCode === '' ? 'хранилище' : $this->ruleName($slice, $ruleCode);
+
+        return 'Задаёт ману «' . $name . '»: ' . $before . ' → ' . max(0, min($max, $value)) . '.';
     }
 
     /**

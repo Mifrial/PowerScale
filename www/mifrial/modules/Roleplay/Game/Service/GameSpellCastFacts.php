@@ -212,14 +212,18 @@ final class GameSpellCastFacts
             $spent = $charge['spent'];
         }
 
-        $mana = $this->mana->plan(
-            $slice,
-            $caster['sheet'],
-            $power['key'],
-            $usedPower,
-            $spent,
-            $turnCode,
-        );
+        // Каст через электрозаряд не платит ману: сила уже оплачена
+        // поддержанием Генератора, а цена этого каста — 2 ОД и заряд.
+        $mana = $charge === null
+            ? $this->mana->plan(
+                $slice,
+                $caster['sheet'],
+                $power['key'],
+                $usedPower,
+                $spent,
+                $turnCode,
+            )
+            : null;
 
         return new GameSpellCastPrepared(
             $slice,

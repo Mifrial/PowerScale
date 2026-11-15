@@ -14,18 +14,31 @@ use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
  */
 final class GameManualSheetOperations
 {
+    private readonly GameItemManaRefill $refill;
+
+    /**
+     * Создаёт разбор операций.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->refill = new GameItemManaRefill();
+    }
+
     /**
      * Одна операция порта.
      *
      * @param string $operation Код HTTP.
      * @param array<string, mixed> $details Поля.
      * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист до операции.
      *
      * @return list<array<string, mixed>> Операции.
      *
      * @throws GameInvalidException Если форма.
      */
-    public function effects(string $operation, array $details, CharacterRuleSlice $slice): array
+    public function effects(string $operation, array $details, CharacterRuleSlice $slice, array $sheet = []): array
     {
         return match ($operation) {
             'setResource' => [$this->resource($details, $slice)],
@@ -34,8 +47,30 @@ final class GameManualSheetOperations
             'removeState' => [$this->removeState($details)],
             'setEquipped' => [$this->equipped($details)],
             'setOccupyHands' => [$this->occupyHands($details)],
+            'setItemMana' => [$this->setItemMana($details, $sheet)],
             default => throw new GameInvalidException('Game manual sheet action is invalid'),
         };
+    }
+
+    /**
+     * Явная правка маны предмета-хранилища.
+     *
+     * @param array<string, mixed> $details Поля.
+     * @param array<string, mixed> $sheet Лист до операции.
+     *
+     * @return array<string, mixed> Операция.
+     *
+     * @throws GameInvalidException Если формы или хранилища нет.
+     */
+    private function setItemMana(array $details, array $sheet): array
+    {
+        $sourceKey = $details['sourceKey'] ?? null;
+        $value = $details['value'] ?? null;
+        if (!is_string($sourceKey) || $sourceKey === '' || !is_int($value) || $value < 0) {
+            throw new GameInvalidException('Game manual sheet action is invalid');
+        }
+
+        return $this->refill->setValue($sheet, $sourceKey, $value);
     }
 
     /**

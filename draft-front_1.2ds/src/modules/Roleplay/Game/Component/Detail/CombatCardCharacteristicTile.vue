@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import CombatCharacteristicPopup from '@/modules/Roleplay/Game/Component/Detail/CombatCharacteristicPopup.vue';
 
@@ -18,6 +19,10 @@ const props = withDefaults(
     starred?: boolean;
     /** Звёздочка доступна (CD-6: ГМ или владелец своего approved-персонажа). */
     starEnabled?: boolean;
+    /** Строка хранилища: мана, Объём и ручная правка в попапе. */
+    storage?: ItemStorageValue | null;
+    /** Ручная правка маны (инструмент ведущего). */
+    manaEditable?: boolean;
   }>(),
   {
     senses: () => [],
@@ -26,6 +31,8 @@ const props = withDefaults(
     rollName: '',
     starred: false,
     starEnabled: false,
+    storage: null,
+    manaEditable: false,
   },
 );
 
@@ -33,6 +40,8 @@ const emit = defineEmits<{
   roll: [characteristic: CharacteristicOverview, name: string];
   /** Переключить звёздочку (добавить/убрать макрос быстрого броска). */
   'star-toggle': [characteristic: CharacteristicOverview];
+  /** Задать ману хранилища. */
+  applyMana: [storage: ItemStorageValue, value: number];
 }>();
 
 const label = computed(() => props.characteristic.shortName ?? props.characteristic.name);
@@ -78,6 +87,9 @@ function onPopupRoll(characteristic: CharacteristicOverview): void {
       :proficiency-levels="proficiencyLevels"
       :rollable="rollable"
       :on-roll="onPopupRoll"
+      :storage="storage"
+      :mana-editable="manaEditable"
+      @apply-mana="(source, value) => emit('applyMana', source, value)"
     />
   </v-menu>
 </template>

@@ -121,6 +121,8 @@ export class CharacterPatchService {
         return { ...version, points: cloneData(operation.value) };
       case 'inventory':
         return { ...version, inventory: cloneData(operation.value) };
+      case 'items':
+        return { ...version, items: cloneData(operation.value) };
       case 'states':
         return { ...version, states: cloneData(operation.value) };
       case 'senses':
@@ -186,6 +188,9 @@ export class CharacterPatchService {
     }
     if (this.isDifferent(before.inventory, after.inventory)) {
       operations.push({ kind: 'replaceSection', section: 'inventory', value: cloneData(after.inventory) });
+    }
+    if (this.isDifferent(before.items ?? [], after.items ?? [])) {
+      operations.push({ kind: 'replaceSection', section: 'items', value: cloneData(after.items ?? []) });
     }
     if (this.isDifferent(before.states, after.states)) {
       operations.push({ kind: 'replaceSection', section: 'states', value: cloneData(after.states) });

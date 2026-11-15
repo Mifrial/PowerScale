@@ -363,6 +363,50 @@ describe('CharacterHttpViewService.materialize', () => {
 
     expect(actionPoints?.current).toEqual({ base: 1, size: 0 });
   });
+
+  it('материализация сохраняет рантайм кристалла: items и sourcePowers', () => {
+    const rules: Rule[] = [
+      rule('action-points', 'resource', 'Очки Действий', {
+        is_dimensional: false,
+        auto_add: true,
+        limit: { base: 6, adjustments: [] },
+      }),
+    ];
+    const stored = characterHttpViewService.versionOf({
+      name: 'Птичка',
+      spaceCode: 'aktualnye-pravila',
+      rulesRevision: 54,
+      choices: { name: 'Птичка' },
+      sheet: {
+        items: {
+          'inventory:3': {
+            ruleCode: 'magic-crystal',
+            inventoryId: 3,
+            maxPower: dim(5),
+            volume: 160,
+            occupied: 30,
+            mana: 100,
+            manaMax: 130,
+          },
+        },
+        sourcePowers: [
+          {
+            inventoryId: 3,
+            ruleCode: 'magic-crystal',
+            characteristicCode: 'magic-power',
+            base: dim(5),
+            bonus: 0,
+            value: dim(5),
+            contributions: [],
+          },
+        ],
+      },
+    });
+    const live = characterHttpViewService.materialize(stored, 1, rules);
+
+    expect(live.items).toEqual(stored.items);
+    expect(live.sourcePowers).toEqual(stored.sourcePowers);
+  });
 });
 
 describe('CharacterHttpViewService.detailOf', () => {

@@ -11,11 +11,17 @@ export class MagicPathSpecService {
       control_characteristic_code: null,
       study_cost: null,
       includes_path_codes: [],
+      no_control: false,
+      recorded_casting: false,
     };
   }
 
+  /**
+   * Нормализует спеку пути. `type` в опубликованном контенте может отсутствовать:
+   * тип правила уже равен `magic_path`, поэтому опираемся на форму, а не на метку.
+   */
   resolve(spec: unknown): MagicPathSpec {
-    if (!spec || typeof spec !== 'object' || !('type' in spec) || spec.type !== 'magic_path') {
+    if (!spec || typeof spec !== 'object') {
       return this.createEmpty();
     }
     const value = spec as MagicPathSpec;
@@ -35,6 +41,8 @@ export class MagicPathSpecService {
       control_characteristic_code: value.control_characteristic_code ?? null,
       study_cost: value.study_cost ?? null,
       includes_path_codes: includes,
+      no_control: value.no_control === true,
+      recorded_casting: value.recorded_casting === true,
     };
   }
 }

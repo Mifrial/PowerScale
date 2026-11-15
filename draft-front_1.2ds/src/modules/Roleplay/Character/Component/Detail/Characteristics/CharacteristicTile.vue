@@ -2,10 +2,12 @@
 import { computed, ref } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import type { OverviewModifier } from '@/modules/Roleplay/Character/Dto/Overview/OverviewModifier';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import MagicStorageRows from '@/modules/Roleplay/Character/Component/Detail/Characteristics/MagicStorageRows.vue';
 import SensePopup from '@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue';
 
 const props = withDefaults(
@@ -17,8 +19,10 @@ const props = withDefaults(
     embedded?: boolean;
     // Подпись под именем внутри кликабельной области (напр. «Минимальная из →»).
     caption?: string | null;
+    // Строка хранилища: в попапе показывает ману и Объём источника.
+    storage?: ItemStorageValue | null;
   }>(),
-  { rules: () => [], senses: () => [], embedded: false, caption: null },
+  { rules: () => [], senses: () => [], embedded: false, caption: null, storage: null },
 );
 
 const open = ref(false);
@@ -133,6 +137,8 @@ function senseRule(sense: CharacterSenseValue): Rule | undefined {
         >
           Без модификаторов
         </div>
+
+        <MagicStorageRows v-if="storage" :storage="storage" :rules="rules" />
 
         <template v-if="showsSenses">
           <v-divider class="my-2" />

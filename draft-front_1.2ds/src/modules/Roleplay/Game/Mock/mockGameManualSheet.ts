@@ -12,6 +12,7 @@ import {
   removeCombatState,
   replaceCombatState,
   setCombatItemEquipped,
+  setCombatItemMana,
   setCombatItemOccupyHands,
   setCombatResource,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
@@ -89,6 +90,21 @@ export async function manualSheet(body: GameManualSheetRequest, _signal?: AbortS
     } as CharacterStateValue;
     const result = await addCombatState(body.gameId, key, state);
     await say(body.gameId, `Добавляет состояние «${state.stateRuleCode}».`);
+
+    return { actualVersion: actualVersionOf(result) };
+  }
+  if (body.operation === 'setItemMana') {
+    const sourceKey = String(body.details.sourceKey ?? '');
+    const value = body.details.value;
+    const inventoryId = Number(sourceKey.replace('inventory:', ''));
+    if (!sourceKey.startsWith('inventory:') || !Number.isInteger(inventoryId) || typeof value !== 'number') {
+      throw new Error('Нет хранилища');
+    }
+    const row = before.items?.find((item) => item.inventoryId === inventoryId);
+    if (!row) throw new Error('Хранилище не найдено');
+    const after = Math.max(0, Math.min(row.manaMax, value));
+    const result = await setCombatItemMana(body.gameId, key, inventoryId, value);
+    await say(body.gameId, `Задаёт ману «${row.ruleCode}»: ${row.mana} → ${after}.`);
 
     return { actualVersion: actualVersionOf(result) };
   }

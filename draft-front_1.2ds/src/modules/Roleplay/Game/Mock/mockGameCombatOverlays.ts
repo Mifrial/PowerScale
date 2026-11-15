@@ -290,6 +290,28 @@ export async function removeCombatState(
   });
 }
 
+/** Мана предмета-хранилища в actual-листе: ручная правка ведущего. */
+export async function setCombatItemMana(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  inventoryId: number,
+  value: number,
+  _signal?: AbortSignal,
+): Promise<GameAuthoritativeCommandResult> {
+  await delay(150);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+  const items = version.items ?? [];
+  const row = items.find((item) => item.inventoryId === inventoryId);
+  if (!row) throw new Error('Хранилище не найдено');
+  const mana = Math.max(0, Math.min(row.manaMax, value));
+
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    items: items.map((item) => (item.inventoryId === inventoryId ? { ...item, mana } : item)),
+  });
+}
+
 /** Экипировка предмета в бою в actual-листе. */
 export async function setCombatItemEquipped(
   gameId: number,

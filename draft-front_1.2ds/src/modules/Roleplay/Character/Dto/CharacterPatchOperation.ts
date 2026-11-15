@@ -5,6 +5,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { CharacteristicValue } from '@/modules/Roleplay/Character/Dto/CharacteristicValue';
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
 import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
@@ -26,6 +27,7 @@ type CharacterSectionPatchOperation =
   | { kind: 'replaceSection'; section: 'abilities'; value: CharacterAbility[] }
   | { kind: 'replaceSection'; section: 'points'; value: CharacterPointsState }
   | { kind: 'replaceSection'; section: 'inventory'; value: InventoryItem[] }
+  | { kind: 'replaceSection'; section: 'items'; value: ItemStorageValue[] }
   | { kind: 'replaceSection'; section: 'states'; value: CharacterStateValue[] }
   | { kind: 'replaceSection'; section: 'senses'; value: CharacterSenseValue[] }
   | { kind: 'replaceSection'; section: 'customRules'; value: CustomRuleEntry[] };

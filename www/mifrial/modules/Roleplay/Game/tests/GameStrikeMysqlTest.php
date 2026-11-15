@@ -1815,6 +1815,57 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Реальный путь простейшего волшебства: check-spell-cast без характеристики.
+     *
+     * Броска нет, успех решает сравнение используемой мощи с Требуемой мощью.
+     *
+     * @return void
+     */
+    public function testCrystalRecordedPathWithoutControlDoesNotRoll(): void
+    {
+        $extraRules = [
+            'simple-magic' => ['type' => 'magic_path', 'spec' => [
+                'check_code' => 'check-spell-cast',
+                'cast_check_code' => 'check-spell-cast',
+                'power_characteristic_code' => 'magic-power',
+                'control_characteristic_code' => null,
+                'includes_path_codes' => [],
+                'no_control' => true,
+                'recorded_casting' => true,
+            ]],
+            'check-spell-cast' => ['type' => 'check', 'spec' => [
+                'allowed_modes' => 'both',
+                'difficulty_input' => ['kind' => 'ask'],
+                'allow_characteristic_override' => true,
+            ]],
+        ];
+        $scene = $this->crystalScene([['ruleCode' => 'lightning-strike']], extraRules: $extraRules);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+
+        $cast = $this->dispatch('game.castSpell', $this->crystalBody($scene, $inventoryId));
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertFalse($cast['data']['cast']['needsCheck']);
+        self::assertNull($cast['data']['cast']['roll']);
+        self::assertTrue($cast['data']['cast']['castOk']);
+        self::assertSame(6, $this->itemManaOf($scene['hero'], $inventoryId));
+
+        $weakBody = $this->crystalBody($scene, $inventoryId);
+        $weakBody['idempotencyKey'] = 'cast-weak';
+        $weakBody['expectedVersion'] = $cast['data']['version'];
+        $weakBody['expectedSheetVersion'] = $cast['data']['caster']['sheetVersion'];
+        $weakBody['expectedTargetVersion'] = $cast['data']['target']['sheetVersion'] ?? $weakBody['expectedTargetVersion'];
+        $weakBody['usedPower']['value'] = ['base' => 3, 'size' => 0];
+
+        $weak = $this->dispatch('game.castSpell', $weakBody);
+
+        self::assertTrue($weak['success'], json_encode($weak));
+        self::assertFalse($weak['data']['cast']['needsCheck']);
+        self::assertNull($weak['data']['cast']['roll']);
+        self::assertFalse($weak['data']['cast']['castOk']);
+    }
+
+    /**
      * Записанное в кристалл улучшение применяется при касте без изучения: цена в ОД и мане растёт.
      *
      * @return void
@@ -1997,7 +2048,7 @@ final class GameStrikeMysqlTest extends TestCase
      */
     public function testCrystalRefillsManaFromStamina(): void
     {
-        $scene = $this->crystalScene([], 2, false, true);
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], 2, false, true);
         $inventoryId = $this->heroInventoryId($scene['hero']);
         self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
         $battleVersion = $this->rollSceneInitiative($scene);
@@ -2021,7 +2072,7 @@ final class GameStrikeMysqlTest extends TestCase
      */
     public function testExtractedCrystalDoesNotRefill(): void
     {
-        $scene = $this->crystalScene([], 10, false, false);
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], 10, false, false);
         $inventoryId = $this->heroInventoryId($scene['hero']);
         $battleVersion = $this->rollSceneInitiative($scene);
 
@@ -2040,6 +2091,178 @@ final class GameStrikeMysqlTest extends TestCase
 
         self::assertSame('GAME_INVALID', $response['error']['code'] ?? null, json_encode($response));
         self::assertSame(10, $this->itemManaOf($scene['hero'], $inventoryId));
+    }
+
+    /**
+     * Каст через электрозаряд не платит ману: плата — 2 ОД и заряд.
+     *
+     * @return void
+     */
+    public function testCrystalChargeCastDoesNotSpendMana(): void
+    {
+        $keywordId = $this->ensureKeyword('electromancy', 'Электромансия');
+        $generator = $this->crystalGeneratorCard();
+        $generator['spec']['spell']['charge'] = [
+            'state_code' => 'electrocharge',
+            'grant' => 1,
+            'default_cap' => 1,
+            'spend' => [
+                'amount' => 1,
+                'action_points' => 2,
+                'keyword_code' => 'electromancy',
+                'creation_max' => 'turn_ap',
+                'exclude_duration_types' => ['sustained'],
+            ],
+        ];
+        $scene = $this->crystalScene(
+            [['ruleCode' => 'crystal-generator'], ['ruleCode' => 'crystal-strike']],
+            null,
+            false,
+            false,
+            40,
+            [
+                'electrocharge' => [
+                    'type' => 'state',
+                    'spec' => ['value_type' => 'number', 'aggregation' => 'independent'],
+                ],
+                'crystal-generator' => ['type' => 'ability', 'spec' => [
+                    'type' => 'spell',
+                    'zones' => $generator['zones'],
+                    ...$generator['spec'],
+                ]],
+                'crystal-strike' => [
+                    'type' => 'ability',
+                    'name' => 'Crystal Strike',
+                    'keywordIds' => [$keywordId],
+                    'spec' => [
+                        'type' => 'spell',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                        'requirements' => [],
+                        'spell' => [
+                            'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                            'control' => ['base' => 3, 'size' => -1],
+                            'targeting' => 'none',
+                            'duration' => ['type' => 'instant'],
+                        ],
+                        'parameters' => [[
+                            'code' => 'x',
+                            'label' => 'X',
+                            'kind' => 'dimensional',
+                            'resolution' => 'activation',
+                            'default' => ['base' => 3, 'size' => 0],
+                            'min' => ['base' => 3, 'size' => -1],
+                            'max' => ['base' => 5, 'size' => 1],
+                        ]],
+                        'hit_resolution' => ['type' => 'none'],
+                        'action_components' => [[
+                            'type' => 'resource',
+                            'resource_code' => 'action-points',
+                            'amount' => 4,
+                        ]],
+                    ],
+                ],
+            ],
+        );
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        self::assertSame(20, $this->itemManaOf($scene['hero'], $inventoryId));
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $generatorCast = $this->dispatch(
+            'game.castSpell',
+            $this->crystalSustainBody($scene, $inventoryId, $battleVersion),
+        );
+        self::assertTrue($generatorCast['success'], json_encode($generatorCast));
+        self::assertSame(16, $this->itemManaOf($scene['hero'], $inventoryId));
+        $spell = $generatorCast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'charge-cast-1',
+            'expectedVersion' => $generatorCast['data']['version'],
+            'expectedSheetVersion' => $generatorCast['data']['caster']['sheetVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'crystal-strike',
+            'pathCode' => 'simple-magic',
+            'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+            'usedPower' => [
+                'source' => ['kind' => 'item', 'inventoryId' => $inventoryId],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+            'chargeSpellId' => $spell['id'],
+        ]);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertNull($cast['data']['mana'] ?? null);
+        self::assertSame(16, $this->itemManaOf($scene['hero'], $inventoryId));
+        self::assertNull($this->chargeState($scene['hero']));
+    }
+
+    /**
+     * Кнопка ГМа: явно задаёт ману выбранного хранилища.
+     *
+     * @return void
+     */
+    public function testSetItemManaByManualSheet(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], 2, false, true);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $key = 'inventory:' . $inventoryId;
+        $max = $this->itemManaMaxOf($scene['hero'], $inventoryId);
+        self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
+
+        $set = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'set-mana-1',
+            'operation' => 'setItemMana',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+            'details' => ['sourceKey' => $key, 'value' => 7],
+        ]);
+
+        self::assertTrue($set['success'], json_encode($set));
+        self::assertSame(7, $this->itemManaOf($scene['hero'], $inventoryId));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['session', 'turn']),
+        );
+        $index = $this->messageIndexOf($contents, 'Задаёт ману');
+        self::assertStringContainsString('2 → 7', $contents[$index]);
+
+        $over = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'set-mana-2',
+            'operation' => 'setItemMana',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+            'details' => ['sourceKey' => $key, 'value' => 999],
+        ]);
+        self::assertTrue($over['success'], json_encode($over));
+        self::assertSame($max, $this->itemManaOf($scene['hero'], $inventoryId));
+    }
+
+    /**
+     * Извлечённый кристалл ГМ тоже правит вручную: это инструмент ведущего.
+     *
+     * @return void
+     */
+    public function testExtractedCrystalManaEditableByManualSheet(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], 2, false, false);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+
+        $set = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'set-mana-1',
+            'operation' => 'setItemMana',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+            'details' => ['sourceKey' => 'inventory:' . $inventoryId, 'value' => 0],
+        ]);
+
+        self::assertTrue($set['success'], json_encode($set));
+        self::assertSame(0, $this->itemManaOf($scene['hero'], $inventoryId));
     }
 
     /**
@@ -2695,6 +2918,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withNpc = true,
         bool $innate = false,
         int $volume = 20,
+        array $extraRules = [],
     ): array
     {
         $mana ??= $volume - $this->occupiedVolume($recorded);
@@ -2703,7 +2927,7 @@ final class GameStrikeMysqlTest extends TestCase
             10,
             null,
             [],
-            extraRules: $this->crystalRules($innate),
+            extraRules: array_merge($this->crystalRules($innate), $extraRules),
             withNpc: $withNpc,
             heroInventory: [[
                 'ruleCode' => 'magic-crystal',
@@ -2777,6 +3001,23 @@ final class GameStrikeMysqlTest extends TestCase
         $row = $items['inventory:' . $inventoryId] ?? null;
 
         return is_array($row) && is_int($row['mana'] ?? null) ? $row['mana'] : -1;
+    }
+
+    /**
+     * Лимит маны строки инвентаря.
+     *
+     * @param int $hero Персонаж.
+     * @param int $inventoryId Строка.
+     *
+     * @return int Лимит.
+     */
+    private function itemManaMaxOf(int $hero, int $inventoryId): int
+    {
+        $sheet = $this->characterFacade()->get($hero)->getSheet();
+        $items = is_array($sheet['items'] ?? null) ? $sheet['items'] : [];
+        $row = $items['inventory:' . $inventoryId] ?? null;
+
+        return is_array($row) && is_int($row['manaMax'] ?? null) ? $row['manaMax'] : -1;
     }
 
     /**

@@ -399,6 +399,72 @@ describe('SpellCastOptionsService', () => {
     ).toEqual([{ key: 'inventory:3', name: 'Ядро' }]);
   });
 
+  it('опубликованный путь без type в спеке читается как magic_path', () => {
+    const trait: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'magic-crystal-capacity',
+      type: 'ability',
+      name: 'Врождённый кристалл',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'trait',
+        zones: { os: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [
+          {
+            level: 1,
+            grants: [
+              { type: 'item', item_code: 'magic-crystal', quantity: 1 },
+              { type: 'magic_path', path_code: 'simple-magic' },
+            ],
+          },
+        ],
+        parent_ability_code: null,
+      },
+      createdAt: 1,
+    };
+    // Канон сервера: MagicPathSpecs не требует `type` в спеке пути.
+    const path: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'simple-magic',
+      type: 'magic_path',
+      name: 'Простейшее волшебство',
+      description: '',
+      spaceId: 1,
+      spec: {
+        check_code: 'check-spell-cast',
+        cast_check_code: 'check-spell-cast',
+        power_characteristic_code: 'magic-power',
+        control_characteristic_code: null,
+        includes_path_codes: [],
+        no_control: true,
+        recorded_casting: true,
+      } as unknown as Rule['spec'],
+      createdAt: 1,
+    };
+    const version = {
+      abilities: [{ ruleCode: 'magic-crystal-capacity', level: 1 }],
+      inventory: [],
+      raceRuleCode: 'yappi',
+    } as unknown as CharacterVersion;
+
+    expect(spellCastOptionsService.listPaths(version, [trait, path])).toEqual([
+      {
+        pathCode: 'simple-magic',
+        name: 'Простейшее волшебство',
+        checkCode: 'check-spell-cast',
+        castCheckCode: 'check-spell-cast',
+        powerCharacteristicCode: 'magic-power',
+        controlCharacteristicCode: null,
+        noControl: true,
+        recordedCasting: true,
+      },
+    ]);
+  });
+
   it('кристалл показывает ману, записи и предел мощи', () => {
     const spell = spellRule('discharge', 'electricity');
     const crystal: Rule = {
@@ -462,9 +528,14 @@ describe('SpellCastOptionsService', () => {
         requiredControl: { base: 3, size: -1 },
       },
     ]);
-    expect(
-      spellCastOptionsService.sourceCapOf(version, null, [crystal], [], 'inventory:5', 'magic-power'),
-    ).toEqual({ base: 4, size: 0 });
+    expect(spellCastOptionsService.sourceCapOf(version, null, [crystal], [], 'inventory:5', 'magic-power')).toEqual({
+      base: 4,
+      size: 0,
+    });
+    expect(spellCastOptionsService.sourceCapOf(version, null, [crystal], [], 'inventory:5', null)).toEqual({
+      base: 4,
+      size: 0,
+    });
   });
 
   it('цена каста в мане — мощь × целые ходы Создания', () => {
@@ -907,5 +978,33 @@ describe('targetSpellResistanceFromOverview', () => {
         rules,
       ),
     ).toBe(6);
+  });
+});
+
+describe('простейшее волшебство', () => {
+  it('сравнивает только мощь и сдвигает её сопротивлением цели', () => {
+    const input = {
+      requiredPower: { base: 4, size: 0 },
+      usedPower: { base: 3, size: 1 },
+    };
+
+    const success = spellCastDifficultyService.controllessOutcome(input);
+    expect(success.success).toBe(true);
+    expect(success.effectivePower).toEqual({ base: 3, size: 1 });
+    expect(spellCastDifficultyService.formatControllessLine(success)).toBe('Сотворение по Мощи: 3↑ против 4 — успех');
+
+    const resisted = spellCastDifficultyService.controllessOutcome({
+      ...input,
+      resistanceModify: 3,
+    });
+    expect(resisted.success).toBe(false);
+    expect(resisted.effectivePower).toEqual({ base: 3, size: 0 });
+    expect(spellCastDifficultyService.formatControllessLine(resisted)).toBe(
+      'Сотворение по Мощи: 3↑ − сопротивление 3 = 3 против 4 — недостаточно',
+    );
+  });
+
+  it('без стата источника не подставляет {3|0}', () => {
+    expect(spellCastOptionsService.sourceCapOf(null, null, [], [], '', null)).toBeNull();
   });
 });

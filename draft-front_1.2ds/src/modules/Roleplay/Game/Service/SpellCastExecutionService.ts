@@ -218,7 +218,7 @@ export class SpellCastExecutionService {
     if (!saturation.ok) {
       return this.refused('invalid_saturation');
     }
-    const castOk = !cast.needsCheck || Boolean(cast.roll?.check?.passed);
+    const castOk = cast.powerOk !== false && (!cast.needsCheck || Boolean(cast.roll?.check?.passed));
     const spellSr = this.spellSuccessRating(resolution.type, attackSr, milk, castOk);
     let spellApply: ApplyAttackDamageResult | null = null;
     let spellDamage: DimensionalNumberValue | null = null;
@@ -281,7 +281,7 @@ export class SpellCastExecutionService {
     if (!saturation.ok) {
       return this.refused('invalid_saturation');
     }
-    const castOk = !cast.needsCheck || Boolean(cast.roll?.check?.passed);
+    const castOk = cast.powerOk !== false && (!cast.needsCheck || Boolean(cast.roll?.check?.passed));
     const spellSr = this.spellSuccessRating(resolution.type, delivery.attackSr, delivery.milk, castOk);
     let spellApply: ApplyAttackDamageResult | null = null;
     let spellDamage: DimensionalNumberValue | null = null;

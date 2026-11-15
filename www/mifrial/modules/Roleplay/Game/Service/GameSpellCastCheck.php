@@ -57,6 +57,10 @@ final class GameSpellCastCheck
     public function check(GameRecord $game, GameSpellCastPrepared $prepared, int $trainingDelta = 0): array
     {
         $difficulty = $this->difficulty($game, $prepared, $trainingDelta);
+        if ($prepared->path->isControlless()) {
+            return $this->controlless($game, $prepared, $difficulty, $trainingDelta);
+        }
+
         $base = new CharacteristicNumber($difficulty->getBase(), $difficulty->getSize());
         $min = new CharacteristicNumber(self::MIN_LIVE_DIFFICULTY[0], self::MIN_LIVE_DIFFICULTY[1]);
         if ($base->characteristicDiffTo($min) < 0) {
@@ -95,6 +99,46 @@ final class GameSpellCastCheck
             'needsCheck' => true,
             'roll' => $roll,
             'castOk' => $roll['success'] === true,
+        ];
+    }
+
+    /**
+     * Путь без Контроля: проверка не бросается, сравнивается только мощь.
+     *
+     * Сопротивление магии цели сдвигает используемую мощь так же, как оно
+     * сдвигало бы Сложность обычного каста: `{3|1}` при сопротивлении 3
+     * становится `{3|0}`.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param CharacteristicNumber $difficulty Уже посчитанная Сложность.
+     * @param int $trainingDelta Сдвиг от тренировки.
+     *
+     * @return array{
+     *     difficulty: array{base: int, size: int},
+     *     needsCheck: bool,
+     *     roll: array<string, mixed>|null,
+     *     castOk: bool
+     * } Итог проверки.
+     */
+    private function controlless(
+        GameRecord $game,
+        GameSpellCastPrepared $prepared,
+        CharacteristicNumber $difficulty,
+        int $trainingDelta,
+    ): array {
+        $required = new CharacteristicNumber($prepared->requiredPower->getBase(), $prepared->requiredPower->getSize());
+        $used = new CharacteristicNumber($prepared->usedPower->getBase(), $prepared->usedPower->getSize());
+        $resistance = $this->difficultyResistance($game, $prepared);
+        $effective = $resistance === 0 && $trainingDelta === 0
+            ? $used
+            : $used->modify(-$resistance - $trainingDelta);
+
+        return [
+            'difficulty' => ['base' => $difficulty->getBase(), 'size' => $difficulty->getSize()],
+            'needsCheck' => false,
+            'roll' => null,
+            'castOk' => $required->characteristicDiffTo($effective) <= 0,
         ];
     }
 

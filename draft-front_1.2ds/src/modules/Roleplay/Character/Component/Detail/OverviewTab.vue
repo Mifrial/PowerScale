@@ -7,6 +7,7 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import CharacteristicTile from '@/modules/Roleplay/Character/Component/Detail/Characteristics/CharacteristicTile.vue';
 import DerivedCharacteristicTile from '@/modules/Roleplay/Character/Component/Detail/Characteristics/DerivedCharacteristicTile.vue';
+import MagicSourceTile from '@/modules/Roleplay/Character/Component/Detail/Characteristics/MagicSourceTile.vue';
 import CombatSection from '@/modules/Roleplay/Character/Component/Detail/Characteristics/CombatSection.vue';
 import ResourceTile from '@/modules/Roleplay/Character/Component/Detail/Resources/ResourceTile.vue';
 import MiscTile from '@/modules/Roleplay/Character/Component/Detail/Resources/MiscTile.vue';
@@ -40,6 +41,7 @@ const primarySimple = computed(() => overview.value.characteristics.filter((c) =
 const primaryDerived = computed(() => overview.value.characteristics.filter((c) => c.group === 'primary' && c.derived));
 const importantCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'important'));
 const magicCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'magic'));
+const magicSources = computed(() => props.version.items ?? []);
 const secondaryCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'secondary'));
 
 function armorKey(item: DefenseArmorOverview): string {
@@ -75,7 +77,7 @@ function attackKey(attack: AttackOverview): string {
             <CombatSection :combat="overview.combat" :rules="rules" :senses="version.senses" />
           </div>
 
-          <template v-if="magicCharacteristics.length">
+          <template v-if="magicCharacteristics.length || magicSources.length">
             <div class="text-subtitle-2 text-medium-emphasis mt-3 mb-1">Магические</div>
             <v-row dense>
               <v-col
@@ -86,6 +88,9 @@ function attackKey(attack: AttackOverview): string {
                 md="3"
               >
                 <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
+              </v-col>
+              <v-col v-for="source in magicSources" :key="`source_${source.inventoryId}`" cols="6" sm="4" md="3">
+                <MagicSourceTile :source="source" :rules="rules" />
               </v-col>
             </v-row>
           </template>

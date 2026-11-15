@@ -167,7 +167,7 @@ export class CharacterHttpViewService {
   ): CharacterVersion {
     if (rules.length === 0) return version;
 
-    return this.editor.toVersion(
+    const built = this.editor.toVersion(
       this.builds.fromVersion(version, spaceId, rules),
       rules,
       {
@@ -177,6 +177,15 @@ export class CharacterHttpViewService {
       },
       [...keywords],
     );
+
+    // Рантайм хранилищ (`sheet.items`) и эффективная мощь источников
+    // (`sheet.sourcePowers`) не входят в сборку из choices. Без них карточка
+    // после материализации теряет ману, Объём и мощь кристалла.
+    return {
+      ...built,
+      ...(version.items ? { items: version.items } : {}),
+      ...(version.sourcePowers ? { sourcePowers: version.sourcePowers } : {}),
+    };
   }
 
   /**

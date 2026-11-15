@@ -14,7 +14,7 @@ import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/Ga
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInitiative, GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
+import { magicPathSpecService } from '@/modules/Roleplay/Rule/init';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog.vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
@@ -191,9 +191,7 @@ const sustainPowerLimits = computed(() => {
   const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
   const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
   const pathSpec =
-    pathRule?.spec && 'type' in pathRule.spec && pathRule.spec.type === 'magic_path'
-      ? (pathRule.spec as MagicPathSpec)
-      : null;
+    pathRule?.type === 'magic_path' && pathRule.spec ? magicPathSpecService.resolve(pathRule.spec) : null;
   const cap = spellCastOptionsService.sourceCapOf(
     version,
     overview,
@@ -1182,9 +1180,7 @@ async function submitSustain(power: DimensionalNumberValue): Promise<void> {
   const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
   const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
   const pathSpec =
-    pathRule?.spec && 'type' in pathRule.spec && pathRule.spec.type === 'magic_path'
-      ? (pathRule.spec as MagicPathSpec)
-      : null;
+    pathRule?.type === 'magic_path' && pathRule.spec ? magicPathSpecService.resolve(pathRule.spec) : null;
   const maxPower = spellCastOptionsService.sourceCapOf(
     version,
     overview,
@@ -1193,7 +1189,7 @@ async function submitSustain(power: DimensionalNumberValue): Promise<void> {
     spell.sourceKey,
     pathSpec?.power_characteristic_code ?? null,
   );
-  const clamped = spellCastDifficultyService.clampToAtMost(power, maxPower);
+  const clamped = maxPower ? spellCastDifficultyService.clampToAtMost(power, maxPower) : power;
   const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
   const requiredPower = spec
     ? spellCastDifficultyService.resolveSpellValue(spec.spell.power, spell.parameterValues)

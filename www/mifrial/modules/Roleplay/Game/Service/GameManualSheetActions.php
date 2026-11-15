@@ -216,7 +216,7 @@ final class GameManualSheetActions
 
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $before = $this->document($game, $target['kind'], $target['id']);
-        $effects = $this->operations->effects($operation, $details, $slice);
+        $effects = $this->operations->effects($operation, $details, $slice, $before['sheet']);
         $planned = $this->plan($game, $before, $effects);
         $version = $this->sheetWrites->write(
             $game,
