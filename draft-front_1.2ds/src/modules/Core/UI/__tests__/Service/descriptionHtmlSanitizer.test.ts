@@ -54,6 +54,13 @@ describe('DescriptionHtmlSanitizerService', () => {
     expect(clean).toContain('data-inline-label="Гаррик"');
   });
 
+  it('сохраняет ссылку на статью кодекса', () => {
+    const clean = sanitizer.sanitize('<p><a data-lore-code="old-capital">Старая столица</a></p>');
+
+    expect(clean).toContain('data-lore-code="old-capital"');
+    expect(clean).not.toContain('href');
+  });
+
   it('снимает посторонние data-атрибуты', () => {
     const clean = sanitizer.sanitize('<span data-inline-type="character" data-evil="1">Текст</span>');
 

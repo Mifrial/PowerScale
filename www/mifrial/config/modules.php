@@ -8,6 +8,7 @@ use Mifrial\Messages\Notes\Interface\Container\INotesContainer;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
+use Mifrial\Roleplay\Lore\Interface\Container\ILoreContainer;
 use Mifrial\Roleplay\Map\Interface\Container\IMapContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
@@ -36,6 +37,10 @@ return [
         IKeywordContainer::class => [
             'group' => 'Roleplay',
             'name' => 'Keyword',
+        ],
+        ILoreContainer::class => [
+            'group' => 'Roleplay',
+            'name' => 'Lore',
         ],
         IMapContainer::class => [
             'group' => 'Roleplay',

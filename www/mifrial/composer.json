@@ -65,7 +65,8 @@
       "Mifrial\\Roleplay\\Rule\\": "modules/Roleplay/Rule/",
       "Mifrial\\Roleplay\\RuleSpace\\": "modules/Roleplay/RuleSpace/",
       "Mifrial\\Roleplay\\Character\\": "modules/Roleplay/Character/",
-      "Mifrial\\Roleplay\\Game\\": "modules/Roleplay/Game/"
+      "Mifrial\\Roleplay\\Game\\": "modules/Roleplay/Game/",
+      "Mifrial\\Roleplay\\Lore\\": "modules/Roleplay/Lore/"
     },
     "exclude-from-classmap": [
       "/modules/Core/Kernel/tests/",
@@ -84,6 +85,7 @@
       "/modules/Messages/Notes/tests/",
       "/modules/Versioning/Space/tests/",
       "/modules/Roleplay/Keyword/tests/",
+      "/modules/Roleplay/Lore/tests/",
       "/modules/Roleplay/Map/tests/",
       "/modules/Roleplay/Scene/tests/",
       "/modules/Roleplay/Mechanic/tests/",
@@ -112,6 +114,7 @@
       "Mifrial\\Messages\\Notes\\Tests\\": "modules/Messages/Notes/tests/",
       "Mifrial\\Versioning\\Space\\Tests\\": "modules/Versioning/Space/tests/",
       "Mifrial\\Roleplay\\Keyword\\Tests\\": "modules/Roleplay/Keyword/tests/",
+      "Mifrial\\Roleplay\\Lore\\Tests\\": "modules/Roleplay/Lore/tests/",
       "Mifrial\\Roleplay\\Map\\Tests\\": "modules/Roleplay/Map/tests/",
       "Mifrial\\Roleplay\\Scene\\Tests\\": "modules/Roleplay/Scene/tests/",
       "Mifrial\\Roleplay\\Mechanic\\Tests\\": "modules/Roleplay/Mechanic/tests/",

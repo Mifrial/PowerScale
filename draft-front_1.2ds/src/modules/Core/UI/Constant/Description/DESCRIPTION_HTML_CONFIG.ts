@@ -40,6 +40,7 @@ export const DESCRIPTION_HTML_CONFIG: Config = {
     'data-inline-label',
     'data-inline-type',
     'data-inline-value',
+    'data-lore-code',
     'data-rule-code',
     'rowspan',
   ],

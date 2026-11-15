@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 359,
-        "plans": 238,
+        "documents": 361,
+        "plans": 239,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 262,
+            "tr": 264,
             "tz": 2
         },
         "byZoneState": {
@@ -69,10 +69,10 @@
                 "СНИМОК": 5
             },
             "tr": {
-                "нет": 26,
+                "нет": 27,
                 "СДЕЛАНО": 155,
                 "ОТЛОЖЕН": 4,
-                "ЧАСТИЧНО": 35,
+                "ЧАСТИЧНО": 36,
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
@@ -85,11 +85,11 @@
         },
         "byState": {
             "СНИМОК": 65,
-            "нет": 57,
+            "нет": 58,
             "СДЕЛАНО": 157,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
-            "ЧАСТИЧНО": 35,
+            "ЧАСТИЧНО": 36,
             "ОТМЕНЁН": 1,
             "В РАБОТЕ": 23
         }
@@ -334,20 +334,21 @@
             }
         },
         "—": {
-            "docs": 135,
+            "docs": 137,
             "state": {
                 "СНИМОК": 58,
-                "нет": 46,
+                "нет": 47,
                 "СДЕЛАНО": 10,
                 "ПЛАН": 6,
                 "ОТЛОЖЕН": 5,
-                "В РАБОТЕ": 4,
-                "ЧАСТИЧНО": 6
+                "ЧАСТИЧНО": 7,
+                "В РАБОТЕ": 4
             },
             "layer": {
-                "PHP": 7,
+                "PHP": 8,
                 "НИГДЕ": 5,
-                "VUE": 12
+                "VUE": 13,
+                "МОК": 1
             }
         }
     },
@@ -2154,10 +2155,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 21841,
-            "lines": 173,
+            "bytes": 22134,
+            "lines": 175,
             "modules": [],
-            "linksCount": 131,
+            "linksCount": 133,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2244,8 +2245,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 33289,
-            "lines": 297,
+            "bytes": 33618,
+            "lines": 298,
             "modules": [],
             "linksCount": 37,
             "brokenLinks": [],
@@ -3321,8 +3322,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-10-18",
-            "bytes": 16227,
-            "lines": 183,
+            "bytes": 16381,
+            "lines": 184,
             "modules": [],
             "linksCount": 12,
             "brokenLinks": [],
@@ -3501,10 +3502,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 31663,
-            "lines": 146,
+            "bytes": 32379,
+            "lines": 147,
             "modules": [],
-            "linksCount": 18,
+            "linksCount": 19,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -5352,6 +5353,52 @@
             ]
         },
         {
+            "path": "docs/tr/lore-plan-01.md",
+            "title": "План Roleplay/Lore — кодекс мира",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ЧАСТИЧНО",
+            "stateSource": "token",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-15. M0–M6 реализованы; ждут ручной проверки и полного прогона.",
+            "layers": [
+                "PHP",
+                "VUE",
+                "МОК"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-15",
+            "bytes": 52982,
+            "lines": 899,
+            "modules": [],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/lore-system.md"
+            ]
+        },
+        {
+            "path": "docs/tr/lore-system.md",
+            "title": "Кодекс мира (`Roleplay/Lore`)",
+            "zone": "tr",
+            "kind": "canon",
+            "state": null,
+            "stateSource": "none",
+            "statusRaw": "текущий канон, 2026-11-15. Реализация — `www/mifrial/modules/Roleplay/Lore` и",
+            "layers": [],
+            "basis": null,
+            "date": "2026-11-15",
+            "bytes": 13652,
+            "lines": 204,
+            "modules": [],
+            "linksCount": 4,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/decisions.md"
+            ]
+        },
+        {
             "path": "docs/tr/magic-content-design-01-arcanist-progression.md",
             "title": "Дизайн-пачка магии 01 — последовательное развитие Арканиста",
             "zone": "tr",
@@ -6568,6 +6615,7 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
+                "docs/tr/lore-system.md",
                 "docs/tr/revision-file-plan-01.md",
                 "docs/tr/revision-file-plan-02.md",
                 "docs/tr/revision-file-plan-03.md",
@@ -6666,6 +6714,7 @@
             "backlinks": [
                 "docs/review/plan-game-plan-31-wounds-2026-10-11.md",
                 "docs/review/plan-game-plan-32-end-of-turn-2026-10-12.md",
+                "docs/tr/lore-system.md",
                 "docs/tr/rule-content-plan-05-knowledge-game.md",
                 "docs/tr/rule-content-plan-06-wounds.md",
                 "docs/tr/rule-content-plan-07-languages.md",
