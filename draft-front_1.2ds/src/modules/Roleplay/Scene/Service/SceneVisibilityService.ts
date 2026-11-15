@@ -57,7 +57,53 @@ export class SceneVisibilityService {
       }
     }
 
+    this.revealOccluders(grid, visible);
+
     return { columns: grid.columns, rows: grid.rows, visible };
+  }
+
+  /**
+   * Объект, перекрывающий обзор, виден сам.
+   *
+   * Луч упирается в ближнюю клетку силуэта, поэтому дальние клетки того же
+   * ствола или валуна оставались скрытыми: туман ложился на сам предмет, и
+   * камень темнел целиком, хотя именно он и загораживает вид. Видимая клетка
+   * зажигает связанную с ней область перекрытия: предмет виден целиком, а
+   * туман начинается за ним.
+   *
+   * Связность по четырём соседям, а не по восьми: диагональ не должна
+   * сращивать два отдельных предмета через угол.
+   */
+  private revealOccluders(grid: SceneSurfaceGrid, visible: Uint8Array): void {
+    const queue: number[] = [];
+    for (let index = 0; index < visible.length; index += 1) {
+      if (visible[index] === 1 && Number.isFinite(grid.sightBottom[index])) {
+        queue.push(index);
+      }
+    }
+
+    for (let head = 0; head < queue.length; head += 1) {
+      const index = queue[head];
+      const column = index % grid.columns;
+      const row = Math.floor(index / grid.columns);
+      const neighbors = [
+        column > 0 ? index - 1 : -1,
+        column < grid.columns - 1 ? index + 1 : -1,
+        row > 0 ? index - grid.columns : -1,
+        row < grid.rows - 1 ? index + grid.columns : -1,
+      ];
+      for (const neighbor of neighbors) {
+        if (neighbor < 0 || visible[neighbor] === 1) {
+          continue;
+        }
+        if (!Number.isFinite(grid.sightBottom[neighbor])) {
+          continue;
+        }
+
+        visible[neighbor] = 1;
+        queue.push(neighbor);
+      }
+    }
   }
 
   /** Видна ли точка из точки обзора. */
