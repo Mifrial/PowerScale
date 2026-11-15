@@ -1,10 +1,35 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
+import type { BreadcrumbItem } from '@/router/BreadcrumbItem';
+import { useLoreCrumbStore } from '@/modules/Roleplay/Lore/Store/crumbs';
 
-function worldCrumbs(to: RouteLocationNormalizedLoaded) {
+function worldCodeOf(to: RouteLocationNormalizedLoaded): string {
+  return String(to.params.worldCode ?? '');
+}
+
+function articleCodeOf(to: RouteLocationNormalizedLoaded): string {
+  return String(to.params.articleCode ?? '');
+}
+
+/** Крошки «Кодекс → <мир>»; название мира берём из стора, пока грузится — код. */
+function worldCrumbs(to: RouteLocationNormalizedLoaded): BreadcrumbItem[] {
+  const worldCode = worldCodeOf(to);
+  const worldTitle = useLoreCrumbStore().getWorldTitle(worldCode) ?? worldCode;
+
   return [
     { title: 'Кодекс', to: '/lore' },
-    { title: String(to.params.worldCode ?? ''), to: `/lore/${String(to.params.worldCode ?? '')}` },
+    { title: worldTitle, to: `/lore/${worldCode}` },
   ];
+}
+
+function articleCrumbs(to: RouteLocationNormalizedLoaded, suffix: string | null): BreadcrumbItem[] {
+  const worldCode = worldCodeOf(to);
+  const articleCode = articleCodeOf(to);
+  const articlesPath = `/lore/${worldCode}/article/${articleCode}`;
+  const articleTitle = useLoreCrumbStore().getArticleTitle(worldCode, articleCode) ?? articleCode;
+  const crumbs: BreadcrumbItem[] = [...worldCrumbs(to), { title: articleTitle, to: articlesPath }];
+  if (suffix) crumbs.push({ title: suffix });
+
+  return crumbs;
 }
 
 export const routes: RouteRecordRaw[] = [
@@ -41,14 +66,7 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/Roleplay/Lore/Page/LoreArticleEditPage.vue'),
     meta: {
       title: 'Редактирование статьи',
-      crumb: (to) => [
-        ...worldCrumbs(to),
-        {
-          title: String(to.params.articleCode ?? ''),
-          to: `/lore/${String(to.params.worldCode ?? '')}/article/${String(to.params.articleCode ?? '')}`,
-        },
-        { title: 'Редактирование' },
-      ],
+      crumb: (to) => articleCrumbs(to, 'Редактирование'),
     },
   },
   {
@@ -57,7 +75,7 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/Roleplay/Lore/Page/LoreArticlePage.vue'),
     meta: {
       title: 'Статья',
-      crumb: (to) => [...worldCrumbs(to), { title: String(to.params.articleCode ?? '') }],
+      crumb: (to) => articleCrumbs(to, null),
     },
   },
   {

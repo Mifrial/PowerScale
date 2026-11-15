@@ -9,9 +9,11 @@ import { buildLoreTree } from '@/modules/Roleplay/Lore/Utils/loreTree';
 import { flattenLoreNav } from '@/modules/Roleplay/Lore/Utils/loreNav';
 import LoreExportDialog from '@/modules/Roleplay/Lore/Component/LoreExportDialog.vue';
 import LoreImportDialog from '@/modules/Roleplay/Lore/Component/LoreImportDialog.vue';
+import { useLoreCrumbStore } from '@/modules/Roleplay/Lore/Store/crumbs';
 
 const route = useRoute();
 const router = useRouter();
+const crumbStore = useLoreCrumbStore();
 const world = ref<LoreWorldDetail | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -38,6 +40,7 @@ async function load(): Promise<void> {
     const detail = await getLoreApi().getWorld(worldCode.value);
     if (current !== requestId) return;
     world.value = detail;
+    crumbStore.setWorld(worldCode.value, detail.name);
   } catch (exception) {
     if (current !== requestId) return;
     error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось загрузить мир';

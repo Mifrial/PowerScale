@@ -10,6 +10,9 @@ import { LoreApiError } from '@/modules/Roleplay/Lore/Service/LoreApiError';
 import { buildLoreTree } from '@/modules/Roleplay/Lore/Utils/loreTree';
 import { flattenLoreNav } from '@/modules/Roleplay/Lore/Utils/loreNav';
 import LoreArticleBody from '@/modules/Roleplay/Lore/Component/LoreArticleBody.vue';
+import LoreArticleSlider from '@/modules/Roleplay/Lore/Component/LoreArticleSlider.vue';
+import LoreNotice from '@/modules/Roleplay/Lore/Component/LoreNotice.vue';
+import { useLoreCrumbStore } from '@/modules/Roleplay/Lore/Store/crumbs';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 
@@ -17,6 +20,7 @@ const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Co
 
 const route = useRoute();
 const router = useRouter();
+const crumbStore = useLoreCrumbStore();
 const world = ref<LoreWorldDetail | null>(null);
 const article = ref<LoreArticleDetail | null>(null);
 const toc = ref<LoreTocItem[]>([]);
@@ -25,7 +29,9 @@ const error = ref<string | null>(null);
 const ruleCode = ref<string | null>(null);
 const ruleSpaceId = ref<number | null>(null);
 const ruleOpen = ref(false);
-const snackbar = ref<string | null>(null);
+const sliderCode = ref<string | null>(null);
+const sliderOpen = ref(false);
+const notice = ref<{ text: string; color: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 let requestId = 0;
 
 const worldCode = computed(() => String(route.params.worldCode ?? ''));
@@ -84,6 +90,8 @@ async function load(): Promise<void> {
     if (current !== requestId) return;
     world.value = worldDetail;
     article.value = articleDetail;
+    crumbStore.setWorld(worldCode.value, worldDetail.name);
+    crumbStore.setArticle(worldCode.value, articleDetail.code, articleDetail.title);
   } catch (exception) {
     if (current !== requestId) return;
     error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось загрузить статью';
@@ -98,7 +106,7 @@ function openArticle(code: string): void {
 
 function openLoreLink(code: string): void {
   if (knownCodes.value.includes(code)) {
-    openArticle(code);
+    openSlider(code);
 
     return;
   }
@@ -111,7 +119,22 @@ function openLoreLink(code: string): void {
 
     return;
   }
-  snackbar.value = `Статья «${code}» ещё не написана`;
+  notice.value = { text: `Статья «${code}» ещё не написана`, color: 'warning' };
+}
+
+/** Ссылка внутри статьи открывает статью в слайдере, не уводя со страницы. */
+function openSlider(code: string): void {
+  sliderCode.value = code;
+  sliderOpen.value = true;
+}
+
+function onSliderLink(code: string): void {
+  if (knownCodes.value.includes(code)) {
+    openSlider(code);
+
+    return;
+  }
+  openLoreLink(code);
 }
 
 async function openRuleLink(code: string): Promise<void> {
@@ -119,7 +142,7 @@ async function openRuleLink(code: string): Promise<void> {
   if (ruleSpaceId.value === null) {
     const spaceCode = world.value?.spaceCode ?? '';
     if (spaceCode === '') {
-      snackbar.value = 'У мира не указано пространство правил';
+      notice.value = { text: 'У мира не указано пространство правил', color: 'warning' };
 
       return;
     }
@@ -128,7 +151,7 @@ async function openRuleLink(code: string): Promise<void> {
       ruleSpaceId.value = space.id;
       await getRuleApi().getRules(space.id);
     } catch {
-      snackbar.value = `Пространство правил «${spaceCode}» не найдено`;
+      notice.value = { text: `Пространство правил «${spaceCode}» не найдено`, color: 'warning' };
 
       return;
     }
@@ -272,10 +295,22 @@ function formatDate(unix: number): string {
       </v-row>
     </template>
 
+    <LoreArticleSlider
+      v-model:open="sliderOpen"
+      :world-code="worldCode"
+      :article-code="sliderCode"
+      :known-codes="knownCodes"
+      @open-lore="onSliderLink"
+      @open-rule="openRuleLink"
+    />
+
     <RuleSlider v-model:open="ruleOpen" :rule-code="ruleCode" :space-id="ruleSpaceId" />
 
-    <v-snackbar :model-value="snackbar !== null" :timeout="4000" @update:model-value="snackbar = null">
-      {{ snackbar }}
-    </v-snackbar>
+    <LoreNotice
+      :model-value="notice !== null"
+      :text="notice?.text ?? ''"
+      :color="notice?.color ?? 'success'"
+      @update:model-value="notice = null"
+    />
   </v-container>
 </template>

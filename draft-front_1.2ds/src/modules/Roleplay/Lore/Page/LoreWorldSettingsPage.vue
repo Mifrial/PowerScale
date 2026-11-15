@@ -12,18 +12,21 @@ import { useSpaceCatalog } from '@/modules/Roleplay/RuleSpace/init';
 import LoreConflictDialog from '@/modules/Roleplay/Lore/Component/LoreConflictDialog.vue';
 import LoreExportDialog from '@/modules/Roleplay/Lore/Component/LoreExportDialog.vue';
 import LoreImportDialog from '@/modules/Roleplay/Lore/Component/LoreImportDialog.vue';
+import LoreNotice from '@/modules/Roleplay/Lore/Component/LoreNotice.vue';
 import LoreSectionEditor from '@/modules/Roleplay/Lore/Component/LoreSectionEditor.vue';
+import { useLoreCrumbStore } from '@/modules/Roleplay/Lore/Store/crumbs';
 
 const route = useRoute();
 const router = useRouter();
 const spaceCatalog = useSpaceCatalog();
+const crumbStore = useLoreCrumbStore();
 
 const worldCode = computed(() => String(route.params.worldCode ?? ''));
 const world = ref<LoreWorldDetail | null>(null);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
-const snackbar = ref<string | null>(null);
+const notice = ref<{ text: string; color: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 const conflict = ref<LoreConflict | null>(null);
 const conflictTarget = ref<'meta' | 'sections' | 'archive'>('meta');
 const exportOpen = ref(false);
@@ -69,6 +72,7 @@ async function load(): Promise<void> {
   try {
     const detail = await getLoreApi().getWorld(worldCode.value);
     world.value = detail;
+    crumbStore.setWorld(worldCode.value, detail.name);
     meta.name = detail.name;
     meta.description = detail.description;
     meta.visibility = detail.visibility;
@@ -119,8 +123,9 @@ async function saveMeta(forcedVersion?: number): Promise<void> {
     });
     meta.version = saved.version;
     if (world.value) world.value = { ...world.value, ...saved };
+    crumbStore.setWorld(worldCode.value, saved.name);
     conflict.value = null;
-    snackbar.value = 'Настройки мира сохранены.';
+    notice.value = { text: 'Настройки мира сохранены.', color: 'success' };
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
@@ -141,7 +146,7 @@ async function saveSections(forcedVersion?: number): Promise<void> {
     world.value = detail;
     meta.version = detail.version;
     conflict.value = null;
-    snackbar.value = 'Дерево разделов сохранено.';
+    notice.value = { text: 'Дерево разделов сохранено.', color: 'success' };
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
@@ -166,7 +171,10 @@ async function toggleArchive(forcedVersion?: number): Promise<void> {
     );
     meta.version = saved.version;
     world.value = { ...world.value, ...saved };
-    snackbar.value = saved.isArchived ? 'Мир в архиве.' : 'Мир восстановлен.';
+    notice.value = {
+      text: saved.isArchived ? 'Мир перемещён в архив.' : 'Мир восстановлен из архива.',
+      color: 'success',
+    };
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
@@ -253,6 +261,8 @@ function imported(worldCodeValue: string): void {
                 label="Пространство правил"
                 hint="Необязательно: по нему открываются ссылки на правила из статей"
                 persistent-hint
+                variant="outlined"
+                density="comfortable"
                 class="mb-4"
               />
               <v-textarea v-model="meta.description" label="Описание" rows="5" auto-grow class="mb-4" />
@@ -262,6 +272,9 @@ function imported(worldCodeValue: string): void {
                 item-title="title"
                 item-value="value"
                 label="Видимость"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
               />
               <div class="text-caption text-medium-emphasis mt-4">Версия: {{ meta.version }}</div>
             </v-card-text>
@@ -298,8 +311,11 @@ function imported(worldCodeValue: string): void {
 
     <LoreConflictDialog :conflict="conflict" :current-version="meta.version" @reload="reload" @overwrite="overwrite" />
 
-    <v-snackbar :model-value="snackbar !== null" :timeout="4000" @update:model-value="snackbar = null">
-      {{ snackbar }}
-    </v-snackbar>
+    <LoreNotice
+      :model-value="notice !== null"
+      :text="notice?.text ?? ''"
+      :color="notice?.color ?? 'success'"
+      @update:model-value="notice = null"
+    />
   </v-container>
 </template>

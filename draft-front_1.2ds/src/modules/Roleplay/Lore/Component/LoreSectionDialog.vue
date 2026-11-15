@@ -107,6 +107,9 @@ function save(): void {
           item-title="title"
           item-value="value"
           label="Родительский раздел"
+          variant="outlined"
+          density="comfortable"
+          hide-details="auto"
           class="mb-2"
         />
         <v-textarea v-model="description" label="Описание" rows="2" auto-grow class="mb-2" />

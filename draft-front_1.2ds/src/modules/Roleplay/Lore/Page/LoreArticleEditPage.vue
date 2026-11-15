@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { LoreArticleDetail } from '@/modules/Roleplay/Lore/Dto/LoreArticleDetail';
@@ -7,6 +7,7 @@ import type { LoreArticleInput } from '@/modules/Roleplay/Lore/Dto/LoreArticleIn
 import type { LoreConflict } from '@/modules/Roleplay/Lore/Dto/LoreConflict';
 import type { LoreWorldDetail } from '@/modules/Roleplay/Lore/Dto/LoreWorldDetail';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { TreeSelectItem } from '@/modules/Core/UI/Dto/Tree/TreeSelectItem';
 import type { LoreArticleStatus } from '@/modules/Roleplay/Lore/Enum/LoreArticleStatus';
 import type { LoreArticleVisibility } from '@/modules/Roleplay/Lore/Enum/LoreArticleVisibility';
 import { LORE_ARTICLE_VISIBILITY_OPTIONS } from '@/modules/Roleplay/Lore/Constant/LORE_VISIBILITY_OPTIONS';
@@ -17,13 +18,18 @@ import { LoreApiError } from '@/modules/Roleplay/Lore/Service/LoreApiError';
 import { isLoreCode, loreSlug } from '@/modules/Roleplay/Lore/Utils/loreSlug';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import TreeSelect from '@/modules/Core/UI/Component/Input/TreeSelect.vue';
 import LoreArticleBody from '@/modules/Roleplay/Lore/Component/LoreArticleBody.vue';
 import LoreArticleEditor from '@/modules/Roleplay/Lore/Component/LoreArticleEditor.vue';
 import LoreConflictDialog from '@/modules/Roleplay/Lore/Component/LoreConflictDialog.vue';
+import LoreNotice from '@/modules/Roleplay/Lore/Component/LoreNotice.vue';
 import LoreReadersField from '@/modules/Roleplay/Lore/Component/LoreReadersField.vue';
+import { useLoreCrumbStore } from '@/modules/Roleplay/Lore/Store/crumbs';
 
 const route = useRoute();
 const router = useRouter();
+const crumbStore = useLoreCrumbStore();
 const { keywords, fetchTags } = useKeywords();
 
 const worldCode = computed(() => String(route.params.worldCode ?? ''));
@@ -36,7 +42,7 @@ const rulesHint = ref('');
 const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
-const snackbar = ref<string | null>(null);
+const notice = ref<{ text: string; color: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 const previewOpen = ref(false);
 const conflict = ref<LoreConflict | null>(null);
 const editorRef = ref<InstanceType<typeof LoreArticleEditor> | null>(null);
@@ -45,12 +51,15 @@ const newTitle = ref('');
 const newCode = ref('');
 const newSection = ref<string | null>(null);
 const createdSelection = ref('');
+const leaveOpen = ref(false);
 
 const draftStore = useLoreDraft(worldCode.value);
 const draftCode = ref(articleCode.value ?? 'new');
 let draftTimer: ReturnType<typeof setTimeout> | null = null;
 let dirty = false;
 let hydrating = true;
+let pendingTarget: string | null = null;
+let allowLeave = false;
 
 const form = reactive({
   code: articleCode.value ?? '',
@@ -68,10 +77,13 @@ const form = reactive({
 
 const isNew = computed(() => articleCode.value === null);
 const codeLocked = computed(() => !isNew.value);
-const sectionOptions = computed(() => [
-  { value: null as string | null, title: '— Без раздела —' },
-  ...(world.value?.sections ?? []).map((section) => ({ value: section.code, title: section.name })),
-]);
+const sectionItems = computed<TreeSelectItem[]>(() =>
+  (world.value?.sections ?? []).map((section) => ({
+    value: section.code,
+    label: section.name,
+    parentValue: section.parentCode,
+  })),
+);
 const knownCodes = computed(() => (world.value ? world.value.articles.map((item) => item.code) : []));
 const canSubmit = computed(() => form.title.trim() !== '' && isLoreCode(form.code));
 const resolvedCode = computed(() => form.code.trim() || loreSlug(form.title));
@@ -82,6 +94,7 @@ onMounted(async () => {
   await loadRules();
   await fetchTags();
   restoreDraft();
+  await nextTick();
   hydrating = false;
   dirty = false;
   window.addEventListener('beforeunload', onBeforeUnload);
@@ -92,10 +105,12 @@ onBeforeUnmount(() => {
   if (draftTimer) clearTimeout(draftTimer);
 });
 
-onBeforeRouteLeave(() => {
-  if (!dirty) return true;
+onBeforeRouteLeave((to) => {
+  if (!dirty || allowLeave) return true;
+  pendingTarget = to.fullPath;
+  leaveOpen.value = true;
 
-  return window.confirm('Есть несохранённые правки статьи. Уйти без сохранения?');
+  return false;
 });
 
 watch(
@@ -111,7 +126,8 @@ watch(
 function applyForm(patch: Partial<typeof form>): void {
   hydrating = true;
   Object.assign(form, patch);
-  queueMicrotask(() => {
+  // Ждём флаш вотчера: иначе он увидит hydrating=false и пометит статью изменённой.
+  void nextTick().then(() => {
     hydrating = false;
   });
 }
@@ -126,6 +142,7 @@ async function loadWorld(): Promise<void> {
   if (worldCode.value === '') return;
   try {
     world.value = await getLoreApi().getWorld(worldCode.value);
+    crumbStore.setWorld(worldCode.value, world.value.name);
   } catch (exception) {
     error.value = exception instanceof LoreApiError ? exception.message : 'Не удалось загрузить мир';
   }
@@ -145,6 +162,7 @@ async function loadArticle(): Promise<void> {
   try {
     const detail = await getLoreApi().getArticle(worldCode.value, articleCode.value);
     article.value = detail;
+    crumbStore.setArticle(worldCode.value, detail.code, detail.title);
     applyForm({
       code: detail.code,
       title: detail.title,
@@ -189,7 +207,7 @@ function restoreDraft(): void {
     ...draft.article,
     expectedVersion: isNew.value ? undefined : form.expectedVersion,
   });
-  snackbar.value = 'Восстановлен локальный черновик.';
+  notice.value = { text: 'Восстановлен локальный черновик статьи.', color: 'info' };
 }
 
 function scheduleDraft(): void {
@@ -233,16 +251,18 @@ async function save(forcedVersion?: number): Promise<void> {
     applyForm({ expectedVersion: saved.version, code: saved.code });
     draftStore.clear(draftCode.value);
     conflict.value = null;
-    snackbar.value = 'Статья сохранена.';
+    crumbStore.setArticle(worldCode.value, saved.code, saved.title);
+    dirty = false;
+    allowLeave = true;
+    notice.value = { text: 'Статья сохранена.', color: 'success' };
     if (isNew.value) {
-      draftStore.clear(draftCode.value);
       draftCode.value = saved.code;
       await router.replace({
         name: 'LoreArticleEdit',
         params: { worldCode: worldCode.value, articleCode: saved.code },
       });
+      allowLeave = false;
     }
-    dirty = false;
   } catch (exception) {
     if (exception instanceof LoreApiError && exception.code === 'LORE_VERSION_CONFLICT') {
       conflict.value = exception.details as LoreConflict;
@@ -263,7 +283,23 @@ function overwrite(): void {
 function reloadFromServer(): void {
   conflict.value = null;
   draftStore.clear(draftCode.value);
+  allowLeave = false;
   void loadArticle();
+}
+
+/** Уход со страницы после диалога о несохранённых правках. */
+function confirmLeave(): void {
+  const target = pendingTarget;
+  pendingTarget = null;
+  leaveOpen.value = false;
+  allowLeave = true;
+  dirty = false;
+  if (target !== null) void router.push(target);
+}
+
+function stayOnPage(): void {
+  pendingTarget = null;
+  leaveOpen.value = false;
 }
 
 function openCreateFromSelection(): void {
@@ -276,7 +312,7 @@ function openCreateFromSelection(): void {
 
 async function createLinkedArticle(): Promise<void> {
   if (newTitle.value.trim() === '' || !isLoreCode(newCode.value.trim())) {
-    snackbar.value = 'Укажите название и корректный код новой статьи.';
+    notice.value = { text: 'Укажите название и корректный код новой статьи.', color: 'warning' };
 
     return;
   }
@@ -298,10 +334,17 @@ async function createLinkedArticle(): Promise<void> {
     });
     editorRef.value?.insertLoreLink(created.code, created.title);
     createOpen.value = false;
-    snackbar.value = 'Статья создана и вставлена ссылка.';
+    notice.value = { text: 'Статья создана и вставлена ссылка.', color: 'success' };
   } catch (exception) {
-    snackbar.value = exception instanceof LoreApiError ? exception.message : 'Не удалось создать статью';
+    notice.value = {
+      text: exception instanceof LoreApiError ? exception.message : 'Не удалось создать статью',
+      color: 'error',
+    };
   }
+}
+
+function onSortOrderUpdate(value: number | null): void {
+  form.sortOrder = value ?? 0;
 }
 </script>
 
@@ -320,117 +363,126 @@ async function createLinkedArticle(): Promise<void> {
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
-    <v-row>
-      <v-col cols="12" md="8">
-        <v-card>
-          <v-card-text>
-            <v-text-field v-model="form.title" label="Заголовок" autofocus class="mb-2" />
-            <v-row dense>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model="form.code"
-                  label="Код"
-                  :placeholder="loreSlug(form.title)"
-                  :readonly="codeLocked"
-                  :hint="codeLocked ? 'Код не меняется после создания' : 'Стабильный код ссылки'"
-                  persistent-hint
-                />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-select
-                  v-model="form.sectionCode"
-                  :items="sectionOptions"
-                  item-title="title"
-                  item-value="value"
-                  label="Раздел"
-                />
-              </v-col>
-              <v-col cols="12" md="2">
-                <v-text-field v-model.number="form.sortOrder" type="number" label="Порядок" min="0" />
-              </v-col>
-              <v-col cols="12" md="2">
-                <v-select
-                  v-model="form.status"
-                  :items="LORE_STATUS_OPTIONS"
-                  item-title="title"
-                  item-value="value"
-                  label="Статус"
-                />
-              </v-col>
-            </v-row>
-            <v-textarea v-model="form.summary" label="Краткое описание" rows="2" auto-grow class="mt-2" />
-            <v-btn
-              v-if="!isNew"
-              variant="text"
-              size="small"
-              prepend-icon="mdi-plus-box-outline"
-              class="mt-1"
-              @click="openCreateFromSelection"
-            >
-              Создать статью из выделения
-            </v-btn>
+    <v-card>
+      <v-card-text>
+        <v-text-field v-model="form.title" label="Заголовок" autofocus />
 
-            <div class="mt-3">
-              <template v-if="previewOpen">
-                <LoreArticleBody :html="form.bodyHtml" :known-codes="knownCodes" />
-              </template>
-              <LoreArticleEditor
-                v-else
-                ref="editorRef"
-                v-model="form.bodyHtml"
-                :articles="world?.articles ?? []"
-                :rules="rules"
-                @create-article="openCreateFromSelection"
-              />
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+        <v-row dense class="mt-1">
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="form.code"
+              label="Код"
+              :placeholder="loreSlug(form.title)"
+              :readonly="codeLocked"
+              :hint="codeLocked ? 'Код не меняется после создания' : 'Стабильный код ссылки'"
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-select
+              v-model="form.status"
+              :items="LORE_STATUS_OPTIONS"
+              item-title="title"
+              item-value="value"
+              label="Статус"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+            />
+          </v-col>
+        </v-row>
 
-      <v-col cols="12" md="4">
-        <v-card class="mb-4">
-          <v-card-title class="text-subtitle-2">Доступ</v-card-title>
-          <v-card-text>
+        <v-row dense class="mt-1">
+          <v-col cols="12" md="6">
+            <TreeSelect
+              v-model="form.sectionCode"
+              :items="sectionItems"
+              label="Раздел"
+              empty-text="В мире пока нет разделов"
+              search-label="Поиск по разделам"
+              placeholder="— Без раздела —"
+              clearable
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <ClampedNumberField
+              :model-value="form.sortOrder"
+              label="Порядок"
+              :min="0"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+              @update:model-value="onSortOrderUpdate"
+            />
+          </v-col>
+        </v-row>
+
+        <v-textarea v-model="form.summary" label="Краткое описание" rows="2" auto-grow class="mt-3" />
+
+        <v-autocomplete
+          v-model="form.keywordIds"
+          :items="keywords"
+          item-title="name"
+          item-value="id"
+          label="Признаки"
+          multiple
+          chips
+          closable-chips
+          variant="outlined"
+          density="comfortable"
+          hide-details="auto"
+          class="mt-1"
+        />
+
+        <v-row dense class="mt-1">
+          <v-col cols="12" md="6">
             <v-select
               v-model="form.visibility"
               :items="LORE_ARTICLE_VISIBILITY_OPTIONS"
               item-title="title"
               item-value="value"
               label="Видимость"
-              density="compact"
-              class="mb-3"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
             />
-            <LoreReadersField
-              v-if="form.visibility === 'secret'"
-              v-model="form.readers"
-              :readers="article?.readers ?? []"
-              :world-code="worldCode"
-              class="mt-3"
-            />
-            <v-alert v-else type="info" variant="tonal" density="compact" class="mt-3">
-              Публичная статья видна всем, кому доступен мир.
-            </v-alert>
-            <div class="text-caption text-medium-emphasis mt-3">Версия: {{ form.expectedVersion ?? '—' }}</div>
-          </v-card-text>
-        </v-card>
+          </v-col>
+        </v-row>
 
-        <v-card>
-          <v-card-title class="text-subtitle-2">Признаки</v-card-title>
-          <v-card-text>
-            <v-select
-              v-model="form.keywordIds"
-              :items="keywords"
-              item-title="name"
-              item-value="id"
-              label="Признаки"
-              multiple
-              chips
-              density="compact"
-            />
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+        <div v-if="form.visibility === 'secret'" class="mt-3">
+          <LoreReadersField v-model="form.readers" :readers="article?.readers ?? []" :world-code="worldCode" />
+        </div>
+        <v-alert v-else type="info" variant="tonal" density="compact" class="mt-3">
+          Публичная статья видна всем, кому доступен мир.
+        </v-alert>
+
+        <v-btn
+          v-if="!isNew"
+          variant="text"
+          size="small"
+          prepend-icon="mdi-plus-box-outline"
+          class="mt-2"
+          @click="openCreateFromSelection"
+        >
+          Создать статью из выделения
+        </v-btn>
+
+        <div class="mt-3">
+          <template v-if="previewOpen">
+            <LoreArticleBody :html="form.bodyHtml" :known-codes="knownCodes" />
+          </template>
+          <LoreArticleEditor
+            v-else
+            ref="editorRef"
+            v-model="form.bodyHtml"
+            :articles="world?.articles ?? []"
+            :rules="rules"
+            @create-article="openCreateFromSelection"
+          />
+        </div>
+
+        <div class="text-caption text-medium-emphasis mt-3">Версия: {{ form.expectedVersion ?? '—' }}</div>
+      </v-card-text>
+    </v-card>
 
     <v-dialog v-model="createOpen" max-width="520">
       <v-card>
@@ -438,12 +490,32 @@ async function createLinkedArticle(): Promise<void> {
         <v-card-text>
           <v-text-field v-model="newTitle" label="Заголовок" autofocus />
           <v-text-field v-model="newCode" label="Код" :placeholder="loreSlug(newTitle)" />
-          <v-select v-model="newSection" :items="sectionOptions" item-title="title" item-value="value" label="Раздел" />
+          <TreeSelect
+            v-model="newSection"
+            :items="sectionItems"
+            label="Раздел"
+            empty-text="В мире пока нет разделов"
+            search-label="Поиск по разделам"
+            placeholder="— Без раздела —"
+            clearable
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="createOpen = false">Отмена</v-btn>
           <v-btn color="primary" @click="createLinkedArticle">Создать и вставить ссылку</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="leaveOpen" max-width="460">
+      <v-card>
+        <v-card-title>Несохранённые правки</v-card-title>
+        <v-card-text>Статья изменена. Если уйти сейчас, правки потеряются.</v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" @click="stayOnPage">Остаться</v-btn>
+          <v-spacer />
+          <v-btn color="error" @click="confirmLeave">Уйти без сохранения</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -455,8 +527,11 @@ async function createLinkedArticle(): Promise<void> {
       @overwrite="overwrite"
     />
 
-    <v-snackbar :model-value="snackbar !== null" :timeout="4000" @update:model-value="snackbar = null">
-      {{ snackbar }}
-    </v-snackbar>
+    <LoreNotice
+      :model-value="notice !== null"
+      :text="notice?.text ?? ''"
+      :color="notice?.color ?? 'success'"
+      @update:model-value="notice = null"
+    />
   </v-container>
 </template>
