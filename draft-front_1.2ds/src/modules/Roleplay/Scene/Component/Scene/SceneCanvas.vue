@@ -18,6 +18,7 @@ import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRe
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
+import { SceneFogRefreshService } from '@/modules/Roleplay/Scene/Service/SceneFogRefreshService';
 import { sceneFootprintShape, sceneSilhouetteShape } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
@@ -109,7 +110,7 @@ let handleTarget: SceneHandleTarget | null = null;
 let widthTarget: SceneVertexTarget | null = null;
 
 const overlays = new SceneOverlayService();
-let overlayRefreshedAt = 0;
+const fogRefresh = new SceneFogRefreshService();
 
 /** Статья легенды: цвет и подпись. */
 interface LegendEntry {
@@ -190,6 +191,39 @@ function refreshOverlay(): void {
   renderer?.setOverlayPaint(overlayPaint());
 }
 
+/** Точка наблюдателя, от которой считается обзор. */
+function observerPoint(): ScenePoint | null {
+  const actor = observerActor();
+
+  return actor === null ? null : [actor.x, actor.y];
+}
+
+/**
+ * Пересобирает туман по смене грубой клетки наблюдателя.
+ *
+ * Пока актор идёт, `props.actors` меняется каждый кадр. Точный расчёт видимости
+ * на каждое такое изменение — это микро-фризы: луч на каждую клетку обзора
+ * стоит десятки миллисекунд, а сдвиг внутри клетки меняет маску на считанные
+ * тексели.
+ */
+function refreshFog(): void {
+  if (!props.overlay?.visibility) {
+    return;
+  }
+
+  if (!fogRefresh.isDue(observerPoint(), props.model.resolution, performance.now())) {
+    return;
+  }
+
+  refreshOverlay();
+}
+
+/** Пересобирает оверлей принудительно: настройки, радиус, данные сцены. */
+function refreshOverlayNow(): void {
+  fogRefresh.reset();
+  refreshOverlay();
+}
+
 onMounted(async () => {
   const element = host.value;
   if (element === null) return;
@@ -246,7 +280,7 @@ watch(
 
     renderer.setActors(props.actors ?? []);
     renderer.setRoute(props.route ?? null);
-    refreshOverlay();
+    refreshOverlayNow();
   },
 );
 
@@ -254,13 +288,7 @@ watch(
   () => props.actors,
   () => {
     renderer?.setActors(props.actors ?? []);
-    if (props.overlay?.visibility) {
-      const now = performance.now();
-      if (now - overlayRefreshedAt >= 120) {
-        overlayRefreshedAt = now;
-        refreshOverlay();
-      }
-    }
+    refreshFog();
   },
 );
 
@@ -273,14 +301,14 @@ watch(
   () => [selectedActor.value?.sightRadius, props.overlay?.visibility] as const,
   () => {
     if (props.overlay?.visibility) {
-      refreshOverlay();
+      refreshOverlayNow();
     }
   },
 );
 
 watch(
   () => props.overlay,
-  () => refreshOverlay(),
+  () => refreshOverlayNow(),
 );
 
 watch(
