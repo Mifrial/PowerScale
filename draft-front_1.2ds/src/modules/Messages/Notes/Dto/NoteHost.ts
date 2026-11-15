@@ -4,6 +4,6 @@ export interface NoteHost {
   type: string;
   label: string;
   icon: string;
-  route?: (hostId: number) => string | null;
+  route?: (hostId: number) => string | null | Promise<string | null>;
   resolveEditorContext?: (hostId: number) => Promise<NoteHostContext>;
 }

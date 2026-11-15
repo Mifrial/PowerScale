@@ -17,6 +17,7 @@ import type { GameModerationAction } from '@/modules/Roleplay/Game/Enum/GameMode
 import type { GameCharacterModerationAction } from '@/modules/Roleplay/Game/Enum/GameCharacterModerationAction';
 import type { GameMemberRole } from '@/modules/Roleplay/Game/Enum/GameMemberRole';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcRef } from '@/modules/Roleplay/Game/Dto/GameNpcRef';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 import type { UpdateNpcData } from '@/modules/Roleplay/Game/Dto/UpdateNpcData';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
@@ -544,6 +545,20 @@ export class GameApi implements IGameApi {
     if (!res.data) throw new Error('NPC not found');
 
     return this.npcOfPhp(res.data);
+  }
+
+  async findNpc(npcId: number, signal?: AbortSignal): Promise<GameNpcRef> {
+    const res = await this.engine.runAction<unknown>('game.findNpc', { npcId }, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    const record = res.data && typeof res.data === 'object' ? (res.data as Record<string, unknown>) : null;
+    const gameId = record ? Number(record.gameId) : Number.NaN;
+    if (!record || !Number.isInteger(gameId) || gameId <= 0) throw new Error('NPC not found');
+
+    return {
+      id: typeof record.id === 'number' ? record.id : npcId,
+      gameId,
+      name: typeof record.name === 'string' ? record.name : '',
+    };
   }
 
   async createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc> {

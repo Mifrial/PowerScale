@@ -4,12 +4,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { CharacterSheetBody, sheetAccessService } from '@/modules/Roleplay/Character/init';
+import { NotesSlider } from '@/modules/Messages/Notes/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+import { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
 import { npcDetailAccessService } from '@/modules/Roleplay/Game/Service/Instance/npcDetailAccessService';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 
 const route = useRoute();
@@ -17,11 +21,14 @@ const router = useRouter();
 const gameStore = useGameStore();
 const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
+const spaceRevision = useSpaceRevision();
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const npc = ref<GameNpc | null>(null);
 const gameDetail = ref<GameDetail | null>(null);
+const revisionRules = ref<Rule[]>([]);
+const notesOpen = ref(false);
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -61,6 +68,37 @@ const showsFullSheet = computed(() =>
   npcDetailAccessService.showsFullSheet(npc.value?.version ?? null, visibleSections.value),
 );
 
+const rulesRevision = computed(() => npc.value?.version?.rulesRevision ?? gameDetail.value?.game.rulesRevision ?? null);
+
+// Заметки об НПС: хост `npc`, ссылки — в контексте игры.
+const notesContext = computed(() => {
+  const detail = gameDetail.value;
+  if (!detail) return null;
+
+  return gameNoteContextService.build({
+    rules: revisionRules.value,
+    mechanics: [],
+    spaceId: detail.game.spaceId,
+    spaceCode: detail.game.spaceCode,
+    rulesRevision: rulesRevision.value,
+    gameId: detail.game.id,
+  });
+});
+const notesInline = computed(() => notesContext.value?.inlineContext ?? {});
+const notesSources = computed(() => notesContext.value?.tokenSources ?? []);
+
+async function loadRevision(): Promise<void> {
+  const detail = gameDetail.value;
+  const revision = rulesRevision.value;
+  if (!detail || revision === null) return;
+  try {
+    const loaded = await spaceRevision.fetchRevision(detail.game.spaceId, revision);
+    revisionRules.value = loaded.rules;
+  } catch {
+    revisionRules.value = [];
+  }
+}
+
 async function load(): Promise<void> {
   const gid = gameId.value;
   const nid = npcId.value;
@@ -72,6 +110,7 @@ async function load(): Promise<void> {
   loading.value = true;
   loadError.value = null;
   npc.value = null;
+  revisionRules.value = [];
   gameStore.clearCurrent();
   try {
     const loadedGame = await gameStore.fetchGame(gid, signal.value);
@@ -95,6 +134,7 @@ async function load(): Promise<void> {
     }
     gameDetail.value = loadedGame;
     npc.value = loadedNpc;
+    await loadRevision();
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     const message = e instanceof Error ? e.message : '';
@@ -128,6 +168,9 @@ watch([gameId, npcId], load, { immediate: true });
         <h1 class="text-h5">{{ npc.name }}</h1>
         <v-chip v-if="npc.status === 'proposed'" color="warning" variant="tonal" size="small">На модерации</v-chip>
         <v-spacer />
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-note-text-outline" @click="notesOpen = true">
+          Заметки
+        </v-btn>
         <v-btn
           v-if="canEdit"
           variant="tonal"
@@ -151,5 +194,15 @@ watch([gameId, npcId], load, { immediate: true });
         :full-description="npc.fullDescription"
       />
     </template>
+
+    <NotesSlider
+      v-if="npc && gameDetail"
+      v-model:open="notesOpen"
+      host-type="npc"
+      :host-id="npc.id"
+      :title="npc.name"
+      :inline-context="notesInline"
+      :token-sources="notesSources"
+    />
   </v-container>
 </template>

@@ -26,6 +26,7 @@ use Mifrial\Roleplay\Game\Action\DeleteGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\DropGameSpellAction;
 use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
 use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
+use Mifrial\Roleplay\Game\Action\FindGameNpcAction;
 use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction;
@@ -363,6 +364,9 @@ return [
         GetGameNpcAction::class => static function (IServiceLocator $serviceLocator): GetGameNpcAction {
             return new GetGameNpcAction((new GamePortFactory())->createNpcHttp($serviceLocator));
         },
+        FindGameNpcAction::class => static function (IServiceLocator $serviceLocator): FindGameNpcAction {
+            return new FindGameNpcAction((new GamePortFactory())->createNpcHttp($serviceLocator));
+        },
         UpdateGameNpcAction::class => static function (IServiceLocator $serviceLocator): UpdateGameNpcAction {
             return new UpdateGameNpcAction((new GamePortFactory())->createNpcHttp($serviceLocator));
         },
@@ -457,6 +461,10 @@ return [
         ],
         'game.getNpc' => [
             'handler' => GetGameNpcAction::class,
+            'csrf' => true,
+        ],
+        'game.findNpc' => [
+            'handler' => FindGameNpcAction::class,
             'csrf' => true,
         ],
         'game.getRoster' => [

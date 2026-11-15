@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Game\Service;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Game\Dto\Action\CreateGameNpcInput;
+use Mifrial\Roleplay\Game\Dto\Action\FindGameNpcInput;
 use Mifrial\Roleplay\Game\Dto\Action\GetGameNpcInput;
 use Mifrial\Roleplay\Game\Dto\Action\TranslateGameNpcInput;
 use Mifrial\Roleplay\Game\Dto\Action\UpdateGameNpcInput;
@@ -78,6 +79,30 @@ final class GameNpcHttp
         $record = $this->npcs->get($input->gameId, $input->npcId);
 
         return $this->npcView->detail($record, $this->allows($game, $record, $actorUserId));
+    }
+
+    /**
+     * Находит NPC и его игру по одному id, без gameId на входе.
+     *
+     * @param FindGameNpcInput $input JSON.
+     *
+     * @return array{id: int, gameId: int, name: string} Ссылка на NPC.
+     *
+     * @throws ActionException AUTH_REQUIRED.
+     * @throws GameNotFoundException Если нет права или строки.
+     */
+    public function find(FindGameNpcInput $input): array
+    {
+        $actorUserId = $this->userAccess->requireActor()->getUserId();
+        $record = $this->npcs->find($input->npcId);
+        $game = $this->games->get($record->getGameId());
+        $this->allows($game, $record, $actorUserId);
+
+        return [
+            'id' => $record->getId(),
+            'gameId' => $record->getGameId(),
+            'name' => $record->getName(),
+        ];
     }
 
     /**

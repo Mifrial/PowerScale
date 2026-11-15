@@ -39,6 +39,7 @@ import { registerCharacterCardExtension, registerInGameSheetSource } from '@/mod
 import { registerNoteHost } from '@/modules/Messages/Notes/init';
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
+import { npcNoteHostService } from '@/modules/Roleplay/Game/Service/Instance/npcNoteHostService';
 
 // Компоненты регистрируются асинхронно (defineAsyncComponent): init.ts не тянет .vue/CSS
 // при импорте в node-тестах (routes → store → init) и код-сплитится по месту использования.
@@ -170,6 +171,14 @@ export function registerGameModule(): void {
         gameId: detail.game.id,
       });
     },
+  });
+  // Личные заметки об НПС: хост находит игру по одному npcId (маршрут и контекст ссылок).
+  registerNoteHost({
+    type: 'npc',
+    label: 'НПС',
+    icon: 'mdi-account-alert',
+    route: (id) => npcNoteHostService.resolveRoute(id),
+    resolveEditorContext: (id) => npcNoteHostService.resolveContext(id),
   });
 }
 

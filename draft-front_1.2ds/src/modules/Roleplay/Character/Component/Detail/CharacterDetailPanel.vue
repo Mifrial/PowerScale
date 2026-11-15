@@ -82,7 +82,13 @@ watch(open, (value) => {
 </script>
 
 <template>
-  <SlidePanel v-model="open" width="calc(100vw - 120px)" max-width="1200px">
+  <SlidePanel
+    v-model="open"
+    width="calc(100vw - 120px)"
+    max-width="1200px"
+    :page-to="pageRoute"
+    page-label="Открыть страницу"
+  >
     <template #header>
       <div class="detail-panel__header">
         <v-icon size="small">{{ icon }}</v-icon>
@@ -96,9 +102,6 @@ watch(open, (value) => {
         </v-btn>
         <v-btn v-if="migrateRoute" variant="tonal" size="small" prepend-icon="mdi-transfer" :to="migrateRoute">
           Перевести
-        </v-btn>
-        <v-btn v-if="pageRoute" variant="text" size="small" prepend-icon="mdi-open-in-new" :to="pageRoute">
-          Страница
         </v-btn>
       </div>
     </template>
@@ -151,7 +154,7 @@ watch(open, (value) => {
   <NotesSlider
     v-if="notes"
     v-model:open="notesOpen"
-    host-type="character"
+    :host-type="notes.hostType"
     :host-id="notes.hostId"
     :title="notes.title"
     :inline-context="notes.inlineContext"

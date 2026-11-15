@@ -1,4 +1,5 @@
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcRef } from '@/modules/Roleplay/Game/Dto/GameNpcRef';
 import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
 import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
@@ -197,6 +198,14 @@ export async function fetchNpc(gameId: number, npcId: number, _signal?: AbortSig
   if (!npc) throw new Error('НПС не найден');
 
   return visibleNpcProjection(npc);
+}
+
+export async function findNpc(npcId: number, _signal?: AbortSignal): Promise<GameNpcRef> {
+  await delay(100);
+  const npc = gameNpcs.find((entry) => entry.id === npcId);
+  if (!npc || !isVisibleToCurrentUser(npc)) throw new Error('НПС не найден');
+
+  return { id: npc.id, gameId: npc.gameId, name: npc.name };
 }
 
 function currentUser(): User | null {

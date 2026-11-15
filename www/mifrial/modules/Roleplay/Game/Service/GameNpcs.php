@@ -113,6 +113,21 @@ final class GameNpcs
     }
 
     /**
+     * Находит NPC по одному id: игра берётся из строки.
+     *
+     * @param int $npcId NPC.
+     *
+     * @return GameNpcRecord Строка.
+     *
+     * @throws GameNotFoundException Если строки нет.
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function find(int $npcId): GameNpcRecord
+    {
+        return $this->npcRepository->getById($npcId);
+    }
+
+    /**
      * Пишет лист сборки на той же ревизии.
      *
      * @param GameNpcRecord $record Строка.

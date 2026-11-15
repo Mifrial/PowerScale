@@ -91,6 +91,7 @@
 - `Mifrial\Roleplay\Game\Action\StopGameSessionAction`
 - `Mifrial\Roleplay\Game\Action\CreateGameNpcAction`
 - `Mifrial\Roleplay\Game\Action\GetGameNpcAction`
+- `Mifrial\Roleplay\Game\Action\FindGameNpcAction`
 - `Mifrial\Roleplay\Game\Action\UpdateGameNpcAction`
 - `Mifrial\Roleplay\Game\Action\TranslateGameNpcAction`
 
@@ -120,6 +121,7 @@
 | `game.stopSession` | `StopGameSessionAction` | да |
 | `game.createNpc` | `CreateGameNpcAction` | да |
 | `game.getNpc` | `GetGameNpcAction` | да |
+| `game.findNpc` | `FindGameNpcAction` | да |
 | `game.getRoster` | `GetGameRosterAction` | да |
 | `game.getSheets` | `GetGameSheetsAction` | да |
 | `game.getActionOptions` | `GetGameActionOptionsAction` | да |

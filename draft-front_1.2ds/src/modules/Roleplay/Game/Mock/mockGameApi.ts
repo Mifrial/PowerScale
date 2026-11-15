@@ -100,6 +100,7 @@ export const mockGameApi: IGameApi = {
   getNpcSummaries: mockNpcs.fetchNpcSummaries,
   getParticipantCandidates: participantCandidateSource.search.bind(participantCandidateSource),
   getNpc: mockNpcs.fetchNpc,
+  findNpc: mockNpcs.findNpc,
   createNpc: mockNpcs.createNpc,
   proposeNpc: mockNpcs.proposeNpc,
   updateNpc: mockNpcs.updateNpc,

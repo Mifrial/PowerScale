@@ -33,8 +33,8 @@ function dateOf(unix: number): string {
   return new Date(unix * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-function openHost(group: NoteHostGroup): void {
-  const route = getNoteHost(group.hostType)?.route?.(group.hostId);
+async function openHost(group: NoteHostGroup): Promise<void> {
+  const route = await getNoteHost(group.hostType)?.route?.(group.hostId);
   if (route) void router.push(route);
 }
 </script>

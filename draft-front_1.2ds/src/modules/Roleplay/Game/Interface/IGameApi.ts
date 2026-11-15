@@ -15,6 +15,7 @@ import type { GameModerationAction } from '@/modules/Roleplay/Game/Enum/GameMode
 import type { GameCharacterModerationAction } from '@/modules/Roleplay/Game/Enum/GameCharacterModerationAction';
 import type { GameMemberRole } from '@/modules/Roleplay/Game/Enum/GameMemberRole';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcRef } from '@/modules/Roleplay/Game/Dto/GameNpcRef';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 import type { UpdateNpcData } from '@/modules/Roleplay/Game/Dto/UpdateNpcData';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
@@ -161,6 +162,8 @@ export interface IGameApi {
     signal?: AbortSignal,
   ): Promise<GameParticipantCandidateResult>;
   getNpc(gameId: number, npcId: number, signal?: AbortSignal): Promise<GameNpc>;
+  /** NPC по одному id: игру отдаёт сервер, если актору она видна. */
+  findNpc(npcId: number, signal?: AbortSignal): Promise<GameNpcRef>;
   createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   proposeNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   updateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc>;

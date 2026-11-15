@@ -72,6 +72,14 @@ final class GameNpcMysqlTest extends TestCase
         $open = $this->dispatch('game.getNpc', ['gameId' => $gameId, 'npcId' => $created['data']['npcId']]);
         self::assertTrue($open['success']);
         self::assertSame('Guard', $open['data']['name']);
+        $found = $this->dispatch('game.findNpc', ['npcId' => $created['data']['npcId']]);
+        self::assertTrue($found['success']);
+        self::assertSame($gameId, $found['data']['gameId']);
+        self::assertSame('Guard', $found['data']['name']);
+        $hiddenFind = $this->dispatch('game.findNpc', ['npcId' => $second['data']['npcId']]);
+        self::assertSame('GAME_NOT_FOUND', $hiddenFind['error']['code']);
+        $missing = $this->dispatch('game.findNpc', ['npcId' => 999_999]);
+        self::assertSame('GAME_NOT_FOUND', $missing['error']['code']);
         self::assertArrayNotHasKey('money', $open['data']['version']['sheet']);
         self::assertArrayNotHasKey('abilities', $open['data']['version']['choices']);
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);

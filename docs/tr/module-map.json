@@ -1943,6 +1943,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\StopGameSessionAction",
                 "Mifrial\\Roleplay\\Game\\Action\\CreateGameNpcAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameNpcAction",
+                "Mifrial\\Roleplay\\Game\\Action\\FindGameNpcAction",
                 "Mifrial\\Roleplay\\Game\\Action\\UpdateGameNpcAction",
                 "Mifrial\\Roleplay\\Game\\Action\\TranslateGameNpcAction"
             ],
@@ -2055,6 +2056,11 @@
                 {
                     "action": "game.getNpc",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameNpcAction",
+                    "csrf": true
+                },
+                {
+                    "action": "game.findNpc",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\FindGameNpcAction",
                     "csrf": true
                 },
                 {

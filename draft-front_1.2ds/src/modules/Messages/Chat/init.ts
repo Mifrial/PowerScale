@@ -12,7 +12,7 @@ import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChat
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import { BASE_CHAT_TYPES } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TYPES';
 import { BASE_CHAT_TABS } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TABS';
-import { displayName, getUserApi, useUserCatalog } from '@/modules/Core/User/init';
+import { displayName, useUserCatalog } from '@/modules/Core/User/init';
 import { registerMenuItem } from '@/modules/Core/UI/init';
 import { MESSENGER_MENU_ITEM } from '@/modules/Messages/Chat/Constant/Navigation/MESSENGER_MENU_ITEM';
 import {
@@ -77,7 +77,8 @@ registerTokenSourceInternal({
   label: 'Пользователь',
   icon: 'mdi-account',
   search: async (query) => {
-    const page = await getUserApi().findPage({
+    // Через каталог: выбранный профиль остаётся в сторе, и чип сразу находит его по логину.
+    const page = await useUserCatalog().findPage({
       limit: 10,
       offset: 0,
       q: query.trim() || undefined,

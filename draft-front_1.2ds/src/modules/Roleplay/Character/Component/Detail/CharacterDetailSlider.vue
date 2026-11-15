@@ -100,6 +100,7 @@ const notes = computed<CharacterDetailNotes | null>(() => {
   });
 
   return {
+    hostType: 'character',
     hostId: current.character.id,
     title: current.character.name,
     inlineContext: context.inlineContext,

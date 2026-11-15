@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
+import type { CharacterDetailNotes } from '@/modules/Roleplay/Character/Dto/CharacterDetailNotes';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CharacterDetailPanel, sheetAccessService } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+import { gameNoteContextService } from '@/modules/Roleplay/Game/Service/Instance/gameNoteContextService';
 import { npcDetailAccessService } from '@/modules/Roleplay/Game/Service/Instance/npcDetailAccessService';
 
-/** Деталка НПС в слайдере: шапка, лист по видимости и действия-ссылки. */
+/** Деталка НПС в слайдере: шапка, лист по видимости, заметки и действия-ссылки. */
 const props = withDefaults(defineProps<{ gameId: number | null; npcId: number | null }>(), {
   gameId: null,
   npcId: null,
@@ -18,16 +22,20 @@ const props = withDefaults(defineProps<{ gameId: number | null; npcId: number | 
 const open = defineModel<boolean>('open', { default: false });
 
 const { currentUser } = useCurrentUser();
+const spaceRevision = useSpaceRevision();
 
 const gameDetail = ref<GameDetail | null>(null);
 const npc = ref<GameNpc | null>(null);
 const visibleSections = ref<SheetSection[]>([]);
+const revisionRules = ref<Rule[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const hidden = ref(false);
 let loadSequence = 0;
 
 const game = computed(() => gameDetail.value?.game ?? null);
+
+const rulesRevision = computed(() => npc.value?.version?.rulesRevision ?? game.value?.rulesRevision ?? null);
 
 const canEdit = computed(() => {
   const detail = gameDetail.value;
@@ -40,19 +48,56 @@ const chipLabel = computed(() => (npc.value?.status === 'proposed' ? 'На мо�
 
 const revisionHref = computed(() => {
   const currentGame = game.value;
-  const revision = npc.value?.version?.rulesRevision;
-  if (!currentGame || revision === undefined) return null;
+  const revision = rulesRevision.value;
+  if (!currentGame || revision === null) return null;
 
   return `/space/${currentGame.spaceCode}/${revision}`;
 });
 
 const revisionLabel = computed(() => {
   const currentGame = game.value;
-  const revision = npc.value?.version?.rulesRevision;
-  if (!currentGame || revision === undefined) return null;
+  const revision = rulesRevision.value;
+  if (!currentGame || revision === null) return null;
 
   return `Правила: ${currentGame.spaceCode} v${revision}`;
 });
+
+// Заметки об НПС живут в хосте `npc`, ссылки — в контексте игры.
+const notes = computed<CharacterDetailNotes | null>(() => {
+  const current = npc.value;
+  const currentGame = game.value;
+  if (!current || !currentGame) return null;
+  const context = gameNoteContextService.build({
+    rules: revisionRules.value,
+    mechanics: [],
+    spaceId: currentGame.spaceId,
+    spaceCode: currentGame.spaceCode,
+    rulesRevision: rulesRevision.value,
+    gameId: currentGame.id,
+  });
+
+  return {
+    hostType: 'npc',
+    hostId: current.id,
+    title: current.name,
+    inlineContext: context.inlineContext,
+    tokenSources: context.tokenSources,
+  };
+});
+
+async function loadRules(requestSequence: number): Promise<void> {
+  const currentGame = game.value;
+  const revision = rulesRevision.value;
+  if (!currentGame || revision === null) return;
+  try {
+    const loaded = await spaceRevision.fetchRevision(currentGame.spaceId, revision);
+    if (requestSequence !== loadSequence) return;
+    revisionRules.value = loaded.rules;
+  } catch {
+    if (requestSequence !== loadSequence) return;
+    revisionRules.value = [];
+  }
+}
 
 async function load(): Promise<void> {
   const gameId = props.gameId;
@@ -69,6 +114,7 @@ async function load(): Promise<void> {
   gameDetail.value = null;
   npc.value = null;
   visibleSections.value = [];
+  revisionRules.value = [];
   try {
     const loadedGame = await getGameApi().getGame(gameId);
     if (requestSequence !== loadSequence) return;
@@ -102,6 +148,7 @@ async function load(): Promise<void> {
     gameDetail.value = loadedGame;
     npc.value = loadedNpc;
     visibleSections.value = sections;
+    await loadRules(requestSequence);
   } catch (e) {
     if (requestSequence !== loadSequence) return;
     if (isAccessError(e)) {
@@ -143,6 +190,7 @@ watch(
     :visible-sections="visibleSections"
     :short-description="npc?.shortDescription ?? null"
     :full-description="npc?.fullDescription ?? null"
+    :notes="notes"
     :edit-route="canEdit && npc ? `/games/${npc.gameId}/npcs/${npc.id}/edit` : null"
     :page-route="npc ? `/games/${npc.gameId}/npcs/${npc.id}` : null"
     :loading="loading"
