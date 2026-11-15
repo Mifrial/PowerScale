@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -19,12 +20,14 @@ final class GameSpellTouchFacts
      *
      * @param GameSpellCastFacts $facts Общая подготовка каста.
      * @param GameStrikeSheets $sheets Снимки цели касания.
+     * @param GameActiveSpellGuard $guard Занятость источника.
      *
      * @return void
      */
     public function __construct(
         private readonly GameSpellCastFacts $facts,
         private readonly GameStrikeSheets $sheets,
+        private readonly GameActiveSpellGuard $guard,
     ) {
     }
 
@@ -32,18 +35,28 @@ final class GameSpellTouchFacts
      * Проверяет заклинание и возвращает траты для объявления удара.
      *
      * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
      * @param array<string, mixed> $choice Выбор удара.
      * @param array<string, mixed> $payload Блок spellCast.
      *
      * @return array{payload: array<string, mixed>, spends: array<int, \Mifrial\Roleplay\Character\Dto\ResourceSpend>} Итог.
      *
-     * @throws GameInvalidException Если заклинание не касание.
+     * @throws GameInvalidException Если заклинание не касание или источник занят.
      */
-    public function prepare(GameRecord $game, array $choice, array $payload): array
+    public function prepare(GameRecord $game, GameBattleRecord $battle, array $choice, array $payload): array
     {
-        $prepared = $this->prepared($game, $choice, $payload);
+        $prepared = $this->prepared($game, $choice, $payload, $battle);
         if (!$prepared->spell->getBase()->getHitResolution() instanceof AttackHit) {
             throw new GameInvalidException('Game spell is not a touch attack');
+        }
+
+        if ($prepared->chargeSpellId === null) {
+            $this->guard->assertSourceFree(
+                $battle->getId(),
+                $prepared->casterKind,
+                $prepared->casterId,
+                $prepared->sourceKey,
+            );
         }
 
         return ['payload' => $payload, 'spends' => $prepared->spends];
@@ -55,13 +68,18 @@ final class GameSpellTouchFacts
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $choice Выбор удара.
      * @param array<string, mixed> $payload Блок spellCast.
+     * @param GameBattleRecord|null $battle Бой или null до объявления.
      *
      * @return GameSpellCastPrepared Подготовка.
      *
      * @throws GameInvalidException Если заклинание не касание.
      */
-    public function prepared(GameRecord $game, array $choice, array $payload): GameSpellCastPrepared
-    {
+    public function prepared(
+        GameRecord $game,
+        array $choice,
+        array $payload,
+        ?GameBattleRecord $battle = null,
+    ): GameSpellCastPrepared {
         $defender = $choice['defender'] ?? null;
         if (!is_array($defender)) {
             throw new GameInvalidException('Game spell touch target is invalid');
@@ -69,7 +87,7 @@ final class GameSpellTouchFacts
 
         $body = [
             'gameId' => $game->getId(),
-            'battleId' => 0,
+            'battleId' => $battle?->getId() ?? 0,
             'idempotencyKey' => '',
             'expectedVersion' => 0,
             'expectedSheetVersion' => 0,
@@ -81,6 +99,7 @@ final class GameSpellTouchFacts
             'target' => $payload['spellTarget'] ?? null,
             'distanceIpari' => 0,
             'upgrades' => $payload['upgrades'] ?? [],
+            'chargeSpellId' => $payload['chargeSpellId'] ?? null,
         ];
         $prepared = $this->facts->prepare($game, $body, $this->touchTarget($game, $defender));
         if (!$prepared->spell->getBase()->getHitResolution() instanceof AttackHit) {

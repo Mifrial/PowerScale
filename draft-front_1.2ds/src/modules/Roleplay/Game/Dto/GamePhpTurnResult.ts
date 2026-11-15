@@ -1,5 +1,6 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { GamePhpSustainPrompt } from '@/modules/Roleplay/Game/Dto/GamePhpSustainPrompt';
 
 /** Ответ конца хода / continue / abort / раны. */
 export interface GamePhpTurnResult {
@@ -15,6 +16,8 @@ export interface GamePhpTurnResult {
   refused?: string;
   /** Остаток ОД в долге, если удар ещё не открыт. */
   remaining?: number;
+  /** Вопросы поддержания на входе хода нового текущего. */
+  sustain?: GamePhpSustainPrompt[];
   /** Прерванный процесс: карточка и шаг. */
   processRuleCode?: string;
   stepCode?: string;

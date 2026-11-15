@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
@@ -55,14 +54,32 @@ final class GameStrikeTargetRolls
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
      */
     public function defenseOf(
-        GameRecord $game, array $open, array $target, array $choice, array $attackerRoll,
-        array $pending, ?string $reactionRuleCode, ?CharacterRuleSlice $slice, string $hitCode,
-        array $conditions, ?RollAdvantage $token = null, array $extraAdvantages = [],
+        GameRecord $game,
+        array $open,
+        array $target,
+        array $choice,
+        array $attackerRoll,
+        array $pending,
+        ?string $reactionRuleCode,
+        ?CharacterRuleSlice $slice,
+        string $hitCode,
+        array $conditions,
+        ?RollAdvantage $token = null,
+        array $extraAdvantages = [],
     ): array {
         $advantages = $this->advantages($conditions, $token, $extraAdvantages);
         $slice ??= $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         ['defenderRoll' => $defenderRoll, 'ratedRoll' => $ratedRoll] = $this->defenderRoll(
-            $game, $open, $target, $choice, $attackerRoll, $pending, $reactionRuleCode, $slice, $hitCode, $advantages,
+            $game,
+            $open,
+            $target,
+            $choice,
+            $attackerRoll,
+            $pending,
+            $reactionRuleCode,
+            $slice,
+            $hitCode,
+            $advantages,
         );
 
         return [
@@ -112,15 +129,28 @@ final class GameStrikeTargetRolls
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
      */
     public function damageOf(
-        GameRecord $game, array $open, array $target, array $choice, ?array $defenderRoll,
-        int $success, DimensionalNumber $damage, callable $penetrationFactory,
-        array $pending, array $attackerRoll,
+        GameRecord $game,
+        array $open,
+        array $target,
+        array $choice,
+        ?array $defenderRoll,
+        int $success,
+        DimensionalNumber $damage,
+        callable $penetrationFactory,
+        array $pending,
+        array $attackerRoll,
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
         $durabilityShave = $this->durabilityShave($game, $open, $attackerRoll, $success);
         $effectiveDamage = $success === 0 ? $this->amounts->zero() : $damage;
         $resistance = $this->resistance(
-            $game, $targetOpen, $choice, $defenderRoll, $success, $penetrationFactory, $durabilityShave,
+            $game,
+            $targetOpen,
+            $choice,
+            $defenderRoll,
+            $success,
+            $penetrationFactory,
+            $durabilityShave,
         );
         $soak = $this->resolution->damage->soakOf($game, $targetOpen, $choice['reaction'], $success, $pending);
         $damageTypeCode = $this->damageTypeCode($game, $open);
@@ -217,20 +247,43 @@ final class GameStrikeTargetRolls
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
      */
     private function defenderRoll(
-        GameRecord $game, array $open, array $target, array $choice, array $attackerRoll,
-        array $pending, ?string $reactionRuleCode, CharacterRuleSlice $slice, string $hitCode, array $advantages,
+        GameRecord $game,
+        array $open,
+        array $target,
+        array $choice,
+        array $attackerRoll,
+        array $pending,
+        ?string $reactionRuleCode,
+        CharacterRuleSlice $slice,
+        string $hitCode,
+        array $advantages,
     ): array {
         $targetOpen = GameStrikeTargetRow::targetOpen($open, $target);
         $defenderRoll = null;
         $ratedRoll = $attackerRoll;
         if ($choice['reaction'] === 'dodge') {
             $defenderRoll = $this->resolution->rolls->dodgeRollOf(
-                $game, $targetOpen, $hitCode, $attackerRoll, $pending, $reactionRuleCode, $slice, $advantages,
+                $game,
+                $targetOpen,
+                $hitCode,
+                $attackerRoll,
+                $pending,
+                $reactionRuleCode,
+                $slice,
+                $advantages,
             );
             $ratedRoll = $this->rules->hitCheck->rerate($attackerRoll, $defenderRoll);
         } elseif ($choice['reaction'] === 'block') {
             $defenderRoll = $this->resolution->rolls->blockRollOf(
-                $game, $targetOpen, $choice, $hitCode, $attackerRoll, $pending, $reactionRuleCode, $slice, $advantages,
+                $game,
+                $targetOpen,
+                $choice,
+                $hitCode,
+                $attackerRoll,
+                $pending,
+                $reactionRuleCode,
+                $slice,
+                $advantages,
             );
         }
 

@@ -165,10 +165,12 @@ export function registerGameModule(): void {
         [],
         detail.game.spaceId,
         detail.game.rulesRevision,
+        detail.game.spaceCode,
       );
       const inlineContext: Record<string, unknown> = {
         tokenLabels: context.tokenLabels,
         spaceId: context.spaceId,
+        spaceCode: context.spaceCode,
         rulesRevision: context.rulesRevision,
       };
 

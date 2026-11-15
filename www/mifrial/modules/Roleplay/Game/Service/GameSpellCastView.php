@@ -58,6 +58,7 @@ final class GameSpellCastView
             'deviation' => $deviation,
             'nextCast' => $nextCast,
             'spent' => $prepared->spent,
+            'mana' => $prepared->manaSpend,
             'caster' => [
                 'type' => $prepared->casterKind,
                 'id' => $prepared->casterId,

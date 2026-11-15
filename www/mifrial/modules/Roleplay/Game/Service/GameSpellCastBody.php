@@ -35,6 +35,11 @@ final class GameSpellCastBody
             throw $this->invalid();
         }
 
+        $chargeSpellId = $input->chargeSpellId;
+        if ($chargeSpellId !== null && preg_match('/^\d+$/', $chargeSpellId) !== 1) {
+            throw $this->invalid();
+        }
+
         $actor = $this->side($input->actor);
         $target = $input->target === null ? null : $this->side($input->target);
         if (($target !== null) !== ($input->expectedTargetVersion !== null)) {
@@ -60,6 +65,7 @@ final class GameSpellCastBody
             'target' => $target,
             'distanceIpari' => $input->distanceIpari,
             'upgrades' => (new GameSpellCastUpgradeBody())->parse($input->upgrades),
+            'chargeSpellId' => $chargeSpellId,
         ];
     }
 

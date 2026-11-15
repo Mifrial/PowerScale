@@ -111,9 +111,16 @@ final class GameStrikeTargetClose
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или карточка битые.
      */
     public function prepare(
-        GameRecord $game, array $open, array $row, array $choice, string $hitCode,
-        array $attackerRoll, string $profileType, bool $isPush,
-        ?DimensionalNumber $shotDistance = null, array $marks = [],
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $choice,
+        string $hitCode,
+        array $attackerRoll,
+        string $profileType,
+        bool $isPush,
+        ?DimensionalNumber $shotDistance = null,
+        array $marks = [],
     ): array {
         $target = GameStrikeTargetRow::defender($row);
         $conditions = GameStrikeTargetRow::conditions($row);
@@ -122,8 +129,18 @@ final class GameStrikeTargetClose
         return [
             'reaction' => $reaction,
             'cover' => $this->coverOf(
-                $game, $open, $row, $choice, $reaction, $attackerRoll, $hitCode,
-                $profileType, $isPush, $shotDistance, $marks, $conditions,
+                $game,
+                $open,
+                $row,
+                $choice,
+                $reaction,
+                $attackerRoll,
+                $hitCode,
+                $profileType,
+                $isPush,
+                $shotDistance,
+                $marks,
+                $conditions,
             ),
         ];
     }
@@ -148,13 +165,30 @@ final class GameStrikeTargetClose
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     public function one(
-        GameRecord $game, array $open, array $row, array $choice, ?string $refusalCode,
-        DimensionalNumber $damage, array $attackerRoll, string $hitCode, callable $penetrationFactory,
-        GameStrikeWriteScope $scope, GameStrikeTargetOptions $options,
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $choice,
+        ?string $refusalCode,
+        DimensionalNumber $damage,
+        array $attackerRoll,
+        string $hitCode,
+        callable $penetrationFactory,
+        GameStrikeWriteScope $scope,
+        GameStrikeTargetOptions $options,
     ): array {
         return $this->flow->one(
-            $game, $open, $row, $choice, $refusalCode, $damage, $attackerRoll,
-            $hitCode, $penetrationFactory, $scope, $options,
+            $game,
+            $open,
+            $row,
+            $choice,
+            $refusalCode,
+            $damage,
+            $attackerRoll,
+            $hitCode,
+            $penetrationFactory,
+            $scope,
+            $options,
         );
     }
 
@@ -179,9 +213,18 @@ final class GameStrikeTargetClose
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     private function coverOf(
-        GameRecord $game, array $open, array $row, array $choice, array $reaction,
-        array $attackerRoll, string $hitCode, string $profileType, bool $isPush,
-        ?DimensionalNumber $shotDistance, array $marks, array $conditions,
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $choice,
+        array $reaction,
+        array $attackerRoll,
+        string $hitCode,
+        string $profileType,
+        bool $isPush,
+        ?DimensionalNumber $shotDistance,
+        array $marks,
+        array $conditions,
     ): ?array {
         if ($reaction['insufficient'] || GameStrikeTargetRow::jsonRows($row, 'coverers') === []) {
             return null;
@@ -189,8 +232,17 @@ final class GameStrikeTargetClose
 
         return $this->cover->resolve(
             $this->coverRun(
-                $game, $open, $choice, $reaction, $attackerRoll, $hitCode,
-                $profileType, $isPush, $shotDistance, $marks, $conditions,
+                $game,
+                $open,
+                $choice,
+                $reaction,
+                $attackerRoll,
+                $hitCode,
+                $profileType,
+                $isPush,
+                $shotDistance,
+                $marks,
+                $conditions,
             ),
             $row,
         );
@@ -214,9 +266,17 @@ final class GameStrikeTargetClose
      * @return GameStrikeCoverRun Вход расчёта.
      */
     private function coverRun(
-        GameRecord $game, array $open, array $choice, array $reaction, array $attackerRoll,
-        string $hitCode, string $profileType, bool $isPush, ?DimensionalNumber $shotDistance,
-        array $marks, array $conditions,
+        GameRecord $game,
+        array $open,
+        array $choice,
+        array $reaction,
+        array $attackerRoll,
+        string $hitCode,
+        string $profileType,
+        bool $isPush,
+        ?DimensionalNumber $shotDistance,
+        array $marks,
+        array $conditions,
     ): GameStrikeCoverRun {
         $run = new GameStrikeCoverRun();
         $run->game = $game;

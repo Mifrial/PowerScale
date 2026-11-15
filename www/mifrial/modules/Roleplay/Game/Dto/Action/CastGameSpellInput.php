@@ -28,6 +28,7 @@ final class CastGameSpellInput implements IActionInput
      * @param array|null $target Цель.
      * @param int $distanceIpari Дистанция в ипари.
      * @param array $upgrades Выбранные улучшения.
+     * @param string|null $chargeSpellId Строка поддержания, чей заряд тратится.
      *
      * @return void
      */
@@ -46,6 +47,7 @@ final class CastGameSpellInput implements IActionInput
         public readonly ?array $target = null,
         public readonly int $distanceIpari = 0,
         public readonly array $upgrades = [],
+        public readonly ?string $chargeSpellId = null,
     ) {
     }
 }

@@ -332,19 +332,26 @@ final class GameNpcs
      */
     private function remapReport(GameNpcRecord $record, GameRecord $game, int $sourceRevision): array
     {
+        $previousSheet = $this->documents->sheetOf($record);
         try {
-            return $this->sheetEngines->remap(
+            $report = $this->sheetEngines->remap(
                 $this->documents->choicesOf($record),
                 $game->getSpaceId(),
                 $sourceRevision,
                 $game->getRulesRevision(),
-                $this->documents->sheetOf($record),
+                $previousSheet,
             );
         } catch (CharacterNotFoundException $exception) {
             throw new GameInvalidException('NPC revision was not found', $exception);
         } catch (CharacterInvalidException $exception) {
             throw new GameInvalidException('NPC sheet is invalid', $exception);
         }
+
+        if (is_array($report['sheet'] ?? null)) {
+            $report['sheet'] = GameNpcSheetRefresh::mergeRuntime($report['sheet'], $previousSheet);
+        }
+
+        return $report;
     }
 
     /**
@@ -405,7 +412,7 @@ final class GameNpcs
         ?array $previousSheet = null,
     ): array {
         try {
-            return $this->sheetEngines->build(
+            $report = $this->sheetEngines->build(
                 $choices,
                 $game->getSpaceId(),
                 $revision ?? $game->getRulesRevision(),
@@ -417,6 +424,12 @@ final class GameNpcs
         } catch (CharacterInvalidException $exception) {
             throw new GameInvalidException('NPC sheet is invalid', $exception);
         }
+
+        if (is_array($report['sheet'] ?? null)) {
+            $report['sheet'] = GameNpcSheetRefresh::mergeRuntime($report['sheet'], $previousSheet);
+        }
+
+        return $report;
     }
 
     /**

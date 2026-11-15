@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
-use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
@@ -19,13 +19,14 @@ use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastUpgradeResolution;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityParameter;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
-use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ItemGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellValue;
 use Mifrial\Roleplay\Rule\Dto\Spec\MagicPath\MagicPathSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
+use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -43,6 +44,10 @@ final class GameSpellCastFacts
 
     private readonly CharacterAbilityGrantReader $grants;
 
+    private readonly GameSpellSource $source;
+
+    private readonly GameSpellDurationRules $durations;
+
     private readonly GameSpellCastUpgrades $upgrades;
 
     private readonly GameCheckEfficiency $efficiency;
@@ -50,6 +55,12 @@ final class GameSpellCastFacts
     private readonly GameSpellCastSaturation $saturation;
 
     private readonly GameSpellCastNextCast $nextCast;
+
+    private readonly GameSpellCharge $charge;
+
+    private readonly GameSpellSourcePower $sourcePower;
+
+    private readonly GameSpellMana $mana;
 
     /**
      * Создаёт подготовку каста.
@@ -61,6 +72,7 @@ final class GameSpellCastFacts
      * @param GameActionResourceResolver $resolver Компоненты.
      * @param GameActionHands $hands Руки кастера.
      * @param GameSpellDeviation $deviation Отклонение и штраф к мощи.
+     * @param GameActiveSpellRepository $activeSpells Строки поддержания.
      *
      * @return void
      */
@@ -72,13 +84,22 @@ final class GameSpellCastFacts
         private readonly GameActionResourceResolver $resolver,
         private readonly GameActionHands $hands,
         private readonly GameSpellDeviation $deviation,
+        private readonly GameActiveSpellRepository $activeSpells,
     ) {
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
+        $this->source = new GameSpellSource($this->grants);
+        $this->durations = new GameSpellDurationRules();
         $this->upgrades = new GameSpellCastUpgrades();
         $this->efficiency = new GameCheckEfficiency($this->grants, new GameCheckChain());
         $this->saturation = new GameSpellCastSaturation();
         $this->nextCast = new GameSpellCastNextCast();
+        $this->charge = new GameSpellCharge();
+        $this->sourcePower = new GameSpellSourcePower(
+            $deviation,
+            new GameSpellSourceBonus(new FormulaEvaluations()),
+        );
+        $this->mana = new GameSpellMana();
     }
 
     /**
@@ -99,6 +120,8 @@ final class GameSpellCastFacts
         $pathCode = $this->string($body, 'pathCode');
         $spell = $this->spellSpec($slice, $spellCode);
         $path = $this->pathSpec($slice, $pathCode);
+        $this->durations->assertSupported($spell->getSpell()->getDuration());
+        $recorded = $path->castsRecorded();
 
         $actor = $this->side($body, 'actor');
         $availability = $this->availability->assertAvailable(
@@ -107,6 +130,7 @@ final class GameSpellCastFacts
             $actor['id'],
             $spellCode,
             $pathCode,
+            $recorded,
         );
         if (!$availability instanceof AbilitySpellSpec) {
             throw new GameInvalidException('Game spell card is invalid');
@@ -114,7 +138,12 @@ final class GameSpellCastFacts
 
         $caster = $this->participant($game, $slice, $actor['type'], $actor['id']);
         $model = $this->model($caster['choices']);
-        $this->assertInstance($model, $spellCode, $pathCode);
+        $power = $this->usedPower($body, $path, $caster, $model, $slice);
+        $this->assertCastingSource($path, $power['key'], $spellCode, $caster);
+        if (!$recorded) {
+            $this->assertInstance($model, $spellCode, $pathCode);
+        }
+
         $this->hands->assertAvailable(
             $game,
             $slice,
@@ -127,7 +156,15 @@ final class GameSpellCastFacts
         $damageTarget = $target ?? $touchTarget;
         $parameters = $this->parameterMap($body, $spell);
         $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
-        $upgrades = $this->resolveUpgrades($slice, $model, $caster, $spellCode, $pathCode, $body);
+        $upgrades = $this->resolveUpgrades(
+            $slice,
+            $model,
+            $caster,
+            $spellCode,
+            $pathCode,
+            $body,
+            $recorded ? $this->recordedUpgrades($caster['choices'], $power['key'], $spellCode) : null,
+        );
         $levels = $caster['sheet']['abilityLevels'] ?? [];
         $levelMap = is_array($levels) ? $levels : [];
         $efficiency = $this->efficiency->resolve(
@@ -142,14 +179,8 @@ final class GameSpellCastFacts
             ->modify($upgrades->getRequiredPowerDelta());
         $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
         $characteristics = $this->characteristicsOf($caster['sheet']);
-        $powerCode = $this->pathCharacteristicCode($path->getPowerCharacteristicCode());
-        $controlCode = $this->pathCharacteristicCode($path->getControlCharacteristicCode());
-        $power = $this->usedPower($body, $path, $caster, $model, $characteristics, $powerCode, $slice);
         $usedPower = $power['value'];
-        $availableControl = $characteristics[$controlCode] ?? null;
-        if (!$availableControl instanceof CharacteristicNumber) {
-            throw new GameInvalidException('Game spell control characteristic is missing');
-        }
+        $availableControl = $this->availableControl($path, $requiredControl, $characteristics);
 
         $spends = $this->resolver->resolve(
             $slice,
@@ -160,8 +191,35 @@ final class GameSpellCastFacts
             $caster['sheet'],
         );
         $turnCode = $this->turnResourceCode($slice);
+        $baseSpent = $this->spentOf($spends, $turnCode);
         $spends = $this->mergeUpgradeSpends($spends, $upgrades->getActionPointDelta(), $turnCode);
         $spent = $this->spentOf($spends, $turnCode);
+        $charge = $this->chargePlan(
+            $body,
+            $slice,
+            $spell,
+            $spellCode,
+            $pathCode,
+            $actor,
+            $caster['sheet'],
+            $power['key'],
+            $spends,
+            $turnCode,
+            $baseSpent,
+        );
+        if ($charge !== null) {
+            $spends = $charge['spends'];
+            $spent = $charge['spent'];
+        }
+
+        $mana = $this->mana->plan(
+            $slice,
+            $caster['sheet'],
+            $power['key'],
+            $usedPower,
+            $spent,
+            $turnCode,
+        );
 
         return new GameSpellCastPrepared(
             $slice,
@@ -191,7 +249,164 @@ final class GameSpellCastFacts
             $this->int($body, 'distanceIpari', 0),
             $saturationSource,
             $nextCastSources,
+            $charge['spellId'] ?? null,
+            $charge['spellCode'] ?? null,
+            $charge['spend'] ?? null,
+            $mana,
         );
+    }
+
+    /**
+     * Документ choices в модель.
+     *
+     * @param array<string, mixed> $choices Документ.
+     *
+     * @return CharacterChoices Выборы.
+     */
+    public function choicesOf(array $choices): CharacterChoices
+    {
+        return $this->model($choices);
+    }
+
+    /**
+     * План траты заряда поддержания, если каст идёт через него.
+     *
+     * @param array<string, mixed> $body Тело.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param AbilitySpellSpec $spell Карточка цели.
+     * @param string $spellCode Код цели.
+     * @param string $pathCode Путь цели.
+     * @param array{type: string, id: int} $actor Кастер.
+     * @param array<string, mixed> $sheet Лист кастера.
+     * @param string $sourceKey Ключ источника.
+     * @param list<ResourceSpend> $spends Траты цели.
+     * @param string $turnCode Код ресурса хода.
+     * @param int $baseSpent Создание цели в ОД без улучшений.
+     *
+     * @return array{
+     *     spellId: int,
+     *     spellCode: string,
+     *     spend: array{stateCode: string, sourceKey: string, amount: int},
+     *     spends: list<ResourceSpend>,
+     *     spent: int
+     * }|null План или null.
+     *
+     * @throws GameInvalidException Если заряд, строка, цель или трата не подходят.
+     */
+    private function chargePlan(
+        array $body,
+        CharacterRuleSlice $slice,
+        AbilitySpellSpec $spell,
+        string $spellCode,
+        string $pathCode,
+        array $actor,
+        array $sheet,
+        string $sourceKey,
+        array $spends,
+        string $turnCode,
+        int $baseSpent,
+    ): ?array {
+        $spellId = $this->chargeSpellId($body);
+        if ($spellId === null) {
+            return null;
+        }
+
+        $battleId = is_int($body['battleId'] ?? null) ? $body['battleId'] : 0;
+        $row = $this->activeSpells->findById($spellId);
+        if ($row === null || $row->getBattleId() !== $battleId) {
+            throw new GameInvalidException('Game spell charge row is not found');
+        }
+
+        if ($row->getCasterKind() !== $actor['type'] || $row->getCasterId() !== $actor['id']) {
+            throw new GameInvalidException('Game spell charge row belongs to another caster');
+        }
+
+        if ($row->getSourceKey() !== $sourceKey || $row->getPathCode() !== $pathCode) {
+            throw new GameInvalidException('Game spell charge source is unexpected');
+        }
+
+        $charge = $this->charge->spec($this->spellSpec($slice, $row->getSpellCode()));
+        if ($charge === null) {
+            throw new GameInvalidException('Game spell charge card is invalid');
+        }
+
+        if (in_array($spell->getSpell()->getDuration()->getType(), $charge->getExcludedDurations(), true)) {
+            throw new GameInvalidException('Game spell charge cannot cast this duration');
+        }
+
+        $keywords = $slice->findLive($spellCode)?->getKeywordCodes() ?? [];
+        if (!in_array($charge->getKeywordCode(), $keywords, true)) {
+            throw new GameInvalidException('Game spell charge keyword is unexpected');
+        }
+
+        if ($this->charge->value($sheet, $charge->getStateCode(), $sourceKey) < $charge->getAmount()) {
+            throw new GameInvalidException('Game spell charge is not enough');
+        }
+
+        if ($charge->getCreationMax() !== 'turn_ap') {
+            throw new GameInvalidException('Game spell charge creation limit is unknown');
+        }
+
+        if ($turnCode === '') {
+            throw new GameInvalidException('Game spell turn resource is missing');
+        }
+
+        if ($baseSpent > $this->charge->turnLimit($sheet, $slice, $turnCode)) {
+            throw new GameInvalidException('Game spell charge creation cost is above the turn limit');
+        }
+
+        // Заряд — сопутствующее действие: мощь цели ограничена только обычной
+        // проверкой характеристики каста, а не мощью поддержания Генератора.
+
+        $merged = [];
+        foreach ($spends as $spend) {
+            if ($spend->getResourceCode() !== $turnCode) {
+                $merged[] = $spend;
+            }
+        }
+
+        if ($charge->getActionPoints() > 0) {
+            $merged[] = new ResourceSpend($turnCode, new ScalarResourceValue($charge->getActionPoints()));
+        }
+
+        return [
+            'spellId' => $spellId,
+            'spellCode' => $row->getSpellCode(),
+            'spend' => [
+                'stateCode' => $charge->getStateCode(),
+                'sourceKey' => $sourceKey,
+                'amount' => $charge->getAmount(),
+            ],
+            'spends' => $merged,
+            'spent' => $this->spentOf($merged, $turnCode),
+        ];
+    }
+
+    /**
+     * Id строки заряда из тела.
+     *
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return int|null Id или null.
+     *
+     * @throws GameInvalidException Если форма чужая.
+     */
+    private function chargeSpellId(array $body): ?int
+    {
+        $raw = $body['chargeSpellId'] ?? null;
+        if ($raw === null) {
+            return null;
+        }
+
+        if (is_string($raw) && preg_match('/^\d+$/', $raw) === 1) {
+            $raw = (int) $raw;
+        }
+
+        if (!is_int($raw) || $raw < 1) {
+            throw new GameInvalidException('Game spell charge id is invalid');
+        }
+
+        return $raw;
     }
 
     /**
@@ -403,6 +618,135 @@ final class GameSpellCastFacts
     }
 
     /**
+     * Контроль каста: характеристика пути или требуемый, если Контроля нет.
+     *
+     * @param MagicPathSpec $path Путь.
+     * @param DimensionalNumber $requiredControl Требуемый контроль.
+     * @param array<string, mixed> $characteristics Живые характеристики.
+     *
+     * @return DimensionalNumber Контроль.
+     *
+     * @throws GameInvalidException Если характеристики пути нет.
+     */
+    private function availableControl(
+        MagicPathSpec $path,
+        DimensionalNumber $requiredControl,
+        array $characteristics,
+    ): DimensionalNumber {
+        if ($path->isControlless()) {
+            return new DimensionalNumber($requiredControl->getBase(), $requiredControl->getSize());
+        }
+
+        $code = $this->pathCharacteristicCode($path->getControlCharacteristicCode());
+        $value = $characteristics[$code] ?? null;
+        if (!$value instanceof CharacteristicNumber) {
+            throw new GameInvalidException('Game spell control characteristic is missing');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Источник каста: записи для пути записей, обычный источник для остальных.
+     *
+     * @param MagicPathSpec $path Путь.
+     * @param string $sourceKey Ключ источника.
+     * @param string $spellCode Код заклинания.
+     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>, version: int} $caster Кастер.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если источник не тот или заклинания нет в записях.
+     */
+    private function assertCastingSource(
+        MagicPathSpec $path,
+        string $sourceKey,
+        string $spellCode,
+        array $caster,
+    ): void {
+        $storage = $this->mana->row($caster['sheet'], $sourceKey);
+        if ($path->castsRecorded()) {
+            if ($storage === null || !$this->isRecorded($caster['choices'], $sourceKey, $spellCode)) {
+                throw new GameInvalidException('Game spell is not recorded in the source');
+            }
+
+            return;
+        }
+
+        if ($storage !== null) {
+            throw new GameInvalidException('Game spell source requires recorded casting');
+        }
+    }
+
+    /**
+     * Улучшения, записанные в источнике под это заклинание.
+     *
+     * @param array<string, mixed> $choices Документ choices.
+     * @param string $sourceKey Ключ источника.
+     * @param string $spellCode Код заклинания.
+     *
+     * @return array<int, string> Коды улучшений.
+     */
+    private function recordedUpgrades(array $choices, string $sourceKey, string $spellCode): array
+    {
+        $entry = $this->recordedEntry($choices, $sourceKey, $spellCode);
+        if ($entry === null) {
+            return [];
+        }
+
+        $codes = [];
+        foreach (is_array($entry['upgrades'] ?? null) ? $entry['upgrades'] : [] as $code) {
+            if (is_string($code) && $code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * Запись заклинания в строке инвентаря.
+     *
+     * @param array<string, mixed> $choices Документ choices.
+     * @param string $sourceKey Ключ источника.
+     * @param string $spellCode Код заклинания.
+     *
+     * @return array<string, mixed>|null Запись или null.
+     */
+    private function recordedEntry(array $choices, string $sourceKey, string $spellCode): ?array
+    {
+        $inventoryId = (int) substr($sourceKey, strlen('inventory:'));
+        foreach (is_array($choices['inventory'] ?? null) ? $choices['inventory'] : [] as $row) {
+            if (!is_array($row) || ($row['id'] ?? null) !== $inventoryId) {
+                continue;
+            }
+
+            $payload = is_array($row['payload'] ?? null) ? $row['payload'] : [];
+            foreach (is_array($payload['recorded_spells'] ?? null) ? $payload['recorded_spells'] : [] as $entry) {
+                if (is_array($entry) && ($entry['ruleCode'] ?? null) === $spellCode) {
+                    return $entry;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Заклинание записано в источнике.
+     *
+     * @param array<string, mixed> $choices Документ choices.
+     * @param string $sourceKey Ключ источника.
+     * @param string $spellCode Код заклинания.
+     *
+     * @return bool true, если запись есть.
+     */
+    private function isRecorded(array $choices, string $sourceKey, string $spellCode): bool
+    {
+        return $this->recordedEntry($choices, $sourceKey, $spellCode) !== null;
+    }
+
+    /**
      * Карта параметров с проверкой kind, min/max и activation.
      *
      * @param array<string, mixed> $body Тело.
@@ -526,14 +870,12 @@ final class GameSpellCastFacts
     }
 
     /**
-     * Источник, значение мощи и потолок характеристики пути.
+     * Источник и значение мощи; потолок берётся у источника.
      *
      * @param array<string, mixed> $body Тело.
      * @param MagicPathSpec $path Путь.
      * @param array{choices: array<string, mixed>, sheet: array<string, mixed>, version: int} $caster Кастер.
      * @param CharacterChoices $model Выборы.
-     * @param array<string, CharacteristicNumber> $characteristics Характеристики.
-     * @param string $powerCode Характеристика мощи.
      * @param CharacterRuleSlice $slice Срез.
      *
      * @return array{value: CharacteristicNumber, key: string} Мощь и ключ источника.
@@ -545,8 +887,6 @@ final class GameSpellCastFacts
         MagicPathSpec $path,
         array $caster,
         CharacterChoices $model,
-        array $characteristics,
-        string $powerCode,
         CharacterRuleSlice $slice,
     ): array {
         $usedPower = $body['usedPower'] ?? null;
@@ -572,21 +912,21 @@ final class GameSpellCastFacts
             throw new GameInvalidException('Game spell used power is invalid', $exception);
         }
 
-        $this->assertSource($source, $caster, $model, $path, $slice);
+        $this->assertSource($source, $caster, $path, $slice);
         $key = GameSpellSourceKey::of($source);
 
-        $cap = $characteristics[$powerCode] ?? null;
+        $cap = $this->sourcePower->resolve(
+            $slice,
+            $path,
+            $source,
+            $caster['choices'],
+            $caster['sheet'],
+            $model,
+        );
         if (!$cap instanceof CharacteristicNumber) {
-            throw new GameInvalidException('Game spell power characteristic is missing');
+            throw new GameInvalidException('Game spell source has no power');
         }
 
-        $strength = $this->deviation->strengthOnSource(
-            $slice,
-            $path->getCastCheckCode(),
-            $caster['sheet'],
-            $key,
-        );
-        $cap = $this->deviation->penalizedCap($cap, $strength);
         if ($used->characteristicDiffTo($cap) > 0) {
             throw new GameInvalidException('Game spell used power is above the cap');
         }
@@ -599,7 +939,6 @@ final class GameSpellCastFacts
      *
      * @param array<string, mixed> $source Источник.
      * @param array{choices: array<string, mixed>, sheet: array<string, mixed>, version: int} $caster Кастер.
-     * @param CharacterChoices $model Выборы.
      * @param MagicPathSpec $path Путь.
      * @param CharacterRuleSlice $slice Срез.
      *
@@ -610,96 +949,16 @@ final class GameSpellCastFacts
     private function assertSource(
         array $source,
         array $caster,
-        CharacterChoices $model,
         MagicPathSpec $path,
         CharacterRuleSlice $slice,
     ): void {
-        $kind = $source['kind'] ?? null;
-        if ($kind === 'characteristic') {
-            if (($source['code'] ?? null) !== $path->getPowerCharacteristicCode()) {
-                throw new GameInvalidException('Game spell power source is invalid');
-            }
-
-            return;
-        }
-
-        if ($kind === 'item') {
-            if (!$this->inventoryContains($caster['choices'], $source['inventoryId'] ?? 0)) {
-                throw new GameInvalidException('Game spell power source is invalid');
-            }
-
-            return;
-        }
-
-        if ($kind === 'grant') {
-            if (!$this->grantSourcePasses($caster, $model, $source['abilityCode'] ?? '', $slice)) {
-                throw new GameInvalidException('Game spell power source is invalid');
-            }
-
-            return;
-        }
-
-        throw new GameInvalidException('Game spell power source is invalid');
-    }
-
-    /**
-     * Строка инвентаря кастера.
-     *
-     * @param array<string, mixed> $choices Choices.
-     * @param mixed $id Идентификатор.
-     *
-     * @return bool Наличие.
-     */
-    private function inventoryContains(array $choices, mixed $id): bool
-    {
-        if (!is_int($id)) {
-            return false;
-        }
-
-        foreach (is_array($choices['inventory'] ?? null) ? $choices['inventory'] : [] as $row) {
-            if (is_array($row) && ($row['id'] ?? null) === $id) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Активная способность выдаёт предмет-источник.
-     *
-     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>, version: int} $caster Кастер.
-     * @param CharacterChoices $model Выборы.
-     * @param mixed $abilityCode Код способности.
-     * @param CharacterRuleSlice $slice Срез.
-     *
-     * @return bool Наличие.
-     */
-    private function grantSourcePasses(
-        array $caster,
-        CharacterChoices $model,
-        mixed $abilityCode,
-        CharacterRuleSlice $slice,
-    ): bool {
-        $rawLevels = is_array($caster['sheet']['abilityLevels'] ?? null) ? $caster['sheet']['abilityLevels'] : [];
-        $levels = [];
-        foreach ($rawLevels as $code => $level) {
-            if (is_string($code) && is_int($level)) {
-                $levels[$code] = $level;
-            }
-        }
-
-        if (!is_string($abilityCode) || (($levels[$abilityCode] ?? 0) < 1)) {
-            return false;
-        }
-
-        foreach ($this->grants->grants($slice, $model, $levels) as $row) {
-            if ($row->getDonorCode() === $abilityCode && $row->getGrant() instanceof ItemGrant) {
-                return true;
-            }
-        }
-
-        return false;
+        $this->source->assertOwned(
+            $source,
+            $caster['choices'],
+            $caster['sheet'],
+            $path,
+            $slice,
+        );
     }
 
     /**
@@ -833,6 +1092,7 @@ final class GameSpellCastFacts
      * @param string $spellCode Заклинание.
      * @param string $pathCode Путь.
      * @param array<string, mixed> $body Тело.
+     * @param array<int, string>|null $recordedCodes Улучшения записи источника или null.
      *
      * @return GameSpellCastUpgradeResolution Разрешение.
      *
@@ -845,6 +1105,7 @@ final class GameSpellCastFacts
         string $spellCode,
         string $pathCode,
         array $body,
+        ?array $recordedCodes = null,
     ): GameSpellCastUpgradeResolution {
         $levels = $caster['sheet']['abilityLevels'] ?? [];
 
@@ -855,6 +1116,7 @@ final class GameSpellCastFacts
             $spellCode,
             $pathCode,
             $this->upgradeSelection($body),
+            $recordedCodes,
         );
     }
 

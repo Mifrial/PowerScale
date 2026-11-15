@@ -557,8 +557,17 @@ final class GameChecks implements IGameChecks
         $this->answerBlock($game, $open, $proposal, $sheets, $side);
 
         return $this->commitAnswer(
-            $game, $processId, $idempotencyKey, $expectedSheetVersion, $decision, $open,
-            $sheets['initiator'], $sheets['opponent'], $versions, $side, $actorUserId,
+            $game,
+            $processId,
+            $idempotencyKey,
+            $expectedSheetVersion,
+            $decision,
+            $open,
+            $sheets['initiator'],
+            $sheets['opponent'],
+            $versions,
+            $side,
+            $actorUserId,
         );
     }
 
@@ -993,7 +1002,6 @@ final class GameChecks implements IGameChecks
 
         return $result;
     }
-
 
     /**
      * Игра, видимая актору.

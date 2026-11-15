@@ -50,6 +50,10 @@ export class ActiveSpellService {
   }
 
   shouldDropFromDisruption(spell: ActiveSpell, disruptionStrength: number): boolean {
+    if (!spell.stability) {
+      return false;
+    }
+
     return disruptionStrength >= DimensionalNumber.from(spell.stability).toNumber();
   }
 

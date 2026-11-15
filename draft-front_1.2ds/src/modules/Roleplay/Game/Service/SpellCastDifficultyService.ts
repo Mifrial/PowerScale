@@ -35,6 +35,39 @@ export class SpellCastDifficultyService {
     return { base: value.base, size: value.size };
   }
 
+  /** Пределы мощи поддержания из формы длительности: минимум и максимум параметра. */
+  sustainPowerLimits(rule: Rule | undefined): {
+    min: DimensionalNumberValue | null;
+    max: DimensionalNumberValue | null;
+  } {
+    const spec = this.asSpellAbilitySpec(rule);
+    const duration = spec?.spell.duration;
+    if (!duration || duration.type !== 'sustained') {
+      return { min: null, max: null };
+    }
+    const power = duration.power;
+    if (!power) {
+      return { min: null, max: null };
+    }
+    if ('base' in power) {
+      const fixed = { base: power.base, size: power.size };
+
+      return { min: fixed, max: fixed };
+    }
+    const parameter = spec?.parameters?.find((entry) => entry.code === power.parameter_code);
+    if (!parameter) {
+      return { min: null, max: null };
+    }
+
+    return { min: this.dimensionalLimit(parameter.min), max: this.dimensionalLimit(parameter.max) };
+  }
+
+  private dimensionalLimit(value: DimensionalNumberValue | number | null | undefined): DimensionalNumberValue | null {
+    if (value === null || value === undefined) return null;
+
+    return typeof value === 'number' ? { base: value, size: 0 } : value;
+  }
+
   compute(input: SpellCastDifficultyInput): SpellCastDifficultyResult {
     const requiredPower = CharacteristicNumber.from(input.requiredPower).modifyWith(input.requiredPowerDelta ?? 0);
     const usedPower = CharacteristicNumber.from(input.usedPower);

@@ -187,6 +187,42 @@ describe('SpellCastUpgradeService', () => {
     ).toEqual(['piercing-magic']);
   });
 
+  it('записанные улучшения работают без изученных экземпляров', () => {
+    const spellUpgrade = {
+      mechanics: [],
+      id: null,
+      code: 'careful-lightning',
+      type: 'ability',
+      name: 'Аккуратная молния',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: 'lightning-strike',
+        spell_upgrade: { action_point_delta: 1 },
+      },
+      createdAt: 1,
+    } as unknown as Rule;
+
+    expect(
+      spellCastUpgradeService
+        .listRecorded(['careful-lightning', 'chain-lightning', 'unknown'], 'lightning-strike', [
+          spellUpgrade,
+          chain,
+        ])
+        .map((item) => item.ruleCode),
+    ).toEqual(['careful-lightning', 'chain-lightning']);
+    expect(spellCastUpgradeService.listRecorded(['careful-lightning'], 'other-spell', [spellUpgrade])).toEqual([]);
+    expect(
+      spellCastUpgradeService
+        .listRuntimeRecorded(['chain-lightning', 'careful-lightning'], 'lightning-strike', [spellUpgrade, chain])
+        .map((item) => item.ruleCode),
+    ).toEqual(['careful-lightning']);
+  });
+
   it('real-фильтр убирает цепь и заряды по форме, а не по коду', () => {
     const abilities = [
       { ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' },

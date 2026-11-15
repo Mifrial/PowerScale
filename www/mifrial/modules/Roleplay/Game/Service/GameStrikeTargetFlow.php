@@ -85,9 +85,17 @@ final class GameStrikeTargetFlow
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     public function one(
-        GameRecord $game, array $open, array $row, array $choice, ?string $refusalCode,
-        DimensionalNumber $damage, array $attackerRoll, string $hitCode, callable $penetrationFactory,
-        GameStrikeWriteScope $scope, GameStrikeTargetOptions $options,
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $choice,
+        ?string $refusalCode,
+        DimensionalNumber $damage,
+        array $attackerRoll,
+        string $hitCode,
+        callable $penetrationFactory,
+        GameStrikeWriteScope $scope,
+        GameStrikeTargetOptions $options,
     ): array {
         $target = GameStrikeTargetRow::defender($row);
         if ($refusalCode !== null) {
@@ -100,8 +108,18 @@ final class GameStrikeTargetFlow
         }
 
         return $this->resolve(
-            $game, $open, $row, $target, $choice, $reaction, $attackerRoll, $hitCode,
-            $penetrationFactory, $damage, $scope, $options,
+            $game,
+            $open,
+            $row,
+            $target,
+            $choice,
+            $reaction,
+            $attackerRoll,
+            $hitCode,
+            $penetrationFactory,
+            $damage,
+            $scope,
+            $options,
         );
     }
 
@@ -120,7 +138,12 @@ final class GameStrikeTargetFlow
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если карточка реакции битая.
      */
     private function reactionFor(
-        GameRecord $game, array $row, array $choice, string $hitCode, ?array $prepared, ?array $resolved,
+        GameRecord $game,
+        array $row,
+        array $choice,
+        string $hitCode,
+        ?array $prepared,
+        ?array $resolved,
     ): array {
         if ($resolved !== null) {
             return [
@@ -167,9 +190,18 @@ final class GameStrikeTargetFlow
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     private function resolve(
-        GameRecord $game, array $open, array $row, array $target, array $choice, array $reaction,
-        array $attackerRoll, string $hitCode, callable $penetrationFactory, DimensionalNumber $damage,
-        GameStrikeWriteScope $scope, GameStrikeTargetOptions $options,
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $target,
+        array $choice,
+        array $reaction,
+        array $attackerRoll,
+        string $hitCode,
+        callable $penetrationFactory,
+        DimensionalNumber $damage,
+        GameStrikeWriteScope $scope,
+        GameStrikeTargetOptions $options,
     ): array {
         $resolved = $options->resolved;
         if ($resolved !== null) {
@@ -180,8 +212,16 @@ final class GameStrikeTargetFlow
         $defense = $this->defensePart($game, $open, $row, $target, $choice, $attackerRoll, $reaction, $hitCode, $options);
         $success = $this->successOfTarget($game, $open, $target, $defense, $reaction);
         $outcome = $this->rolls->damageOf(
-            $game, $open, $target, $choice, $defense['defenderRoll'], $success, $damage,
-            $penetrationFactory, [], $attackerRoll,
+            $game,
+            $open,
+            $target,
+            $choice,
+            $defense['defenderRoll'],
+            $success,
+            $damage,
+            $penetrationFactory,
+            [],
+            $attackerRoll,
         );
         $record = $this->recordOf($target, $success, $outcome, $defense['defenderRoll']);
         $this->persist($game, $open, $target, $choice, $success, $outcome, $reaction, $defense, $record, $scope);
@@ -207,8 +247,15 @@ final class GameStrikeTargetFlow
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     private function defensePart(
-        GameRecord $game, array $open, array $row, array $target, array $choice,
-        array $attackerRoll, array $reaction, string $hitCode, GameStrikeTargetOptions $options,
+        GameRecord $game,
+        array $open,
+        array $row,
+        array $target,
+        array $choice,
+        array $attackerRoll,
+        array $reaction,
+        string $hitCode,
+        GameStrikeTargetOptions $options,
     ): array {
         $resolved = $options->resolved;
         $markDefense = $this->markDefense($open, $target, $choice, $options->marks, $resolved);
@@ -219,9 +266,17 @@ final class GameStrikeTargetFlow
                 is_string($choice['reaction'] ?? null) ? $choice['reaction'] : 'ignore',
             )
             : $this->rolls->defenseOf(
-                $game, $open, $target, $choice, $attackerRoll, $reaction['pending'],
-                $reaction['reactionRuleCode'], $reaction['slice'], $hitCode,
-                GameStrikeTargetRow::conditions($row), $reaction['token']['advantage'] ?? null,
+                $game,
+                $open,
+                $target,
+                $choice,
+                $attackerRoll,
+                $reaction['pending'],
+                $reaction['reactionRuleCode'],
+                $reaction['slice'],
+                $hitCode,
+                GameStrikeTargetRow::conditions($row),
+                $reaction['token']['advantage'] ?? null,
                 array_merge($options->extraAdvantages, $markDefense['advantages']),
             );
         $applied = $resolved !== null ? $this->stringList($resolved['markKeys'] ?? null) : $markDefense['keys'];
@@ -244,7 +299,11 @@ final class GameStrikeTargetFlow
      * @return array{advantages: array<int, RollAdvantage>, keys: array<int, string>} Метки.
      */
     private function markDefense(
-        array $open, array $target, array $choice, array $marks, ?array $resolved,
+        array $open,
+        array $target,
+        array $choice,
+        array $marks,
+        ?array $resolved,
     ): array {
         if ($resolved !== null || !in_array($choice['reaction'] ?? null, ['dodge', 'block'], true)) {
             return ['advantages' => [], 'keys' => []];
@@ -269,7 +328,11 @@ final class GameStrikeTargetFlow
      * @return int Успех.
      */
     private function successOfTarget(
-        GameRecord $game, array $open, array $target, array $defense, array $reaction,
+        GameRecord $game,
+        array $open,
+        array $target,
+        array $defense,
+        array $reaction,
     ): int {
         $slice = $reaction['slice'] ?? $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $lastStrike = new GameLastStrikeSnapshot();
@@ -339,15 +402,31 @@ final class GameStrikeTargetFlow
      * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
      */
     private function persist(
-        GameRecord $game, array $open, array $target, array $choice, int $success,
-        array $outcome, array $reaction, array $defense, array &$record, GameStrikeWriteScope $scope,
+        GameRecord $game,
+        array $open,
+        array $target,
+        array $choice,
+        int $success,
+        array $outcome,
+        array $reaction,
+        array $defense,
+        array &$record,
+        GameStrikeWriteScope $scope,
     ): void {
         $spends = $reaction['spends'];
         if (!$defense['autoFail'] || $spends !== []) {
             $record['sheetVersion'] = $defense['autoFail']
                 ? $this->write->writeResources($game, $target, $choice['expectedSheetVersion'], $spends, $scope)
                 : $this->write->writeTarget(
-                    $game, $open, $target, $choice, $outcome['injury'], $success, $spends, $scope, $record,
+                    $game,
+                    $open,
+                    $target,
+                    $choice,
+                    $outcome['injury'],
+                    $success,
+                    $spends,
+                    $scope,
+                    $record,
                 );
         }
 

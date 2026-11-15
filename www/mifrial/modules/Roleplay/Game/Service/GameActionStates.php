@@ -19,6 +19,18 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
  */
 final class GameActionStates
 {
+    private readonly GameItemManaRefill $refill;
+
+    /**
+     * Создаёт разбор эффектов.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->refill = new GameItemManaRefill();
+    }
+
     /**
      * Операции листа для действия.
      *
@@ -50,6 +62,8 @@ final class GameActionStates
         if ($spec->getBase()->getCombatAction() === 'recover-stability') {
             $operations = [...$operations, ...$this->removals($slice, $sheet)];
         }
+
+        $operations = [...$operations, ...$this->refill->operations($slice, $sheet, $spec)];
 
         return $operations;
     }

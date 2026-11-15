@@ -73,7 +73,14 @@ final class GameStrikeConsequenceChat
         try {
             $this->announce($chatId, $actorUserId, $announce, $action, $strike, $thread, $speaker);
             $this->sendBeforeOutcome(
-                $chatId, $actorUserId, $preRollChecks, $hitRoll, $defenseRoll, $beforeOutcome, $thread, $speaker,
+                $chatId,
+                $actorUserId,
+                $preRollChecks,
+                $hitRoll,
+                $defenseRoll,
+                $beforeOutcome,
+                $thread,
+                $speaker,
             );
             $this->sendOutcome($chatId, $actorUserId, $result, $calc, $will, $maim, $thread, $speaker);
         } catch (ChatNotFoundException $exception) {

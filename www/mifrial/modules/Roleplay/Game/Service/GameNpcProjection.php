@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameNpcRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
-use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 
 /**
@@ -27,6 +26,7 @@ final class GameNpcProjection
         private readonly GameNpcRepository $npcs,
         private readonly GameNpcVisibility $visibility,
         private readonly GameProjectionAccess $access,
+        private readonly GameNpcSheetRefresh $refresh,
     ) {
     }
 
@@ -36,8 +36,6 @@ final class GameNpcProjection
      * @param int $gameId Игра.
      *
      * @return array<int, GameNpcRecord> Строки.
-     *
-     * @throws GameInvalidException Если строка битая.
      */
     public function index(int $gameId): array
     {
@@ -70,8 +68,6 @@ final class GameNpcProjection
      * @param int $actorUserId Актор.
      *
      * @return list<array<string, mixed>> Записи.
-     *
-     * @throws GameInvalidException Если строка битая.
      */
     public function briefs(GameRecord $game, int $actorUserId): array
     {
@@ -111,8 +107,6 @@ final class GameNpcProjection
      * @param int $npcId NPC.
      *
      * @return array<string, mixed>|null Лист.
-     *
-     * @throws GameInvalidException Если строка битая.
      */
     public function sheet(GameRecord $game, int $actorUserId, array $npcs, int $npcId): ?array
     {
@@ -122,7 +116,7 @@ final class GameNpcProjection
         }
 
         $version = $this->visibility->mask(
-            $record->getVersion(),
+            $this->refresh->apply($record->getVersion()),
             $record->getVisibility(),
             $this->access->leading($game, $actorUserId),
         );

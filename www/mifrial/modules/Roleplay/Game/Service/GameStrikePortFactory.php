@@ -153,6 +153,7 @@ final class GameStrikePortFactory
         $magicResistance = new GameSpellMagicResistance($rules->defense);
         $mechanicPorts = new GameStrikeMechanicPorts($serviceLocator);
         $deviation = new GameSpellDeviation($mechanicPorts->mechanics());
+        $activeGuard = new GameActiveSpellGuard($shared->repos->activeSpells);
         $spellFacts = new GameSpellTouchFacts(
             new GameSpellCastFacts(
                 $rules,
@@ -162,9 +163,12 @@ final class GameStrikePortFactory
                 new GameActionResourceResolver(),
                 new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
                 $deviation,
+                $shared->repos->activeSpells,
             ),
             $shared->sheets,
+            $activeGuard,
         );
+        $activeChat = new GameActiveSpellChat($ports->chats(), $shared->chat);
         $spellTouch = new GameSpellTouchFinish(
             $spellFacts,
             new GameSpellCastCheck(
@@ -186,6 +190,13 @@ final class GameStrikePortFactory
             new GameSpellCastPending(),
             $shared->repos->actions,
             $deviation,
+            new GameActiveSpellCreate(
+                $shared->repos->activeSpells,
+                $activeGuard,
+                new GameSpellDurationRules(),
+            ),
+            $activeChat,
+            new GameActiveSpellCharge(new GameSpellCharge(), $shared->sheetWrites, $activeChat),
         );
         $close = (new GameStrikeCloseFactory())->create(
             $rules,

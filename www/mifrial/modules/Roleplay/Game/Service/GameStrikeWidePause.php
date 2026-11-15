@@ -42,7 +42,11 @@ final class GameStrikeWidePause
      * @return array<string, mixed> Итог.
      */
     public function pause(
-        GameStrikeWideRun $run, int $strikeId, array $attackerRoll, array $pauses, array $attacker,
+        GameStrikeWideRun $run,
+        int $strikeId,
+        array $attackerRoll,
+        array $pauses,
+        array $attacker,
     ): array {
         $awaitings = [];
         foreach ($pauses as $rowId => $pause) {

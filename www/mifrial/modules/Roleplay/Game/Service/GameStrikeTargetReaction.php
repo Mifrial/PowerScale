@@ -115,11 +115,20 @@ final class GameStrikeTargetReaction
      * @throws GameInvalidException Если поворот или карточка реакции битые.
      */
     public function reactionOf(
-        GameRecord $game, array $target, array $choice, array $conditions, string $hitCode,
+        GameRecord $game,
+        array $target,
+        array $choice,
+        array $conditions,
+        string $hitCode,
     ): array {
         [$pending, $targetChoices, $sheet, $spends] = $this->base($game, $target, $choice);
         [$slice, $reactionRuleCode, $spends, $pending] = $this->sliceAndDeclare(
-            $game, $target, $choice, $targetChoices, $spends, $pending,
+            $game,
+            $target,
+            $choice,
+            $targetChoices,
+            $spends,
+            $pending,
         );
         if (($conditions['turn'] ?? false) === true) {
             $spends = $this->turnSpends($game, $slice, $targetChoices, $sheet, $spends);
@@ -214,7 +223,12 @@ final class GameStrikeTargetReaction
      *               3: array<string, mixed>}
      */
     private function sliceAndDeclare(
-        GameRecord $game, array $target, array $choice, array $targetChoices, array $spends, array $pending,
+        GameRecord $game,
+        array $target,
+        array $choice,
+        array $targetChoices,
+        array $spends,
+        array $pending,
     ): array {
         $slice = $this->sliceOf($game, $choice);
         $reactionRuleCode = $slice === null
@@ -293,7 +307,11 @@ final class GameStrikeTargetReaction
      * @throws GameInvalidException Если поворот или его карточка битые.
      */
     private function turnSpends(
-        GameRecord $game, ?CharacterRuleSlice $slice, array $targetChoices, array $sheet, array $spends,
+        GameRecord $game,
+        ?CharacterRuleSlice $slice,
+        array $targetChoices,
+        array $sheet,
+        array $spends,
     ): array {
         if ($slice === null) {
             throw new GameInvalidException('Game wide strike turn is invalid');
@@ -309,7 +327,13 @@ final class GameStrikeTargetReaction
         }
 
         return array_merge($spends, $this->rules->spends->resolveReactionResourceSpends(
-            $game->getSpaceId(), $game->getRulesRevision(), 'turn', null, '', $targetChoices, $sheet,
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            'turn',
+            null,
+            '',
+            $targetChoices,
+            $sheet,
         ));
     }
 

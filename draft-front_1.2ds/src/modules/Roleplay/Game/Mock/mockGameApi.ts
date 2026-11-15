@@ -129,6 +129,7 @@ export const mockGameApi: IGameApi = {
   setCommittedActionSession: mockCommittedActions.setCommittedActionSession,
   getActiveSpells: mockActiveSpells.fetchActiveSpells,
   upsertActiveSpell: mockActiveSpells.upsertActiveSpell,
+  sustainActiveSpell: mockActiveSpells.sustainActiveSpell,
   dropActiveSpell: mockActiveSpells.dropActiveSpell,
   getCurrentSpeed: mockMovementState.getCurrentSpeed,
   setCurrentSpeed: mockMovementState.setCurrentSpeed,

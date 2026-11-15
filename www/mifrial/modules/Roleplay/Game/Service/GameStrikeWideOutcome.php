@@ -41,8 +41,14 @@ final class GameStrikeWideOutcome
      * @return void
      */
     public function post(
-        GameRecord $game, int $actorUserId, string $threadId, string $attacker, array $record,
-        string $typeBit, array $speaker, ?string $parentId = null,
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        string $attacker,
+        array $record,
+        string $typeBit,
+        array $speaker,
+        ?string $parentId = null,
     ): void {
         $target = is_array($record['target'] ?? null) ? $record['target'] : ['type' => 'character', 'id' => 0];
         $defender = $this->chat->getEntityToken($target['type'] ?? 'character', $target['id'] ?? 0);

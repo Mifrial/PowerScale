@@ -12,7 +12,6 @@ use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
-use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -322,12 +321,6 @@ final class GameWoundActions
         ];
     }
 
-
-
-
-
-
-
     /**
      * Пишет лист актора и цели.
      *
@@ -387,8 +380,6 @@ final class GameWoundActions
             $spends,
         );
     }
-
-
 
     /**
      * Одно текстовое сообщение в чат игры.

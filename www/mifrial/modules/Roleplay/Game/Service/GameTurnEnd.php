@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Ход, поддержание и чат — одна причина изменения конца хода.
+
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
@@ -25,6 +28,7 @@ final class GameTurnEnd
      * @param GameBattleMarks $marks Метки боя.
      * @param GameTurnCursor $cursor Курсор хода.
      * @param GameTurnAnnounce $announce Сообщения.
+     * @param GameActiveSpellTurnStart $activeSpells Вопрос поддержания.
      *
      * @return void
      */
@@ -35,6 +39,7 @@ final class GameTurnEnd
         private readonly GameBattleMarks $marks,
         private readonly GameTurnCursor $cursor,
         private readonly GameTurnAnnounce $announce,
+        private readonly GameActiveSpellTurnStart $activeSpells,
     ) {
     }
 
@@ -64,11 +69,15 @@ final class GameTurnEnd
     ): array {
         $performed = $this->wait->perform($game, $battle, $current, $expectedSheet);
         $ticked = $this->sheet->apply(
-            $game, $performed['slice'], $current,
-            $performed['sheetVersion'], $battle->getConcentrationCycle(),
+            $game,
+            $performed['slice'],
+            $current,
+            $performed['sheetVersion'],
+            $battle->getConcentrationCycle(),
         );
         $cursor = $this->cursor->advanced($battle);
         $saved = $this->persist($battle, $expectedBattle, $performed['pending'], $cursor, $ticked['cycle'], $current);
+        $sustain = $this->activeSpells->prompts($game, $saved, $this->cursor->current($saved), $actorUserId);
         $result = [
             'battleId' => $battle->getId(),
             'version' => $saved->getStateVersion(),
@@ -76,6 +85,7 @@ final class GameTurnEnd
             'activeIndex' => $cursor['index'],
             'round' => $cursor['round'],
             'pendingActionEffects' => $performed['pending'],
+            'sustain' => $sustain,
         ];
         $this->announce->wait($game, $actorUserId, $current, $battle, $performed['waitCode'], $performed);
         $this->announce->rolls($game, $ticked['rolls']);

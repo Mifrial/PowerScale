@@ -15,11 +15,13 @@ final class GameNpcView
      * Собирает вид.
      *
      * @param GameNpcVisibility $visibility Вырезание секций.
+     * @param GameNpcSheetRefresh $refresh Свежий лист.
      *
      * @return void
      */
     public function __construct(
         private readonly GameNpcVisibility $visibility,
+        private readonly GameNpcSheetRefresh $refresh,
     ) {
     }
 
@@ -37,7 +39,11 @@ final class GameNpcView
             'npcId' => $record->getId(),
             'gameId' => $record->getGameId(),
             'name' => $record->getName(),
-            'version' => $this->visibility->mask($record->getVersion(), $record->getVisibility(), $fullSheet),
+            'version' => $this->visibility->mask(
+                $this->refresh->apply($record->getVersion()),
+                $record->getVisibility(),
+                $fullSheet,
+            ),
             'actualVersion' => $record->getActualVersion(),
             'visibility' => $record->getVisibility(),
         ];

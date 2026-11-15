@@ -59,6 +59,10 @@ final class GameSpellCastPrepared
      * @param int $distanceIpari Дистанция в ипари.
      * @param GameSpellCastSaturationSource|null $saturationSource Источник насыщения.
      * @param array<int, GameSpellCastNextCastSource> $nextCastSources Источники следующей Сложности.
+     * @param int|null $chargeSpellId Строка поддержания, чей заряд тратится.
+     * @param string|null $chargeSpellCode Код заклинания-держателя заряда.
+     * @param array{stateCode: string, sourceKey: string, amount: int}|null $chargeSpend План траты заряда.
+     * @param array{sourceKey: string, cost: int, before: int, after: int}|null $manaSpend План траты маны.
      *
      * @return void
      */
@@ -90,6 +94,10 @@ final class GameSpellCastPrepared
         public readonly int $distanceIpari,
         public readonly ?GameSpellCastSaturationSource $saturationSource = null,
         public readonly array $nextCastSources = [],
+        public readonly ?int $chargeSpellId = null,
+        public readonly ?string $chargeSpellCode = null,
+        public readonly ?array $chargeSpend = null,
+        public readonly ?array $manaSpend = null,
     ) {
     }
 }

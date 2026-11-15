@@ -25,6 +25,30 @@ final class GameSpellCastWrite
     }
 
     /**
+     * Пишет только операции листа без трат.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind character или npc.
+     * @param int $id Лист.
+     * @param int $expected Версия листа.
+     * @param list<array<string, mixed>> $operations Операции.
+     *
+     * @return int Версия после записи.
+     *
+     * @throws GameInvalidException Если операция отвергнута.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameBattleConflictException Если версия другая.
+     * @throws \Mifrial\Roleplay\Game\Exception\GameNotFoundException Если листа нет.
+     */
+    public function sheetOps(GameRecord $game, string $kind, int $id, int $expected, array $operations): int
+    {
+        if ($operations === []) {
+            return $expected;
+        }
+
+        return $this->writes->write($game, $kind, $id, $expected, $operations);
+    }
+
+    /**
      * Пишет операции цели и траты кастера.
      *
      * @param GameRecord $game Игра.

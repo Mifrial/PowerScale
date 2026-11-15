@@ -106,11 +106,9 @@ export class CombatProcessListService {
     const sources = spellCastOptionsService.listSources(version, rules);
     const sourceName = sources.find((source) => source.key === spell.sourceKey)?.name ?? spell.sourceKey;
     const pathName = spell.pathCode ? (findRuleByRef(rules, spell.pathCode)?.name ?? spell.pathCode) : '—';
-    const power = DimensionalNumber.from(spell.sustainPower).toNumber().toString();
+    const power = DimensionalNumber.from(spell.sustainPower).toString();
     const charge = electrochargeService.chargeSpec(spell.spellCode, rules);
-    const bound = charge
-      ? states.find((state) => state.stateRuleCode === charge.state_code && state.boundSustainId === spell.id)
-      : undefined;
+    const bound = charge ? electrochargeService.boundState(states, spell, charge.state_code) : undefined;
     const charges = bound?.value ?? 0;
     const canChargeCast = Boolean(charge && bound && electrochargeService.canOpenCast(bound, [spell], rules));
 

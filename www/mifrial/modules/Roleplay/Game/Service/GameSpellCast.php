@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
@@ -49,6 +50,7 @@ final class GameSpellCast
      * @param GameStrikeSheetWrites $sheets Запись листа касания.
      * @param GameSpellDeviation $deviation Отклонение.
      * @param GameSpellDeviationBurst $burst Взрыв отклонения.
+     * @param GameActiveSpellCharge $activeCharge Заряд поддержания.
      *
      * @return void
      */
@@ -73,6 +75,12 @@ final class GameSpellCast
         private readonly GameStrikeSheetWrites $sheets,
         private readonly GameSpellDeviation $deviation,
         private readonly GameSpellDeviationBurst $burst,
+        private readonly GameActiveSpellGuard $activeGuard,
+        private readonly GameActiveSpellCreate $activeCreate,
+        private readonly GameActiveSpellChat $activeChat,
+        private readonly GameActiveSpellCharge $activeCharge,
+        private readonly GameSpellMana $mana = new GameSpellMana(),
+        private readonly GameSpellStability $stability = new GameSpellStability(),
     ) {
         $this->lookup = new GameStrikeBattleLookup($repos->battles);
     }
@@ -345,6 +353,14 @@ final class GameSpellCast
         $this->access->assertRoster($battleId, $actor, $target === null ? [] : [$target]);
 
         $prepared = $this->facts->prepare($game, $body);
+        if ($prepared->chargeSpellId === null) {
+            $this->activeGuard->assertSourceFree(
+                $battle->getId(),
+                $prepared->casterKind,
+                $prepared->casterId,
+                $prepared->sourceKey,
+            );
+        }
         $this->perform->assertSpends($game, $prepared->casterSheet, $prepared->spends);
         $actorKey = $prepared->casterKind . ':' . $prepared->casterId;
         $trainingDelta = $this->nextCast->peek($battle->getPendingActionEffects(), $actorKey, $prepared->spent);
@@ -493,13 +509,27 @@ final class GameSpellCast
     ): array {
         $saturation = $this->saturation->apply($plan, $steps);
         $damageForPower = $this->damage->apply($game, $prepared, $check['castOk'], null, $saturation->getPowerDelta());
+        $casterOperations = [
+            ...$this->casterOperations($prepared, $deviation),
+            ...$this->activeCharge->spendOperations($prepared),
+            ...$this->mana->spendOperations($prepared),
+        ];
+
         $versions = $this->write->write(
             $game,
             $prepared,
             $body,
             $damageForPower,
             $pendingCast === null ? null : (int) $pendingCast['casterVersion'],
-            $this->casterOperations($prepared, $deviation),
+            $casterOperations,
+        );
+        $activeSpell = $this->activeCreate->fromCast(
+            $game,
+            $prepared,
+            $battle,
+            $check['castOk'] === true,
+            false,
+            $versions['casterVersion'],
         );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
 
@@ -523,6 +553,7 @@ final class GameSpellCast
             $deviation,
             $burstRows,
             $plan,
+            $activeSpell,
         );
     }
 
@@ -565,6 +596,7 @@ final class GameSpellCast
         ?array $deviation = null,
         array $burst = [],
         ?GameSpellCastSaturationPlan $plan = null,
+        ?GameActiveSpellRecord $activeSpell = null,
     ): array {
         $this->chat->post(
             $game,
@@ -590,6 +622,19 @@ final class GameSpellCast
             );
         }
 
+        if ($activeSpell instanceof GameActiveSpellRecord) {
+            $thread = GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+            $this->activeChat->createdAt($game, $actorUserId, $activeSpell, $thread);
+            $versions['casterVersion'] = $this->activeCharge->grantOnCreate(
+                $game,
+                $actorUserId,
+                $activeSpell,
+                $prepared,
+                $versions['casterVersion'],
+                $thread,
+            );
+        }
+
         return $this->view->build(
             $prepared,
             $check,
@@ -606,6 +651,10 @@ final class GameSpellCast
             'battleId' => $battle->getId(),
             'version' => $saved->getStateVersion(),
             'burst' => $this->burstView($burst),
+            'activeSpell' => $activeSpell === null ? null : (new GameActiveSpellView())->build(
+                $activeSpell,
+                $this->stability->value($prepared->spell, $activeSpell->getParameterValues(), $prepared->usedPower),
+            ),
         ];
     }
 
@@ -864,6 +913,15 @@ final class GameSpellCast
         $castBody = $this->pending->bodyOf($pendingCast, $game->getId(), $battleId);
         $deviation = is_array($pendingCast['deviation'] ?? null) ? $pendingCast['deviation'] : null;
         $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast, $deviation);
+        $deliverySr = is_int($pendingCast['deliverySr'] ?? null) ? $pendingCast['deliverySr'] : null;
+        $activeSpell = $this->activeCreate->fromCast(
+            $game,
+            $prepared,
+            $battle,
+            $check['castOk'],
+            $deliverySr !== null && $deliverySr <= 0,
+            $versions['casterVersion'],
+        );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $saved = $this->repos->battles->finishSpellCast($battleId, $expected, $pending);
@@ -879,12 +937,13 @@ final class GameSpellCast
             $castId,
             $saturation,
             $rows,
-            false,
+            true,
             $pendingCast,
             $saved,
             $deviation,
             $burstRows,
             $plan,
+            $activeSpell,
         );
     }
 
@@ -1023,6 +1082,7 @@ final class GameSpellCast
                 $game,
                 ['attacker' => $pendingCast['actor'], 'defender' => $defender],
                 $pendingCast['body'],
+                $battle,
             );
         }
 
@@ -1085,7 +1145,11 @@ final class GameSpellCast
         array $pendingCast,
         ?array $deviation = null,
     ): array {
-        $casterOperations = $this->casterOperations($prepared, $deviation);
+        $casterOperations = [
+            ...$this->casterOperations($prepared, $deviation),
+            ...$this->activeCharge->spendOperations($prepared),
+            ...$this->mana->spendOperations($prepared),
+        ];
 
         if (($pendingCast['touch'] ?? false) !== true) {
             $body['expectedTargetVersion'] = is_array($pendingCast['target'] ?? null)

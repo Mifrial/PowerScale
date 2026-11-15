@@ -5,4 +5,8 @@ export interface SpellCastPathOption {
   castCheckCode: string | null;
   powerCharacteristicCode: string | null;
   controlCharacteristicCode: string | null;
+  /** Путь не использует Контроль: сравнение только по мощи. */
+  noControl: boolean;
+  /** Спека пути кастует из записей источника. */
+  recordedCasting: boolean;
 }

@@ -19,16 +19,13 @@ describe('wideStrikeRows', () => {
   });
 
   it('не добавляет боеприпас, если он не выбран', () => {
-    const [row] = wideStrikeRows(
-      [{ type: 'character', id: 7 }],
-      {
-        itemInventoryId: 1,
-        itemRuleCode: 'sword',
-        profileType: 'strike',
-        profileIndex: 0,
-        ammunitionInventoryId: undefined,
-      },
-    );
+    const [row] = wideStrikeRows([{ type: 'character', id: 7 }], {
+      itemInventoryId: 1,
+      itemRuleCode: 'sword',
+      profileType: 'strike',
+      profileIndex: 0,
+      ammunitionInventoryId: undefined,
+    });
 
     expect(row).not.toHaveProperty('ammunitionInventoryId');
   });

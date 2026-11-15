@@ -72,6 +72,17 @@ final class GameRunActionSpellBody
             throw $this->invalid();
         }
 
+        $chargeSpellId = $context['chargeSpellId'] ?? null;
+        if ($chargeSpellId !== null) {
+            if (is_int($chargeSpellId) && $chargeSpellId >= 1) {
+                $chargeSpellId = (string) $chargeSpellId;
+            }
+
+            if (!is_string($chargeSpellId) || preg_match('/^\d+$/', $chargeSpellId) !== 1) {
+                throw $this->invalid();
+            }
+        }
+
         return [
             'expectedSheetVersion' => $expectedSheetVersion,
             'pathCode' => $pathCode,
@@ -81,6 +92,7 @@ final class GameRunActionSpellBody
             'expectedTargetVersion' => $expectedTargetVersion,
             'distanceIpari' => $distanceIpari,
             'upgrades' => (new GameSpellCastUpgradeBody())->parse($context['upgrades'] ?? null),
+            'chargeSpellId' => $chargeSpellId,
         ];
     }
 
@@ -128,7 +140,7 @@ final class GameRunActionSpellBody
     private function keys(array $context): array
     {
         $allowed = ['expectedSheetVersion', 'pathCode', 'parameters', 'usedPower'];
-        foreach (['target', 'expectedTargetVersion', 'distanceIpari', 'upgrades'] as $key) {
+        foreach (['target', 'expectedTargetVersion', 'distanceIpari', 'upgrades', 'chargeSpellId'] as $key) {
             if (array_key_exists($key, $context)) {
                 $allowed[] = $key;
             }

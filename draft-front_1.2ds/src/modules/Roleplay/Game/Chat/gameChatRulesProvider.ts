@@ -37,6 +37,7 @@ export const gameChatRulesProvider: IChatRulesProvider = {
       mechanics,
       game.spaceId,
       game.rulesRevision,
+      game.spaceCode,
     );
   },
 };

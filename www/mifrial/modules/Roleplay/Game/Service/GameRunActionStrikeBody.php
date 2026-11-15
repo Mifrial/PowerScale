@@ -107,8 +107,7 @@ final class GameRunActionStrikeBody
     {
         $allowed = ['strikes'];
         foreach (
-            ['chosenAmounts', 'processRuleCode', 'processStepCode', 'tokenSpend', 'maneuverRuleCode', 'spellCast']
-            as $key
+            ['chosenAmounts', 'processRuleCode', 'processStepCode', 'tokenSpend', 'maneuverRuleCode', 'spellCast'] as $key
         ) {
             if (array_key_exists($key, $context)) {
                 $allowed[] = $key;

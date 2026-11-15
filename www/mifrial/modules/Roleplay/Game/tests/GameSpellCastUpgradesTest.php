@@ -341,6 +341,62 @@ final class GameSpellCastUpgradesTest extends TestCase
     }
 
     /**
+     * Записанное улучшение применяется без изученного уровня: источник даёт его из записи.
+     *
+     * @return void
+     */
+    public function testRecordedUpgradeAppliesWithoutLearnedLevel(): void
+    {
+        $resolution = $this->resolve(
+            [$this->upgradeRule('careful', $this->parentUpgrade('lightning-strike'))],
+            [],
+            'simple-magic',
+            [['code' => 'careful', 'value' => null]],
+            'lightning-strike',
+            ['careful'],
+        );
+
+        self::assertSame(1, $resolution->getActionPointDelta());
+        self::assertCount(1, $resolution->getApplied());
+    }
+
+    /**
+     * Улучшение, которого нет в записи источника, отклоняется.
+     *
+     * @return void
+     */
+    public function testRecordedUpgradeMustBeRecorded(): void
+    {
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [$this->upgradeRule('careful', $this->parentUpgrade('lightning-strike'))],
+            [$this->ability('careful', 'simple-magic')],
+            'simple-magic',
+            [['code' => 'careful', 'value' => null]],
+            'lightning-strike',
+            [],
+        );
+    }
+
+    /**
+     * Записанное улучшение чужого заклинания отклоняется.
+     *
+     * @return void
+     */
+    public function testRecordedUpgradeMustBelongToSpell(): void
+    {
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [$this->upgradeRule('careful', $this->parentUpgrade('other-spell'))],
+            [],
+            'simple-magic',
+            [['code' => 'careful', 'value' => null]],
+            'lightning-strike',
+            ['careful'],
+        );
+    }
+
+    /**
      * Пустой выбор — пустое разрешение.
      *
      * @return void
@@ -362,6 +418,7 @@ final class GameSpellCastUpgradesTest extends TestCase
      * @param string $pathCode Путь каста.
      * @param array<int, array{code: string, value: int|null}> $selected Выбор.
      * @param string $spellCode Заклинание.
+     * @param array<int, string>|null $recordedCodes Улучшения записи источника или null.
      *
      * @return GameSpellCastUpgradeResolution Разрешение.
      */
@@ -371,6 +428,7 @@ final class GameSpellCastUpgradesTest extends TestCase
         string $pathCode,
         array $selected,
         string $spellCode = 'lightning-strike',
+        ?array $recordedCodes = null,
     ): GameSpellCastUpgradeResolution {
         $slice = new CharacterRuleSlice(1, 1, 'world', $rules, []);
         $model = new CharacterChoices('Caster', null, $abilities, [], [], [], null);
@@ -386,6 +444,7 @@ final class GameSpellCastUpgradesTest extends TestCase
             $spellCode,
             $pathCode,
             $selected,
+            $recordedCodes,
         );
     }
 

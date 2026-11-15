@@ -128,8 +128,13 @@ final class GameStrikeWideCoverText
      * @return void
      */
     private function targetCheck(
-        GameRecord $game, int $actorUserId, string $threadId, CharacterRuleSlice $slice,
-        array $cover, ?array $speaker, ?string $parentId,
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        CharacterRuleSlice $slice,
+        array $cover,
+        ?array $speaker,
+        ?string $parentId,
     ): void {
         $part = $this->targetPart($cover);
         if ($part === null) {
@@ -188,7 +193,12 @@ final class GameStrikeWideCoverText
      * @return void
      */
     private function attemptCheck(
-        GameRecord $game, int $actorUserId, string $threadId, array $attempt, ?array $speaker, ?string $parentId,
+        GameRecord $game,
+        int $actorUserId,
+        string $threadId,
+        array $attempt,
+        ?array $speaker,
+        ?string $parentId,
     ): void {
         $roll = $attempt['roll'] ?? null;
         $actor = $attempt['actor'] ?? null;

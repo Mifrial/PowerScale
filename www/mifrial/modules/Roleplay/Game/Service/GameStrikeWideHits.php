@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Game\Dto\GameStrikeTargetOptions;
 use Mifrial\Roleplay\Game\Dto\GameStrikeWideRun;
-use Mifrial\Roleplay\Game\Dto\GameStrikeWriteScope;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -111,7 +110,12 @@ final class GameStrikeWideHits
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     private function results(
-        GameStrikeWideRun $run, array $open, array $prepared, array $opening, DimensionalNumber $damage, callable $penetration,
+        GameStrikeWideRun $run,
+        array $open,
+        array $prepared,
+        array $opening,
+        DimensionalNumber $damage,
+        callable $penetration,
     ): array {
         $results = [];
         foreach ($prepared['rows'] as $index => $row) {
@@ -138,8 +142,14 @@ final class GameStrikeWideHits
      * @throws \Mifrial\Roleplay\Game\Exception\GameInvalidException Если строка или лист битые.
      */
     private function result(
-        GameStrikeWideRun $run, array $open, array $prepared, array $opening,
-        array $row, int $index, DimensionalNumber $damage, callable $penetration,
+        GameStrikeWideRun $run,
+        array $open,
+        array $prepared,
+        array $opening,
+        array $row,
+        int $index,
+        DimensionalNumber $damage,
+        callable $penetration,
     ): array {
         $rowId = is_int($row['id'] ?? null) ? $row['id'] : 0;
         $state = $prepared['resolved'][$rowId] ?? null;

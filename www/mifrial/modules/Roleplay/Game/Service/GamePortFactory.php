@@ -249,7 +249,7 @@ final class GamePortFactory
                 $this->smartTableGateway($serviceLocator),
             ),
             $visibility,
-            new GameNpcView($visibility),
+            new GameNpcView($visibility, new GameNpcSheetRefresh($this->sheetEngines($serviceLocator))),
         );
     }
 

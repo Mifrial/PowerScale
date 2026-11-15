@@ -293,6 +293,7 @@ const rulesContext = computed(() =>
     mechanics.value,
     props.detail?.game.spaceId,
     props.detail?.game.rulesRevision,
+    props.detail?.game.spaceCode,
   ),
 );
 

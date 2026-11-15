@@ -172,7 +172,14 @@ final class GameStrikeResolutionRolls
 
         $advantages = $this->defenseAdvantages($pending, $defender, $hitCode, $reactionRuleCode, $slice, $extraAdvantages);
         $roll = $this->rules->rolls->block($this->blockRequest(
-            $game, $open, $hitCode, $attackerRoll, $defender, $inventoryId, $profileIndex, $advantages,
+            $game,
+            $open,
+            $hitCode,
+            $attackerRoll,
+            $defender,
+            $inventoryId,
+            $profileIndex,
+            $advantages,
         ));
         $roll['actorKey'] = $defender['kind'] . ':' . $defender['id'];
         $roll['label'] = 'Блок';

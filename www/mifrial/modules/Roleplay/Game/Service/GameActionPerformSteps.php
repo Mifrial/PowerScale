@@ -132,18 +132,32 @@ final class GameActionPerformSteps
      */
     public function assertResources(GameRecord $game, array $sheet, array $spends): void
     {
-        if (
-            $this->ports->rules->spends->hasSufficientResources(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $sheet,
-                $spends,
-            )
-        ) {
+        if ($this->hasSufficientResources($game, $sheet, $spends)) {
             return;
         }
 
         throw new GameInvalidException('Game action resources are insufficient');
+    }
+
+    /**
+     * Хватает ли ресурсов без отказа: решение принимает вызывающий.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<int, ResourceSpend> $spends Траты.
+     *
+     * @return bool true, если ресурсов достаточно.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function hasSufficientResources(GameRecord $game, array $sheet, array $spends): bool
+    {
+        return $this->ports->rules->spends->hasSufficientResources(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $sheet,
+            $spends,
+        );
     }
 
     /**

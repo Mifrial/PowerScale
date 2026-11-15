@@ -50,6 +50,43 @@ export class SpellCastUpgradeService {
     return options;
   }
 
+  /**
+   * Улучшения, записанные в источнике под это заклинание: путь записей не требует
+   * изученных экземпляров, состав берётся из `payload.recorded_spells[].upgrades`.
+   */
+  listRecorded(codes: readonly string[], spellCode: string, rules: Rule[]): SpellCastUpgradeOption[] {
+    const options: SpellCastUpgradeOption[] = [];
+    const seen = new Set<string>();
+    for (const code of codes) {
+      if (seen.has(code)) continue;
+      const rule = rules.find((entry) => entry.code === code);
+      const spec = this.upgradeSpec(rule);
+      if (!rule || !spec) continue;
+      const parent = spec.parent_ability_code;
+      if (parent && parent !== spellCode) continue;
+      if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
+        continue;
+      }
+      if (
+        !spec.spell_upgrade.action_point_delta &&
+        !spec.spell_upgrade.check_advantage &&
+        !spec.spell_upgrade.resistance_penetration_per_step &&
+        !spec.spell_upgrade.chain
+      ) {
+        continue;
+      }
+      seen.add(code);
+      options.push({ ruleCode: rule.code, name: rule.name, upgrade: spec.spell_upgrade });
+    }
+
+    return options;
+  }
+
+  /** Записанные улучшения, которые понимает серверный runtime. */
+  listRuntimeRecorded(codes: readonly string[], spellCode: string, rules: Rule[]): SpellCastUpgradeOption[] {
+    return this.listRecorded(codes, spellCode, rules).filter((option) => this.isRuntimeSupported(option));
+  }
+
   /** Улучшения, которые понимает серверный runtime и можно отправить в real-каст. */
   listRuntimeApplicable(
     abilities: CharacterAbility[],

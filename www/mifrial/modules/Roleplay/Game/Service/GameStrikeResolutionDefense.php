@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
-use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -166,8 +165,17 @@ final class GameStrikeResolutionDefense
         }
 
         return $this->rules->defense->resistance($this->actors->defenseTarget(
-            $game, $defender['kind'], $defender['id'], $itemRuleCode, $defender['profileType'], $profileIndex,
-            $choice['reaction'], $choice['blockItemInventoryId'], $rating, $penetration, $durabilityShave,
+            $game,
+            $defender['kind'],
+            $defender['id'],
+            $itemRuleCode,
+            $defender['profileType'],
+            $profileIndex,
+            $choice['reaction'],
+            $choice['blockItemInventoryId'],
+            $rating,
+            $penetration,
+            $durabilityShave,
         ));
     }
 

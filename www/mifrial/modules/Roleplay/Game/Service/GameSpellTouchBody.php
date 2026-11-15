@@ -21,7 +21,8 @@ final class GameSpellTouchBody
      *     pathCode: string,
      *     parameters: array<string, int|array{base: int, size: int}>,
      *     usedPower: array{source: array<string, mixed>, value: array{base: int, size: int}},
-     *     spellTarget: array{type: string, id: int}|null
+     *     spellTarget: array{type: string, id: int}|null,
+     *     chargeSpellId: string|null
      * }|null Блок или null.
      *
      * @throws ActionException INVALID_PARAMS.
@@ -37,7 +38,7 @@ final class GameSpellTouchBody
         }
 
         $allowed = ['spellCode', 'pathCode', 'parameters', 'usedPower'];
-        foreach (['spellTarget', 'upgrades'] as $key) {
+        foreach (['spellTarget', 'upgrades', 'chargeSpellId'] as $key) {
             if (array_key_exists($key, $raw)) {
                 $allowed[] = $key;
             }
@@ -54,7 +55,34 @@ final class GameSpellTouchBody
                 ? (new GameRunActionFields())->side($raw['spellTarget'])
                 : null,
             'upgrades' => (new GameSpellCastUpgradeBody())->parse($raw['upgrades'] ?? null),
+            'chargeSpellId' => $this->chargeSpellId($raw['chargeSpellId'] ?? null),
         ];
+    }
+
+    /**
+     * Id строки заряда.
+     *
+     * @param mixed $raw Значение.
+     *
+     * @return string|null Id или null.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function chargeSpellId(mixed $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        if (is_int($raw) && $raw >= 1) {
+            return (string) $raw;
+        }
+
+        if (is_string($raw) && preg_match('/^\d+$/', $raw) === 1) {
+            return $raw;
+        }
+
+        throw $this->invalid();
     }
 
     /**

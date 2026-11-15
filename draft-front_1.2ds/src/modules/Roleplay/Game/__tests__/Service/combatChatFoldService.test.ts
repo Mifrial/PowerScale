@@ -442,4 +442,40 @@ describe('buildCombatChatFolds', () => {
     if (attack?.type !== 'fold') return;
     expect(attack.fold.summary).toBe('Осведомитель промахивается по Старый Бородач! Помеха после удара остаётся.');
   });
+
+  it('сводка заклинания берёт насыщение и поддержание, а не голое «Заклинание»', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Колдунец', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, 'Колдунец применяет [[rule:saturation]]: потрачено 2 РУ, Мощь +1.', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+      msg(3, 'Колдунец поддерживает [[rule:lightning-generator]].', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const spell = turn.fold.children[0];
+    expect(spell?.type).toBe('fold');
+    if (spell?.type !== 'fold') return;
+    expect(spell.fold.summary).toContain('применяет [[rule:saturation]]');
+    expect(spell.fold.summary).toContain('поддерживает [[rule:lightning-generator]]');
+  });
+
+  it('сводка заклинания без узнаваемых строк берёт первое сообщение', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Колдунец', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, 'Колдунец что-то делает с [[rule:lightning-generator]].', {
+        thread: { id: 'spell-1', parentId: 't1', kind: COMBAT_CHAT_SPELL },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const spell = turn.fold.children[0];
+    expect(spell?.type).toBe('fold');
+    if (spell?.type !== 'fold') return;
+    expect(spell.fold.summary).toBe('Колдунец что-то делает с [[rule:lightning-generator]].');
+  });
 });

@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
@@ -1476,6 +1477,1791 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Sustained-каст создаёт строку, replay не дублирует, занятый источник отклоняется.
+     *
+     * @return void
+     */
+    public function testSustainedCastCreatesActiveSpellAndBlocksBusySource(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            withNpc: false,
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $body = $this->generatorBody($scene, 'gen-1', $battleVersion, $scene['heroVersion']);
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $active = $cast['data']['activeSpell'] ?? null;
+        self::assertIsArray($active);
+        self::assertSame('lightning-generator', $active['spellCode']);
+        self::assertSame('character:' . $scene['hero'], $active['casterKey']);
+        self::assertSame(['base' => 4, 'size' => 0], $active['usedPower']);
+        self::assertSame(['base' => 4, 'size' => 0], $active['sustainPower']);
+        self::assertSame(1, $active['startedRound']);
+        self::assertSame(1, $active['version']);
+        self::assertCount(1, $this->activeSpellRows($scene['battleId']));
+
+        $replay = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($cast['data'], $replay['data']);
+        self::assertCount(1, $this->activeSpellRows($scene['battleId']));
+
+        $again = $this->generatorBody(
+            $scene,
+            'gen-2',
+            (int) $cast['data']['version'],
+            (int) $cast['data']['caster']['sheetVersion'],
+        );
+        $busy = $this->dispatch('game.castSpell', $again);
+        self::assertSame('GAME_INVALID', $busy['error']['code'] ?? null, json_encode($busy));
+        self::assertCount(1, $this->activeSpellRows($scene['battleId']));
+    }
+
+    /**
+     * Каст без активационных параметров тоже создаёт строку и читается обратно.
+     *
+     * @return void
+     */
+    public function testSustainedCastWithoutParameters(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->fixedGeneratorCard()],
+            withNpc: false,
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $body = $this->generatorBody($scene, 'gen-1', $battleVersion, $scene['heroVersion']);
+        $body['parameters'] = [];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame([], $cast['data']['activeSpell']['parameterValues'] ?? null, json_encode($cast));
+        self::assertCount(1, $this->activeSpellRows($scene['battleId']));
+    }
+
+    /**
+     * Вход в ход отдаёт вопрос, поддержание и обрыв пишут строку и чат один раз.
+     *
+     * @return void
+     */
+    public function testSustainAndDropOnTurn(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            withNpc: false,
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-1', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-1',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompts = $end['data']['sustain'] ?? null;
+        self::assertIsArray($prompts);
+        self::assertCount(1, $prompts);
+        self::assertSame($spell['id'], $prompts[0]['id']);
+        self::assertSame(1, $prompts[0]['version']);
+
+        $sustainBody = [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-1',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $prompts[0]['version'],
+        ];
+        $belowBody = $sustainBody;
+        $belowBody['idempotencyKey'] = 'sustain-below';
+        $belowBody['sustainPower'] = ['base' => 3, 'size' => -2];
+        $below = $this->dispatch('game.sustainSpell', $belowBody);
+        self::assertSame('GAME_INVALID', $below['error']['code'] ?? null, json_encode($below));
+
+        $sustain = $this->dispatch('game.sustainSpell', $sustainBody);
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        self::assertSame(['base' => 4, 'size' => 0], $sustain['data']['spell']['sustainPower']);
+        self::assertSame(2, $sustain['data']['spell']['version']);
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $sustainIndex = $this->messageIndexOf($contents, 'продолжает поддерживать');
+        self::assertStringContainsString('[[rule:lightning-generator]]', $contents[$sustainIndex]);
+
+        $replay = $this->dispatch('game.sustainSpell', $sustainBody);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertEquals($sustain['data'], $replay['data']);
+        $replayed = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        self::assertCount(count($contents), $replayed);
+
+        $drop = $this->dispatch('game.dropSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'drop-1',
+            'expectedBattleVersion' => $sustain['data']['version'],
+            'expectedSheetVersion' => $sustain['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'expectedSpellVersion' => $sustain['data']['spell']['version'],
+        ]);
+        self::assertTrue($drop['success'], json_encode($drop));
+        self::assertCount(0, $this->activeSpellRows($scene['battleId']));
+        $dropped = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $this->messageIndexOf($dropped, 'перестаёт поддерживать');
+    }
+
+    /**
+     * Чужой игрок не поддерживает заклинание в ход NPC.
+     *
+     * @return void
+     */
+    public function testSustainRejectsForeignTurn(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-1', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+
+        $row = $this->battleRow($scene['battleId']);
+        $order = is_array($row['turn_order'] ?? null) ? $row['turn_order'] : [];
+        $activeIndex = is_int($row['active_index'] ?? null) ? $row['active_index'] : 0;
+        $battleVersion = (int) $cast['data']['version'];
+        $sheetVersion = (int) $cast['data']['caster']['sheetVersion'];
+        if (($order[$activeIndex]['type'] ?? null) === 'character') {
+            $ended = $this->dispatch('game.endTurn', [
+                'gameId' => $scene['gameId'],
+                'battleId' => $scene['battleId'],
+                'idempotencyKey' => 'end-1',
+                'expectedBattleVersion' => $battleVersion,
+                'expectedSheetVersion' => $sheetVersion,
+            ]);
+            self::assertTrue($ended['success'], json_encode($ended));
+            $battleVersion = (int) $ended['data']['version'];
+            $sheetVersion = (int) $ended['data']['sheetVersion'];
+        }
+
+        $foreign = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'foreign-1',
+            'expectedBattleVersion' => $battleVersion,
+            'expectedSheetVersion' => $sheetVersion,
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => 1,
+        ]);
+        self::assertSame('GAME_INVALID', $foreign['error']['code'] ?? null, json_encode($foreign));
+        self::assertCount(1, $this->activeSpellRows($scene['battleId']));
+    }
+
+    /**
+     * Потолок мощи берётся у экземпляра ядра, а не из общей характеристики.
+     *
+     * @return void
+     */
+    public function testItemSourcePowerCapsAtInstance(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            extraRules: ['magic-core' => $this->magicCoreCard()],
+            withNpc: false,
+            heroInventory: [[
+                'ruleCode' => 'magic-core',
+                'equipped' => true,
+                'parameters' => ['power' => ['base' => 3, 'size' => 0]],
+            ]],
+        );
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $tooStrong = $this->dispatch('game.castSpell', $this->sourcePowerBody(
+            $scene,
+            'core-strong',
+            $battleVersion,
+            $inventoryId,
+            ['base' => 4, 'size' => 0],
+        ));
+        self::assertSame('GAME_INVALID', $tooStrong['error']['code'] ?? null, json_encode($tooStrong));
+
+        $fits = $this->dispatch('game.castSpell', $this->sourcePowerBody(
+            $scene,
+            'core-fits',
+            $battleVersion,
+            $inventoryId,
+            ['base' => 3, 'size' => 0],
+        ));
+        self::assertTrue($fits['success'], json_encode($fits));
+        self::assertSame(4, $fits['data']['spent']);
+    }
+
+    /**
+     * Поддержание не поднимает мощь выше мощи экземпляра ядра.
+     *
+     * @return void
+     */
+    public function testSustainRejectsPowerAboveItemSource(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            extraRules: ['magic-core' => $this->magicCoreCard()],
+            withNpc: false,
+            heroInventory: [[
+                'ruleCode' => 'magic-core',
+                'equipped' => true,
+                'parameters' => ['power' => ['base' => 3, 'size' => 0]],
+            ]],
+        );
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch('game.castSpell', $this->sourcePowerBody(
+            $scene,
+            'core-sustain',
+            $battleVersion,
+            $inventoryId,
+            ['base' => 3, 'size' => 0],
+        ));
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-sustain',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompt = $end['data']['sustain'][0] ?? null;
+        self::assertIsArray($prompt);
+
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-strong',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $prompt['version'],
+        ]);
+        self::assertSame('GAME_INVALID', $sustain['error']['code'] ?? null, json_encode($sustain));
+    }
+
+    /**
+     * Каст через кристалл списывает ману и пишет её в объявление.
+     *
+     * @return void
+     */
+    public function testCrystalCastSpendsMana(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'lightning-strike']]);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        self::assertGreaterThan(0, $inventoryId);
+        $before = $this->itemManaOf($scene['hero'], $inventoryId);
+        self::assertSame(10, $before);
+
+        $cast = $this->dispatch('game.castSpell', $this->crystalBody($scene, $inventoryId));
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('inventory:' . $inventoryId, $cast['data']['mana']['sourceKey'] ?? null);
+        self::assertSame(4, $cast['data']['mana']['cost'] ?? null);
+        self::assertSame($before - 4, $this->itemManaOf($scene['hero'], $inventoryId));
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $announce = $this->messageIndexOf($contents, 'сотворяет');
+        self::assertStringContainsString('4 маны', $contents[$announce]);
+    }
+
+    /**
+     * Записанное в кристалл улучшение применяется при касте без изучения: цена в ОД и мане растёт.
+     *
+     * @return void
+     */
+    public function testCrystalCastAppliesRecordedUpgrade(): void
+    {
+        $scene = $this->crystalScene([[
+            'ruleCode' => 'lightning-strike',
+            'upgrades' => ['crystal-careful'],
+        ]], volume: 40);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $body = $this->crystalBody($scene, $inventoryId);
+        $body['upgrades'] = [['code' => 'crystal-careful']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('crystal-careful', $cast['data']['cast']['upgrades'][0]['code'] ?? null);
+        self::assertSame(1, $cast['data']['cast']['upgrades'][0]['actionPointDelta'] ?? null);
+        // Сотворение 4 ОД + 1 ОД улучшения остаются в одном ходе: мана 4 × 1.
+        self::assertSame(4, $cast['data']['mana']['cost'] ?? null);
+    }
+
+    /**
+     * Улучшение, которого нет в записи кристалла, отклоняется.
+     *
+     * @return void
+     */
+    public function testCrystalCastRejectsUnrecordedUpgrade(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'lightning-strike']]);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $body = $this->crystalBody($scene, $inventoryId);
+        $body['upgrades'] = [['code' => 'crystal-careful']];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertSame('GAME_INVALID', $cast['error']['code'] ?? null, json_encode($cast));
+        self::assertStringContainsString('not recorded', $cast['error']['message'] ?? '');
+    }
+
+    /**
+     * Обычный путь не кастует из кристалла: нужен путь записей.
+     *
+     * @return void
+     */
+    public function testCrystalRejectsStudiedPath(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'lightning-strike']]);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $body = $this->crystalBody($scene, $inventoryId);
+        $body['pathCode'] = 'arcanist';
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertSame('GAME_INVALID', $cast['error']['code'] ?? null, json_encode($cast));
+    }
+
+    /**
+     * Путь записей не кастует из ядра: записи живут только в хранилище.
+     *
+     * @return void
+     */
+    public function testRecordedPathRejectsCoreSource(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'lightning-strike']]);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $body = $this->crystalBody($scene, $inventoryId);
+        $body['usedPower']['source'] = ['kind' => 'characteristic', 'code' => 'magic-power'];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertSame('GAME_INVALID', $cast['error']['code'] ?? null, json_encode($cast));
+    }
+
+    /**
+     * Поддержание из кристалла каждый ход списывает ману и пересчитывает Стабильность.
+     *
+     * @return void
+     */
+    public function testCrystalSustainSpendsMana(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], null, false);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        self::assertGreaterThan(0, $inventoryId);
+        self::assertSame(10, $this->itemManaOf($scene['hero'], $inventoryId));
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $cast = $this->dispatch('game.castSpell', $this->crystalSustainBody($scene, $inventoryId, $battleVersion));
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell, json_encode($cast));
+        self::assertSame(6, $this->itemManaOf($scene['hero'], $inventoryId));
+        self::assertSame(['base' => 3, 'size' => 0], $spell['stability'] ?? null);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-crystal',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompt = $end['data']['sustain'][0] ?? null;
+        self::assertIsArray($prompt);
+
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-crystal',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $prompt['version'],
+        ]);
+
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        self::assertSame(4, $sustain['data']['mana']['cost'] ?? null);
+        self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
+        self::assertSame(['base' => 3, 'size' => 0], $sustain['data']['spell']['stability'] ?? null);
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $index = $this->messageIndexOf($contents, 'продолжает поддерживать');
+        self::assertStringContainsString('4 маны', $contents[$index]);
+    }
+
+    /**
+     * Нехватка маны дропает эффект целиком, без частичной оплаты.
+     *
+     * @return void
+     */
+    public function testCrystalSustainDropsWithoutMana(): void
+    {
+        $scene = $this->crystalScene([['ruleCode' => 'crystal-generator']], 6, false);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $cast = $this->dispatch('game.castSpell', $this->crystalSustainBody($scene, $inventoryId, $battleVersion));
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+        self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-crystal',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompt = $end['data']['sustain'][0] ?? null;
+        self::assertIsArray($prompt);
+
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-crystal',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $prompt['version'],
+        ]);
+
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        self::assertTrue($sustain['data']['dropped'] ?? false);
+        self::assertSame('payment', $sustain['data']['reason'] ?? null);
+        self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
+        self::assertCount(0, $this->activeSpellRows($scene['battleId']));
+    }
+
+    /**
+     * Врождённый кристалл пополняет ману от Стойкости до лимита.
+     *
+     * @return void
+     */
+    public function testCrystalRefillsManaFromStamina(): void
+    {
+        $scene = $this->crystalScene([], 2, false, true);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        self::assertSame(2, $this->itemManaOf($scene['hero'], $inventoryId));
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $this->runStateAction(
+            $scene['gameId'],
+            $scene['battleId'],
+            $battleVersion,
+            'fill-crystal-1',
+            $scene['hero'],
+            'fill-crystal',
+        );
+
+        self::assertSame(6, $this->itemManaOf($scene['hero'], $inventoryId));
+    }
+
+    /**
+     * Извлечённый кристалл не пополняется: эффект отвергается.
+     *
+     * @return void
+     */
+    public function testExtractedCrystalDoesNotRefill(): void
+    {
+        $scene = $this->crystalScene([], 10, false, false);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $response = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'fill-crystal-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->actionEnvelope([
+                'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'actionRuleCode' => 'fill-crystal',
+                'followUpTargetKey' => null,
+            ]),
+        ]);
+
+        self::assertSame('GAME_INVALID', $response['error']['code'] ?? null, json_encode($response));
+        self::assertSame(10, $this->itemManaOf($scene['hero'], $inventoryId));
+    }
+
+    /**
+     * Пустая мана кристалла не даёт сотворить.
+     *
+     * @return void
+     */
+    public function testCrystalWithoutManaCannotCast(): void
+    {
+        $scene = $this->crystalScene([
+            ['ruleCode' => 'discharge'],
+            ['ruleCode' => 'lightning-strike'],
+        ]);
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        self::assertGreaterThan(0, $inventoryId);
+        self::assertSame(0, $this->itemManaOf($scene['hero'], $inventoryId));
+
+        $cast = $this->dispatch('game.castSpell', $this->crystalBody($scene, $inventoryId));
+
+        self::assertSame('GAME_INVALID', $cast['error']['code'] ?? null, json_encode($cast));
+    }
+
+    /**
+     * «Оптимизация потоков» поднимает потолок мощи ядра через `spell_source_power`.
+     *
+     * @return void
+     */
+    public function testCoreFlowBonusRaisesSourceCap(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [
+                ['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'core-flow-optimization', 'level' => 1],
+            ],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            extraRules: [
+                'magic-core' => $this->magicCoreCard(),
+                'core-flow-optimization' => $this->coreFlowCard(),
+            ],
+            withNpc: false,
+            heroInventory: [[
+                'ruleCode' => 'magic-core',
+                'equipped' => true,
+                'parameters' => ['power' => ['base' => 4, 'size' => 0]],
+            ]],
+        );
+        $inventoryId = $this->heroInventoryId($scene['hero']);
+        $battleVersion = $this->rollSceneInitiative($scene);
+
+        $boosted = $this->dispatch('game.castSpell', $this->sourcePowerBody(
+            $scene,
+            'core-flow',
+            $battleVersion,
+            $inventoryId,
+            ['base' => 5, 'size' => 0],
+        ));
+        self::assertTrue($boosted['success'], json_encode($boosted));
+    }
+
+    /**
+     * Снятый источник на входе хода снимает эффект и пишет чат.
+     *
+     * @return void
+     */
+    public function testEndTurnDropsSpellWithLostSource(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lightning-generator' => $this->generatorCard()],
+            extraRules: ['magic-core' => $this->magicCoreCard()],
+            withNpc: false,
+            heroInventory: [[
+                'ruleCode' => 'magic-core',
+                'equipped' => true,
+                'parameters' => ['power' => ['base' => 4, 'size' => 0]],
+            ]],
+        );
+        $choices = $this->characterFacade()->get($scene['hero'])->getChoices();
+        $inventory = is_array($choices['inventory'] ?? null) ? $choices['inventory'] : [];
+        $inventoryId = is_int($inventory[0]['id'] ?? null) ? $inventory[0]['id'] : 0;
+        self::assertGreaterThan(0, $inventoryId);
+
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $body = $this->generatorBody($scene, 'gen-1', $battleVersion, $scene['heroVersion']);
+        $body['usedPower']['source'] = ['kind' => 'item', 'inventoryId' => $inventoryId];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('inventory:' . $inventoryId, $cast['data']['activeSpell']['sourceKey']);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-1',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        self::assertCount(1, $end['data']['sustain'] ?? []);
+
+        $unequipped = $this->dispatch('game.manualSheet', [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'unequip-1',
+            'operation' => 'setEquipped',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'details' => ['inventoryId' => $inventoryId, 'equipped' => false],
+        ]);
+        self::assertTrue($unequipped['success'], json_encode($unequipped));
+
+        $end2 = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-2',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $unequipped['data']['actualVersion'],
+        ]);
+        self::assertTrue($end2['success'], json_encode($end2));
+        self::assertSame([], $end2['data']['sustain'] ?? null);
+        self::assertCount(0, $this->activeSpellRows($scene['battleId']));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $this->messageIndexOf($contents, 'спадает');
+    }
+
+    /**
+     * Заряд выдаётся при создании и показывается в листе с привязкой к источнику.
+     *
+     * @return void
+     */
+    public function testChargedGeneratorGrantsCharge(): void
+    {
+        $scene = $this->chargeScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-charge', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame(6, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $state = $this->chargeState($scene['hero']);
+        self::assertIsArray($state);
+        self::assertSame(1, $state['value']);
+        self::assertSame('characteristic:magic-power', $state['boundSourceKey']);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $this->messageIndexOf($contents, 'получает');
+    }
+
+    /**
+     * Заряд тратится сопутствующим действием: цена 2 ОД, строка заряда снимается.
+     *
+     * @return void
+     */
+    public function testChargeSpendCastsSparkForTwoAp(): void
+    {
+        $scene = $this->chargeScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-charge', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $spark = $this->dispatch('game.castSpell', $this->sparkBody(
+            $scene,
+            (string) $spell['id'],
+            (int) $cast['data']['version'],
+            (int) $cast['data']['caster']['sheetVersion'],
+        ));
+        self::assertTrue($spark['success'], json_encode($spark));
+        self::assertSame(2, $spark['data']['spent']);
+        self::assertSame(4, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertNull($this->chargeState($scene['hero']));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $spendIndex = $this->messageIndexOf($contents, 'тратит Electrocharge');
+        self::assertStringContainsString('[[rule:spark]]', $contents[$spendIndex]);
+        self::assertStringContainsString('[[rule:lightning-generator]]', $contents[$spendIndex]);
+
+        $empty = $this->dispatch('game.castSpell', $this->sparkBody(
+            $scene,
+            (string) $spell['id'],
+            (int) $spark['data']['version'],
+            (int) $spark['data']['caster']['sheetVersion'],
+            'spark-empty',
+        ));
+        self::assertSame('GAME_INVALID', $empty['error']['code'] ?? null, json_encode($empty));
+    }
+
+    /**
+     * Отложенный каст через заряд тратит заряд на resolve и объявляет каст.
+     *
+     * @return void
+     */
+    public function testSaturationResolveSpendsChargeAndAnnouncesCast(): void
+    {
+        $saturation = $this->saturationCards();
+        $saturation['dynamic-energy-saturation']['spec']['spell_saturation']['min_rating'] = 1;
+        $saturation['dynamic-energy-saturation']['spec']['spell_saturation']['rating_per_step'] = 1;
+        $keywordId = $this->ensureKeyword('electromancy', 'Электромансия');
+        $scene = $this->chargeScene(
+            [
+                ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'charged-strike', 'level' => 1, 'domainCode' => 'arcanist'],
+            ],
+            true,
+            $saturation,
+            [
+                'charged-strike' => [
+                    'type' => 'ability',
+                    'name' => 'Charged Strike',
+                    'keywordIds' => [$keywordId],
+                    'spec' => [
+                        'type' => 'spell',
+                        'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                        'requirements' => [],
+                        'spell' => [
+                            'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                            'control' => ['base' => 3, 'size' => -1],
+                            'targeting' => 'entity',
+                            'duration' => ['type' => 'instant'],
+                        ],
+                        'parameters' => [[
+                            'code' => 'x',
+                            'label' => 'X',
+                            'kind' => 'dimensional',
+                            'resolution' => 'activation',
+                            'default' => ['base' => 3, 'size' => 0],
+                            'min' => ['base' => 3, 'size' => -1],
+                            'max' => ['base' => 5, 'size' => 1],
+                        ]],
+                        'hit_resolution' => ['type' => 'auto', 'rating' => 2],
+                        'action_components' => [[
+                            'type' => 'resource',
+                            'resource_code' => 'action-points',
+                            'amount' => 4,
+                        ]],
+                    ],
+                ],
+            ],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-sat', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+        self::assertNotNull($this->chargeState($scene['hero']));
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+
+        $check = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'spark-check-sat',
+            'expectedVersion' => $cast['data']['version'],
+            'action' => [
+                'phase' => 'check',
+                'kind' => 'spell',
+                'code' => 'charged-strike',
+                'actor' => ['type' => 'character', 'id' => $scene['hero']],
+                'context' => [
+                    'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+                    'pathCode' => 'arcanist',
+                    'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 5, 'size' => 1],
+                    ],
+                    'target' => ['type' => 'npc', 'id' => $scene['npcId']],
+                    'expectedTargetVersion' => $scene['targetVersion'],
+                    'chargeSpellId' => $spell['id'],
+                ],
+            ],
+        ]);
+        self::assertTrue($check['success'], json_encode($check));
+        self::assertSame('check', $check['data']['phase'] ?? null);
+        self::assertNotNull($this->chargeState($scene['hero']));
+
+        $resolve = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, (string) $check['data']['castId'], 1, (int) $check['data']['version']),
+        );
+        self::assertTrue($resolve['success'], json_encode($resolve));
+        self::assertSame('resolve', $resolve['data']['phase'] ?? null);
+        self::assertNull($this->chargeState($scene['hero']));
+        self::assertSame($beforeAp - 2, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $announce = $this->messageIndexOf($contents, 'тратит Electrocharge');
+        self::assertStringContainsString('[[rule:charged-strike]]', $contents[$announce]);
+        self::assertStringContainsString('за 2 ОД', $contents[$announce]);
+    }
+
+    /**
+     * Заряд не передаёт мощь: цель с мощью выше поддержания всё равно кастуется.
+     *
+     * @return void
+     */
+    public function testChargeSpendIgnoresSustainedPower(): void
+    {
+        $scene = $this->chargeScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody(
+                $scene,
+                'gen-low',
+                $battleVersion,
+                $scene['heroVersion'],
+                ['base' => 3, 'size' => -1],
+            ),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'end-low',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompt = $end['data']['sustain'][0] ?? null;
+        self::assertIsArray($prompt);
+
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-low',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 3, 'size' => -1],
+            'expectedSpellVersion' => $prompt['version'],
+        ]);
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        self::assertSame(['base' => 3, 'size' => -1], $sustain['data']['spell']['sustainPower']);
+
+        $spark = $this->dispatch('game.castSpell', $this->sparkBody(
+            $scene,
+            (string) $spell['id'],
+            (int) $sustain['data']['version'],
+            (int) $sustain['data']['sheetVersion'],
+            'spark-low',
+        ));
+        self::assertTrue($spark['success'], json_encode($spark));
+        self::assertSame(2, $spark['data']['spent']);
+    }
+
+    /**
+     * Поддержание возвращает заряд, обрыв снимает и заряд, и строку.
+     *
+     * @return void
+     */
+    public function testSustainRefillsChargeAndDropRemovesIt(): void
+    {
+        $scene = $this->chargeScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-charge', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $spark = $this->dispatch('game.castSpell', $this->sparkBody(
+            $scene,
+            (string) $spell['id'],
+            (int) $cast['data']['version'],
+            (int) $cast['data']['caster']['sheetVersion'],
+        ));
+        self::assertTrue($spark['success'], json_encode($spark));
+        self::assertNull($this->chargeState($scene['hero']));
+
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-charge',
+            'expectedBattleVersion' => $spark['data']['version'],
+            'expectedSheetVersion' => $spark['data']['caster']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $spell['version'],
+        ]);
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        $state = $this->chargeState($scene['hero']);
+        self::assertIsArray($state);
+        self::assertSame(1, $state['value']);
+
+        $drop = $this->dispatch('game.dropSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'drop-charge',
+            'expectedBattleVersion' => $sustain['data']['version'],
+            'expectedSheetVersion' => $sustain['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'expectedSpellVersion' => $sustain['data']['spell']['version'],
+        ]);
+        self::assertTrue($drop['success'], json_encode($drop));
+        self::assertNull($this->chargeState($scene['hero']));
+        self::assertCount(0, $this->activeSpellRows($scene['battleId']));
+    }
+
+    /**
+     * Касание тоже тратит заряд и пишет об этом в чат.
+     *
+     * @return void
+     */
+    public function testTouchCastSpendsCharge(): void
+    {
+        $scene = $this->chargeScene(withNpc: true);
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-touch', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-charge-1',
+            'expectedVersion' => $cast['data']['version'],
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'spark-touch',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                    'chargeSpellId' => $spell['id'],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-charge-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertNull($this->chargeState($scene['hero']));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $spendIndex = $this->messageIndexOf($contents, 'тратит Electrocharge');
+        self::assertStringContainsString('[[rule:spark-touch]]', $contents[$spendIndex]);
+    }
+
+    /**
+     * «Накопление зарядов» поднимает кап, поддержание добивает до двух.
+     *
+     * @return void
+     */
+    public function testChargeCapUpgradeRaisesClamp(): void
+    {
+        $scene = $this->chargeScene([
+            ['ruleCode' => 'charge-accumulation', 'level' => 1, 'domainCode' => 'arcanist'],
+        ]);
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch(
+            'game.castSpell',
+            $this->generatorBody($scene, 'gen-cap', $battleVersion, $scene['heroVersion']),
+        );
+        self::assertTrue($cast['success'], json_encode($cast));
+        $spell = $cast['data']['activeSpell'];
+        self::assertIsArray($spell);
+        self::assertSame(1, $this->chargeState($scene['hero'])['value'] ?? null);
+
+        $first = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-cap-1',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $spell['version'],
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        self::assertSame(2, $this->chargeState($scene['hero'])['value'] ?? null);
+
+        $second = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'sustain-cap-2',
+            'expectedBattleVersion' => $first['data']['version'],
+            'expectedSheetVersion' => $first['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $first['data']['spell']['version'],
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertSame(2, $this->chargeState($scene['hero'])['value'] ?? null);
+    }
+
+    /**
+     * Карточка «Генератора»: sustained без урона.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function generatorCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 5, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'sustained',
+                        'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                    ],
+                ],
+                'parameters' => [[
+                    'code' => 'x',
+                    'label' => 'X',
+                    'kind' => 'dimensional',
+                    'resolution' => 'activation',
+                    'default' => ['base' => 3, 'size' => 0],
+                    'min' => ['base' => 3, 'size' => -1],
+                    'max' => ['base' => 5, 'size' => 1],
+                ]],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 4,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка «Оптимизации потоков» с бонусом к мощи источника.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function coreFlowCard(): array
+    {
+        return [
+            'type' => 'ability',
+            'spec' => [
+                'type' => 'skill',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [0, 0, 0]]],
+                'grants' => [],
+                'spell_source_power' => [
+                    'scope' => ['kind' => 'item', 'item_code' => 'magic-core'],
+                    'path_scoped' => true,
+                    'amount' => [
+                        'type' => 'ability_level',
+                        'ability_code' => 'core-flow-optimization',
+                        'multiplier' => 1,
+                    ],
+                ],
+                'parent_ability_code' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Id первого предмета героя.
+     *
+     * @param int $hero Id героя.
+     *
+     * @return int Id строки или 0.
+     */
+    private function heroInventoryId(int $hero): int
+    {
+        $choices = $this->characterFacade()->get($hero)->getChoices();
+        $inventory = is_array($choices['inventory'] ?? null) ? $choices['inventory'] : [];
+
+        return is_int($inventory[0]['id'] ?? null) ? $inventory[0]['id'] : 0;
+    }
+
+    /**
+     * Каст «Генератора» через предмет с заданной мощью.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $key Ключ идемпотентности.
+     * @param int $battleVersion Версия боя.
+     * @param int $inventoryId Id предмета.
+     * @param array{base: int, size: int} $power Мощь.
+     *
+     * @return array<string, mixed> Ответ.
+     */
+    private function sourcePowerBody(
+        array $scene,
+        string $key,
+        int $battleVersion,
+        int $inventoryId,
+        array $power,
+    ): array {
+        $body = $this->generatorBody($scene, $key, $battleVersion, $scene['heroVersion']);
+        $body['usedPower'] = [
+            'source' => ['kind' => 'item', 'inventoryId' => $inventoryId],
+            'value' => $power,
+        ];
+
+        return $body;
+    }
+
+    /**
+     * Сцена с кристаллом-хранилищем у героя.
+     *
+     * @param array<int, array{ruleCode: string}> $recorded Записанные заклинания.
+     *
+     * @return array<string, mixed> Сцена.
+     */
+    private function crystalScene(
+        array $recorded = [],
+        ?int $mana = null,
+        bool $withNpc = true,
+        bool $innate = false,
+        int $volume = 20,
+    ): array
+    {
+        $mana ??= $volume - $this->occupiedVolume($recorded);
+
+        return $this->spellScene(
+            10,
+            null,
+            [],
+            extraRules: $this->crystalRules($innate),
+            withNpc: $withNpc,
+            heroInventory: [[
+                'ruleCode' => 'magic-crystal',
+                'equipped' => true,
+                'parameters' => ['max_power' => ['base' => 4, 'size' => 0]],
+                'payload' => ['volume' => $volume, 'recorded_spells' => $recorded],
+            ]],
+            heroSheet: ['items' => ['inventory:1' => [
+                'ruleCode' => 'magic-crystal',
+                'inventoryId' => 1,
+                'maxPower' => ['base' => 4, 'size' => 0],
+                'volume' => $volume,
+                'occupied' => $this->occupiedVolume($recorded),
+                'mana' => $mana,
+                'manaMax' => $volume - $this->occupiedVolume($recorded),
+            ]]],
+        );
+    }
+
+    /**
+     * Занятый Объём записей для fixture.
+     *
+     * @param array<int, array{ruleCode: string}> $recorded Записи.
+     *
+     * @return int Объём.
+     */
+    private function occupiedVolume(array $recorded): int
+    {
+        $volume = 0;
+        foreach ($recorded as $entry) {
+            $volume += 10;
+            $upgrades = is_array($entry['upgrades'] ?? null) ? $entry['upgrades'] : [];
+            $volume += 10 * count($upgrades);
+        }
+
+        return $volume;
+    }
+
+    /**
+     * Тело каста через кристалл.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param int $inventoryId Строка инвентаря.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function crystalBody(array $scene, int $inventoryId): array
+    {
+        $body = $this->spellBody($scene);
+        $body['pathCode'] = 'simple-magic';
+        $body['usedPower'] = [
+            'source' => ['kind' => 'item', 'inventoryId' => $inventoryId],
+            'value' => ['base' => 4, 'size' => 0],
+        ];
+
+        return $body;
+    }
+
+    /**
+     * Текущая мана строки инвентаря.
+     *
+     * @param int $hero Персонаж.
+     * @param int $inventoryId Строка.
+     *
+     * @return int Мана.
+     */
+    private function itemManaOf(int $hero, int $inventoryId): int
+    {
+        $sheet = $this->characterFacade()->get($hero)->getSheet();
+        $items = is_array($sheet['items'] ?? null) ? $sheet['items'] : [];
+        $row = $items['inventory:' . $inventoryId] ?? null;
+
+        return is_array($row) && is_int($row['mana'] ?? null) ? $row['mana'] : -1;
+    }
+
+    /**
+     * Поддерживаемое заклинание кристалла без цели.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function crystalGeneratorCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                    'control' => ['base' => 3, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'sustained',
+                        'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
+                    ],
+                ],
+                'parameters' => [[
+                    'code' => 'x',
+                    'label' => 'X',
+                    'kind' => 'dimensional',
+                    'resolution' => 'activation',
+                    'default' => ['base' => 3, 'size' => 0],
+                    'min' => ['base' => 3, 'size' => -1],
+                    'max' => ['base' => 5, 'size' => 1],
+                ]],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 4,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Тело каста поддерживаемого заклинания из кристалла.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param int $inventoryId Строка инвентаря.
+     * @param int $battleVersion Версия боя.
+     * @param string $key Ключ идемпотентности.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function crystalSustainBody(
+        array $scene,
+        int $inventoryId,
+        int $battleVersion,
+        string $key = 'cast-crystal',
+    ): array {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'crystal-generator',
+            'pathCode' => 'simple-magic',
+            'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+            'usedPower' => [
+                'source' => ['kind' => 'item', 'inventoryId' => $inventoryId],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка мира кристалла.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function crystalRules(bool $innate = false): array
+    {
+        $generator = $this->crystalGeneratorCard();
+
+        return ['crystal-generator' => ['type' => 'ability', 'spec' => [
+            'type' => 'spell',
+            'zones' => $generator['zones'],
+            ...$generator['spec'],
+        ]], 'simple-magic' => ['type' => 'magic_path', 'spec' => [
+            'check_code' => 'cast-check',
+            'cast_check_code' => 'cast-check',
+            'power_characteristic_code' => 'magic-power',
+            'control_characteristic_code' => null,
+            'includes_path_codes' => [],
+            'no_control' => true,
+            'recorded_casting' => true,
+        ]], 'fill-crystal' => ['type' => 'ability', 'spec' => [
+            'type' => 'action',
+            'zones' => ['or' => ['kind' => 'automatic']],
+            'action_components' => [[
+                'type' => 'resource',
+                'resource_code' => 'action-points',
+                'amount' => 1,
+            ]],
+            'action_effects' => [[
+                'type' => 'item_mana_refill',
+                'characteristic_code' => 'stamina',
+            ]],
+        ]], 'crystal-careful' => ['type' => 'ability', 'spec' => [
+            'type' => 'skill',
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'requirements' => [],
+            'grants' => [],
+            'parent_ability_code' => 'lightning-strike',
+            'spell_upgrade' => ['action_point_delta' => 1],
+        ]], 'magic-crystal' => [
+            'type' => 'item',
+            'spec' => [
+                'category' => 'equipment',
+                'innate' => $innate,
+                'special_rule_codes' => [],
+                'storage' => [
+                    'power_parameter' => 'max_power',
+                    'volume_parameter' => 'volume',
+                    'recorded_parameter' => 'recorded_spells',
+                    'volume_base' => 20,
+                    'volume_increment' => 10,
+                    'min_volume_power_delta' => 3,
+                ],
+            ],
+        ]];
+    }
+
+    /**
+     * Карточка магического ядра: мощь экземпляра даёт `magic-power`.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function magicCoreCard(): array
+    {
+        return [
+            'type' => 'item',
+            'spec' => [
+                'category' => 'equipment',
+                'innate' => true,
+                'special_rule_codes' => [],
+                'grants' => [[
+                    'type' => 'characteristic_parameter',
+                    'characteristic_code' => 'magic-power',
+                    'parameter_code' => 'power',
+                    'per_unit' => 1,
+                    'permanent' => true,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка «Генератора» без активационных параметров.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function fixedGeneratorCard(): array    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 5, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'sustained'],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 4,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Сцена с заряжаемым «Генератором» и мгновенной целью электромансии.
+     *
+     * @param array<int, array{ruleCode: string, level: int, domainCode: string}> $extraAbilities Способности.
+     * @param bool $withNpc Добавить цель.
+     *
+     * @return array<string, mixed> Сцена.
+     */
+    private function chargeScene(
+        array $extraAbilities = [],
+        bool $withNpc = false,
+        array $extraCards = [],
+        array $extraRules = [],
+    ): array {
+        $keywordId = $this->ensureKeyword('electromancy', 'Электромансия');
+
+        return $this->spellScene(
+            10,
+            null,
+            array_merge([
+                ['ruleCode' => 'lightning-generator', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'spark', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'spark-touch', 'level' => 1, 'domainCode' => 'arcanist'],
+            ], $extraAbilities),
+            extraRules: array_merge([
+                'electrocharge' => [
+                    'type' => 'state',
+                    'spec' => ['value_type' => 'number', 'aggregation' => 'independent'],
+                ],
+                'spark' => $this->sparkCard($keywordId),
+                'spark-touch' => $this->sparkTouchCard($keywordId),
+            ], $extraRules),
+            extraCards: array_merge([
+                'lightning-generator' => $this->chargedGeneratorCard(),
+                'charge-accumulation' => $this->chargeCapCard(),
+            ], $extraCards),
+            withNpc: $withNpc,
+        );
+    }
+
+    /**
+     * Признак электромансии для траты заряда.
+     *
+     * @param string $code Код.
+     * @param string $name Имя.
+     *
+     * @return int Id.
+     */
+    private function ensureKeyword(string $code, string $name): int
+    {
+        $keywords = $this->gameApplication()->getLocator()->get(IKeywordContainer::class)->get(IKeywords::class);
+        self::assertInstanceOf(IKeywords::class, $keywords);
+        try {
+            return $keywords->add($code, $name);
+        } catch (KeywordInvalidException) {
+            return $keywords->getByCode($code)->getId();
+        }
+    }
+
+    /**
+     * Строка электрозаряда кастера.
+     *
+     * @param int $characterId Персонаж.
+     *
+     * @return array<string, mixed>|null Строка или null.
+     */
+    private function chargeState(int $characterId): ?array
+    {
+        $states = $this->characterFacade()->get($characterId)->getSheet()['states'] ?? [];
+        foreach (is_array($states) ? $states : [] as $state) {
+            if (is_array($state) && ($state['stateRuleCode'] ?? null) === 'electrocharge') {
+                return $state;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Тело каста «Искры» через заряд.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $chargeSpellId Строка поддержания.
+     * @param int $battleVersion Версия боя.
+     * @param int $sheetVersion Версия листа.
+     * @param string $key Ключ.
+     * @param array{base: int, size: int} $usedPower Мощь.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function sparkBody(
+        array $scene,
+        string $chargeSpellId,
+        int $battleVersion,
+        int $sheetVersion,
+        string $key = 'spark-1',
+        array $usedPower = ['base' => 4, 'size' => 0],
+    ): array {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $sheetVersion,
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'spark',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => $usedPower,
+            ],
+            'chargeSpellId' => $chargeSpellId,
+        ];
+    }
+
+    /**
+     * «Генератор» с формой заряда.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function chargedGeneratorCard(): array
+    {
+        $card = $this->generatorCard();
+        $card['spec']['spell']['charge'] = [
+            'state_code' => 'electrocharge',
+            'grant' => 1,
+            'default_cap' => 1,
+            'spend' => [
+                'amount' => 1,
+                'action_points' => 2,
+                'keyword_code' => 'electromancy',
+                'creation_max' => 'turn_ap',
+                'exclude_duration_types' => ['sustained'],
+            ],
+        ];
+
+        return $card;
+    }
+
+    /**
+     * Мгновенная цель электромансии без урона и касания.
+     *
+     * @param int $keywordId Признак.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function sparkCard(int $keywordId): array
+    {
+        return [
+            'type' => 'ability',
+            'name' => 'Spark',
+            'keywordIds' => [$keywordId],
+            'spec' => [
+                'type' => 'spell',
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'requirements' => [],
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => 0],
+                    'control' => ['base' => 3, 'size' => 0],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'instant'],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 4,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Мгновенное касание электромансии без урона.
+     *
+     * @param int $keywordId Признак.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function sparkTouchCard(int $keywordId): array
+    {
+        $card = $this->sparkCard($keywordId);
+        $card['name'] = 'Spark Touch';
+        $card['spec']['spell']['targeting'] = 'none';
+        $card['spec']['hit_resolution'] = ['type' => 'attack'];
+
+        return $card;
+    }
+
+    /**
+     * «Накопление зарядов»: кап 2 без ступеней.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function chargeCapCard(): array
+    {
+        return [
+            'type' => 'skill',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'parent_ability_code' => 'lightning-generator',
+                'spell_upgrade' => [
+                    'action_point_delta' => 0,
+                    'charge_cap' => [
+                        'base' => 2,
+                        'experience_keyword_code' => 'electromancy',
+                        'steps' => [],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Тело каста «Генератора».
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $key Ключ.
+     * @param int $battleVersion Версия боя.
+     * @param int $sheetVersion Версия листа.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function generatorBody(
+        array $scene,
+        string $key,
+        int $battleVersion,
+        int $sheetVersion,
+        array $parameterPower = ['base' => 4, 'size' => 0],
+    ): array {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $sheetVersion,
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'lightning-generator',
+            'pathCode' => 'arcanist',
+            'parameters' => ['x' => $parameterPower],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+        ];
+    }
+
+    /**
+     * Инициатива сцены и версия боя после неё.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     *
+     * @return int Версия боя.
+     */
+    private function rollSceneInitiative(array $scene): int
+    {
+        $participants = [['type' => 'character', 'id' => $scene['hero']]];
+        if (is_int($scene['npcId'] ?? null)) {
+            $participants[] = ['type' => 'npc', 'id' => $scene['npcId']];
+        }
+        $rolls = [];
+        foreach ($participants as $index => $participant) {
+            $rolls[] = [
+                'type' => $participant['type'],
+                'id' => $participant['id'],
+                'method' => 'fixed',
+                'value' => ['base' => 10 - $index, 'size' => 0],
+            ];
+        }
+        $rolled = $this->dispatch('game.rollInitiative', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'roll-' . $scene['hero'],
+            'expectedVersion' => 1,
+            'rolls' => $rolls,
+        ]);
+        self::assertTrue($rolled['success'], json_encode($rolled));
+
+        return (int) $this->battleRow($scene['battleId'])['state_version'];
+    }
+
+    /**
+     * Строки поддержания боя.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<int, \Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord> Строки.
+     */
+    private function activeSpellRows(int $battleId): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+
+        return (new GameActiveSpellRepository($gateway))->findForBattle($battleId);
+    }
+
+    /**
      * Тело каста сцены.
      *
      * @param array{
@@ -1640,6 +3426,9 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withDeviation = false,
         bool $lowPower = false,
         array $deviationOverride = [],
+        bool $withNpc = true,
+        array $heroInventory = [],
+        array $heroSheet = [],
     ): array {
         $world = $this->spellWorld(
             $occupyHands,
@@ -1655,8 +3444,8 @@ final class GameStrikeMysqlTest extends TestCase
             $gameId,
             'Hero',
             [],
-            ['resources' => [['ruleCode' => 'action-points', 'current' => $ap]]],
-            [],
+            array_merge(['resources' => [['ruleCode' => 'action-points', 'current' => $ap]]], $heroSheet),
+            $heroInventory,
             null,
             null,
             array_merge([
@@ -1665,25 +3454,30 @@ final class GameStrikeMysqlTest extends TestCase
             ], $extraAbilities),
         );
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
-        $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
-            'gameId' => $gameId,
-            'name' => 'Guard',
-            'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
-        ]));
-        if ($targetAbilities !== []) {
-            $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
-        }
-        if ($targetRaceCode !== null) {
-            $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);
+        $participants = [['type' => 'character', 'id' => $hero]];
+        $npcId = null;
+        $targetVersion = 0;
+        if ($withNpc) {
+            $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+                'gameId' => $gameId,
+                'name' => 'Guard',
+                'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+            ]));
+            if ($targetAbilities !== []) {
+                $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+            }
+            if ($targetRaceCode !== null) {
+                $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);
+            }
+            $npcId = $npc['data']['npcId'];
+            $targetVersion = $npc['data']['actualVersion'];
+            $participants[] = ['type' => 'npc', 'id' => $npcId];
         }
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->dispatch('game.startBattle', [
             'gameId' => $gameId,
             'idempotencyKey' => 'b1',
-            'participants' => [
-                ['type' => 'character', 'id' => $hero],
-                ['type' => 'npc', 'id' => $npc['data']['npcId']],
-            ],
+            'participants' => $participants,
         ]);
         self::assertTrue($battle['success'], json_encode($battle));
 
@@ -1692,8 +3486,8 @@ final class GameStrikeMysqlTest extends TestCase
             'battleId' => $battle['data']['battleId'],
             'hero' => $hero,
             'heroVersion' => $this->characterFacade()->get($hero)->getActualVersion(),
-            'npcId' => $npc['data']['npcId'],
-            'targetVersion' => $npc['data']['actualVersion'],
+            'npcId' => $npcId,
+            'targetVersion' => $targetVersion,
         ];
     }
 
@@ -1875,7 +3669,8 @@ final class GameStrikeMysqlTest extends TestCase
                 ],
             ], $extraCards),
             null,
-            array_merge([
+            array_merge(
+                [
                 'intellect' => [
                     'type' => 'characteristic',
                     'spec' => ['automatic' => ['value' => ['base' => 3, 'size' => 0]]],
@@ -1898,6 +3693,23 @@ final class GameStrikeMysqlTest extends TestCase
                     'allow_characteristic_override' => true,
                     ...($withDeviation ? ['failure_rule_codes' => ['spell-deviation']] : []),
                 ]],
+                'initiative' => ['type' => 'check', 'spec' => [
+                    'allowed_modes' => 'both',
+                    'ordinary_root' => true,
+                    'initiative' => true,
+                    'difficulty_input' => ['kind' => 'none'],
+                ]],
+                'wait' => ['type' => 'ability', 'spec' => [
+                    'type' => 'action',
+                    'zones' => ['or' => ['kind' => 'automatic']],
+                    'combat_action' => 'wait',
+                    'action_components' => [[
+                        'type' => 'resource',
+                        'resource_code' => 'action-points',
+                        'amount' => ['type' => 'chosen', 'max' => 'available'],
+                        'label' => 'Действие',
+                    ]],
+                ]],
                 'arcanist' => ['type' => 'magic_path', 'spec' => [
                     'check_code' => 'cast-check',
                     'cast_check_code' => 'cast-check',
@@ -1918,7 +3730,8 @@ final class GameStrikeMysqlTest extends TestCase
                     ],
                 ],
             ],
-            $extraRules),
+                $extraRules,
+            ),
             occupyHands: $occupyHands,
         );
     }

@@ -29,10 +29,11 @@ final class GameSpellCastUpgrades
      * @param string $spellCode Заклинание.
      * @param string $pathCode Путь каста.
      * @param array<int, array{code: string, value: int|null}> $selected Выбранные улучшения.
+     * @param array<int, string>|null $recordedCodes Коды улучшений записи источника; null — каст по изученным.
      *
      * @return GameSpellCastUpgradeResolution Разрешение.
      *
-     * @throws GameInvalidException Если улучшение чужое, неизученное или неподдержано.
+     * @throws GameInvalidException Если улучшение чужое, неизученное, незаписанное или неподдержано.
      */
     public function resolve(
         CharacterRuleSlice $slice,
@@ -41,6 +42,7 @@ final class GameSpellCastUpgrades
         string $spellCode,
         string $pathCode,
         array $selected,
+        ?array $recordedCodes = null,
     ): GameSpellCastUpgradeResolution {
         $applied = [];
         $advantages = [];
@@ -59,14 +61,19 @@ final class GameSpellCastUpgrades
                 throw new GameInvalidException('Game spell upgrade is not supported');
             }
 
-            $this->assertLevel($abilityLevels, $code);
-            $this->assertApplicable(
-                $upgrade,
-                $spec->getBase()->getParentAbilityCode(),
-                $this->instancesOf($model, $code),
-                $spellCode,
-                $pathCode,
-            );
+            $parent = $spec->getBase()->getParentAbilityCode();
+            if ($recordedCodes === null) {
+                $this->assertLevel($abilityLevels, $code);
+                $this->assertApplicable(
+                    $upgrade,
+                    $parent,
+                    $this->instancesOf($model, $code),
+                    $spellCode,
+                    $pathCode,
+                );
+            } else {
+                $this->assertRecorded($recordedCodes, $code, $parent, $spellCode);
+            }
 
             $value = $this->valueOf($upgrade, $row['value'] ?? null);
             $applied[] = $this->appliedOf($rule, $upgrade, $value);
@@ -165,6 +172,29 @@ final class GameSpellCastUpgrades
         $level = $abilityLevels[$code] ?? null;
         if (!is_int($level) || $level < 1) {
             throw new GameInvalidException('Game spell upgrade is not learned');
+        }
+    }
+
+    /**
+     * Улучшение записано в источнике и принадлежит этому заклинанию.
+     *
+     * @param array<int, string> $recordedCodes Коды записи.
+     * @param string $code Код улучшения.
+     * @param string|null $parent Родитель заклинания.
+     * @param string $spellCode Заклинание каста.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если улучшения нет в записи или оно чужое.
+     */
+    private function assertRecorded(array $recordedCodes, string $code, ?string $parent, string $spellCode): void
+    {
+        if (!in_array($code, $recordedCodes, true)) {
+            throw new GameInvalidException('Game spell upgrade is not recorded');
+        }
+
+        if ($parent !== null && $parent !== '' && $parent !== $spellCode) {
+            throw new GameInvalidException('Game spell upgrade belongs to another spell');
         }
     }
 

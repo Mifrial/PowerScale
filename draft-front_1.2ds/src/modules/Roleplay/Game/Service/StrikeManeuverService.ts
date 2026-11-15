@@ -69,12 +69,7 @@ export class StrikeManeuverService {
   }
 
   /** Подпись: цена, порог РУ, мастерство и эффект; ступень усиления справочно. */
-  labelOf(
-    rule: Rule,
-    abilities: CharacterAbility[],
-    rules: Rule[],
-    spec: StrikeManeuver,
-  ): string {
+  labelOf(rule: Rule, abilities: CharacterAbility[], rules: Rule[], spec: StrikeManeuver): string {
     const base = `${this.costOf(rule)} ОД · ${this.thresholdLabel(spec.min_success, spec.min_weapon_mastery)} → ${this.effectsLabel(spec.effects, rules)}`;
     const boost = this.boostFor(abilities, rules, rule.code);
     if (!boost) return base;

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastSaturationPlan;
@@ -32,6 +33,9 @@ final class GameSpellTouchFinish
      * @param GameSpellCastPending $pending Отложенный каст.
      * @param GameActionRepository $actions Открытое действие.
      * @param GameSpellDeviation $deviation Отклонение.
+     * @param GameActiveSpellCreate $activeCreate Создание поддержания.
+     * @param GameActiveSpellChat $activeChat Чат поддержания.
+     * @param GameActiveSpellCharge $activeCharge Заряд поддержания.
      *
      * @return void
      */
@@ -46,6 +50,10 @@ final class GameSpellTouchFinish
         private readonly GameSpellCastPending $pending,
         private readonly GameActionRepository $actions,
         private readonly GameSpellDeviation $deviation,
+        private readonly GameActiveSpellCreate $activeCreate,
+        private readonly GameActiveSpellChat $activeChat,
+        private readonly GameActiveSpellCharge $activeCharge,
+        private readonly GameSpellMana $mana = new GameSpellMana(),
     ) {
     }
 
@@ -71,7 +79,7 @@ final class GameSpellTouchFinish
             'attacker' => ['type' => $run->attackerKind, 'id' => $run->attackerId],
             'defender' => $run->target,
         ];
-        $prepared = $this->facts->prepared($game, $choice, $payload);
+        $prepared = $this->facts->prepared($game, $choice, $payload, $run->battle);
         $actorKey = $prepared->casterKind . ':' . $prepared->casterId;
         $trainingDelta = $this->nextCast->peek($run->pending, $actorKey, $prepared->spent);
         $check = $this->check->check($game, $prepared, $trainingDelta);
@@ -88,7 +96,11 @@ final class GameSpellTouchFinish
         $damage = $this->damage->apply($game, $prepared, $check['castOk'], $attackSr, $saturation->getPowerDelta());
         $damage['milk'] = $attackSr <= 0;
 
-        $casterOperations = $this->casterOperations($prepared, $deviation);
+        $casterOperations = [
+            ...$this->casterOperations($prepared, $deviation),
+            ...$this->activeCharge->spendOperations($prepared),
+            ...$this->mana->spendOperations($prepared),
+        ];
         $sameSheet = $run->target['type'] === $prepared->casterKind
             && $run->target['id'] === $prepared->casterId;
         if ($sameSheet) {
@@ -119,6 +131,14 @@ final class GameSpellTouchFinish
             );
         }
 
+        $activeSpell = $this->activeCreate->fromCast(
+            $game,
+            $prepared,
+            $run->battle,
+            $check['castOk'] === true,
+            $damage['milk'] === true,
+            $casterVersion,
+        );
         $run->pending = $this->nextCast->consume($run->pending, $actorKey);
         $run->pending = $this->nextCast->queue(
             $run->pending,
@@ -141,11 +161,28 @@ final class GameSpellTouchFinish
             $this->nextCast->rows($run->pending, $actorKey),
             $deviation,
         );
+        $this->chat->chargeSpent($game, $run->scope->actorUserId, $prepared, $run->battle, $thread);
+        if ($activeSpell instanceof GameActiveSpellRecord) {
+            $turnThread = GameCombatThread::buildTurn(
+                $run->battle->getId(),
+                $run->battle->getRound(),
+                $run->battle->getActiveIndex(),
+            );
+            $this->activeChat->createdAt($game, $run->scope->actorUserId, $activeSpell, $turnThread);
+            $casterVersion = $this->activeCharge->grantOnCreate(
+                $game,
+                $run->scope->actorUserId,
+                $activeSpell,
+                $prepared,
+                $casterVersion,
+                $turnThread,
+            );
+        }
         $this->setResult($run, $check, $damage, $version, null, [
             'type' => $prepared->casterKind,
             'id' => $prepared->casterId,
             'sheetVersion' => $casterVersion,
-        ]);
+        ], $activeSpell);
     }
 
     /**
@@ -224,6 +261,7 @@ final class GameSpellTouchFinish
      * @param int $version Версия цели.
      * @param array<string, mixed>|null $pending Отложенный каст.
      * @param array{type: string, id: int, sheetVersion: int}|null $caster Кастер после отклонения.
+     * @param GameActiveSpellRecord|null $activeSpell Поддерживаемое заклинание.
      *
      * @return void
      */
@@ -234,6 +272,7 @@ final class GameSpellTouchFinish
         int $version,
         ?array $pending,
         ?array $caster = null,
+        ?GameActiveSpellRecord $activeSpell = null,
     ): void {
         $run->result['spellCast'] = $check;
         $run->result['spellCast']['difficulty'] = $check['difficulty'];
@@ -246,6 +285,9 @@ final class GameSpellTouchFinish
         }
 
         $run->result['pendingSpellCast'] = $pending;
+        $run->result['activeSpell'] = $activeSpell === null
+            ? null
+            : (new GameActiveSpellView())->build($activeSpell);
     }
 
     /**

@@ -92,7 +92,7 @@ final class GameTurnAccess
      */
     public function assertActor(GameRecord $game, int $actorUserId, bool $editAll, array $current): void
     {
-        if ($game->getOwnerId() === $actorUserId || $editAll || $this->isGm($game->getId(), $actorUserId)) {
+        if ($this->isWriter($game, $actorUserId, $editAll)) {
             return;
         }
 
@@ -104,6 +104,22 @@ final class GameTurnAccess
         if ($row->getCharacterOwnerId() !== $actorUserId) {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
+    }
+
+    /**
+     * Владелец, gm или edit_all.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Ключ game.edit_all.
+     *
+     * @return bool Да, если может править чужое.
+     */
+    public function isWriter(GameRecord $game, int $actorUserId, bool $editAll): bool
+    {
+        return $game->getOwnerId() === $actorUserId
+            || $editAll
+            || $this->isGm($game->getId(), $actorUserId);
     }
 
     /**

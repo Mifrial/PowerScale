@@ -24,4 +24,6 @@ export interface GamePhpSpellCastRequest {
   target?: GamePhpParticipant;
   distanceIpari?: number;
   upgrades?: GamePhpSpellCastUpgrade[];
+  /** Строка поддержания, чей заряд тратится. */
+  chargeSpellId?: string;
 }

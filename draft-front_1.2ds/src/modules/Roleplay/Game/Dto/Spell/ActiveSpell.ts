@@ -12,9 +12,14 @@ export interface ActiveSpell {
   durationType: 'sustained';
   usedPower: DimensionalNumberValue;
   sustainPower: DimensionalNumberValue;
-  stability: DimensionalNumberValue;
+  /** Стабильность появится в M7; мок заполняет её раньше. */
+  stability?: DimensionalNumberValue;
   parameterValues: Record<string, DimensionalNumberValue>;
   appliedUpgradeCodes: string[];
   startedRound: number;
   startedParticipantId: string;
+  /** Версия строки на сервере; в моке может отсутствовать. */
+  version?: number;
+  /** Версия листа кастера на момент создания. */
+  casterSheetVersion?: number;
 }

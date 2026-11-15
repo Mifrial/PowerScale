@@ -9,8 +9,8 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ReactionModifier;
-use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SupportModifier;
+use Mifrial\Roleplay\Rule\Spec\AbilityTactics;
 use Mifrial\Roleplay\Rule\Spec\SupportSpecs;
 
 /**

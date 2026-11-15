@@ -61,6 +61,7 @@ const discussionContext = computed<ChatRulesContext>(() =>
     discussionMechanics.value,
     detail.value?.game.spaceId,
     detail.value?.game.rulesRevision,
+    detail.value?.game.spaceCode,
   ),
 );
 
@@ -68,6 +69,7 @@ const discussionInline = computed(() => chatInlineRendererContext(discussionCont
 const notesInline = computed<Record<string, unknown>>(() => ({
   tokenLabels: discussionContext.value.tokenLabels,
   spaceId: discussionContext.value.spaceId,
+  spaceCode: discussionContext.value.spaceCode,
   rulesRevision: discussionContext.value.rulesRevision,
 }));
 

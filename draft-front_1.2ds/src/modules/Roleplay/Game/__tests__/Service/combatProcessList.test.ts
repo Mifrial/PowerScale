@@ -212,4 +212,20 @@ describe('CombatProcessListService', () => {
 
     expect(rows[0]?.canAbort).toBe(false);
   });
+
+  it('показывает мощь поддержания размером, а не округлением', () => {
+    const rows = combatProcessListService.listRows({
+      entityKey: 'character:1',
+      processSession: null,
+      committedAction: null,
+      activeSpells: [{ ...spell('inventory:9'), sustainPower: { base: 3, size: -1 } }],
+      version: null,
+      states: [],
+      rules: [generatorRule, pathRule, coreRule],
+    });
+    const row = rows.find((entry) => entry.kind === 'sustained-spell');
+
+    expect(row?.valueLabel).toBe('3↓');
+    expect(row?.details.find((detail) => detail.label === 'Мощь поддержания')?.value).toBe('3↓');
+  });
 });

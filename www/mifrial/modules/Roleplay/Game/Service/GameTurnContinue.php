@@ -75,8 +75,18 @@ final class GameTurnContinue
         $payload = $debt->payloadOf($paid['slot']);
         if ($paid['open'] && $payload !== null) {
             return $this->opened(
-                $game, $sessionId, $battle, $expectedBattle, $sheetVersion,
-                $current, $actorUserId, $editAll, $viewAll, $prepared, $paid, $payload,
+                $game,
+                $sessionId,
+                $battle,
+                $expectedBattle,
+                $sheetVersion,
+                $current,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $prepared,
+                $paid,
+                $payload,
             );
         }
 
@@ -176,8 +186,16 @@ final class GameTurnContinue
     ): array {
         $kind = (new GameActionDebt())->kindOf($paid['slot']);
         $attempt = $this->attempt(
-            $game, $sessionId, $battle, $expectedBattle, $sheetVersion,
-            $actorUserId, $editAll, $viewAll, $paid, $payload,
+            $game,
+            $sessionId,
+            $battle,
+            $expectedBattle,
+            $sheetVersion,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+            $paid,
+            $payload,
         );
         if ($attempt['refused'] !== null) {
             return $this->save($battle, $expectedBattle, $sheetVersion, $prepared, $paid['slot'], $attempt['refused']);
@@ -221,8 +239,16 @@ final class GameTurnContinue
     ): array {
         try {
             $result = $this->resume(
-                $game, $sessionId, $battle, $expectedBattle, $sheetVersion,
-                $actorUserId, $editAll, $viewAll, $paid, $payload,
+                $game,
+                $sessionId,
+                $battle,
+                $expectedBattle,
+                $sheetVersion,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $paid,
+                $payload,
             );
         } catch (GameInvalidException $exception) {
             return ['result' => null, 'refused' => $exception];
@@ -362,7 +388,12 @@ final class GameTurnContinue
     ): array {
         $prepared['debtMap'][$prepared['key']] = $slot;
         $saved = $this->battles->replaceTracked(
-            $battle->getId(), $expectedBattle, null, $prepared['debtMap'], null, null,
+            $battle->getId(),
+            $expectedBattle,
+            null,
+            $prepared['debtMap'],
+            null,
+            null,
         );
         $result = ['battleId' => $battle->getId(), 'version' => $saved->getStateVersion(), 'sheetVersion' => $sheetVersion, 'opened' => false];
         if ($exception !== null) {

@@ -203,7 +203,7 @@ final class GameSpellDeviationTest extends TestCase
      */
     private function mechanics(): IMechanics
     {
-        return new class implements IMechanics {
+        return new class () implements IMechanics {
             /**
              * Список механик.
              *

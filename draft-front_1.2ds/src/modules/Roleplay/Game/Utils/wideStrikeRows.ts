@@ -28,9 +28,7 @@ export function wideStrikeRows(
     profileType: fields.profileType,
     profileIndex: fields.profileIndex,
     instanceIndex: fields.instanceIndex ?? 0,
-    ...(fields.ammunitionInventoryId !== undefined
-      ? { ammunitionInventoryId: fields.ammunitionInventoryId }
-      : {}),
+    ...(fields.ammunitionInventoryId !== undefined ? { ammunitionInventoryId: fields.ammunitionInventoryId } : {}),
     ...(fields.modifiers?.length ? { modifiers: [...fields.modifiers] } : {}),
     ...(conditions !== undefined ? { conditions } : {}),
     target,

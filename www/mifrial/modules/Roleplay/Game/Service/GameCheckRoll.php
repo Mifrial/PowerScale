@@ -16,7 +16,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameCheckThrowOverride;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
-use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Mechanic\Constant\AdvantageSourceLabels;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
@@ -340,7 +339,6 @@ final class GameCheckRoll
         );
     }
 
-
     /**
      * Контекст совместной проверки одной карточки.
      *
@@ -370,7 +368,6 @@ final class GameCheckRoll
             'efficiency' => $this->efficiency($check),
         ];
     }
-
 
     /**
      * Контексты обеих карточек совместной проверки.
@@ -435,7 +432,6 @@ final class GameCheckRoll
         ];
     }
 
-
     /**
      * Бросок одной стороны по готовому контексту.
      *
@@ -460,7 +456,6 @@ final class GameCheckRoll
             $override,
         );
     }
-
 
     /**
      * Итог совместной проверки.
@@ -490,7 +485,6 @@ final class GameCheckRoll
         ];
     }
 
-
     /**
      * Грани броска из payload.
      *
@@ -510,7 +504,6 @@ final class GameCheckRoll
         return $dieFaces;
     }
 
-
     /**
      * Помехи попадания из листа плюс явные.
      *
@@ -524,7 +517,6 @@ final class GameCheckRoll
     {
         return array_merge($this->stateAdvantages($slice, $sheet, null, true), $advantages);
     }
-
 
     /**
      * Итог попадания.
@@ -561,7 +553,6 @@ final class GameCheckRoll
 
         return $scored;
     }
-
 
     /**
      * Число кубов, граней и размер успехов. Null не подменяется.
@@ -760,8 +751,15 @@ final class GameCheckRoll
         $pool = $this->poolOf($chain['characteristic'], $sheet, $this->rollPayload($bindings), $override);
         $difficulty = $forced ?? $this->difficulty($check, $asked);
         $rolled = $this->rollPool(
-            $pool, $slice, $sheet, $chain['characteristic'], $check, $override,
-            $this->efficiency($check), $bindings, $chain,
+            $pool,
+            $slice,
+            $sheet,
+            $chain['characteristic'],
+            $check,
+            $override,
+            $this->efficiency($check),
+            $bindings,
+            $chain,
         );
         $result = $this->scored($difficulty, $rolled, $minimum)
             + ['label' => $slice->findLive($ruleCode)?->getName() ?? ''];

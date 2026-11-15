@@ -20,9 +20,7 @@ const maneuver: Rule = {
     requirements: [],
     grants: [],
     parent_ability_code: null,
-    action_components: [
-      { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Действие' },
-    ],
+    action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Действие' }],
     strike_maneuver: {
       min_success: 3,
       min_weapon_mastery: 3,
@@ -102,11 +100,7 @@ describe('StrikeManeuverService', () => {
   });
 
   it('добавляет ступень усиления, если навык куплен', () => {
-    const options = service.listAvailable(
-      [ability('razbit-zaschitu'), ability('vskryt-slabost')],
-      rules,
-      snapshot(4),
-    );
+    const options = service.listAvailable([ability('razbit-zaschitu'), ability('vskryt-slabost')], rules, snapshot(4));
 
     expect(options[0].label).toBe(
       '1 ОД · 3РУ (мастерство 3) → Неустойчивость 1, 4РУ (мастерство 5) → Неустойчивость 2',

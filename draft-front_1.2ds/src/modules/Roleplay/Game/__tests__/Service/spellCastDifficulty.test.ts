@@ -390,6 +390,8 @@ describe('SpellCastOptionsService', () => {
         castCheckCode: 'check-spell-cast',
         powerCharacteristicCode: 'magic-power',
         controlCharacteristicCode: 'magic-control',
+        noControl: false,
+        recordedCasting: false,
       },
     ]);
     expect(
@@ -397,7 +399,106 @@ describe('SpellCastOptionsService', () => {
     ).toEqual([{ key: 'inventory:3', name: 'Ядро' }]);
   });
 
-  it('источник из гранта, если ядра нет в инвентаре', () => {
+  it('кристалл показывает ману, записи и предел мощи', () => {
+    const spell = spellRule('discharge', 'electricity');
+    const crystal: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'magic-crystal',
+      type: 'item',
+      name: 'Кристалл',
+      description: '',
+      spaceId: 1,
+      spec: {
+        category: 'equipment',
+        cost_gm: null,
+        weight: null,
+        innate: true,
+        special_rule_codes: [],
+        storage: {
+          power_parameter: 'max_power',
+          volume_parameter: 'volume',
+          recorded_parameter: 'recorded_spells',
+          volume_base: 20,
+          volume_increment: 10,
+          min_volume_power_delta: 3,
+        },
+      },
+      createdAt: 1,
+    };
+    const version = {
+      abilities: [],
+      inventory: [
+        {
+          id: 5,
+          ruleCode: 'magic-crystal',
+          quantity: 1,
+          equipped: true,
+          parameters: { max_power: { base: 4, size: 0 } },
+          payload: { volume: 20, recorded_spells: [{ ruleCode: 'discharge' }] },
+        },
+      ],
+      items: [
+        {
+          inventoryId: 5,
+          ruleCode: 'magic-crystal',
+          maxPower: { base: 4, size: 0 },
+          volume: 20,
+          occupied: 10,
+          mana: 6,
+          manaMax: 10,
+        },
+      ],
+    } as unknown as CharacterVersion;
+
+    expect(spellCastOptionsService.listSources(version, [crystal])).toEqual([
+      { key: 'inventory:5', name: 'Кристалл 4 · мана 6/10' },
+    ]);
+    expect(spellCastOptionsService.listRecordedSpells(version, [spell])).toEqual([
+      {
+        ruleCode: 'discharge',
+        name: 'discharge',
+        requiredPower: { base: 4, size: 1 },
+        requiredControl: { base: 3, size: -1 },
+      },
+    ]);
+    expect(
+      spellCastOptionsService.sourceCapOf(version, null, [crystal], [], 'inventory:5', 'magic-power'),
+    ).toEqual({ base: 4, size: 0 });
+  });
+
+  it('цена каста в мане — мощь × целые ходы Создания', () => {
+    expect(spellCastOptionsService.manaCostOf({ base: 4, size: 0 }, 4, 4)).toBe(4);
+    expect(spellCastOptionsService.manaCostOf({ base: 4, size: 0 }, 5, 4)).toBe(8);
+    expect(spellCastOptionsService.manaCostOf({ base: 3, size: 1 }, 4, 4)).toBe(6);
+    expect(spellCastOptionsService.manaCostOf({ base: 4, size: 0 }, 0, 4)).toBe(0);
+    expect(spellCastOptionsService.manaCostOf({ base: 4, size: 0 }, 4, 0)).toBe(0);
+  });
+
+  it('хранилище источника ищется по строке инвентаря', () => {
+    const version = {
+      abilities: [],
+      inventory: [],
+      items: [
+        {
+          inventoryId: 5,
+          ruleCode: 'magic-crystal',
+          maxPower: { base: 4, size: 0 },
+          volume: 20,
+          occupied: 10,
+          mana: 6,
+          manaMax: 10,
+        },
+      ],
+    } as unknown as CharacterVersion;
+
+    expect(spellCastOptionsService.storageOf(version, 'inventory:5')?.mana).toBe(6);
+    expect(spellCastOptionsService.storageOf(version, 'inventory:4')).toBeNull();
+    expect(spellCastOptionsService.storageOf(version, 'characteristic:magic-power')).toBeNull();
+    expect(spellCastOptionsService.storageOf(null, 'inventory:5')).toBeNull();
+  });
+
+  it('без ядра в инвентаре источника нет', () => {
     const trait: Rule = {
       mechanics: [],
       id: null,
@@ -430,9 +531,232 @@ describe('SpellCastOptionsService', () => {
       abilities: [{ ruleCode: 'magic-core-capacity', level: 1 }],
       inventory: [],
     } as unknown as CharacterVersion;
-    expect(spellCastOptionsService.listSources(version, [trait, item])).toEqual([
-      { key: 'grant:magic-core-capacity', name: 'Магическое ядро' },
+    expect(spellCastOptionsService.listSources(version, [trait, item])).toEqual([]);
+  });
+});
+
+describe('sourceCapOf', () => {
+  const core: Rule = {
+    mechanics: [],
+    id: null,
+    code: 'magic-core',
+    type: 'item',
+    name: 'Магическое ядро',
+    description: '',
+    spaceId: 1,
+    spec: {
+      category: 'equipment',
+      cost_gm: null,
+      weight: null,
+      innate: true,
+      special_rule_codes: [],
+      grants: [
+        {
+          type: 'characteristic_parameter',
+          characteristic_code: 'magic-power',
+          parameter_code: 'power',
+          per_unit: 1,
+          permanent: true,
+        },
+      ],
+    },
+    createdAt: 1,
+  };
+
+  const version = (inventoryId: number, power: { base: number; size: number }, abilities: unknown[] = []) =>
+    ({
+      inventory: [{ id: inventoryId, ruleCode: 'magic-core', quantity: 1, equipped: true, parameters: { power } }],
+      abilities,
+      characteristics: [{ ruleCode: 'magic-power', base: { base: 5, size: 1 }, modifiers: [] }],
+      states: [],
+    }) as unknown as CharacterVersion;
+
+  const overview = {
+    characteristics: [{ ruleCode: 'magic-power', name: 'Магическая мощь', value: { base: 5, size: 1 } }],
+  } as unknown as CharacterOverview;
+
+  it('берёт мощь экземпляра ядра, а не общую характеристику', () => {
+    expect(
+      spellCastOptionsService.sourceCapOf(
+        version(3, { base: 4, size: 0 }),
+        overview,
+        [core],
+        [],
+        'inventory:3',
+        'magic-power',
+      ),
+    ).toEqual({ base: 4, size: 0 });
+  });
+
+  it('добавляет бонус spell_source_power к мощи источника', () => {
+    const flow: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'core-flow-optimization',
+      type: 'ability',
+      name: 'Оптимизация потоков',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        spell_source_power: {
+          scope: { kind: 'item', item_code: 'magic-core' },
+          path_scoped: true,
+          amount: { type: 'ability_level', ability_code: 'core-flow-optimization', multiplier: 1 },
+        },
+      },
+      createdAt: 1,
+    };
+    const abilities = [{ ruleCode: 'core-flow-optimization', level: 1 }];
+
+    expect(
+      spellCastOptionsService.sourceCapOf(
+        version(3, { base: 4, size: 0 }, abilities),
+        overview,
+        [core, flow],
+        [],
+        'inventory:3',
+        'magic-power',
+      ),
+    ).toEqual({ base: 5, size: 0 });
+  });
+
+  it('имя источника показывает мощь и бонус', () => {
+    const flow: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'core-flow-optimization',
+      type: 'ability',
+      name: 'Оптимизация потоков',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        spell_source_power: {
+          scope: { kind: 'item', item_code: 'magic-core' },
+          path_scoped: true,
+          amount: { type: 'ability_level', ability_code: 'core-flow-optimization', multiplier: 1 },
+        },
+      },
+      createdAt: 1,
+    };
+    const abilities = [{ ruleCode: 'core-flow-optimization', level: 1 }];
+
+    expect(spellCastOptionsService.listSources(version(3, { base: 4, size: 0 }, abilities), [core, flow])).toEqual([
+      { key: 'inventory:3', name: 'Магическое ядро 4 (+1)' },
     ]);
+  });
+
+  it('производная способность по опыту даёт бонус без покупки', () => {
+    const flow: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'core-flow-optimization',
+      type: 'ability',
+      name: 'Оптимизация потоков',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        derived_level: { source_keyword: 'magic', thresholds: [0] },
+        spell_source_power: {
+          scope: { kind: 'item', item_code: 'magic-core' },
+          path_scoped: true,
+          amount: { type: 'ability_level', ability_code: 'core-flow-optimization', multiplier: 1 },
+        },
+      },
+      createdAt: 1,
+    };
+
+    expect(
+      spellCastOptionsService.sourceCapOf(
+        version(3, { base: 4, size: 0 }, []),
+        overview,
+        [core, flow],
+        [{ id: 1, code: 'magic', name: 'Волшебство', description: '', active: true }],
+        'inventory:3',
+        'magic-power',
+      ),
+    ).toEqual({ base: 5, size: 0 });
+  });
+
+  it('scope source действует только на выбранный предмет', () => {
+    const flow: Rule = {
+      mechanics: [],
+      id: null,
+      code: 'core-flow-optimization',
+      type: 'ability',
+      name: 'Оптимизация потоков',
+      description: '',
+      spaceId: 1,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        spell_source_power: {
+          scope: { kind: 'source', target_code: 'core' },
+          path_scoped: true,
+          amount: { type: 'ability_level', ability_code: 'core-flow-optimization', multiplier: 1 },
+        },
+      },
+      createdAt: 1,
+    };
+    const abilities = [{ ruleCode: 'core-flow-optimization', level: 1, targets: { core: 3 } }];
+
+    expect(
+      spellCastOptionsService.sourceCapOf(
+        version(3, { base: 4, size: 0 }, abilities),
+        overview,
+        [core, flow],
+        [],
+        'inventory:3',
+        'magic-power',
+      ),
+    ).toEqual({ base: 5, size: 0 });
+    expect(
+      spellCastOptionsService.sourceCapOf(
+        version(4, { base: 4, size: 0 }, abilities),
+        overview,
+        [core, flow],
+        [],
+        'inventory:4',
+        'magic-power',
+      ),
+    ).toEqual({ base: 4, size: 0 });
+  });
+
+  it('берёт эффективную мощь источника из серверного листа без повторного бонуса', () => {
+    const v = version(3, { base: 4, size: 0 });
+    v.sourcePowers = [
+      {
+        inventoryId: 3,
+        ruleCode: 'magic-core',
+        characteristicCode: 'magic-power',
+        base: { base: 4, size: 0 },
+        bonus: 1,
+        value: { base: 5, size: 0 },
+        contributions: [{ sourceRuleCode: 'core-flow-optimization', delta: 1 }],
+      },
+    ];
+
+    expect(spellCastOptionsService.sourceCapOf(v, overview, [core], [], 'inventory:3', 'magic-power')).toEqual({
+      base: 5,
+      size: 0,
+    });
   });
 });
 
@@ -464,6 +788,51 @@ describe('clampToRange', () => {
 
   it('без пределов не трогает значение', () => {
     expect(spellCastDifficultyService.clampToRange({ base: 5, size: 3 }, null, null)).toEqual({ base: 5, size: 3 });
+  });
+});
+
+describe('sustainPowerLimits', () => {
+  it('берёт минимум и максимум параметра длительности', () => {
+    const rule = spellRule('lightning-generator', 'electricity');
+    const spec = rule.spec as unknown as {
+      spell: Record<string, unknown>;
+      parameters?: Record<string, unknown>[];
+    };
+    spec.spell.duration = { type: 'sustained', power: { type: 'parameter', parameter_code: 'x' } };
+    spec.parameters = [
+      {
+        code: 'x',
+        label: 'X',
+        kind: 'dimensional',
+        resolution: 'activation',
+        default: { base: 3, size: 0 },
+        min: { base: 3, size: -1 },
+        max: { base: 5, size: 1 },
+      },
+    ];
+
+    expect(spellCastDifficultyService.sustainPowerLimits(rule)).toEqual({
+      min: { base: 3, size: -1 },
+      max: { base: 5, size: 1 },
+    });
+  });
+
+  it('фиксированная мощь длительности задаёт обе границы', () => {
+    const rule = spellRule('lightning-generator', 'electricity');
+    const spec = rule.spec as unknown as { spell: Record<string, unknown> };
+    spec.spell.duration = { type: 'sustained', power: { base: 4, size: 0 } };
+
+    expect(spellCastDifficultyService.sustainPowerLimits(rule)).toEqual({
+      min: { base: 4, size: 0 },
+      max: { base: 4, size: 0 },
+    });
+  });
+
+  it('без формы мощи пределов нет', () => {
+    expect(spellCastDifficultyService.sustainPowerLimits(spellRule('discharge', 'electricity'))).toEqual({
+      min: null,
+      max: null,
+    });
   });
 });
 

@@ -20,6 +20,7 @@ final class GameNpcVisibility
             'sheet.characteristicPurchases',
             'sheet.characteristicPurchaseOs',
             'sheet.osSurchargeTotal',
+            'sheet.sourcePowers',
         ],
         'abilities' => [
             'choices.abilities',

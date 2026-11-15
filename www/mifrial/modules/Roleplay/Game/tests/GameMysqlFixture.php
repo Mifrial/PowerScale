@@ -36,6 +36,7 @@ use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Schema\GameActionSchema;
+use Mifrial\Roleplay\Game\Schema\GameActiveSpellSchema;
 use Mifrial\Roleplay\Game\Schema\GameAdmissionSchema;
 use Mifrial\Roleplay\Game\Schema\GameBattleSchema;
 use Mifrial\Roleplay\Game\Schema\GameCheckSchema;
@@ -47,6 +48,7 @@ use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
 use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameActionTable;
+use Mifrial\Roleplay\Game\Table\GameActiveSpellTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
 use Mifrial\Roleplay\Game\Table\GameCharacterTable;
@@ -387,6 +389,9 @@ trait GameMysqlFixture
         (new GameBattleSchema(
             $gateway->open(GameBattleTable::class)->schema(),
             $gateway->open(GameBattleParticipantTable::class)->schema(),
+        ))->install();
+        (new GameActiveSpellSchema(
+            $gateway->open(GameActiveSpellTable::class)->schema(),
         ))->install();
     }
 

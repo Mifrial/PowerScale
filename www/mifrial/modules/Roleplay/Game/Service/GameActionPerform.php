@@ -9,7 +9,6 @@ use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
-use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\ProcessStep;
 
 /**
@@ -205,6 +204,22 @@ final class GameActionPerform
     public function assertSpends(GameRecord $game, array $sheet, array $spends): void
     {
         $this->steps->assertResources($game, $sheet, $spends);
+    }
+
+    /**
+     * Хватает ли ресурсов для готовых трат без отказа.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<int, \Mifrial\Roleplay\Character\Dto\ResourceSpend> $spends Траты.
+     *
+     * @return bool true, если ресурсов достаточно.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function hasSufficientSpends(GameRecord $game, array $sheet, array $spends): bool
+    {
+        return $this->steps->hasSufficientResources($game, $sheet, $spends);
     }
 
     /**

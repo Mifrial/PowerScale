@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
+// Команды хода и поддержания — одна причина изменения сценария.
+
 namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
@@ -25,6 +28,8 @@ final class GameTurns
      * @param GameTurnContinue $continue Продолжение долга.
      * @param GameTurnAbort $abort Отмена долга.
      * @param GameTurnProcessAbort $abortProcess Прерывание процесса.
+     * @param GameActiveSpellSustain $sustain Поддержание заклинания.
+     * @param GameActiveSpellDrop $drop Прекращение поддержания.
      *
      * @return void
      */
@@ -35,6 +40,8 @@ final class GameTurns
         private readonly GameTurnContinue $continue,
         private readonly GameTurnAbort $abort,
         private readonly GameTurnProcessAbort $abortProcess,
+        private readonly GameActiveSpellSustain $sustain,
+        private readonly GameActiveSpellDrop $drop,
     ) {
     }
 
@@ -182,7 +189,11 @@ final class GameTurns
         array $body,
     ): array {
         return $this->envelope->execute(
-            $gameId, $actorUserId, $viewAll, $body, 'abort_process',
+            $gameId,
+            $actorUserId,
+            $viewAll,
+            $body,
+            'abort_process',
             fn (GameRecord $game, int $sessionId): array => $this->abortProcess->abort(
                 $game,
                 $sessionId,
@@ -191,6 +202,89 @@ final class GameTurns
                 $body,
             ),
             false,
+        );
+    }
+
+    /**
+     * Продолжает поддержание заклинания текущего.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Право.
+     * @param bool $viewAll Просмотр.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если ключ, поля или порядок битые.
+     * @throws GameNotFoundException Если игра или бой скрыты.
+     * @throws \Mifrial\Core\Kernel\Exception\ActionException AUTH_DENIED.
+     * @throws GameBattleConflictException Если версия или тело ключа чужие.
+     */
+    public function sustainSpell(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+    ): array {
+        return $this->turn(
+            $gameId,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+            $body,
+            fn (GameRecord $game, array $prepared): array => $this->sustain->sustain(
+                $game,
+                $prepared['battle'],
+                $prepared['current'],
+                $prepared['expectedBattle'],
+                $prepared['expectedSheet'],
+                $body,
+                $actorUserId,
+                $editAll,
+            ),
+        );
+    }
+
+    /**
+     * Прекращает поддержание заклинания.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Право.
+     * @param bool $viewAll Просмотр.
+     * @param array<string, mixed> $body Тело.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если ключ, поля или порядок битые.
+     * @throws GameNotFoundException Если игра или бой скрыты.
+     * @throws \Mifrial\Core\Kernel\Exception\ActionException AUTH_DENIED.
+     * @throws GameBattleConflictException Если версия или тело ключа чужие.
+     */
+    public function dropSpell(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+    ): array {
+        return $this->turn(
+            $gameId,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+            $body,
+            fn (GameRecord $game, array $prepared): array => $this->drop->drop(
+                $game,
+                $prepared['battle'],
+                $prepared['current'],
+                $prepared['expectedBattle'],
+                $body,
+                $actorUserId,
+                $editAll,
+            ),
         );
     }
 
@@ -220,7 +314,11 @@ final class GameTurns
         Closure $work,
     ): array {
         return $this->envelope->execute(
-            $gameId, $actorUserId, $viewAll, $body, 'turn',
+            $gameId,
+            $actorUserId,
+            $viewAll,
+            $body,
+            'turn',
             function (GameRecord $game, int $sessionId) use ($actorUserId, $editAll, $body, $work): array {
                 $prepared = $this->scenario->prepare($game, $sessionId, $actorUserId, $editAll, $body);
 

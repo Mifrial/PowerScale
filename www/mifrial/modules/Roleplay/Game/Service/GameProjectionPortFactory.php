@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Character\Service\CharacterPortFactory;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
@@ -51,7 +52,12 @@ final class GameProjectionPortFactory
             new GameInvitationRepository($gateway),
         );
         $access = new GameProjectionAccess($this->games($serviceLocator), $cardAccess);
-        $npcs = new GameNpcProjection(new GameNpcRepository($gateway), new GameNpcVisibility(), $access);
+        $npcs = new GameNpcProjection(
+            new GameNpcRepository($gateway),
+            new GameNpcVisibility(),
+            $access,
+            new GameNpcSheetRefresh((new CharacterPortFactory())->createSheetEngine($serviceLocator)),
+        );
 
         return new GameProjections(
             $this->memberships($serviceLocator),

@@ -35,6 +35,78 @@ final class GameSpellCastChat
     }
 
     /**
+     * Пишет отдельную строку траты заряда, если объявление уже было.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param GameBattleRecord $battle Бой.
+     * @param array{id: string, parentId: string, kind: string}|null $thread Нить или null.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function chargeSpent(
+        GameRecord $game,
+        int $actorUserId,
+        GameSpellCastPrepared $prepared,
+        GameBattleRecord $battle,
+        ?array $thread = null,
+    ): void {
+        if ($prepared->chargeSpellCode === null) {
+            return;
+        }
+
+        $thread ??= GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+        $token = $this->tokens->getEntityToken($prepared->casterKind, $prepared->casterId);
+        $this->send(
+            $this->chatId($game),
+            $actorUserId,
+            $this->chargeSpentText($prepared, $token, '[[rule:' . $prepared->spellCode . ']]'),
+            $this->attachments($thread, $prepared->casterKind, $prepared->casterId),
+        );
+    }
+
+    /**
+     * Текст траты заряда.
+     *
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param string $token Токен кастера.
+     * @param string $spell Токен заклинания.
+     *
+     * @return string Текст.
+     */
+    private function chargeSpentText(GameSpellCastPrepared $prepared, string $token, string $spell): string
+    {
+        $stateCode = $prepared->chargeSpend['stateCode'] ?? '';
+        $name = $stateCode === ''
+            ? 'заряд'
+            : ($prepared->slice->findLive($stateCode)?->getName() ?? $stateCode);
+        $holder = $prepared->chargeSpellCode === null ? '' : ' с [[rule:' . $prepared->chargeSpellCode . ']]';
+
+        return $token . ' тратит ' . $name . $holder . ' и сотворяет ' . $spell
+            . ' за ' . $prepared->spent . ' ОД' . $this->manaText($prepared) . '.';
+    }
+
+    /**
+     * Хвост объявления про ману источника.
+     *
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     *
+     * @return string Текст или ''.
+     */
+    private function manaText(GameSpellCastPrepared $prepared): string
+    {
+        $cost = $prepared->manaSpend['cost'] ?? 0;
+        if ($cost <= 0) {
+            return '';
+        }
+
+        return ' и ' . $cost . ' маны';
+    }
+
+    /**
      * Пишет объявление, бросок, урон и последствия.
      *
      * @param GameRecord $game Игра.
@@ -81,7 +153,9 @@ final class GameSpellCastChat
             $this->send(
                 $chatId,
                 $actorUserId,
-                $token . ' сотворяет ' . $spell . ' за ' . $prepared->spent . ' ОД.',
+                $prepared->chargeSpellCode === null
+                    ? $token . ' сотворяет ' . $spell . ' за ' . $prepared->spent . ' ОД' . $this->manaText($prepared) . '.'
+                    : $this->chargeSpentText($prepared, $token, $spell),
                 $attachments,
             );
         }

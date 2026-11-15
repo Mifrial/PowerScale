@@ -44,6 +44,7 @@ import {
   asProcessAbilitySpec,
   combatActionRule,
   findRuleByRef,
+  turnResourceCode,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import SpellSustainDialog from '@/modules/Roleplay/Game/Component/SpellSustainDialog.vue';
@@ -57,6 +58,9 @@ import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/
 import { formatSustainDropMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpSustainSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSustainSpellRequest';
+import type { GamePhpDropSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpDropSpellRequest';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
@@ -136,6 +140,8 @@ const waitBusy = ref(false);
 const waitError = ref<string | null>(null);
 const sustainOpen = ref(false);
 const sustainSpell = ref<ActiveSpell | null>(null);
+const sustainBusy = ref(false);
+const sustainError = ref<string | null>(null);
 const { keywords, fetchTags } = useKeywords();
 onMounted(() => {
   if (keywords.value.length === 0) {
@@ -160,6 +166,68 @@ const overlays = ref<GameCombatOverlay[]>([]);
 function runtimeProjectionOf(key: CombatEntityKey): GameRuntimeEntityProjection | null {
   return props.runtimeProjections?.[key] ?? null;
 }
+
+/** Версия листа кастера поддержания по текущим оверлеям и проекции. */
+function sustainVersionOf(spell: ActiveSpell) {
+  return combatCardModelService.combatCardModel(
+    spell.casterKey,
+    props.characters,
+    props.npcs,
+    props.canEdit,
+    currentUser.value?.id ?? null,
+    overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null,
+    runtimeProjectionOf(spell.casterKey),
+  ).effectiveVersion;
+}
+
+/** Пределы мощи поддержания: форма длительности и потолок источника. */
+const sustainPowerLimits = computed(() => {
+  const spell = sustainSpell.value;
+  if (!spell) {
+    return { min: null, max: null };
+  }
+  const shape = spellCastDifficultyService.sustainPowerLimits(findRuleByRef(props.rules, spell.spellCode));
+  const version = sustainVersionOf(spell);
+  const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
+  const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
+  const pathSpec =
+    pathRule?.spec && 'type' in pathRule.spec && pathRule.spec.type === 'magic_path'
+      ? (pathRule.spec as MagicPathSpec)
+      : null;
+  const cap = spellCastOptionsService.sourceCapOf(
+    version,
+    overview,
+    props.rules,
+    keywords.value,
+    spell.sourceKey,
+    pathSpec?.power_characteristic_code ?? null,
+  );
+  const max = shape.max ? spellCastDifficultyService.clampToRange(shape.max, null, cap) : cap;
+
+  return { min: shape.min, max };
+});
+
+/** Хранилище маны источника поддержания (у ядра маны нет). */
+const sustainStorage = computed(() =>
+  sustainSpell.value
+    ? spellCastOptionsService.storageOf(sustainVersionOf(sustainSpell.value), sustainSpell.value.sourceKey)
+    : null,
+);
+
+/** Цена продолжения в мане — мощь × число ходов Создания карточки. */
+const sustainManaTurns = computed(() => {
+  const spell = sustainSpell.value;
+  if (!spell) return 0;
+  const version = sustainVersionOf(spell);
+  const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
+  const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
+  if (!spec) return 0;
+  const creation = electrochargeService.creationCost(spec, turnResourceCode(props.rules));
+  const limit = electrochargeService.turnApMax(overview, props.rules);
+  if (creation <= 0 || limit <= 0) return 0;
+
+  return Math.ceil(creation / limit);
+});
 
 const activeParticipant = computed(() => {
   const data = initiative.value;
@@ -594,8 +662,9 @@ async function confirmWaitAndPass(): Promise<void> {
     if (!key) return;
     waitBusy.value = true;
     waitError.value = null;
+    let result: GamePhpTurnResult | null = null;
     try {
-      await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
+      result = await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
       waitDialogOpen.value = false;
       emit('overlay-changed');
     } catch (cause) {
@@ -603,6 +672,7 @@ async function confirmWaitAndPass(): Promise<void> {
     } finally {
       waitBusy.value = false;
     }
+    if (result) await promptPhpSustains(result);
 
     return;
   }
@@ -775,8 +845,9 @@ async function nextTurn(): Promise<void> {
   if (gamePhpMode.isEnabled()) {
     const key = activeParticipantKey.value;
     if (!key) return;
-    await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
+    const result = await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
     emit('overlay-changed');
+    await promptPhpSustains(result);
 
     return;
   }
@@ -809,6 +880,23 @@ async function nextTurn(): Promise<void> {
   }
 }
 
+async function promptPhpSustains(result: GamePhpTurnResult): Promise<void> {
+  for (const prompt of result.sustain ?? []) {
+    sustainSpell.value = prompt;
+    sustainError.value = null;
+    sustainBusy.value = false;
+    sustainOpen.value = true;
+    await new Promise<void>((resolve) => {
+      const stop = watch(sustainOpen, (open) => {
+        if (!open) {
+          stop();
+          resolve();
+        }
+      });
+    });
+  }
+}
+
 async function promptSustains(participantId: CombatEntityKey, round: number): Promise<void> {
   const spells = await getGameApi().getActiveSpells(props.gameId);
   for (const spell of spells) {
@@ -830,6 +918,8 @@ async function promptSustains(participantId: CombatEntityKey, round: number): Pr
       continue;
     }
     sustainSpell.value = spell;
+    sustainError.value = null;
+    sustainBusy.value = false;
     sustainOpen.value = true;
     await new Promise<void>((resolve) => {
       const stop = watch(sustainOpen, (open) => {
@@ -949,7 +1039,41 @@ async function abortCommittedTurn(): Promise<void> {
   }
 }
 
+function closeSustain(): void {
+  sustainOpen.value = false;
+  sustainSpell.value = null;
+}
+
+function phpDropSpellBody(spell: ActiveSpell): GamePhpDropSpellRequest {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) throw new Error('Бой ещё не известен');
+
+  return {
+    gameId: props.gameId,
+    battleId,
+    idempotencyKey: createRandomId(),
+    expectedBattleVersion: gamePhpBattleContext.battleVersion,
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[spell.casterKey] ?? 1,
+    spellId: spell.id,
+    expectedSpellVersion: spell.version ?? 1,
+  };
+}
+
+function phpSustainSpellBody(spell: ActiveSpell, power: DimensionalNumberValue): GamePhpSustainSpellRequest {
+  return {
+    ...phpDropSpellBody(spell),
+    sustainPower: power,
+  };
+}
+
 async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<void> {
+  if (gamePhpMode.isEnabled()) {
+    await getGameApi().dropActiveSpell(phpDropSpellBody(spell));
+    closeSustain();
+    emit('overlay-changed');
+
+    return;
+  }
   const states =
     runtimeProjectionOf(spell.casterKey)?.version?.states ??
     combatCardModelService.combatCardModel(
@@ -966,7 +1090,15 @@ async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<voi
     await getGameApi().removeCombatState(props.gameId, spell.casterKey, index);
   }
   emit('overlay-changed');
-  await getGameApi().dropActiveSpell(props.gameId, spell.id);
+  await getGameApi().dropActiveSpell({
+    gameId: props.gameId,
+    battleId: gamePhpBattleContext.battleId ?? 0,
+    idempotencyKey: createRandomId(),
+    expectedBattleVersion: gamePhpBattleContext.battleVersion,
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[spell.casterKey] ?? 1,
+    spellId: spell.id,
+    expectedSpellVersion: spell.version ?? 1,
+  });
   sustainOpen.value = false;
   sustainSpell.value = null;
   if (props.chatId === null) {
@@ -998,8 +1130,43 @@ async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<voi
 }
 
 async function continueSustain(power: DimensionalNumberValue): Promise<void> {
+  if (sustainBusy.value) {
+    return;
+  }
+  sustainBusy.value = true;
+  sustainError.value = null;
+  try {
+    await submitSustain(power);
+  } catch (cause) {
+    sustainError.value = sustainErrorMessage(cause);
+  } finally {
+    sustainBusy.value = false;
+  }
+}
+
+/** Понятный текст отказа поддержания вместо доменного сообщения. */
+function sustainErrorMessage(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : '';
+  const known: Record<string, string> = {
+    'Game active spell power is above the cap': 'Мощь поддержания выше потолка источника',
+    'Game active spell power is below the minimum': 'Мощь поддержания ниже минимума формы',
+    'Game active spell power is above the shape maximum': 'Мощь поддержания выше максимума формы',
+    'Game active spell power is invalid': 'Мощь поддержания задана неверно',
+  };
+
+  return known[message] ?? (message || 'Не удалось поддержать заклинание');
+}
+
+async function submitSustain(power: DimensionalNumberValue): Promise<void> {
   const spell = sustainSpell.value;
   if (!spell) {
+    return;
+  }
+  if (gamePhpMode.isEnabled()) {
+    await getGameApi().sustainActiveSpell(phpSustainSpellBody(spell, power));
+    closeSustain();
+    emit('overlay-changed');
+
     return;
   }
   const overlay = overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null;
@@ -1014,13 +1181,17 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
   ).effectiveVersion;
   const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
   const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
-  const pathSpec = pathRule?.spec?.type === 'magic_path' ? (pathRule.spec as MagicPathSpec) : null;
-  const maxPower = spellCastOptionsService.defaultUsedPower(
+  const pathSpec =
+    pathRule?.spec && 'type' in pathRule.spec && pathRule.spec.type === 'magic_path'
+      ? (pathRule.spec as MagicPathSpec)
+      : null;
+  const maxPower = spellCastOptionsService.sourceCapOf(
+    version,
     overview,
-    version?.states ?? [],
+    props.rules,
+    keywords.value,
     spell.sourceKey,
     pathSpec?.power_characteristic_code ?? null,
-    props.rules,
   );
   const clamped = spellCastDifficultyService.clampToAtMost(power, maxPower);
   const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
@@ -1416,7 +1587,13 @@ function kindIcon(kind: 'character' | 'npc'): string {
     :spell-name="
       sustainSpell ? (findRuleByRef(props.rules, sustainSpell.spellCode)?.name ?? sustainSpell.spellCode) : ''
     "
-    :max-power="sustainSpell ? { base: 5, size: 1 } : { base: 3, size: 0 }"
+    :min-power="sustainPowerLimits.min"
+    :max-power="sustainPowerLimits.max"
+    :busy="sustainBusy"
+    :error="sustainError"
+    :mana-turns="sustainManaTurns"
+    :mana="sustainStorage?.mana ?? null"
+    :stability="sustainSpell?.stability ?? null"
     @update:open="sustainOpen = $event"
     @continue="continueSustain"
     @drop="sustainSpell && dropSustain(sustainSpell, false)"

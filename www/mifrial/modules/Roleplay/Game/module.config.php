@@ -23,11 +23,13 @@ use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\CreateGameNpcAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameCheckAction;
 use Mifrial\Roleplay\Game\Action\DeleteGameChronicleEntryAction;
+use Mifrial\Roleplay\Game\Action\DropGameSpellAction;
 use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
 use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
 use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction;
+use Mifrial\Roleplay\Game\Action\GetGameActiveSpellsAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterListAction;
@@ -67,6 +69,7 @@ use Mifrial\Roleplay\Game\Action\StartGameBattleAction;
 use Mifrial\Roleplay\Game\Action\StartGameSessionAction;
 use Mifrial\Roleplay\Game\Action\StopGameSessionAction;
 use Mifrial\Roleplay\Game\Action\SubmitGameCharacterAction;
+use Mifrial\Roleplay\Game\Action\SustainGameSpellAction;
 use Mifrial\Roleplay\Game\Action\TranslateGameNpcAction;
 use Mifrial\Roleplay\Game\Action\UpdateGameAction;
 use Mifrial\Roleplay\Game\Action\UpdateGameChronicleEntryAction;
@@ -194,6 +197,17 @@ return [
         },
         CastGameSpellAction::class => static function (IServiceLocator $serviceLocator): CastGameSpellAction {
             return new CastGameSpellAction((new GameStrikeHttpFactory())->createSpellCastHttp($serviceLocator));
+        },
+        SustainGameSpellAction::class => static function (IServiceLocator $serviceLocator): SustainGameSpellAction {
+            return new SustainGameSpellAction((new GameStrikeHttpFactory())->createActiveSpellHttp($serviceLocator));
+        },
+        DropGameSpellAction::class => static function (IServiceLocator $serviceLocator): DropGameSpellAction {
+            return new DropGameSpellAction((new GameStrikeHttpFactory())->createActiveSpellHttp($serviceLocator));
+        },
+        GetGameActiveSpellsAction::class => static function (IServiceLocator $serviceLocator): GetGameActiveSpellsAction {
+            return new GetGameActiveSpellsAction(
+                (new GameStrikeHttpFactory())->createActiveSpellQueryHttp($serviceLocator),
+            );
         },
         ResolveGameStrikeWindowAction::class => static function (
             IServiceLocator $serviceLocator,
@@ -596,6 +610,18 @@ return [
         'game.castSpell' => [
             'handler' => CastGameSpellAction::class,
             'csrf' => true,
+        ],
+        'game.sustainSpell' => [
+            'handler' => SustainGameSpellAction::class,
+            'csrf' => true,
+        ],
+        'game.dropSpell' => [
+            'handler' => DropGameSpellAction::class,
+            'csrf' => true,
+        ],
+        'game.getActiveSpells' => [
+            'handler' => GetGameActiveSpellsAction::class,
+            'csrf' => false,
         ],
         'game.resolveStrikeWindow' => [
             'handler' => ResolveGameStrikeWindowAction::class,

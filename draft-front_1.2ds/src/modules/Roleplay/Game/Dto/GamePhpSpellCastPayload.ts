@@ -15,4 +15,6 @@ export interface GamePhpSpellCastPayload {
   };
   spellTarget?: { type: 'character' | 'npc'; id: number };
   upgrades?: GamePhpSpellCastUpgrade[];
+  /** Строка поддержания, чей заряд тратится. */
+  chargeSpellId?: string;
 }

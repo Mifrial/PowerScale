@@ -52,6 +52,10 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { GamePhpSustainSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSustainSpellRequest';
+import type { GamePhpDropSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpDropSpellRequest';
+import type { GamePhpActiveSpellResult } from '@/modules/Roleplay/Game/Dto/GamePhpActiveSpellResult';
+import type { GamePhpDropSpellResult } from '@/modules/Roleplay/Game/Dto/GamePhpDropSpellResult';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 import type { GameRuntimeEntityBatchRequest } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchRequest';
 import type { GameRuntimeEntityBatchResult } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchResult';
@@ -829,16 +833,33 @@ export class GameApi implements IGameApi {
     this.throwPhpUnsupported();
   }
 
-  async getActiveSpells(_gameId: number, _signal?: AbortSignal): Promise<ActiveSpell[]> {
-    return [];
+  async getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]> {
+    return this.requireData<ActiveSpell[]>('game.getActiveSpells', { gameId }, signal);
   }
 
   async upsertActiveSpell(_gameId: number, _spell: ActiveSpell, _signal?: AbortSignal): Promise<ActiveSpell> {
     this.throwPhpUnsupported();
   }
 
-  async dropActiveSpell(_gameId: number, _id: string, _signal?: AbortSignal): Promise<void> {
-    this.throwPhpUnsupported();
+  async sustainActiveSpell(body: GamePhpSustainSpellRequest, signal?: AbortSignal): Promise<GamePhpActiveSpellResult> {
+    const result = await this.requireData<GamePhpActiveSpellResult>('game.sustainSpell', body, signal);
+    if (typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    }
+    if (result.spell && typeof result.sheetVersion === 'number') {
+      gamePhpBattleContext.rememberSheet(result.spell.casterKey, result.sheetVersion);
+    }
+
+    return result;
+  }
+
+  async dropActiveSpell(body: GamePhpDropSpellRequest, signal?: AbortSignal): Promise<GamePhpDropSpellResult> {
+    const result = await this.requireData<GamePhpDropSpellResult>('game.dropSpell', body, signal);
+    if (typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    }
+
+    return result;
   }
 
   async getCurrentSpeed(_gameId: number, _entityKey: CombatEntityKey, _signal?: AbortSignal): Promise<CurrentSpeed> {
@@ -1285,6 +1306,7 @@ export class GameApi implements IGameApi {
             ...(body.target ? { target: body.target, expectedTargetVersion: body.expectedTargetVersion } : {}),
             ...(body.distanceIpari ? { distanceIpari: body.distanceIpari } : {}),
             ...(body.upgrades ? { upgrades: body.upgrades } : {}),
+            ...(body.chargeSpellId ? { chargeSpellId: body.chargeSpellId } : {}),
           },
         },
       },

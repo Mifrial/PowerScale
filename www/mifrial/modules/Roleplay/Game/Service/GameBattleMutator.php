@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
@@ -40,6 +41,7 @@ final class GameBattleMutator
         private readonly IGameSessionRoster $sessionRoster,
         private readonly GameProcessRepository $processes,
         private readonly GameBattleOrder $order,
+        private readonly GameActiveSpellRepository $activeSpells,
     ) {
         $this->lookup = new GameBattleLookup($battles);
     }
@@ -162,6 +164,7 @@ final class GameBattleMutator
         }
 
         $this->processes->cancelOpenForBattle($battleId);
+        $this->activeSpells->deleteForBattle($battleId);
         $this->battles->delete($battleId);
         $result = [
             'battleId' => $battleId,
@@ -173,6 +176,32 @@ final class GameBattleMutator
         ], $result);
 
         return $result;
+    }
+
+    /**
+     * Снимает заклинания выбывших участников.
+     *
+     * @param int $battleId Бой.
+     * @param list<array{type: string, id: int}> $participants Новый состав.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function dropDepartedSpells(int $battleId, array $participants): void
+    {
+        $kept = [];
+        foreach ($participants as $participant) {
+            $kept[$participant['type'] . ':' . $participant['id']] = true;
+        }
+
+        foreach ($this->battles->participants->find($battleId) as $participant) {
+            if (isset($kept[$participant['type'] . ':' . $participant['id']])) {
+                continue;
+            }
+
+            $this->activeSpells->deleteForCaster($battleId, $participant['type'], $participant['id']);
+        }
     }
 
     /**
@@ -194,6 +223,7 @@ final class GameBattleMutator
         array $participants,
         ?array $turnOrder,
     ): void {
+        $this->dropDepartedSpells($battleId, $participants);
         $this->battles->participants->replace($battleId, $participants);
         if ($turnOrder === null) {
             return;

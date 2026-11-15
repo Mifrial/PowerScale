@@ -187,6 +187,12 @@ export class CombatChatFoldService {
         (message) => message.content.includes(' сотворяет ') || message.content.includes(' творит заклинание '),
       );
     if (begin?.content) bits.push(this.compact(begin.content));
+    const applied = messages.find((message) => message.content.includes(' применяет '));
+    if (applied?.content) bits.push(this.compact(applied.content));
+    const sustain = messages.find(
+      (message) => message.content.includes(' поддерживает ') || message.content.includes(' продолжает поддерживать '),
+    );
+    if (sustain?.content) bits.push(this.compact(sustain.content));
     const outcome = messages.find((message) => this.isSpellOutcome(message.content));
     if (outcome?.content) bits.push(this.compact(outcome.content));
     const effect = messages.find(
@@ -196,7 +202,10 @@ export class CombatChatFoldService {
     bits.push(...this.injurySummaries(messages));
     bits.push(...this.declineSummaries(messages));
 
-    return bits.length > 0 ? bits.join(' ') : 'Заклинание';
+    if (bits.length > 0) return this.unique(bits).join(' ');
+    const first = messages.find((message) => message.content !== '');
+
+    return first?.content ? this.compact(first.content) : 'Заклинание';
   }
 
   attackFoldSummary(messages: ChatMessage[]): string {
@@ -299,9 +308,7 @@ export class CombatChatFoldService {
 
   private toNode(acc: Map<string, CombatChatFoldGroup>, group: CombatChatFoldGroup): ChatFoldNode {
     const header =
-      group.kind === COMBAT_CHAT_ATTACK ||
-      group.kind === COMBAT_CHAT_SPELL ||
-      group.kind === COMBAT_CHAT_INITIATIVE
+      group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_SPELL || group.kind === COMBAT_CHAT_INITIATIVE
         ? undefined
         : group.messages.find((message) => message.kind != null);
     const body = header ? group.messages.filter((message) => message.id !== header.id) : group.messages;

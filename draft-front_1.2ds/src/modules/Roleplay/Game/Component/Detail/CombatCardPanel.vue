@@ -208,7 +208,8 @@ function applyManeuver(option: { ruleCode: string; targetKey: CombatEntityKey })
   emit('launch-action', { actionCode: option.ruleCode, targetKey: option.targetKey, stateIndex: -1 });
 }
 
-const activeEffectLabels = computed(() => [  ...pendingEffects.value.map((pending) => {
+const activeEffectLabels = computed(() => [
+  ...pendingEffects.value.map((pending) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
     if (pending.effect.type === 'last_strike_snapshot') {
       return `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`;
@@ -369,11 +370,13 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
     }
     rows.push({ label: 'Обезображивающее', value: state.maim.disfiguring ? 'да' : 'нет' });
     rows.push({ label: 'Смертельное', value: state.maim.lethal ? 'да' : 'нет' });
-  } else if (state.boundSustainId) {
-    const sustain = activeSpells.value.find((spell) => spell.id === state.boundSustainId);
+  } else if (state.boundSustainId || electrochargeService.spellOfState(state, activeSpells.value, props.rules)) {
+    const sustain =
+      activeSpells.value.find((spell) => spell.id === state.boundSustainId) ??
+      electrochargeService.spellOfState(state, activeSpells.value, props.rules);
     const spellName = sustain
       ? (findRuleByRef(props.rules, sustain.spellCode)?.name ?? sustain.spellCode)
-      : state.boundSustainId;
+      : (state.boundSustainId ?? state.boundSourceKey ?? '');
     rows.push({ label: 'Поддержание', value: spellName });
   } else if (state.boundSourceKey) {
     const sourceName =
@@ -447,7 +450,9 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         poison: isPoison && state ? combatCardModelService.resolvedPoisonValue(state, props.rules) : null,
         actionLabel:
           state && electrochargeService.canOpenCast(state, activeSpells.value, props.rules) ? 'Сотворить' : null,
-        sustainId: state?.boundSustainId ?? null,
+        sustainId: state
+          ? (electrochargeService.spellOfState(state, activeSpells.value, props.rules)?.id ?? null)
+          : null,
         woundInternal: state ? woundInstanceService.payload(state).internal : false,
         woundHeld: state ? woundInstanceService.isHeld(state) : false,
         linkedActions: row.linkedActions,
@@ -612,8 +617,33 @@ async function abortCommittedAction(): Promise<void> {
 async function abortSustainedSpell(id: string): Promise<void> {
   const spell = activeSpells.value.find((entry) => entry.id === id);
   if (!spell) return;
+  if (gamePhpMode.isEnabled()) {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) throw new Error('Бой ещё не известен');
+    await getGameApi().dropActiveSpell({
+      gameId: props.gameId,
+      battleId,
+      idempotencyKey: createRandomId(),
+      expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[spell.casterKey] ?? 1,
+      spellId: spell.id,
+      expectedSpellVersion: spell.version ?? 1,
+    });
+    activeSpells.value = activeSpells.value.filter((entry) => entry.id !== spell.id);
+    emit('overlay-changed');
+
+    return;
+  }
   await dropBoundCharges(spell.casterKey, spell.id);
-  await getGameApi().dropActiveSpell(props.gameId, spell.id);
+  await getGameApi().dropActiveSpell({
+    gameId: props.gameId,
+    battleId: gamePhpBattleContext.battleId ?? 0,
+    idempotencyKey: createRandomId(),
+    expectedBattleVersion: gamePhpBattleContext.battleVersion,
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[spell.casterKey] ?? 1,
+    spellId: spell.id,
+    expectedSpellVersion: spell.version ?? 1,
+  });
   activeSpells.value = activeSpells.value.filter((entry) => entry.id !== spell.id);
   if (props.chatId === null) return;
   const rule = findRuleByRef(props.rules, spell.spellCode);

@@ -81,6 +81,25 @@ export class ElectrochargeService {
     return states.findIndex((state) => this.isBound(state, stateCode, sustainId));
   }
 
+  /** Поддержание, к которому привязано состояние: id в моке, источник на сервере. */
+  spellOfState(state: CharacterStateValue, spells: ActiveSpell[], rules: Rule[]): ActiveSpell | null {
+    const byId = state.boundSustainId ? spells.find((spell) => spell.id === state.boundSustainId) : null;
+    const sourceKey = state.boundSourceKey;
+    const spell = byId ?? (sourceKey ? (spells.find((entry) => entry.sourceKey === sourceKey) ?? null) : null);
+    if (!spell) return null;
+    const spec = this.chargeSpec(spell.spellCode, rules);
+
+    return spec && spec.state_code === state.stateRuleCode ? spell : null;
+  }
+
+  boundState(states: CharacterStateValue[], spell: ActiveSpell, stateCode: string): CharacterStateValue | undefined {
+    return states.find(
+      (state) =>
+        state.stateRuleCode === stateCode &&
+        (state.boundSustainId === spell.id || state.boundSourceKey === spell.sourceKey),
+    );
+  }
+
   boundIndices(states: CharacterStateValue[], sustainId: string): number[] {
     return states
       .map((state, index) => (state.boundSustainId === sustainId ? index : -1))
@@ -89,10 +108,10 @@ export class ElectrochargeService {
   }
 
   canOpenCast(state: CharacterStateValue, spells: ActiveSpell[], rules: Rule[]): boolean {
-    if (!state.boundSustainId || (state.value ?? 0) < 1) {
+    if ((state.value ?? 0) < 1) {
       return false;
     }
-    const sustain = spells.find((spell) => spell.id === state.boundSustainId);
+    const sustain = this.spellOfState(state, spells, rules);
     if (!sustain) {
       return false;
     }

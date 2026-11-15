@@ -8,6 +8,7 @@ use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterKeywordExperience;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
@@ -106,7 +107,15 @@ final class GameStrikeHttpFactory
             new GameActionResourceResolver(),
             new GameActionHands($rules, $shared->repos->characters, $shared->repos->npcs),
             $deviation,
+            $shared->repos->activeSpells,
         );
+        $activeGuard = new GameActiveSpellGuard($shared->repos->activeSpells);
+        $activeCreate = new GameActiveSpellCreate(
+            $shared->repos->activeSpells,
+            $activeGuard,
+            new GameSpellDurationRules(),
+        );
+        $activeChat = new GameActiveSpellChat($ports->chats(), $shared->chat);
 
         return new GameSpellCast(
             $shared->ready,
@@ -117,7 +126,7 @@ final class GameStrikeHttpFactory
             $shared->access,
             $write->perform($rules),
             $facts,
-            new GameSpellTouchFacts($facts, $shared->sheets),
+            new GameSpellTouchFacts($facts, $shared->sheets, $activeGuard),
             new GameSpellCastCheck(
                 $ruleWiring->checkRoll(),
                 new GameCheckChain(),
@@ -146,6 +155,10 @@ final class GameStrikeHttpFactory
                 new GameStrikeAmounts(),
                 $ruleWiring->consequences($rules),
             ),
+            $activeGuard,
+            $activeCreate,
+            $activeChat,
+            new GameActiveSpellCharge(new GameSpellCharge(), $shared->sheetWrites, $activeChat),
         );
     }
 
@@ -201,6 +214,44 @@ final class GameStrikeHttpFactory
     }
 
     /**
+     * HTTP поддержания и прекращения заклинания.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActiveSpellHttp Сценарий.
+     */
+    public function createActiveSpellHttp(IServiceLocator $serviceLocator): GameActiveSpellHttp
+    {
+        return new GameActiveSpellHttp(
+            (new GameStrikePorts($serviceLocator))->userAccess(),
+            $this->turns($serviceLocator),
+            new GameActiveSpellBody(),
+        );
+    }
+
+    /**
+     * HTTP чтения активных заклинаний.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActiveSpellQueryHttp Сценарий.
+     */
+    public function createActiveSpellQueryHttp(IServiceLocator $serviceLocator): GameActiveSpellQueryHttp
+    {
+        $ports = new GameStrikePorts($serviceLocator);
+        $gateway = $ports->gateway();
+
+        return new GameActiveSpellQueryHttp(
+            $ports->userAccess(),
+            $ports->games(),
+            (new GameStrikeCardWiring())->card($serviceLocator),
+            new GameSessionRepository($gateway),
+            new GameActiveSpellRepository($gateway),
+            new GameActiveSpellView(),
+        );
+    }
+
+    /**
      * Доменная команда карточки действия.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -249,14 +300,26 @@ final class GameStrikeHttpFactory
         $battles = new GameBattleRepository($gateway);
         $cursor = new GameTurnCursor();
         $snapshot = new GameTurnSnapshot($rules, $this->npcs($gateway));
+        $ports = new GameStrikePorts($serviceLocator);
+        $shared = new GameStrikeShared(
+            $gateway,
+            $ports->games(),
+            $ports->mutations(),
+            $rules,
+            (new GameStrikeCardWiring())->card($serviceLocator),
+            $ports->events(),
+        );
+        $active = new GameActiveSpellWiring($serviceLocator, $rules, $shared, $access);
 
         return new GameTurns(
             $this->turnEnvelope($serviceLocator, $gateway, $access),
             new GameTurnScenario(new GameBattleLookup($battles), $access, $cursor),
-            $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor),
+            $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor, $active->turnStart),
             $this->turnContinue($serviceLocator, $rules, $write, $snapshot, $battles),
             new GameTurnAbort($battles),
             $this->turnProcessAbort($serviceLocator, $rules, $write, $gateway, $access, $battles),
+            $active->sustain,
+            $active->drop,
         );
     }
 
@@ -312,6 +375,7 @@ final class GameStrikeHttpFactory
      * @param GameTurnSnapshot $snapshot Снимок.
      * @param GameBattleRepository $battles Бои.
      * @param GameTurnCursor $cursor Курсор.
+     * @param GameActiveSpellTurnStart $activeSpells Вопрос поддержания.
      *
      * @return GameTurnEnd Сценарий.
      */
@@ -324,6 +388,7 @@ final class GameStrikeHttpFactory
         GameTurnSnapshot $snapshot,
         GameBattleRepository $battles,
         GameTurnCursor $cursor,
+        GameActiveSpellTurnStart $activeSpells,
     ): GameTurnEnd {
         $chats = (new GameStrikePorts($serviceLocator))->chats();
         $announce = new GameTurnAnnounce(
@@ -339,6 +404,7 @@ final class GameStrikeHttpFactory
             new GameBattleMarks(),
             $cursor,
             $announce,
+            $activeSpells,
         );
     }
 

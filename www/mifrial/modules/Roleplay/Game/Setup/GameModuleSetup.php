@@ -9,6 +9,7 @@ use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Roleplay\Game\Schema\GameActionSchema;
+use Mifrial\Roleplay\Game\Schema\GameActiveSpellSchema;
 use Mifrial\Roleplay\Game\Schema\GameAdmissionSchema;
 use Mifrial\Roleplay\Game\Schema\GameBattleSchema;
 use Mifrial\Roleplay\Game\Schema\GameCheckSchema;
@@ -49,6 +50,7 @@ final class GameModuleSetup implements IModuleSetup
             GameChronicleSchema::getTableClasses(),
             GameEconomySchema::getTableClasses(),
             GameBattleSchema::getTableClasses(),
+            GameActiveSpellSchema::getTableClasses(),
             GameProcessSchema::getTableClasses(),
             GameActionSchema::getTableClasses(),
             GameCheckSchema::getTableClasses(),

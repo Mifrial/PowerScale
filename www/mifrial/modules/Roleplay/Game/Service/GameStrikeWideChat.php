@@ -52,8 +52,16 @@ final class GameStrikeWideChat
      * @return void
      */
     public function post(
-        GameRecord $game, array $rows, array $choices, array $results, array $attackerRoll,
-        array $open, GameBattleRecord $battle, CharacterRuleSlice $slice, int $actorUserId, array $covers = [],
+        GameRecord $game,
+        array $rows,
+        array $choices,
+        array $results,
+        array $attackerRoll,
+        array $open,
+        GameBattleRecord $battle,
+        CharacterRuleSlice $slice,
+        int $actorUserId,
+        array $covers = [],
     ): void {
         $shown = $this->shown($results, $rows, $choices);
         if ($shown === [] || !isset($rows[0])) {
@@ -137,7 +145,14 @@ final class GameStrikeWideChat
     ): void {
         foreach ($shown as $item) {
             $this->outcome->post(
-                $game, $actorUserId, $threadId, $view['attacker'], $item['record'], $view['typeBit'], $speaker, $parentId,
+                $game,
+                $actorUserId,
+                $threadId,
+                $view['attacker'],
+                $item['record'],
+                $view['typeBit'],
+                $speaker,
+                $parentId,
             );
         }
     }

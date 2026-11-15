@@ -117,7 +117,11 @@ final class GameStrikeResolutionActors
                 0,
             ),
             $this->actorRef($game, $kind, $id, $npcVersion),
-            $reaction, $blockItemInventoryId, $rating, $penetration, $durabilityShave,
+            $reaction,
+            $blockItemInventoryId,
+            $rating,
+            $penetration,
+            $durabilityShave,
         );
     }
 

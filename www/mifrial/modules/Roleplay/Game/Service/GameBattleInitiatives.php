@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Closure;
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;

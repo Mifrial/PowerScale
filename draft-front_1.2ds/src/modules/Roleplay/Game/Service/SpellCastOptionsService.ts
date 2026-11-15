@@ -1,3 +1,4 @@
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -11,7 +12,12 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
-import { aggregateSourceDeltasService, damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService, damageTypeSpecService, raceSpecService } from '@/modules/Roleplay/Rule/init';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { ItemStorageValue } from '@/modules/Roleplay/Character/Dto/ItemStorageValue';
+import { spellSourcePowerService } from '@/modules/Roleplay/Character/init';
 
 /** Источники, пути и изученные заклинания для диалога сотворения. */
 export class SpellCastOptionsService {
@@ -42,48 +48,74 @@ export class SpellCastOptionsService {
     return options;
   }
 
-  listSources(version: CharacterVersion | null, rules: Rule[]): SpellCastSourceOption[] {
+  /**
+   * Заклинания, записанные в источниках-хранилищах. Для пути записей они
+   * доступны без изучения; состав читается из payload строк инвентаря.
+   */
+  listRecordedSpells(version: CharacterVersion | null, rules: Rule[]): SpellCastSpellOption[] {
+    if (!version) {
+      return [];
+    }
+    const seen = new Set<string>();
+    const options: SpellCastSpellOption[] = [];
+    for (const item of version.inventory) {
+      const payload = item.payload ?? {};
+      const recorded = payload.recorded_spells;
+      if (!Array.isArray(recorded)) continue;
+      for (const entry of recorded) {
+        const code = entry && typeof entry === 'object' && 'ruleCode' in entry ? entry.ruleCode : null;
+        if (typeof code !== 'string' || seen.has(code)) continue;
+        const rule = rules.find((row) => row.code === code);
+        if (!rule || !this.isSpellRule(rule)) continue;
+        seen.add(code);
+        const spec = spellCastDifficultyService.asSpellAbilitySpec(rule);
+        options.push({
+          ruleCode: code,
+          name: rule.name,
+          requiredPower: spec ? this.fixedSpellValue(spec.spell.power) : null,
+          requiredControl: spec ? this.fixedSpellValue(spec.spell.control) : null,
+        });
+      }
+    }
+
+    return options;
+  }
+
+  listSources(version: CharacterVersion | null, rules: Rule[], keywords: Keyword[] = []): SpellCastSourceOption[] {
     if (!version) {
       return [];
     }
     const options: SpellCastSourceOption[] = [];
-    const seen = new Set<string>();
     for (const item of version.inventory) {
+      const key = `inventory:${item.id}`;
+      const rule = rules.find((entry) => entry.code === item.ruleCode);
+      const spec = rule?.spec as ItemSpec | undefined;
+      const equipped = item.equipped ? '' : ' (не экипирован)';
+      if (spec?.storage) {
+        const storage = version.items?.find((entry) => entry.inventoryId === item.id);
+        const power = storage?.maxPower ?? item.parameters?.[spec.storage.power_parameter];
+        const powerLabel = power ? ` ${DimensionalNumber.from(power).toString()}` : '';
+        const manaLabel = storage ? ` · мана ${storage.mana}/${storage.manaMax}` : '';
+        options.push({
+          key,
+          name: `${rule?.name ?? 'Кристалл'}${powerLabel}${manaLabel}${equipped}`,
+        });
+        continue;
+      }
+
       if (item.ruleCode !== MAGIC_CORE_ITEM_CODE) {
         continue;
       }
-      const key = `inventory:${item.id}`;
-      seen.add(MAGIC_CORE_ITEM_CODE);
-      const rule = rules.find((entry) => entry.code === item.ruleCode);
-      const equipped = item.equipped ? '' : ' (не экипирован)';
-      options.push({ key, name: `${rule?.name ?? 'Магическое ядро'}${equipped}` });
-    }
-    if (!seen.has(MAGIC_CORE_ITEM_CODE)) {
-      for (const ability of version.abilities) {
-        const rule = rules.find((entry) => entry.code === ability.ruleCode);
-        if (!rule || !rule.spec || typeof rule.spec !== 'object') {
-          continue;
-        }
-        for (const levelGrant of this.grantRows(rule.spec)) {
-          if (levelGrant.level > ability.level) {
-            continue;
-          }
-          for (const grant of levelGrant.grants) {
-            if (grant.type === 'item' && grant.item_code === MAGIC_CORE_ITEM_CODE) {
-              const itemRule = rules.find((entry) => entry.code === MAGIC_CORE_ITEM_CODE);
-              options.push({
-                key: `grant:${ability.ruleCode}`,
-                name: itemRule?.name ?? 'Магическое ядро',
-              });
-              seen.add(MAGIC_CORE_ITEM_CODE);
-              break;
-            }
-          }
-        }
-        if (seen.has(MAGIC_CORE_ITEM_CODE)) {
-          break;
-        }
-      }
+
+      const serverPower = this.serverSourcePower(version, key, 'magic-power');
+      const power = serverPower?.value ?? item.parameters?.power;
+      const powerLabel = power ? ` ${DimensionalNumber.from(power).toString()}` : '';
+      const bonus = serverPower ? 0 : this.sourceBonus(version, rules, keywords, key);
+      const bonusLabel = bonus > 0 ? ` (+${bonus})` : '';
+      options.push({
+        key,
+        name: `${rule?.name ?? 'Магическое ядро'}${powerLabel}${bonusLabel}${equipped}`,
+      });
     }
 
     return options;
@@ -94,8 +126,8 @@ export class SpellCastOptionsService {
       return [];
     }
     const codes = new Set<string>();
-    for (const ability of version.abilities) {
-      const rule = rules.find((entry) => entry.code === ability.ruleCode);
+    const byCode = new Map(rules.map((rule) => [rule.code, rule]));
+    const addPaths = (rule: Rule | undefined, level: number): void => {
       if (
         !rule ||
         !['ability', 'trait'].includes(rule.type) ||
@@ -103,11 +135,11 @@ export class SpellCastOptionsService {
         typeof rule.spec !== 'object' ||
         !('grants' in rule.spec)
       ) {
-        continue;
+        return;
       }
       const rows = this.grantRows(rule.spec);
       for (const levelGrant of rows) {
-        if (levelGrant.level > ability.level) {
+        if (levelGrant.level > level) {
           continue;
         }
         for (const grant of levelGrant.grants) {
@@ -116,6 +148,14 @@ export class SpellCastOptionsService {
           }
         }
       }
+    };
+    for (const ability of version.abilities) {
+      addPaths(byCode.get(ability.ruleCode), ability.level);
+    }
+    // Автоматические ссылки расы («Даёт способности») дают пути без выбранного уровня:
+    // кристалл Яппи открывает «Простейшее волшебство» сразу.
+    for (const ref of raceSpecService.automaticAbilities(version.raceRuleCode ?? null, byCode)) {
+      addPaths(byCode.get(ref.ability_code), 1);
     }
     const options: SpellCastPathOption[] = [];
     for (const pathCode of codes) {
@@ -128,6 +168,8 @@ export class SpellCastOptionsService {
         castCheckCode: spec?.cast_check_code ?? null,
         powerCharacteristicCode: spec?.power_characteristic_code ?? null,
         controlCharacteristicCode: spec?.control_characteristic_code ?? null,
+        noControl: spec?.no_control === true,
+        recordedCasting: spec?.recorded_casting === true,
       });
     }
 
@@ -154,6 +196,125 @@ export class SpellCastOptionsService {
       base,
       spellDeviationService.strengthOnSource(states, sourceKey, rules),
     );
+  }
+
+  /**
+   * Потолок мощи выбранного источника: мощь экземпляра, бонус формы и штраф отклонения.
+   * Источник без своей мощи откатывается на характеристику пути (legacy grant/characteristic).
+   */
+  sourceCapOf(
+    version: CharacterVersion | null,
+    overview: CharacterOverview | null,
+    rules: Rule[],
+    keywords: Keyword[],
+    sourceKey: string,
+    characteristicCode: string | null,
+  ): DimensionalNumberValue {
+    const serverPower = this.serverSourcePower(version, sourceKey, characteristicCode);
+    const base =
+      serverPower?.value ??
+      this.itemPower(version, rules, sourceKey, characteristicCode) ??
+      this.characteristicValue(overview, characteristicCode);
+    const hasServerPowers = (version?.sourcePowers?.length ?? 0) > 0;
+    const isInventory = sourceKey.startsWith('inventory:');
+    const bonus =
+      serverPower || (hasServerPowers && !isInventory) ? 0 : this.sourceBonus(version, rules, keywords, sourceKey);
+    const value = bonus === 0 ? base : CharacteristicNumber.from(base).modifyWith(bonus).value;
+
+    return spellDeviationService.penalizeUsedPower(
+      value,
+      spellDeviationService.strengthOnSource(version?.states ?? [], sourceKey, rules),
+    );
+  }
+
+  /**
+   * Мана каста из предмета-хранилища: `мощь × ceil(Создание в ОД / лимит ОД хода)`.
+   * Ядро маны не тратит, поэтому для него вызывающий цену не считает.
+   */
+  manaCostOf(power: DimensionalNumberValue, creationAp: number, turnApMax: number): number {
+    if (creationAp <= 0 || turnApMax <= 0) {
+      return 0;
+    }
+
+    return DimensionalNumber.from(power).toNumber() * Math.ceil(creationAp / turnApMax);
+  }
+
+  /** Рантайм хранилища по ключу источника (`inventory:<id>`). */
+  storageOf(version: CharacterVersion | null, sourceKey: string): ItemStorageValue | null {
+    if (!version?.items?.length) {
+      return null;
+    }
+    const [kind, raw = ''] = sourceKey.split(':', 2);
+    if (kind !== 'inventory' || Number(raw) <= 0) {
+      return null;
+    }
+    const inventoryId = Number(raw);
+
+    return version.items.find((entry) => entry.inventoryId === inventoryId) ?? null;
+  }
+
+  /** Эффективная мощь источника из серверного листа. */
+  private serverSourcePower(
+    version: CharacterVersion | null,
+    sourceKey: string,
+    characteristicCode: string | null,
+  ): { value: DimensionalNumberValue; bonus: number } | null {
+    if (!version?.sourcePowers?.length || !characteristicCode) return null;
+    const [kind, raw = ''] = sourceKey.split(':', 2);
+    if (kind !== 'inventory' || Number(raw) <= 0) return null;
+    const inventoryId = Number(raw);
+    const row = version.sourcePowers.find(
+      (entry) => entry.inventoryId === inventoryId && entry.characteristicCode === characteristicCode,
+    );
+
+    return row ? { value: row.value, bonus: row.bonus } : null;
+  }
+
+  /** Мощь предмета-источника из параметра экземпляра. */
+  private itemPower(
+    version: CharacterVersion | null,
+    rules: Rule[],
+    sourceKey: string,
+    characteristicCode: string | null,
+  ): DimensionalNumberValue | null {
+    if (!version || !characteristicCode) return null;
+    const [kind, raw = ''] = sourceKey.split(':', 2);
+    if (kind !== 'inventory' || Number(raw) <= 0) return null;
+    const inventoryId = Number(raw);
+    const item = version.inventory.find((row) => row.id === inventoryId);
+    if (!item || item.ruleCode === null) return null;
+    const storage = version.items?.find((entry) => entry.inventoryId === inventoryId);
+    if (storage) return storage.maxPower;
+    const rule = rules.find((entry) => entry.code === item.ruleCode && entry.type === 'item');
+    const spec = rule?.spec as ItemSpec | undefined;
+    if (!spec) return null;
+    for (const grant of spec.grants ?? []) {
+      if (grant.type !== 'characteristic_parameter' || grant.characteristic_code !== characteristicCode) continue;
+      const value = item.parameters?.[grant.parameter_code];
+      if (value) return value;
+    }
+
+    return null;
+  }
+
+  /** Сумма бонусов `spell_source_power` подходящих способностей. */
+  private sourceBonus(version: CharacterVersion | null, rules: Rule[], keywords: Keyword[], sourceKey: string): number {
+    if (!version) return 0;
+    const levels = spellSourcePowerService.effectiveLevels(version.abilities, rules, keywords);
+    const characteristicValues = new Map<string, DimensionalNumberValue>();
+    for (const entry of version.characteristics ?? []) {
+      if (entry.value) characteristicValues.set(entry.ruleCode, entry.value);
+    }
+
+    return spellSourcePowerService.bonus({
+      rules,
+      keywords,
+      abilities: version.abilities,
+      levels,
+      characteristicValues,
+      inventory: version.inventory,
+      sourceKey,
+    });
   }
 
   defaultControl(overview: CharacterOverview | null, characteristicCode: string | null): DimensionalNumberValue {

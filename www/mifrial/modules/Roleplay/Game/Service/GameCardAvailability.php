@@ -46,6 +46,7 @@ final class GameCardAvailability
      * @param int $actorId Идентификатор актора.
      * @param string $actionRuleCode Карточка действия.
      * @param string|null $domainContext Путь экземпляра для доменных требований или null.
+     * @param bool $recorded Карточка приходит из записей источника, а не из изученных.
      *
      * @return AbilityWithBase Спека карточки.
      *
@@ -57,11 +58,16 @@ final class GameCardAvailability
         int $actorId,
         string $actionRuleCode,
         ?string $domainContext = null,
+        bool $recorded = false,
     ): AbilityWithBase {
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $spec = $this->specOf($slice, $actionRuleCode);
         $document = $this->document($game, $actorKind, $actorId, $slice);
         $level = $this->levelOf($document['sheet'], $actionRuleCode);
+        if ($recorded) {
+            return $spec;
+        }
+
         if (!$this->isAutomatic($spec) && $level < 1) {
             throw new GameInvalidException('Game action card is not available');
         }
