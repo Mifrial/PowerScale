@@ -1,15 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, defineAsyncComponent, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
+import type { GameEntityChipContext } from '@/modules/Roleplay/Game/Dto/GameEntityChipContext';
+import { GAME_ID_ROUTE_NAMES } from '@/modules/Roleplay/Game/Constant/Navigation/GAME_ID_ROUTE_NAMES';
+import { CharacterDetailSlider } from '@/modules/Roleplay/Character/init';
+
+const GameCharacterDetailSlider = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Game/Component/Detail/GameCharacterDetailSlider.vue'),
+);
+const NpcDetailSlider = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Game/Component/Detail/NpcDetailSlider.vue'),
+);
 
 const props = defineProps<{
   segment: Extract<InlineSegment, { kind: 'token' }>;
-  context?: { openEntity?: (key: string) => void };
+  context?: GameEntityChipContext;
 }>();
 
 const route = useRoute();
-const router = useRouter();
+
+const sliderOpen = ref(false);
 
 const entityId = computed(() => Number(props.segment.params[0]));
 const label = computed(() => {
@@ -24,6 +35,21 @@ const entityKey = computed(() => {
   return `character:${entityId.value}`;
 });
 
+/** Игра для деталки: из контекста заметки/чата, иначе — текущий маршрут игры. */
+const gameId = computed<number | null>(() => {
+  const fromContext = props.context?.gameId;
+  if (typeof fromContext === 'number' && Number.isInteger(fromContext) && fromContext > 0) return fromContext;
+  if (typeof route.name !== 'string' || !GAME_ID_ROUTE_NAMES.has(route.name)) return null;
+  const raw = route.params.id;
+  const id = typeof raw === 'string' ? Number(raw) : Number.NaN;
+
+  return Number.isFinite(id) && id > 0 ? id : null;
+});
+
+const isGameCharacter = computed(
+  () => props.segment.type === 'character' && props.context?.entityContext === 'game' && gameId.value !== null,
+);
+
 function open(): void {
   if (!entityKey.value) return;
   if (props.context?.openEntity) {
@@ -31,17 +57,7 @@ function open(): void {
 
     return;
   }
-  if (props.segment.type === 'character') {
-    void router.push({ name: 'CharacterDetail', params: { id: String(entityId.value) } });
-
-    return;
-  }
-  if (props.segment.type === 'npc') {
-    const gameRaw = route.params.id;
-    const gameId = typeof gameRaw === 'string' ? gameRaw : '';
-    if (!gameId) return;
-    void router.push({ name: 'NpcDetail', params: { id: gameId, npcId: String(entityId.value) } });
-  }
+  sliderOpen.value = true;
 }
 </script>
 
@@ -55,6 +71,24 @@ function open(): void {
     @keydown.space.prevent="open"
     >{{ label }}</span
   >
+
+  <GameCharacterDetailSlider
+    v-if="sliderOpen && isGameCharacter"
+    v-model:open="sliderOpen"
+    :game-id="gameId"
+    :character-id="entityId"
+  />
+  <CharacterDetailSlider
+    v-else-if="sliderOpen && segment.type === 'character'"
+    v-model:open="sliderOpen"
+    :character-id="entityId"
+  />
+  <NpcDetailSlider
+    v-else-if="sliderOpen && segment.type === 'npc'"
+    v-model:open="sliderOpen"
+    :game-id="gameId"
+    :npc-id="entityId"
+  />
 </template>
 
 <style scoped>

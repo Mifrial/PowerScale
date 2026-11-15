@@ -5,18 +5,18 @@ import type { SheetRole } from '@/modules/Roleplay/Character/Interface/SheetRole
 import type { CharacterCardExtension } from '@/modules/Roleplay/Character/Interface/CharacterCardExtension';
 import type { IInGameSheetSource } from '@/modules/Roleplay/Character/Interface/IInGameSheetSource';
 import type { ICharacterSessionRuntimePort } from '@/modules/Roleplay/Character/Interface/ICharacterSessionRuntimePort';
-import { registerPermissionCategory } from '@/modules/Core/User/init';
+import { registerPermissionCategory, useCurrentUser } from '@/modules/Core/User/init';
 import { registerMenuItem } from '@/modules/Core/UI/init';
 import { CHARACTERS_MENU_ITEM } from '@/modules/Roleplay/Character/Constant/Navigation/CHARACTERS_MENU_ITEM';
 import { registerChatTypes, registerChatTabs, registerChatRulesProvider } from '@/modules/Messages/Chat/init';
 import { registerNoteHost } from '@/modules/Messages/Notes/init';
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions';
 import { CHARACTER_CHAT_TYPES } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TYPES';
 import { CHARACTER_CHAT_TABS } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TABS';
 import { characterChatRulesProvider } from '@/modules/Roleplay/Character/Chat/characterChatRulesProvider';
 import { sheetRoleRegistry } from '@/modules/Roleplay/Character/Service/Instance/sheetRoleRegistry';
+import { characterNoteContextService } from '@/modules/Roleplay/Character/Service/Instance/characterNoteContextService';
 
 export function registerCharacterApi(api: ICharacterApi): void {
   serviceLocator.set('Roleplay.Character.Service.CharacterApi', api);
@@ -49,6 +49,15 @@ export const SheetCard = defineAsyncComponent(() => import('@/modules/Roleplay/C
 
 export const CharacterSheetBody = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/CharacterSheetBody.vue'),
+);
+
+// Слайдеры деталки и её каркас: публичные точки для Game (игровой контекст персонажа/НПС).
+export const CharacterDetailPanel = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/CharacterDetailPanel.vue'),
+);
+
+export const CharacterDetailSlider = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/CharacterDetailSlider.vue'),
 );
 
 export const CharacterCombatSheet = defineAsyncComponent(
@@ -143,21 +152,15 @@ export function registerCharacterModule(): void {
     resolveEditorContext: async (id) => {
       const detail = await getCharacterApi().getCharacter(id);
       const revision = await useSpaceRevision().fetchRevision(detail.character.spaceId, detail.character.rulesRevision);
-      const context = characterChatRulesContextService.build(
-        revision.rules,
-        detail.character.spaceId,
-        detail.character.rulesRevision,
-      );
-      const inlineContext: Record<string, unknown> = {
-        tokenLabels: context.tokenLabels,
-        spaceId: context.spaceId,
-        rulesRevision: context.rulesRevision,
-      };
 
-      return {
-        inlineContext,
-        tokenSources: context.tokenSources,
-      };
+      return characterNoteContextService.build({
+        rules: revision.rules,
+        spaceId: detail.character.spaceId,
+        rulesRevision: detail.character.rulesRevision,
+        viewer: useCurrentUser().currentUser.value,
+        gameId: detail.character.gameId,
+        entityContext: 'standalone',
+      });
     },
   });
 }
@@ -181,6 +184,7 @@ export { characterHandsService } from '@/modules/Roleplay/Character/Service/Inst
 export { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
 export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
 export { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
+export { characterNoteContextService } from '@/modules/Roleplay/Character/Service/Instance/characterNoteContextService';
 export { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 export { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 export { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';

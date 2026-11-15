@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 347,
-        "plans": 226,
+        "documents": 348,
+        "plans": 227,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 250,
+            "tr": 251,
             "tz": 2
         },
         "byZoneState": {
@@ -70,13 +70,13 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 149,
+                "СДЕЛАНО": 148,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 34,
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 18
+                "В РАБОТЕ": 20
             },
             "tz": {
                 "нет": 1,
@@ -86,12 +86,12 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 151,
+            "СДЕЛАНО": 150,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 34,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 18
+            "В РАБОТЕ": 20
         }
     },
     "modules": {
@@ -201,12 +201,13 @@
             }
         },
         "Messages/Notes": {
-            "docs": 5,
+            "docs": 6,
             "state": {
-                "СДЕЛАНО": 5
+                "СДЕЛАНО": 4,
+                "В РАБОТЕ": 2
             },
             "layer": {
-                "VUE": 4,
+                "VUE": 5,
                 "PHP": 3,
                 "МОК": 2
             }
@@ -2141,10 +2142,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 21618,
-            "lines": 172,
+            "bytes": 21841,
+            "lines": 173,
             "modules": [],
-            "linksCount": 130,
+            "linksCount": 131,
             "brokenLinks": [],
             "backlinks": [
                 "docs/review/prompts/campaign.md",
@@ -2231,10 +2232,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 32015,
-            "lines": 290,
+            "bytes": 32289,
+            "lines": 293,
             "modules": [],
-            "linksCount": 35,
+            "linksCount": 36,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -2947,7 +2948,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 26557,
+            "bytes": 26987,
             "lines": 225,
             "modules": [
                 "Roleplay/Character"
@@ -3221,7 +3222,7 @@
             ],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 12278,
+            "bytes": 12692,
             "lines": 126,
             "modules": [
                 "Messages/Chat"
@@ -6186,26 +6187,52 @@
             ]
         },
         {
+            "path": "docs/tr/notes-plan-05-entity-links.md",
+            "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~ — 2026-11-15",
+            "layers": [
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-15",
+            "bytes": 22769,
+            "lines": 326,
+            "modules": [
+                "Messages/Notes"
+            ],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/TR.md",
+                "docs/tr/architecture.md",
+                "docs/tr/notes-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/notes-roadmap.md",
             "title": "Нарезка Messages/Notes",
             "zone": "tr",
             "kind": "plan",
-            "state": "СДЕЛАНО",
+            "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~СДЕЛАНО~ — 2026-11-08. Шаги 0–3 сделаны: `Messages/Inline`,",
+            "statusRaw": "~В РАБОТЕ~ — 2026-11-15. Шаги 0–4 сделаны: `Messages/Inline`,",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-08",
-            "bytes": 14570,
-            "lines": 208,
+            "date": "2026-11-15",
+            "bytes": 15329,
+            "lines": 215,
             "modules": [
                 "Messages/Notes"
             ],
-            "linksCount": 8,
+            "linksCount": 9,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",

@@ -7,20 +7,17 @@ import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/chara
 import { displayName, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
-import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
-import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
-import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { characterChangePort, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
-import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
+import { characterNoteContextService } from '@/modules/Roleplay/Character/Service/Instance/characterNoteContextService';
 import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
-import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import { NotesSlider } from '@/modules/Messages/Notes/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import CharacterSheetBody from '@/modules/Roleplay/Character/Component/Detail/CharacterSheetBody.vue';
+import CharacterDetailHeader from '@/modules/Roleplay/Character/Component/Detail/CharacterDetailHeader.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -91,19 +88,18 @@ const {
 
 const notesOpen = ref(false);
 
-// Контекст правил персонажа для чипов и вставки в заметках — тот же срез ревизии, что у обсуждения.
-const notesContext = computed<ChatRulesContext>(() =>
-  characterChatRulesContextService.build(
-    rules.value,
-    detail.value?.character.spaceId,
-    detail.value?.version.rulesRevision,
-  ),
+// Контекст ссылок в заметках: срез ревизии персонажа; ссылки открывают standalone-деталку.
+const notesContext = computed(() =>
+  characterNoteContextService.build({
+    rules: rules.value,
+    spaceId: detail.value?.character.spaceId ?? null,
+    rulesRevision: detail.value?.version.rulesRevision ?? null,
+    viewer: currentUser.value,
+    gameId: detail.value?.character.gameId ?? null,
+    entityContext: 'standalone',
+  }),
 );
-const notesInline = computed<Record<string, unknown>>(() => ({
-  tokenLabels: notesContext.value.tokenLabels,
-  spaceId: notesContext.value.spaceId,
-  rulesRevision: notesContext.value.rulesRevision,
-}));
+const notesInline = computed(() => notesContext.value.inlineContext);
 const notesSources = computed(() => notesContext.value.tokenSources);
 
 // Секции листа, видимые текущему зрителю (standalone-контекст): владелец/ведущие — всё,
@@ -129,13 +125,6 @@ const visibleSections = computed(() => {
 const hasFullView = computed(() => visibleSections.value.length === SHEET_VISIBLE_SECTIONS.length);
 
 const cardExtensions = computed(() => getCharacterCardExtensions());
-
-const statusLabel = computed(() => {
-  const current = detail.value?.character;
-  if (!current) return '';
-
-  return CHARACTER_STATUS_OPTIONS.find((option) => option.value === current.status)?.label ?? current.status;
-});
 
 const ownerName = computed(() => {
   const current = detail.value?.character;
@@ -171,10 +160,6 @@ const revisionLabel = computed(() => {
 
   return `Правила: ${spaceName.value ?? current.character.spaceCode} v${current.version.rulesRevision}`;
 });
-
-function statusColor(status: CharacterStatus): string {
-  return CHARACTER_STATUS_COLOR[status];
-}
 
 async function load(): Promise<void> {
   const id = characterId.value;
@@ -316,33 +301,15 @@ watch(detail, (value) => {
         </v-btn>
       </Teleport>
 
-      <div class="d-flex align-center mb-4">
-        <div class="d-flex flex-column ga-1">
-          <div class="d-flex align-center ga-2">
-            <v-chip v-if="raceLabel" variant="tonal" size="small">{{ raceLabel }}</v-chip>
-            <h1 class="text-h5">{{ detail.character.name }}</h1>
-          </div>
-          <div class="d-flex align-center ga-2 flex-wrap">
-            <v-chip :color="statusColor(detail.character.status)" variant="tonal" size="small">{{
-              statusLabel
-            }}</v-chip>
-            <v-btn
-              variant="text"
-              color="primary"
-              size="small"
-              class="pa-0"
-              prepend-icon="mdi-book-open-variant"
-              :to="revisionHref"
-            >
-              {{ revisionLabel }}
-            </v-btn>
-            <span class="text-caption text-medium-emphasis">владелец: {{ ownerName || '—' }}</span>
-            <v-chip v-if="detail.character.gameName" variant="tonal" size="small" prepend-icon="mdi-dice-multiple">
-              {{ detail.character.gameName }}
-            </v-chip>
-          </div>
-        </div>
-      </div>
+      <CharacterDetailHeader
+        :name="detail.character.name"
+        :race-label="raceLabel"
+        :status="detail.character.status"
+        :owner-name="ownerName || '—'"
+        :game-name="detail.character.gameName"
+        :revision-href="revisionHref"
+        :revision-label="revisionLabel"
+      />
 
       <v-alert v-if="sheetCatalogError" type="error" variant="tonal" density="compact" class="mb-4">
         {{ sheetCatalogError }}

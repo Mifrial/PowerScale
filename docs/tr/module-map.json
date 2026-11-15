@@ -1448,6 +1448,22 @@
             "dependedOnBy": [],
             "plans": [
                 {
+                    "path": "docs/tr/notes-plan-05-entity-links.md",
+                    "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-15",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-roadmap.md",
+                    "title": "Нарезка Messages/Notes",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-15",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/notes-plan-01-inline-extract.md",
                     "title": "План 01 — вынос Messages/Inline из Chat",
                     "kind": "plan",
@@ -1474,14 +1490,6 @@
                 {
                     "path": "docs/tr/notes-plan-04-character.md",
                     "title": "План 04 — Character: удаление owner_notes и слайдер заметок",
-                    "kind": "plan",
-                    "state": "СДЕЛАНО",
-                    "date": "2026-11-08",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/notes-roadmap.md",
-                    "title": "Нарезка Messages/Notes",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-08",

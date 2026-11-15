@@ -22,7 +22,7 @@
 | Core | [SmartTable](Core/SmartTable.md) | `ISmartTableContainer` | 4 | 0 | Core/Cache, Core/Kernel | 22 |
 | Core | [User](Core/User.md) | `IUserContainer` | 20 | 13 | Core/File, Core/Image, Core/Kernel, Core/SmartTable | 10 |
 | Messages | [Chat](Messages/Chat.md) | `IChatContainer` | 11 | 7 | Core/Kernel, Core/SmartTable, Core/User | 9 |
-| Messages | [Notes](Messages/Notes.md) | `INotesContainer` | 10 | 8 | Core/Kernel, Core/SmartTable, Core/User | 5 |
+| Messages | [Notes](Messages/Notes.md) | `INotesContainer` | 10 | 8 | Core/Kernel, Core/SmartTable, Core/User | 6 |
 | Roleplay | [Character](Roleplay/Character.md) | `ICharacterContainer` | 15 | 7 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Keyword, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 17 |
 | Roleplay | [Game](Roleplay/Game.md) | `IGameContainer` | 76 | 64 | Core/Event, Core/Kernel, Core/SmartTable, Core/User, Messages/Chat, Roleplay/Character, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 49 |
 | Roleplay | [Keyword](Roleplay/Keyword.md) | `IKeywordContainer` | 7 | 5 | Core/Kernel, Core/SmartTable, Core/User | 3 |
