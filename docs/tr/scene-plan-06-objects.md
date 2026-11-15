@@ -1,14 +1,16 @@
 # Объекты: основание, силуэт и библиотека шаблонов
 
-**Статус:** ~В РАБОТЕ~, 2026-11-15 — B6.1 (основание и силуэт) и B6.2
-(библиотека объектов) готовы; B6.3 (видимая рамка спрайта и новый валун) —
-следующий шаг.
-**Реализация:** ~VUE~ — B6.1, B6.2; ~PHP~ — `footprint`/`silhouette` в
-валидаторе, `asset_item.meta`; ~МОК~ — `meta` в моке библиотеки.
+**Статус:** ~СДЕЛАНО~, 2026-11-15 — B6.1 (основание и силуэт), B6.2
+(библиотека объектов) и B6.3 (видимая рамка спрайта и новый валун) готовы.
+**Реализация:** ~VUE~ — B6.1, B6.2, B6.3; ~PHP~ — `footprint`/`silhouette` в
+валидаторе, `asset_item.meta`, `file.content_box`; ~МОК~ — `meta` и
+`contentBox` в моках.
 **Опираться на:** ~VUE~ (`SceneDecorFootprint`, `SceneObjectTemplate`,
 `SceneSurfaceService`, `SceneNavigationService`, `SceneGeometryService`,
-`SceneElementSettings`, `SceneObjectPalette`); ~PHP~ (`SceneElementValidator`,
-`AssetItemTable`, `AssetHttpService`); [`asset-library-plan-01.md`](asset-library-plan-01.md).
+`SceneElementSettings`, `SceneObjectPalette`, `SceneDecorService`); ~PHP~
+(`SceneElementValidator`, `AssetItemTable`, `AssetHttpService`, `FileTable`,
+`ImagickImageFrame`); [`asset-library-plan-01.md`](asset-library-plan-01.md),
+[`file-plan-01.md`](file-plan-01.md).
 
 ## Зачем
 
@@ -85,14 +87,24 @@
 
 ## B6.3 — видимая рамка спрайта
 
-**Статус:** ~ПЛАН~.
+**Статус:** ~СДЕЛАНО~, 2026-11-15.
 
-- bbox по альфе при загрузке текстуры, якорь — низ видимой массы,
-  `scale` — видимая ширина. Это выравнивает картинку с основанием, но физику
-  больше не трогает.
-- Считать на сервере (Imagick/Intervention): canvas-readback в браузере
-  ломается на tainted canvas и зависит от CORS.
-- Валун — новый ассет; старый `rock.png` не возвращается.
+- `file.content_box` — bbox по альфе, считается при загрузке через
+  `Core/Image` (`IImageFrame` → `ImagickImageFrame`, обрезка на уровне C).
+  У картинки без альфы и у полностью прозрачной рамка — весь файл; сбой
+  драйвера не валит загрузку, поле остаётся `null`.
+- Рамка отдаётся в `file.get`/`file.findPage` (`contentBox`), в ассете
+  библиотеки и в `asset` элемента сцены. Старые файлы досчитывает data-шаг
+  `BackfillContentBoxStep`.
+- Декор рисуется по видимой массе: якорь — центр низа рамки, `scale` —
+  видимая ширина; спрайт растягивается на весь файл, поэтому пропорции и
+  прозрачный запас не искажают объект. `assetAspect` для hit-test считает
+  аспект видимой рамки, а не файла.
+- Пресеты (`SCENE_DECOR_PRESETS`) теперь в процентах видимой ширины: у
+  старого камня прозрачные поля больше не раздувают основание.
+- Валун — новый ассет `boulder.png` (240×180, видимая масса 174×101);
+  старый `rock.png` не возвращается в набор и остаётся только для уже
+  загруженных ассетов.
 
 ## Критерии
 

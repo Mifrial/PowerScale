@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Field\BoolField;
 use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
+use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
@@ -47,6 +48,10 @@ final class FileTable extends SmartTableDefinition
             new StringField('storage_path', FieldSettings::fromOptions(['required' => true]), 255),
             new IntField('width', FieldSettings::fromOptions([]), 1, 20000),
             new IntField('height', FieldSettings::fromOptions([]), 1, 20000),
+            // Видимая рамка картинки: где кончаются прозрачные поля.
+            // Считается при приёме файла, чтобы потребитель ставил на якорь
+            // низ видимой массы, а не низ файла.
+            new JsonField('content_box', FieldSettings::fromOptions([])),
             new BoolField('is_archived', FieldSettings::fromOptions([
                 'required' => true,
                 'default' => false,

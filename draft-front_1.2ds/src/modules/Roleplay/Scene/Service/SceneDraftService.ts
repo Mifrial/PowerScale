@@ -128,6 +128,7 @@ export class SceneDraftService {
       sortOrder: this.nextSortOrder(draft, boardId),
       targetBoardId: null,
       assetPublicId: null,
+      assetContentBox: null,
     };
     draft.elements.push(element);
 
@@ -156,6 +157,7 @@ export class SceneDraftService {
       sortOrder: this.nextSortOrder(draft, source.boardId),
       targetBoardId: source.targetBoardId,
       assetPublicId: source.assetPublicId,
+      assetContentBox: source.assetContentBox,
     };
     draft.elements.push(element);
 

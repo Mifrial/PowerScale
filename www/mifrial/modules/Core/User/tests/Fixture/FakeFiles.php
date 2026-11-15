@@ -99,4 +99,16 @@ final class FakeFiles implements IFiles
     {
         return $this->publicIds;
     }
+
+    /**
+     * Не используется.
+     *
+     * @param array<int, int> $fileIds Id.
+     *
+     * @return array<int, FileRecord> Не возвращается.
+     */
+    public function activeFiles(array $fileIds): array
+    {
+        throw new LogicException('activeFiles must not be used');
+    }
 }

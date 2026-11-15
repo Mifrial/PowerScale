@@ -16,6 +16,7 @@ use Mifrial\Core\File\Service\FileIntake;
 use Mifrial\Core\File\Service\FileUploadService;
 use Mifrial\Core\File\Service\FileViewAssembler;
 use Mifrial\Core\File\Tests\Fixture\FakeFileStorage;
+use Mifrial\Core\File\Tests\Fixture\FakeImageFrame;
 use Mifrial\Core\File\Tests\Fixture\FakeUserAccess;
 use Mifrial\Core\File\Tests\Fixture\UnusedOpenedRecords;
 use Mifrial\Core\Kernel\Dto\RequestActor;
@@ -193,7 +194,7 @@ final class FileUploadServiceTest extends TestCase
 
         return new FileUploadService(
             new FakeUserAccess(new RequestActor(1, [], false)),
-            new FileIntake(new FileRepository(new UnusedOpenedRecords()), $storage, $settings),
+            new FileIntake(new FileRepository(new UnusedOpenedRecords()), $storage, $settings, new FakeImageFrame()),
             new FileViewAssembler(),
         );
     }

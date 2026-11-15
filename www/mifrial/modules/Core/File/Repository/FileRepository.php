@@ -10,6 +10,7 @@ use Mifrial\Core\File\Dto\FileRecord;
 use Mifrial\Core\File\Dto\NewFile;
 use Mifrial\Core\File\Exception\FileInvalidException;
 use Mifrial\Core\File\Exception\FileNotFoundException;
+use Mifrial\Core\Image\Dto\ImageFrame;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
@@ -132,6 +133,60 @@ final class FileRepository
         }
 
         return $this->publicIdMap($ids);
+    }
+
+    /**
+     * Живые строки по id: public_id и видимая рамка одним запросом.
+     *
+     * Нужно сборщику JSON, который отдаёт соседу и адрес картинки, и рамку.
+     *
+     * @param array<int, int> $fileIds Внутренние id.
+     *
+     * @return array<int, FileRecord> id → запись; архивных и отсутствующих нет.
+     *
+     * @throws FileInvalidException Если запрос ST недопустим.
+     */
+    public function activeFiles(array $fileIds): array
+    {
+        $ids = $this->positiveIds($fileIds);
+        if ($ids === []) {
+            return [];
+        }
+
+        $listResult = $this->readList(ListQuery::fromOptions([
+            'filter' => [
+                'LOGIC' => 'AND',
+                ['=id' => array_values($ids)],
+                ['=is_archived' => false],
+            ],
+            'limit' => count($ids),
+        ]));
+
+        $files = [];
+        foreach ($listResult->rows() as $row) {
+            try {
+                $fileRecord = FileRecord::fromNormalized($row);
+            } catch (FileInvalidException) {
+                continue;
+            }
+
+            $files[$fileRecord->getId()] = $fileRecord;
+        }
+
+        return $files;
+    }
+
+    /**
+     * Пишет видимую рамку картинки.
+     *
+     * @param int $fileId Id строки.
+     * @param ImageFrame $contentBox Рамка.
+     *
+     * @return void
+     */
+    public function updateContentBox(int $fileId, ImageFrame $contentBox): void
+    {
+        $this->fileRecords->update($fileId, ['content_box' => $contentBox->toArray()]);
     }
 
     /**

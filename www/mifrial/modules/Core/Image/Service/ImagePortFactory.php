@@ -6,6 +6,7 @@ namespace Mifrial\Core\Image\Service;
 
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\ImageManager;
+use Mifrial\Core\Image\Interface\Service\IImageFrame;
 use Mifrial\Core\Image\Interface\Service\IImageTransform;
 
 /**
@@ -26,5 +27,18 @@ final class ImagePortFactory
         return new InterventionImageTransform(
             new ImageManager(new ImagickDriver(), decodeAnimation: false),
         );
+    }
+
+    /**
+     * Порт видимой рамки картинки.
+     *
+     * Считается тем же Imagick, что и производные: обрезка прозрачных полей
+     * идёт на уровне драйвера, а не попиксельным обходом в PHP.
+     *
+     * @return IImageFrame Порт.
+     */
+    public function createFrame(): IImageFrame
+    {
+        return new ImagickImageFrame();
     }
 }

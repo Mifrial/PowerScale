@@ -474,6 +474,11 @@ final class UserHttpMysqlTest extends TestCase
 
                 return $this->inner->activePublicIds($fileIds);
             }
+
+            public function activeFiles(array $fileIds): array
+            {
+                return $this->inner->activeFiles($fileIds);
+            }
         };
 
         $assembler = new UserViewAssembler(
@@ -875,7 +880,7 @@ final class UserHttpMysqlTest extends TestCase
             new FileReadService($userAccess, $repository),
             $repository,
             $storage,
-            new FileIntake($repository, $storage, $settings),
+            new FileIntake($repository, $storage, $settings, (new ImagePortFactory())->createFrame()),
             $userAccess,
         );
     }
@@ -892,7 +897,12 @@ final class UserHttpMysqlTest extends TestCase
 
         return new FileUploadService(
             $this->userAccess(),
-            new FileIntake($repository, (new FileStorageFactory())->create($settings), $settings),
+            new FileIntake(
+                $repository,
+                (new FileStorageFactory())->create($settings),
+                $settings,
+                (new ImagePortFactory())->createFrame(),
+            ),
             new FileViewAssembler(),
         );
     }

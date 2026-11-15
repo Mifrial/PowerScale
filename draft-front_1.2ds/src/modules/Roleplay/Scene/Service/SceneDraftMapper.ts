@@ -49,6 +49,7 @@ export class SceneDraftMapper {
         sortOrder: element.sortOrder,
         targetBoardId: element.targetBoardId,
         assetPublicId: element.asset?.publicId ?? null,
+        assetContentBox: element.asset?.contentBox ?? null,
       })),
       enclosures: detail.enclosures.map((enclosure) => ({
         id: enclosure.id,
@@ -123,7 +124,10 @@ export class SceneDraftMapper {
       props: element.props,
       sortOrder: element.sortOrder,
       targetBoardId: element.targetBoardId,
-      asset: element.assetPublicId === null ? null : { publicId: element.assetPublicId },
+      asset:
+        element.assetPublicId === null
+          ? null
+          : { publicId: element.assetPublicId, contentBox: element.assetContentBox },
     }));
   }
 

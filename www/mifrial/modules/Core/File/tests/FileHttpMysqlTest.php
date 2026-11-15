@@ -23,6 +23,7 @@ use Mifrial\Core\File\Service\FileViewAssembler;
 use Mifrial\Core\File\Table\FileTable;
 use Mifrial\Core\File\Tests\Fixture\ByteCapture;
 use Mifrial\Core\File\Tests\Fixture\FakeFileStorage;
+use Mifrial\Core\Image\Service\ImagePortFactory;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
@@ -144,6 +145,7 @@ final class FileHttpMysqlTest extends TestCase
         self::assertSame('image/png', $view['mime']);
         self::assertSame(1, $view['width']);
         self::assertSame(1, $view['height']);
+        self::assertSame(['x' => 0, 'y' => 0, 'width' => 1, 'height' => 1], $view['contentBox']);
         self::assertSame(32, strlen((string) $view['publicId']));
         self::assertArrayNotHasKey('storagePath', $view);
 
@@ -385,6 +387,7 @@ final class FileHttpMysqlTest extends TestCase
                 new FileRepository($this->smartTableGateway()->open(FileTable::class)->records()),
                 (new FileStorageFactory())->create($settings),
                 $settings,
+                (new ImagePortFactory())->createFrame(),
             ),
             new FileViewAssembler(),
         );
@@ -457,7 +460,7 @@ final class FileHttpMysqlTest extends TestCase
             new FileReadService($userAccess, $repository),
             $repository,
             $storage,
-            new FileIntake($repository, $storage, $settings),
+            new FileIntake($repository, $storage, $settings, (new ImagePortFactory())->createFrame()),
             $userAccess,
         );
     }

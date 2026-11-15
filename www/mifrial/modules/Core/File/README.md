@@ -14,7 +14,7 @@
 
 | Тип | Путь | Зачем |
 |---|---|---|
-| `IFiles` | `Interface/Service/IFiles.php` | Порт соседа: `requireReadable`, `requireOwned`, `archive` по `publicId` |
+| `IFiles` | `Interface/Service/IFiles.php` | Порт соседа: `requireReadable`, `requireOwned`, `archive` по `publicId`, проекции `activePublicIds`/`activeFiles` |
 | `FileReadService` | `Service/FileReadService.php` | Реализация `IFiles` (актор, владелец, архив) |
 | `IFileStorage` / `LocalFileStorage` | `Interface/Service/IFileStorage.php`, `Service/LocalFileStorage.php` | Диск: `hash`, `mimeType`, `imageSize`, `store`, `chunks`, `delete` |
 | `FileUploadService` | `Service/FileUploadService.php` | Проверка multipart, путь, строка, JSON-вид |
@@ -23,9 +23,9 @@
 | `FilePortFactory` | `Service/FilePortFactory.php` | Сборка порта, HTTP-сервиса и сервисов |
 | `FilePermissionKeys` | `Service/FilePermissionKeys.php` | `VIEW = 'file.view'` |
 | `FileRepository` | `Repository/FileRepository.php` | `add`, `findByPublicId`, `getById`, `findPage`, `markArchived` |
-| `FileTable` | `Table/FileTable.php` | Карта `file`: `id`, `public_id`, `owner_id`, `original_name`, `mime`, `size`, `sha256`, `storage_path`, `width`, `height`, `is_archived`, `archived_at`, `created_at` |
+| `FileTable` | `Table/FileTable.php` | Карта `file`: `id`, `public_id`, `owner_id`, `original_name`, `mime`, `size`, `sha256`, `storage_path`, `width`, `height`, `content_box`, `is_archived`, `archived_at`, `created_at` |
 | `FileReferenceField` | `Field/FileReferenceField.php` | `reference` на `FileTable` для потребителей |
-| `FileSchema` / `FileModuleSetup` | `Schema/FileSchema.php`, `Setup/FileModuleSetup.php` | Накат таблицы; data-шагов нет |
+| `FileSchema` / `FileModuleSetup` | `Schema/FileSchema.php`, `Setup/FileModuleSetup.php` | Накат таблицы и досчёт `content_box` у старых картинок (`BackfillContentBoxStep`) |
 | `IFileContainer` / `FileContainer` | `Interface/Container/IFileContainer.php`, `Container/FileContainer.php` | Локатор модуля |
 | `FindFilePageAction` / `GetFileAction` | `Action/*.php` | Маршруты `file.findPage`, `file.get` (оба `csrf: true`) |
 | `FileRecord` / `NewFile` / `FileSettings` / `IncomingUpload` / `FilePage` / `FilePageQuery` | `Dto/*.php` | Домен, вход и страница |
@@ -69,8 +69,9 @@ $view = $http->upload(IncomingUpload::fromRequest($httpRequest));
 `file.findPage` (`limit` 1..100, `offset ≥ 0`, фильтры `mime`, `ownerId`,
 `isArchived`, `from`/`to`) и `file.get` требуют `file.view`. JSON-вид:
 `id`, `publicId`, `ownerId`, `originalName`, `mime`, `size`, `width`,
-`height`, `sha256`, `isArchived`, `archivedAt`, `createdAt`. `storagePath`
-наружу не отдаётся.
+`height`, `contentBox`, `sha256`, `isArchived`, `archivedAt`, `createdAt`.
+`contentBox` — видимая рамка `{x, y, width, height}` в пикселях или `null`.
+`storagePath` наружу не отдаётся.
 
 ## Инварианты
 
@@ -90,7 +91,8 @@ $view = $http->upload(IncomingUpload::fromRequest($httpRequest));
 ## Зависимости
 
 - Импортирует: `Core/Kernel`, `Core/SmartTable`, `Core/User`
-  (`UserReferenceField`, `IUserAccess`).
+  (`UserReferenceField`, `IUserAccess`), `Core/Image` (`IImageFrame` для
+  `content_box`).
 - Импортируется: потребители берут `IFiles` из `IFileContainer`; прямых
   импортов репозитория/таблицы у соседей нет.
 

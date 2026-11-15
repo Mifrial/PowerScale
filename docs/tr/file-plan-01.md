@@ -68,6 +68,7 @@ final class FileTable extends SmartTableDefinition
             new StringField('storage_path', FieldSettings::fromOptions(['required' => true]), 255),
             new IntField('width', FieldSettings::fromOptions([]), 1, 20000),
             new IntField('height', FieldSettings::fromOptions([]), 1, 20000),
+            new JsonField('content_box', FieldSettings::fromOptions([])),
             new BoolField('is_archived', FieldSettings::fromOptions([
                 'required' => true,
                 'default' => false,
@@ -104,6 +105,13 @@ final class FileTable extends SmartTableDefinition
   подложки, а строка подтверждает, что файл действительно изображение.
   При дефолтном `files.mime` (только картинки) заполнены всегда; колонки
   nullable, чтобы расширение `mime`-политики не требовало миграции.
+- `content_box` — видимая рамка картинки `{x, y, width, height}` в пикселях
+  исходника. Считается при приёме через `Core/Image` (обрезка прозрачных
+  полей Imagick): потребитель ставит на якорь низ видимой массы, а не низ
+  файла. У картинки без альфа-канала и у полностью прозрачной рамка — весь
+  файл. Сбой драйвера не валит загрузку: поле остаётся `null`, потребитель
+  рисует картинку целиком. Старые строки досчитывает data-шаг
+  `BackfillContentBoxStep`.
 - `is_archived`/`archived_at` — архив. Архивная строка: метаданные читаются,
   байты не отдаются.
 - `is_derived` — файл создан соседом через `storeDerived` (превью, аватар),
@@ -428,11 +436,11 @@ CLI-сценарии работают через репозиторий моду
 
 `FileRecord` (`Dto/FileRecord.php`) — Record с геттерами по `DEC-079`:
 `getId`, `getPublicId`, `getOwnerId`, `getOriginalName`, `getMime`,
-`getSize`, `getWidth`, `getHeight`, `getSha256`, `getStoragePath`,
+`getSize`, `getWidth`, `getHeight`, `getContentBox`, `getSha256`, `getStoragePath`,
 `isArchived`, `getArchivedAt`, `getCreatedAt`. `getStoragePath` — для
 чтения байтов внутри модуля, в JSON не попадает. `fromNormalized` — граница
 Repository → домен; JSON-вид собирает `FileViewAssembler` (`createdAt` —
-unix, `width`/`height` — `null` допустим).
+unix, `width`/`height` — `null` допустим, `contentBox` — объект или `null`).
 
 ### 11.1 Админская страница «Файлы»
 

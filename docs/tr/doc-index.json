@@ -70,13 +70,13 @@
             },
             "tr": {
                 "нет": 26,
-                "СДЕЛАНО": 149,
+                "СДЕЛАНО": 150,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 36,
                 "ПЛАН": 10,
                 "СНИМОК": 8,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 21
+                "В РАБОТЕ": 20
             },
             "tz": {
                 "нет": 1,
@@ -86,12 +86,12 @@
         "byState": {
             "СНИМОК": 65,
             "нет": 57,
-            "СДЕЛАНО": 151,
+            "СДЕЛАНО": 152,
             "ПЛАН": 13,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 36,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 21
+            "В РАБОТЕ": 20
         }
     },
     "modules": {
@@ -315,8 +315,8 @@
         "Roleplay/Scene": {
             "docs": 9,
             "state": {
-                "В РАБОТЕ": 6,
-                "СДЕЛАНО": 2,
+                "В РАБОТЕ": 5,
+                "СДЕЛАНО": 3,
                 "ЧАСТИЧНО": 1
             },
             "layer": {
@@ -2343,8 +2343,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-13",
-            "bytes": 17925,
-            "lines": 257,
+            "bytes": 18184,
+            "lines": 260,
             "modules": [
                 "Library/Asset"
             ],
@@ -3555,8 +3555,8 @@
             ],
             "basis": "PHP",
             "date": null,
-            "bytes": 44319,
-            "lines": 687,
+            "bytes": 45209,
+            "lines": 695,
             "modules": [
                 "Core/File"
             ],
@@ -3567,7 +3567,8 @@
                 "docs/tr/asset-library-plan-01.md",
                 "docs/tr/data-model.md",
                 "docs/tr/image-plan-01.md",
-                "docs/tr/image-plan-02-avatar-crop.md"
+                "docs/tr/image-plan-02-avatar-crop.md",
+                "docs/tr/scene-plan-06-objects.md"
             ]
         },
         {
@@ -7859,21 +7860,21 @@
             "title": "Объекты: основание, силуэт и библиотека шаблонов",
             "zone": "tr",
             "kind": "plan",
-            "state": "В РАБОТЕ",
+            "state": "СДЕЛАНО",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-15 — B6.1 (основание и силуэт) и B6.2",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-15 — B6.1 (основание и силуэт), B6.2",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-15",
-            "bytes": 9265,
-            "lines": 112,
+            "bytes": 10391,
+            "lines": 124,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 1,
+            "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/scene-system.md"
@@ -7927,8 +7928,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 29280,
-            "lines": 406,
+            "bytes": 29903,
+            "lines": 413,
             "modules": [
                 "Roleplay/Scene"
             ],

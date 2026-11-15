@@ -197,6 +197,18 @@ final class FileByteServiceTest extends TestCase
             {
                 throw new LogicException('activePublicIds must not be used');
             }
+
+            /**
+             * Не используется.
+             *
+             * @param array<int, int> $fileIds Id.
+             *
+             * @return array<int, FileRecord> Не возвращается.
+             */
+            public function activeFiles(array $fileIds): array
+            {
+                throw new LogicException('activeFiles must not be used');
+            }
         };
     }
 
@@ -294,6 +306,18 @@ final class FileByteServiceTest extends TestCase
             public function activePublicIds(array $fileIds): array
             {
                 throw new LogicException('activePublicIds must not be used');
+            }
+
+            /**
+             * Не используется.
+             *
+             * @param array<int, int> $fileIds Id.
+             *
+             * @return array<int, FileRecord> Не возвращается.
+             */
+            public function activeFiles(array $fileIds): array
+            {
+                throw new LogicException('activeFiles must not be used');
             }
         };
     }

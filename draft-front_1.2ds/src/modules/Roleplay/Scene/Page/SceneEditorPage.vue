@@ -13,6 +13,7 @@ import SceneObjectSaveDialog from '@/modules/Roleplay/Scene/Component/Scene/Scen
 import SceneObjectPalette from '@/modules/Roleplay/Scene/Component/Scene/SceneObjectPalette.vue';
 import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.vue';
 import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
+import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
@@ -538,7 +539,7 @@ function placeObject(item: AssetItem, point: ScenePoint): void {
   state.beginEdit();
   const elementId = state.createElement(definition, shape, props);
   if (elementId !== null && item.filePublicId !== null) {
-    state.setElementAsset(elementId, item.filePublicId);
+    state.setElementAsset(elementId, item.filePublicId, item.contentBox ?? null);
   }
   state.endEdit();
 
@@ -561,7 +562,7 @@ function onObjectPicked(item: AssetItem): void {
   state.beginEdit();
   state.updateElementProps(element.id, { ...element.props, ...props });
   if (item.filePublicId !== null) {
-    state.setElementAsset(element.id, item.filePublicId);
+    state.setElementAsset(element.id, item.filePublicId, item.contentBox ?? null);
   }
   state.endEdit();
   error.value = null;
@@ -693,9 +694,20 @@ function updateElementTarget(boardId: number | null): void {
   state.setElementTarget(selectedElement.value.id, boardId);
 }
 
-function updateElementAsset(publicId: string | null): void {
-  if (selectedElement.value === null) return;
-  state.setElementAsset(selectedElement.value.id, publicId);
+function updateElementAsset(
+  publicId: string | null,
+  contentBox: ImageContentBox | null,
+  preset: SceneElementProps | null,
+): void {
+  const element = selectedElement.value;
+  if (element === null) return;
+
+  state.beginEdit();
+  if (preset !== null) {
+    state.updateElementProps(element.id, { ...element.props, ...preset });
+  }
+  state.setElementAsset(element.id, publicId, contentBox);
+  state.endEdit();
 }
 
 function removeSelected(): void {

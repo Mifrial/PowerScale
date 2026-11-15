@@ -80,4 +80,16 @@ interface IFiles
      * @return array<int, string> id → public_id.
      */
     public function activePublicIds(array $fileIds): array;
+
+    /**
+     * Живые строки по id: адрес картинки и её видимая рамка.
+     *
+     * Прав не проверяет и актора не требует: id должны приходить из уже
+     * авторизованных строк. Только для проекций, не для доступа к байтам.
+     *
+     * @param array<int, int> $fileIds Внутренние id.
+     *
+     * @return array<int, FileRecord> id → запись; архивных и отсутствующих нет.
+     */
+    public function activeFiles(array $fileIds): array;
 }

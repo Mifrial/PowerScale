@@ -65,6 +65,7 @@ const backdropFile = computed<FileRecord | null>(() =>
         size: 0,
         width: props.board.fileWidth,
         height: props.board.fileHeight,
+        contentBox: null,
         sha256: '',
         isArchived: false,
         isDerived: false,

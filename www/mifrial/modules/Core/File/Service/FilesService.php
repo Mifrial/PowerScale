@@ -132,4 +132,16 @@ final class FilesService implements IFiles
     {
         return $this->fileRepository->activePublicIds($fileIds);
     }
+
+    /**
+     * Живые строки по id.
+     *
+     * @param array<int, int> $fileIds Внутренние id.
+     *
+     * @return array<int, FileRecord> id → запись.
+     */
+    public function activeFiles(array $fileIds): array
+    {
+        return $this->fileRepository->activeFiles($fileIds);
+    }
 }

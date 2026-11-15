@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Scene\Service;
 
+use Mifrial\Core\File\Dto\FileRecord;
 use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Roleplay\Scene\Dto\SceneBoardRecord;
 use Mifrial\Roleplay\Scene\Dto\SceneDetail;
@@ -61,12 +62,12 @@ final class SceneViewAssembler
      */
     public function assembleDetail(SceneDetail $detail): array
     {
-        $publicIds = $this->publicIds($detail);
+        $files = $this->fileRecords($detail);
 
         return $this->assembleSummary($detail->getScene()) + [
             'canEdit' => $detail->canEdit(),
-            'boards' => $this->boardViews($detail, $publicIds),
-            'elements' => $this->elementViews($detail, $publicIds),
+            'boards' => $this->boardViews($detail, $files),
+            'elements' => $this->elementViews($detail, $files),
             'enclosures' => $this->enclosureViews($detail),
         ];
     }
@@ -75,16 +76,16 @@ final class SceneViewAssembler
      * Поле в JSON.
      *
      * @param SceneBoardRecord $boardRecord Поле.
-     * @param string|null $publicId Внешний id подложки.
+     * @param FileRecord|null $baseFile Запись подложки.
      *
      * @return array<string, mixed> JSON.
      */
-    public function assembleBoard(SceneBoardRecord $boardRecord, ?string $publicId): array
+    public function assembleBoard(SceneBoardRecord $boardRecord, ?FileRecord $baseFile): array
     {
-        $baseFile = null;
-        if ($publicId !== null) {
-            $baseFile = [
-                'publicId' => $publicId,
+        $baseView = null;
+        if ($baseFile !== null) {
+            $baseView = [
+                'publicId' => $baseFile->getPublicId(),
                 'width' => $boardRecord->getBaseFileWidth(),
                 'height' => $boardRecord->getBaseFileHeight(),
             ];
@@ -94,7 +95,7 @@ final class SceneViewAssembler
             'id' => $boardRecord->getId(),
             'name' => $boardRecord->getName(),
             'sortOrder' => $boardRecord->getSortOrder(),
-            'baseFile' => $baseFile,
+            'baseFile' => $baseView,
             'boundWidth' => $boardRecord->getBoundWidth(),
             'boundHeight' => $boardRecord->getBoundHeight(),
             'occupancyCell' => $boardRecord->getOccupancyCell(),
@@ -107,12 +108,20 @@ final class SceneViewAssembler
      * Элемент в JSON.
      *
      * @param SceneElementRecord $elementRecord Элемент.
-     * @param string|null $assetPublicId Внешний id ассета.
+     * @param FileRecord|null $assetFile Запись ассета.
      *
      * @return array<string, mixed> JSON.
      */
-    public function assembleElement(SceneElementRecord $elementRecord, ?string $assetPublicId): array
+    public function assembleElement(SceneElementRecord $elementRecord, ?FileRecord $assetFile): array
     {
+        $asset = null;
+        if ($assetFile !== null) {
+            $asset = [
+                'publicId' => $assetFile->getPublicId(),
+                'contentBox' => $assetFile->getContentBox()?->toArray(),
+            ];
+        }
+
         return [
             'id' => $elementRecord->getId(),
             'boardId' => $elementRecord->getBoardId(),
@@ -121,7 +130,7 @@ final class SceneViewAssembler
             'props' => $this->object($elementRecord->getProps()),
             'sortOrder' => $elementRecord->getSortOrder(),
             'targetBoardId' => $elementRecord->getTargetBoardId(),
-            'asset' => $assetPublicId === null ? null : ['publicId' => $assetPublicId],
+            'asset' => $asset,
         ];
     }
 
@@ -147,11 +156,11 @@ final class SceneViewAssembler
      * Поля в JSON.
      *
      * @param SceneDetail $detail Снимок.
-     * @param array<int, string> $publicIds Id файла → public_id.
+     * @param array<int, FileRecord> $files Id файла → запись.
      *
      * @return array<int, array<string, mixed>> JSON.
      */
-    private function boardViews(SceneDetail $detail, array $publicIds): array
+    private function boardViews(SceneDetail $detail, array $files): array
     {
         $views = [];
         foreach ($detail->getBoards() as $boardRecord) {
@@ -159,7 +168,7 @@ final class SceneViewAssembler
 
             $views[] = $this->assembleBoard(
                 $boardRecord,
-                $fileId === null ? null : ($publicIds[$fileId] ?? null),
+                $fileId === null ? null : ($files[$fileId] ?? null),
             );
         }
 
@@ -170,11 +179,11 @@ final class SceneViewAssembler
      * Элементы в JSON.
      *
      * @param SceneDetail $detail Снимок.
-     * @param array<int, string> $publicIds Id файла → public_id.
+     * @param array<int, FileRecord> $files Id файла → запись.
      *
      * @return array<int, array<string, mixed>> JSON.
      */
-    private function elementViews(SceneDetail $detail, array $publicIds): array
+    private function elementViews(SceneDetail $detail, array $files): array
     {
         $views = [];
         foreach ($detail->getElements() as $elementRecord) {
@@ -182,7 +191,7 @@ final class SceneViewAssembler
 
             $views[] = $this->assembleElement(
                 $elementRecord,
-                $fileId === null ? null : ($publicIds[$fileId] ?? null),
+                $fileId === null ? null : ($files[$fileId] ?? null),
             );
         }
 
@@ -207,13 +216,13 @@ final class SceneViewAssembler
     }
 
     /**
-     * Внешние id файлов снимка.
+     * Живые записи файлов снимка.
      *
      * @param SceneDetail $detail Снимок.
      *
-     * @return array<int, string> Id файла → public_id.
+     * @return array<int, FileRecord> Id файла → запись.
      */
-    private function publicIds(SceneDetail $detail): array
+    private function fileRecords(SceneDetail $detail): array
     {
         $fileIds = [];
         foreach ($detail->getBoards() as $boardRecord) {
@@ -230,7 +239,7 @@ final class SceneViewAssembler
             }
         }
 
-        return $fileIds === [] ? [] : $this->files->activePublicIds(array_keys($fileIds));
+        return $fileIds === [] ? [] : $this->files->activeFiles(array_keys($fileIds));
     }
 
     /**

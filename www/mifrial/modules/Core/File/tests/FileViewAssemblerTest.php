@@ -39,6 +39,7 @@ final class FileViewAssemblerTest extends TestCase
         self::assertSame('cover.png', $view['originalName']);
         self::assertSame(800, $view['width']);
         self::assertSame(600, $view['height']);
+        self::assertNull($view['contentBox']);
         self::assertTrue($view['isArchived']);
         self::assertFalse($view['isDerived']);
         self::assertSame(1700000000, $view['archivedAt']);

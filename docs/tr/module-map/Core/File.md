@@ -9,7 +9,7 @@
 - **Неймспейс:** `Mifrial\Core\File`
 - **Контейнер:** `Mifrial\Core\File\Container\FileContainer`
 - **Локатор:** `Mifrial\Core\File\Interface\Container\IFileContainer`
-- **Setup:** `Mifrial\Core\File\Setup\FileModuleSetup`
+- **Setup:** `Closure(IServiceLocator)`
 - **Карта входа:** [README.md](../../../../www/mifrial/modules/Core/File/README.md)
 - **Канон:** не зафиксирован
 
@@ -37,7 +37,7 @@
 
 ## Зависимости
 
-- **Зависит от:** [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md), [Core/User](User.md)
+- **Зависит от:** [Core/Image](Image.md), [Core/Kernel](Kernel.md), [Core/SmartTable](SmartTable.md), [Core/User](User.md)
 - **От него зависят:** [Core/User](User.md), [Library/Asset](../Library/Asset.md), [Roleplay/Map](../Roleplay/Map.md), [Roleplay/Scene](../Roleplay/Scene.md)
 
 ## События

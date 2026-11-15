@@ -518,6 +518,16 @@ final class SceneElementValidatorTest extends TestCase
             {
                 return [];
             }
+
+            /**
+             * @param array<int, int> $fileIds
+             *
+             * @return array<int, \Mifrial\Core\File\Dto\FileRecord>
+             */
+            public function activeFiles(array $fileIds): array
+            {
+                return [];
+            }
         };
     }
 }

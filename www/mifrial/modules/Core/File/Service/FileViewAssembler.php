@@ -29,6 +29,7 @@ final class FileViewAssembler
             'size' => $fileRecord->getSize(),
             'width' => $fileRecord->getWidth(),
             'height' => $fileRecord->getHeight(),
+            'contentBox' => $fileRecord->getContentBox()?->toArray(),
             'sha256' => $fileRecord->getSha256(),
             'isArchived' => $fileRecord->isArchived(),
             'isDerived' => $fileRecord->isDerived(),

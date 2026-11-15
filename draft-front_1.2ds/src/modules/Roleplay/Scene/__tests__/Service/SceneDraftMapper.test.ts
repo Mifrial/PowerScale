@@ -40,7 +40,7 @@ function detail(): SceneDetail {
         props: { label: 'Бочка', rotation: 0, scale: 100 },
         sortOrder: 1,
         targetBoardId: null,
-        asset: { publicId: 'file-b' },
+        asset: { publicId: 'file-b', contentBox: null },
       },
     ],
     enclosures: [],

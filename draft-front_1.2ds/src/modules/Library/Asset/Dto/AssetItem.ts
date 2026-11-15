@@ -1,3 +1,5 @@
+import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
+
 /** Запись ассета из JSON-вида Library/Asset. */
 export interface AssetItem {
   id: number;
@@ -12,6 +14,8 @@ export interface AssetItem {
   meta?: Record<string, unknown> | null;
   width: number | null;
   height: number | null;
+  /** Видимая рамка картинки; null — не считалась. */
+  contentBox?: ImageContentBox | null;
   mime: string | null;
   size: number | null;
   isShared: boolean;

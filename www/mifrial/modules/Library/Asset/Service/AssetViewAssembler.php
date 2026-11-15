@@ -38,6 +38,7 @@ final class AssetViewAssembler
             'meta' => $assetRecord->getMeta(),
             'width' => $fileRecord?->getWidth(),
             'height' => $fileRecord?->getHeight(),
+            'contentBox' => $fileRecord?->getContentBox()?->toArray(),
             'mime' => $fileRecord?->getMime(),
             'size' => $fileRecord?->getSize(),
             'isShared' => $assetRecord->isShared(),

@@ -1,5 +1,6 @@
 import { Application, Container, Geometry, Graphics, Mesh, Sprite, Texture } from 'pixi.js';
 import type { Shader } from 'pixi.js';
+import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
@@ -83,6 +84,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private vertexFocus: SceneVertexTarget | null = null;
 
   private readonly textures = new SceneTextureCache();
+
+  /** Видимые рамки ассетов: по ним hit-test считает аспект видимой массы. */
+  private readonly contentBoxes = new Map<string, ImageContentBox>();
 
   private readonly patterns = new SceneTerrainPatternService();
 
@@ -289,6 +293,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   async setScene(model: SceneRenderModel): Promise<void> {
     this.model = model;
+    this.contentBoxes.clear();
+    for (const element of model.elements) {
+      if (element.asset !== null && element.asset.contentBox !== null) {
+        this.contentBoxes.set(element.asset.publicId, element.asset.contentBox);
+      }
+    }
+
     this.grassTrail.reset();
     const token = ++this.sceneToken;
     if (this.app === null || this.world === null) {
@@ -409,6 +420,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * выделять дерево, а не искать точку под стволом.
    */
   assetAspect(publicId: string | null): number | null {
+    if (publicId !== null) {
+      const box = this.contentBoxes.get(publicId);
+      if (box !== undefined) {
+        return box.height / Math.max(1, box.width);
+      }
+    }
+
     const texture = this.textures.get(publicId);
 
     return texture === null ? null : texture.height / Math.max(1, texture.width);

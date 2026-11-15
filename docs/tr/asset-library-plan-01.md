@@ -135,10 +135,13 @@
   объектов не листает всю коллекцию. `meta: {}` в `create`/`update`
   равносилен очистке поля.
 - JSON-вид: `id`, `collectionModule`, `collectionCode`, `collectionTitle`,
-  `filePublicId`, `originalName`, `name`, `meta`, `width`, `height`, `mime`,
-  `size`, `isShared`, `ownerId`, `isArchived`, `createdAt`. `originalName` —
-  имя загруженного файла: по нему потребитель (Scene) подбирает пресет декора.
-  `meta` — данные потребителя, библиотека отдаёт их как есть.
+  `filePublicId`, `originalName`, `name`, `meta`, `width`, `height`,
+  `contentBox`, `mime`, `size`, `isShared`, `ownerId`, `isArchived`,
+  `createdAt`. `originalName` — имя загруженного файла: по нему потребитель
+  (Scene) подбирает пресет декора. `meta` — данные потребителя, библиотека
+  отдаёт их как есть. `contentBox` — видимая рамка картинки из `Core/File`
+  (`{x, y, width, height}` в пикселях или `null`): декор ставит на якорь низ
+  видимой массы, а не низ файла.
   Если строка файла архивная или пропала, поля файла приходят как `null`;
   запись ассета остаётся видимой.
 - Ошибки: `ASSET_INVALID`, `ASSET_DENIED`, `ASSET_NOT_FOUND`,

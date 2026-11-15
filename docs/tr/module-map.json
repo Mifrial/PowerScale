@@ -297,7 +297,7 @@
             "namespace": "Mifrial\\Core\\File",
             "container": "Mifrial\\Core\\File\\Container\\FileContainer",
             "locator": "Mifrial\\Core\\File\\Interface\\Container\\IFileContainer",
-            "setup": "Mifrial\\Core\\File\\Setup\\FileModuleSetup",
+            "setup": "Closure(IServiceLocator)",
             "requestBind": null,
             "ports": [
                 "Mifrial\\Core\\File\\Interface\\Service\\IFiles",
@@ -343,6 +343,7 @@
             ],
             "readme": true,
             "dependsOn": [
+                "Core/Image",
                 "Core/Kernel",
                 "Core/SmartTable",
                 "Core/User"
@@ -375,7 +376,8 @@
             "setup": null,
             "requestBind": null,
             "ports": [
-                "Mifrial\\Core\\Image\\Interface\\Service\\IImageTransform"
+                "Mifrial\\Core\\Image\\Interface\\Service\\IImageTransform",
+                "Mifrial\\Core\\Image\\Interface\\Service\\IImageFrame"
             ],
             "routes": [],
             "events": [],
@@ -384,6 +386,11 @@
                     "name": "IImageContainer",
                     "path": "Interface/Container/IImageContainer.php",
                     "summary": "Контейнер портов модуля Image."
+                },
+                {
+                    "name": "IImageFrame",
+                    "path": "Interface/Service/IImageFrame.php",
+                    "summary": "Порт чтения видимой рамки картинки: где кончаются прозрачные поля."
                 },
                 {
                     "name": "IImageTransform",
@@ -396,6 +403,7 @@
                 "Core/Kernel"
             ],
             "dependedOnBy": [
+                "Core/File",
                 "Core/User"
             ],
             "plans": []
@@ -3854,14 +3862,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/scene-plan-06-objects.md",
-                    "title": "Объекты: основание, силуэт и библиотека шаблонов",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-15",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/scene-renderer.md",
                     "title": "Рендерер локаций сцен",
                     "kind": "canon",
@@ -3899,6 +3899,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/scene-plan-06-objects.md",
+                    "title": "Объекты: основание, силуэт и библиотека шаблонов",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-15",
                     "hasStatus": true
                 }
             ]

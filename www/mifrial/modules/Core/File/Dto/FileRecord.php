@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace Mifrial\Core\File\Dto;
 
 use Mifrial\Core\File\Exception\FileInvalidException;
+use Mifrial\Core\Image\Dto\ImageFrame;
+use Mifrial\Core\Image\Exception\ImageSpecInvalidException;
 use Mifrial\Core\Kernel\Value\DateTime;
 
 /**
@@ -29,6 +31,7 @@ final class FileRecord
      * @param string $storagePath Путь относительно корня.
      * @param int|null $width Ширина картинки.
      * @param int|null $height Высота картинки.
+     * @param ImageFrame|null $contentBox Видимая рамка картинки.
      * @param bool $isArchived Архив.
      * @param bool $isDerived Производная соседа.
      * @param DateTime|null $archivedAt Момент архива.
@@ -47,6 +50,7 @@ final class FileRecord
         private readonly string $storagePath,
         private readonly ?int $width,
         private readonly ?int $height,
+        private readonly ?ImageFrame $contentBox,
         private readonly bool $isArchived,
         private readonly bool $isDerived,
         private readonly ?DateTime $archivedAt,
@@ -82,6 +86,7 @@ final class FileRecord
             (string) $fields['storage_path'],
             self::optionalInt($fields['width'] ?? null),
             self::optionalInt($fields['height'] ?? null),
+            self::optionalFrame($fields['content_box'] ?? null),
             (bool) $fields['is_archived'],
             (bool) ($fields['is_derived'] ?? false),
             self::optionalDateTime($fields['archived_at'] ?? null),
@@ -187,6 +192,16 @@ final class FileRecord
     public function getHeight(): ?int
     {
         return $this->height;
+    }
+
+    /**
+     * Видимая рамка картинки.
+     *
+     * @return ImageFrame|null Рамка в пикселях или null, если не считалась.
+     */
+    public function getContentBox(): ?ImageFrame
+    {
+        return $this->contentBox;
     }
 
     /**
@@ -322,6 +337,34 @@ final class FileRecord
     {
         if (!is_bool($fields['is_archived'] ?? null)) {
             throw new FileInvalidException('File record has no archive flag');
+        }
+    }
+
+    /**
+     * Видимая рамка из JSON-колонки.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return ImageFrame|null Рамка или null, если поля нет или оно битое.
+     */
+    private static function optionalFrame(mixed $value): ?ImageFrame
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $x = $value['x'] ?? null;
+        $y = $value['y'] ?? null;
+        $width = $value['width'] ?? null;
+        $height = $value['height'] ?? null;
+        if (!is_int($x) || !is_int($y) || !is_int($width) || !is_int($height)) {
+            return null;
+        }
+
+        try {
+            return new ImageFrame($x, $y, $width, $height);
+        } catch (ImageSpecInvalidException) {
+            return null;
         }
     }
 

@@ -16,7 +16,9 @@ use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 return [
     'container' => FileContainer::class,
     'locator' => IFileContainer::class,
-    'setup' => FileModuleSetup::class,
+    'setup' => static function (IServiceLocator $serviceLocator): FileModuleSetup {
+        return (new FilePortFactory())->createSetup($serviceLocator);
+    },
     'ports' => [
         IFiles::class => static function (IServiceLocator $serviceLocator): IFiles {
             return (new FilePortFactory())->create($serviceLocator);

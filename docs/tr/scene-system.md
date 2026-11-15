@@ -184,6 +184,13 @@ created_at      DateTimeField, required, default now
 и `sightBottom`; при первом редактировании карточка переводит их в
 `footprint`/`silhouette`, и элемент хранит уже конкретные значения.
 
+Прозрачные поля картинки не сбивают ни якорь, ни масштаб: при загрузке
+`Core/File` считает `content_box` — рамку видимой массы, а сцена ставит на
+якорь её низ и считает `scale` от её ширины. Рамка приходит вместе с ассетом
+и не сохраняется в локации: файл неизменяем. У старой картинки без рамки
+рисуется весь файл, как раньше
+([`scene-plan-06-objects.md`](scene-plan-06-objects.md)).
+
 Объект библиотеки — снимок физики декора в `asset_item.meta` под ключом
 `sceneObject`: `version`, `kind`, `resolution`, `scale`, `footprint`,
 `silhouette`, `speed`, `blocksVision`, `rotation`. Объект — отдельная запись

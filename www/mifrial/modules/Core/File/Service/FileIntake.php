@@ -14,6 +14,8 @@ use Mifrial\Core\File\Exception\FileStorageException;
 use Mifrial\Core\File\Exception\FileTooLargeException;
 use Mifrial\Core\File\Interface\Service\IFileStorage;
 use Mifrial\Core\File\Repository\FileRepository;
+use Mifrial\Core\Image\Dto\ImageFrame;
+use Mifrial\Core\Image\Interface\Service\IImageFrame;
 use Throwable;
 
 /**
@@ -33,6 +35,7 @@ final class FileIntake
      * @param FileRepository $fileRepository Строки.
      * @param IFileStorage $fileStorage Диск.
      * @param FileSettings $fileSettings Настройки.
+     * @param IImageFrame $imageFrame Видимая рамка картинки.
      *
      * @return void
      */
@@ -40,6 +43,7 @@ final class FileIntake
         private readonly FileRepository $fileRepository,
         private readonly IFileStorage $fileStorage,
         private readonly FileSettings $fileSettings,
+        private readonly IImageFrame $imageFrame,
     ) {
     }
 
@@ -123,6 +127,7 @@ final class FileIntake
         $size = $this->sourceSize($sourcePath, $enforceUploadPolicy);
         $mime = $this->acceptedMime($sourcePath, $enforceUploadPolicy);
         [$width, $height] = $this->imageDimensions($sourcePath, $mime);
+        $contentBox = $this->contentBox($sourcePath, $mime);
         $originalName = $this->normalizeName($originalName);
         $sha256 = $this->fileStorage->hash($sourcePath);
         $publicId = $this->uniquePublicId();
@@ -137,6 +142,7 @@ final class FileIntake
             $storagePath,
             $width,
             $height,
+            $contentBox,
             $isDerived,
         );
         $this->fileStorage->store($sourcePath, $storagePath);
@@ -285,6 +291,31 @@ final class FileIntake
     }
 
     /**
+     * Видимая рамка картинки; null для не-картинок и при сбое драйвера.
+     *
+     * Рамка — подсказка для отрисовки, а не свойство целостности: если Imagick
+     * не смог обрезать валидную картинку, файл всё равно принимается, а
+     * потребитель нарисует его целиком.
+     *
+     * @param string $sourcePath Абсолютный путь.
+     * @param string $mime Серверный тип.
+     *
+     * @return ImageFrame|null Рамка или null.
+     */
+    private function contentBox(string $sourcePath, string $mime): ?ImageFrame
+    {
+        if (!str_starts_with($mime, 'image/')) {
+            return null;
+        }
+
+        try {
+            return $this->imageFrame->frame($sourcePath);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Собирает NewFile для SmartTable.
      *
      * @param int $ownerId Владелец.
@@ -296,6 +327,7 @@ final class FileIntake
      * @param string $storagePath Путь.
      * @param int|null $width Ширина.
      * @param int|null $height Высота.
+     * @param ImageFrame|null $contentBox Видимая рамка.
      * @param bool $isDerived Производная.
      *
      * @return NewFile Поля новой строки.
@@ -310,6 +342,7 @@ final class FileIntake
         string $storagePath,
         ?int $width,
         ?int $height,
+        ?ImageFrame $contentBox,
         bool $isDerived,
     ): NewFile {
         return NewFile::fromNormalized([
@@ -322,6 +355,7 @@ final class FileIntake
             'storage_path' => $storagePath,
             'width' => $width,
             'height' => $height,
+            'content_box' => $contentBox?->toArray(),
             'is_archived' => false,
             'is_derived' => $isDerived,
         ]);

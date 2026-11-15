@@ -8,7 +8,10 @@ use Mifrial\Core\File\Dto\FileSettings;
 use Mifrial\Core\File\Interface\Container\IFileContainer;
 use Mifrial\Core\File\Interface\Service\IFiles;
 use Mifrial\Core\File\Repository\FileRepository;
+use Mifrial\Core\File\Setup\FileModuleSetup;
 use Mifrial\Core\File\Table\FileTable;
+use Mifrial\Core\Image\Interface\Service\IImageFrame;
+use Mifrial\Core\Image\Service\ImagePortFactory;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
@@ -41,7 +44,7 @@ final class FilePortFactory
             new FileReadService($userAccess, $fileRepository),
             $fileRepository,
             $fileStorage,
-            new FileIntake($fileRepository, $fileStorage, $fileSettings),
+            new FileIntake($fileRepository, $fileStorage, $fileSettings, $this->imageFrame()),
             $userAccess,
         );
     }
@@ -102,6 +105,7 @@ final class FilePortFactory
                 $this->fileRepository($serviceLocator),
                 (new FileStorageFactory())->create($fileSettings),
                 $fileSettings,
+                $this->imageFrame(),
             ),
             new FileViewAssembler(),
         );
@@ -121,6 +125,34 @@ final class FilePortFactory
             (new FileStorageFactory())->create($this->fileSettings($serviceLocator)),
             new FileByteEmitter(),
         );
+    }
+
+    /**
+     * Setup модуля: таблицы и досчёт видимой рамки старых картинок.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return FileModuleSetup Setup.
+     */
+    public function createSetup(IServiceLocator $serviceLocator): FileModuleSetup
+    {
+        $fileSettings = $this->fileSettings($serviceLocator);
+
+        return new FileModuleSetup(
+            $this->fileRepository($serviceLocator),
+            (new FileStorageFactory())->create($fileSettings),
+            $this->imageFrame(),
+        );
+    }
+
+    /**
+     * Порт видимой рамки картинки.
+     *
+     * @return IImageFrame Порт.
+     */
+    private function imageFrame(): IImageFrame
+    {
+        return (new ImagePortFactory())->createFrame();
     }
 
     /**

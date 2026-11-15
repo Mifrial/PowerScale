@@ -61,7 +61,7 @@ export const mockSceneApi: ISceneApi = {
       targetBoardId: element.targetBoardId === null ? null : (boardIdMap.get(element.targetBoardId) ?? null),
       asset:
         typeof element.props.assetPublicId === 'string' && element.props.assetPublicId !== ''
-          ? { publicId: element.props.assetPublicId }
+          ? { publicId: element.props.assetPublicId, contentBox: null }
           : null,
     }));
     const enclosures: SceneEnclosure[] = data.scene.enclosures.map((enclosure, index) => ({

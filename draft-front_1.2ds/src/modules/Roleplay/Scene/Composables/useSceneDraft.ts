@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue';
+import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneDetail } from '@/modules/Roleplay/Scene/Dto/SceneDetail';
 import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
@@ -381,14 +382,19 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
-  /** Задаёт ассет декора. */
-  function setElementAsset(elementId: number, publicId: string | null): void {
+  /** Задаёт ассет декора и его видимую рамку. */
+  function setElementAsset(
+    elementId: number,
+    publicId: string | null,
+    contentBox: ImageContentBox | null = null,
+  ): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
     }
 
     element.assetPublicId = publicId;
+    element.assetContentBox = publicId === null ? null : contentBox;
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }

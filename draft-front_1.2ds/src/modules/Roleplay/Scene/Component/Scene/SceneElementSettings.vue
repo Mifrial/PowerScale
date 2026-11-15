@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
+import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
@@ -43,7 +44,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [elementProps: SceneElementProps];
   target: [boardId: number | null];
-  asset: [publicId: string | null];
+  asset: [publicId: string | null, contentBox: ImageContentBox | null, preset: SceneElementProps | null];
   stretch: [];
   widthAll: [width: number];
   smooth: [];
@@ -433,17 +434,21 @@ function outlineFootprint(): void {
 }
 
 function onAsset(publicId: string | null): void {
-  emit('asset', publicId);
+  emit('asset', publicId, null, null);
 }
 
 /** Пресет декора: основание и силуэт подставляются по имени файла. */
 function onAssetPreset(item: AssetItem): void {
   const preset = sceneDecorPreset(item.originalName ?? item.name);
-  if (preset === null) {
-    return;
-  }
 
-  patch(sceneDecorPresetProps(preset));
+  emit('asset', item.filePublicId, item.contentBox ?? null, preset === null ? null : sceneDecorPresetProps(preset));
+}
+
+/** Очистка ассета: `update:modelValue` приходит раньше `select`, берём только null. */
+function onAssetCleared(publicId: string | null): void {
+  if (publicId === null) {
+    emit('asset', null, null, null);
+  }
 }
 </script>
 
@@ -705,7 +710,7 @@ function onAssetPreset(item: AssetItem): void {
         :collection-module="SCENE_ASSET_COLLECTIONS.decor.module"
         :collection-code="SCENE_ASSET_COLLECTIONS.decor.code"
         :collection-title="SCENE_ASSET_COLLECTIONS.decor.title"
-        @update:model-value="onAsset"
+        @update:model-value="onAssetCleared"
         @select="onAssetPreset"
       />
       <div class="scene-element-settings__row">

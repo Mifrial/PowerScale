@@ -3,6 +3,7 @@ import type { Container } from 'pixi.js';
 import { Sprite } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
+import { sceneDecorSpritePlacement } from '@/modules/Roleplay/Scene/Service/SceneDecorFrame';
 
 /** Нарисованный декор: спрайт и его размеры нужны для погружения в воду. */
 export interface SceneDecorPaint {
@@ -44,7 +45,9 @@ export class SceneDecorService {
 
     const scale = Math.max(1, element.props.scale ?? 100) / 100;
     const size = Math.max(1, resolution) * scale;
-    const ratio = texture.height / Math.max(1, texture.width);
+    const textureWidth = Math.max(1, texture.width);
+    const textureHeight = Math.max(1, texture.height);
+    const placement = sceneDecorSpritePlacement(element.asset.contentBox, textureWidth, textureHeight, size);
 
     const shadow = new Sprite(this.shadowTexture());
     shadow.anchor.set(0.5, 0.5);
@@ -54,15 +57,18 @@ export class SceneDecorService {
     shadow.alpha = 0.32;
     layer.addChild(shadow);
 
+    // `scale` относится к видимой массе, а не к файлу: прозрачные поля не
+    // раздувают объект, а якорь стоит на низу видимой части. Спрайт при этом
+    // растягивается на весь файл, поэтому пропорции не меняются.
     const sprite = new Sprite(texture);
-    sprite.anchor.set(0.5, 1);
+    sprite.anchor.set(placement.anchorX, placement.anchorY);
     sprite.position.set(element.shape.x, element.shape.y);
-    sprite.width = size;
-    sprite.height = size * ratio;
+    sprite.width = placement.width;
+    sprite.height = placement.height;
     sprite.rotation = ((element.props.rotation ?? 0) * Math.PI) / 180;
     layer.addChild(sprite);
 
-    return { sprite, width: sprite.width, height: sprite.height };
+    return { sprite, width: placement.visibleWidth, height: placement.visibleHeight };
   }
 
   /** Высота якоря декора: нужна для Y-сортировки. */

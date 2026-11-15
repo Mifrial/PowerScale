@@ -2,13 +2,13 @@ import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElemen
 
 /** Готовые параметры декора для файла ассета. */
 export interface SceneDecorPreset {
-  /** Масштаб в процентах от разрешения поля. */
+  /** Масштаб в процентах от разрешения поля: видимая ширина спрайта. */
   scale: number;
-  /** Радиус основания в процентах ширины спрайта. */
+  /** Радиус основания в процентах видимой ширины спрайта. */
   baseRadius: number;
-  /** Радиус силуэта в процентах ширины спрайта. */
+  /** Радиус силуэта в процентах видимой ширины спрайта. */
   sightRadius: number;
-  /** Низ силуэта в процентах ширины спрайта. */
+  /** Низ силуэта в процентах видимой ширины спрайта. */
   sightBottom: number;
 }
 
@@ -23,6 +23,8 @@ export interface SceneDecorPreset {
 export const SCENE_DECOR_PRESETS: Readonly<Record<string, SceneDecorPreset>> = {
   'tree.png': { scale: 320, baseRadius: 10, sightRadius: 45, sightBottom: 85 },
   'bush.png': { scale: 100, baseRadius: 30, sightRadius: 40, sightBottom: 0 },
+  'boulder.png': { scale: 100, baseRadius: 35, sightRadius: 45, sightBottom: 0 },
+  // Старый камень: только для уже загруженных ассетов, в набор не входит.
   'rock.png': { scale: 100, baseRadius: 35, sightRadius: 45, sightBottom: 0 },
 };
 
