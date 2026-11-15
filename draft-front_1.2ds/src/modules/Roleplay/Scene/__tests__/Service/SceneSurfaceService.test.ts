@@ -604,6 +604,79 @@ describe('SceneSurfaceService', () => {
     expect(open.sightBottom[cellOf(open, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('окно не пускает, но оставляет обзор выше подоконника', () => {
+    const wallShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [64, 100],
+        [224, 100],
+      ],
+      width: 16,
+    };
+    const windowShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [128, 100],
+        [160, 100],
+      ],
+      width: 16,
+    };
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'obstacle', wallShape, { blocksMovement: true, blocksVision: true }),
+        element(3, 'opening', windowShape, { kind: 'window', state: 'closed', sill: 32 }),
+      ],
+      64,
+    );
+    const inWindow = cellOf(grid, 8, 6);
+    const inWall = cellOf(grid, 6, 6);
+
+    // Окно занимает клетку, но не пускает: подоконник перекрывает низ,
+    // выше него обзор открыт.
+    expect(grid.speeds[inWindow]).toBe(0);
+    expect(grid.sightBottom[inWindow]).toBe(0);
+    expect(grid.sightTop[inWindow]).toBeCloseTo(0.5);
+    // Стена рядом с окном непрозрачна на всю высоту.
+    expect(grid.sightTop[inWall]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('стеклянная дверь закрыта, но прозрачна', () => {
+    const doorShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [128, 100],
+        [160, 100],
+      ],
+      width: 16,
+    };
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          {
+            type: 'wall',
+            points: [
+              [64, 100],
+              [224, 100],
+            ],
+            width: 16,
+          },
+          { blocksMovement: true, blocksVision: true },
+        ),
+        element(3, 'opening', doorShape, { kind: 'door', state: 'closed', blocksVision: false }),
+      ],
+      64,
+    );
+
+    expect(grid.speeds[cellOf(grid, 8, 6)]).toBe(0);
+    expect(grid.sightBottom[cellOf(grid, 8, 6)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it('переводит мировые координаты в клетку', () => {
     const grid = service.build(board(), [grass()], 64);
 

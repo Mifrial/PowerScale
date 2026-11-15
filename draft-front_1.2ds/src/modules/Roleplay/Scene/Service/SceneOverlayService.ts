@@ -12,11 +12,7 @@ import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibili
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
-import {
-  sceneBodyHeight,
-  sceneBodyIpari,
-  sceneSightEyeIpari,
-} from '@/modules/Roleplay/Scene/Service/SceneSight';
+import { sceneBodyHeight, sceneBodyIpari, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Цвет и прозрачность одной заливки. */
 interface OverlayStyle {
@@ -159,6 +155,7 @@ export class SceneOverlayService {
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',
+            element.props.sill ?? '',
             JSON.stringify(element.shape),
           ].join(':'),
         ),

@@ -47,6 +47,7 @@ import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/Sce
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 import { sceneTerrainRank } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
@@ -724,6 +725,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const bridgeElements = elements.filter((element) => this.isBridge(element));
+    const openings = elements.filter((element) => element.kind === 'opening');
     const decorElements = elements
       .filter((element) => element.kind === 'decor')
       .sort(
@@ -734,7 +736,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       );
     for (const element of elements) {
       if (element.kind !== 'terrain' && element.kind !== 'decor' && !this.isBridge(element)) {
-        this.drawElement(element);
+        this.drawElement(element, openings);
       }
     }
 
@@ -1475,10 +1477,19 @@ export class PixiSceneRenderer implements ISceneRenderer {
     return element.kind === 'support' && (element.props.kind === 'bridge' || element.props.kind === 'ramp');
   }
 
-  private drawElement(element: SceneElement): void {
+  private drawElement(element: SceneElement, openings: readonly SceneElement[]): void {
     const layerName = this.layerFor(element);
     const layer = this.layers[layerName];
     if (layer === undefined) {
+      return;
+    }
+
+    // Стена режется проёмами: под дверью и окном её полосы нет.
+    if (element.kind === 'obstacle' && element.shape.type === 'wall') {
+      for (const segment of sceneWallService.segments(element, openings)) {
+        layer.addChild(this.painter.paintWall(segment, this.zoom()));
+      }
+
       return;
     }
 

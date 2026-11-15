@@ -30,6 +30,7 @@ import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Sce
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { useSceneDraft } from '@/modules/Roleplay/Scene/Composables/useSceneDraft';
 import { useSceneFullscreen } from '@/modules/Roleplay/Scene/Composables/useSceneFullscreen';
 import { useScenePreviewActors } from '@/modules/Roleplay/Scene/Composables/useScenePreviewActors';
@@ -37,6 +38,7 @@ import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { getAssetApi } from '@/modules/Library/Asset/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
+import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import {
   sceneFootprintLocalPoint,
@@ -285,7 +287,63 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
 
   const definition = toolDefinition.value;
   if (definition === null) return;
+  if (definition.kind === 'opening') {
+    insertOpeningOnWall(definition, from, to);
+
+    return;
+  }
+
+  if (definition.kind === 'obstacle' && definition.shapeType === 'wall') {
+    state.createFromDrag(definition, snapWallPoint(from), snapWallPoint(to), presetExtra(definition));
+
+    return;
+  }
+
   state.createFromDrag(definition, from, to);
+}
+
+/**
+ * Проём ставится на стену, а не в пустое поле.
+ *
+ * Протяжка вдоль стены задаёт ширину; короткий клик — ширину пресета по
+ * центру проекции. Ширина и смещение считаются в целых единицах сцены.
+ */
+function insertOpeningOnWall(definition: SceneToolDefinition, from: ScenePoint, to: ScenePoint): void {
+  const board = activeBoard.value;
+  if (board === null) {
+    return;
+  }
+
+  const resolution = draft.value.resolution;
+  const width = Math.max(1, Math.round(resolution * (definition.openingWidthIpari ?? SCENE_WALL.doorWidthIpari)));
+  const minWidth = Math.max(1, Math.round(resolution * SCENE_WALL.minOpeningIpari));
+  const tolerance = viewport.value === null ? 0 : 8 / viewport.value.zoom;
+  const placement = sceneWallService.place(draft.value.elements, board.id, from, to, width, minWidth, tolerance);
+  if (placement === null) {
+    error.value = 'Проём ставится на стену: подведите его к полосе стены';
+
+    return;
+  }
+
+  const extra = presetExtra(definition) ?? {};
+  state.createElement(definition, placement.shape, {
+    ...extra,
+    wallId: placement.wallId,
+    offset: placement.offset,
+  });
+  error.value = null;
+}
+
+/** Точка стены притягивается к концу уже нарисованной стены или к сетке. */
+function snapWallPoint(point: ScenePoint): ScenePoint {
+  const board = activeBoard.value;
+  if (board === null) {
+    return point;
+  }
+
+  const tolerance = viewport.value === null ? 0 : 12 / viewport.value.zoom;
+
+  return sceneWallService.snapPoint(draft.value.elements, board.id, point, tolerance, board.gridStep);
 }
 
 /** Готовая фигура из кликов: полигон террейна или обводка основания. */
@@ -302,7 +360,7 @@ function onShape(shape: SceneShape): void {
 }
 
 /**
- * Свойства пресета в единицах сцены: кромка и глубина заданы в ипари.
+ * Свойства пресета в единицах сцены: кромка, глубина и высота заданы в ипари.
  *
  * Пресет один на все фигуры, а разрешение локации меняется, поэтому перевод
  * в единицы делается в момент создания, а не в константе.
@@ -314,6 +372,15 @@ function presetExtra(definition: SceneToolDefinition): SceneElementProps | undef
   }
   if (definition.depthIpari !== undefined) {
     extra.depth = Math.max(0, Math.round(draft.value.resolution * definition.depthIpari));
+  }
+  if (definition.heightIpari !== undefined) {
+    extra.height = Math.max(1, Math.round(draft.value.resolution * definition.heightIpari));
+  }
+  if (definition.sillIpari !== undefined) {
+    extra.sill = Math.max(0, Math.round(draft.value.resolution * definition.sillIpari));
+  }
+  if (definition.lintelIpari !== undefined) {
+    extra.lintel = Math.max(0, Math.round(draft.value.resolution * definition.lintelIpari));
   }
 
   return Object.keys(extra).length === 0 ? undefined : extra;
@@ -627,10 +694,24 @@ function redo(): void {
   state.redo();
 }
 
-/** Одна ширина на все вершины ленты. */
+/** Одна ширина на все вершины ленты, толщина стены или длина проёма. */
 function setWidthAll(width: number): void {
   if (selectedElement.value === null) return;
   state.setPathWidthAll(selectedElement.value.id, width);
+}
+
+/** Вставляет дверь или окно в середину выбранной стены. */
+function insertWallOpening(kind: 'door' | 'window'): void {
+  if (selectedElement.value === null) return;
+  const elementId = state.insertOpening(selectedElement.value.id, kind);
+  if (elementId === null) {
+    error.value = 'Дверь и окно ставятся в стену';
+
+    return;
+  }
+
+  notice.value = kind === 'window' ? 'Окно вставлено в стену' : 'Дверь вставлена в стену';
+  error.value = null;
 }
 
 /** Сглаживает выделенную фигуру. */
@@ -1140,6 +1221,7 @@ function messageOf(exception: unknown): string {
                 @asset="updateElementAsset"
                 @stretch="stretchTerrain"
                 @width-all="setWidthAll"
+                @insert-opening="insertWallOpening"
                 @smooth="smoothShape"
                 @corner="cornerShape"
                 @attach-ramp="attachRamp"

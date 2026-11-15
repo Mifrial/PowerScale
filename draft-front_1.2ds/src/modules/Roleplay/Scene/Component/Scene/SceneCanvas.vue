@@ -594,7 +594,11 @@ function selectedContours(): EditableContour[] {
       continue;
     }
 
-    if (element.shape.type === 'polygon' || element.shape.type === 'path') {
+    if (
+      element.shape.type === 'polygon' ||
+      element.shape.type === 'path' ||
+      (element.kind === 'obstacle' && element.shape.type === 'wall')
+    ) {
       contours.push({ elementId: element.id, part: 'shape', shape: element.shape });
     }
 
@@ -635,7 +639,9 @@ function contourShape(elementId: number, part: SceneVertexPart): SceneShape | nu
     return sceneSilhouetteShape(element, props.model.resolution);
   }
 
-  return element.shape.type === 'polygon' || element.shape.type === 'path' ? element.shape : null;
+  return element.shape.type === 'polygon' || element.shape.type === 'path' || element.shape.type === 'wall'
+    ? element.shape
+    : null;
 }
 
 /** Ручка Безье под точкой у активной вершины. */

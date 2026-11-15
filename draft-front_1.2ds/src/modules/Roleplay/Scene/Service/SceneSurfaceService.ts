@@ -141,9 +141,10 @@ export class SceneSurfaceService {
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
+    const openings = own.filter((element) => element.kind === 'opening');
     this.paintTerrain(grid, own);
     this.paintBridges(grid, own, resolution);
-    this.paintObstacles(grid, own);
+    this.paintObstacles(grid, own, openings);
     this.paintDecor(grid, own, resolution);
     this.paintOpenings(grid, own);
 
@@ -289,16 +290,35 @@ export class SceneSurfaceService {
     }
   }
 
-  /** Препятствия: ход и обзор по флагам элемента. */
-  private paintObstacles(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
+  /** Препятствия: ход и обзор по флагам элемента; проём вырезает стену. */
+  private paintObstacles(
+    grid: SceneSurfaceGrid,
+    elements: readonly SceneElement[],
+    openings: readonly SceneElement[],
+  ): void {
+    // Проём вырезает стену, а не ложится на неё слоем: иначе полоса стены
+    // осталась бы под окном и перекрывала обзор до неба. Вырез считается по
+    // геометрии, поэтому работает и для проёмов без явной привязки.
+    const cutters = openings
+      .filter((opening) => opening.shape.type === 'wall')
+      .map((opening) => this.geometry.probe(opening.shape, 0));
+
     for (const element of elements) {
       if (element.kind !== 'obstacle') {
         continue;
       }
 
+      const cut = element.shape.type === 'wall' && cutters.length > 0;
       const blocksMovement = element.props.blocksMovement !== false;
       const blocksVision = element.props.blocksVision !== false;
       this.paintShape(grid, element.shape, (index) => {
+        if (cut) {
+          const center = surfaceCenter(grid, index);
+          if (cutters.some((cutter) => cutter.contains(center, 0))) {
+            return;
+          }
+        }
+
         if (blocksMovement) {
           grid.speeds[index] = 0;
         }
@@ -387,27 +407,56 @@ export class SceneSurfaceService {
     return Math.max(0, Math.min(SCENE_NAVIGATION.maxSpeed, speed));
   }
 
-  /** Проёмы: закрытая дверь непроходима и непрозрачна, открытая прорезает стену. */
+  /** Проёмы: дверь режет стену, окно оставляет подоконник. */
   private paintOpenings(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
     for (const element of elements) {
       if (element.kind !== 'opening') {
         continue;
       }
 
+      const window = element.props.kind === 'window';
       const open = element.props.state === 'open';
+      // Подоконник хранится в единицах сцены, а полоса обзора — в ипари.
+      const sill = window ? Math.max(0, Math.round(element.props.sill ?? 0)) / Math.max(1, grid.resolution) : 0;
       this.paintShape(grid, element.shape, (index) => {
-        if (open) {
+        // Открытое окно — не дверь: створка распахнута, но пролезть в неё
+        // нельзя. Ход открывает только дверь, ворота и лестница.
+        if (open && !window) {
           grid.speeds[index] = Math.max(grid.speeds[index], SCENE_SURFACE.speeds.grass);
-          grid.sightBottom[index] = Number.POSITIVE_INFINITY;
-          grid.sightTop[index] = Number.NEGATIVE_INFINITY;
+          this.clearOccluder(grid, index);
 
           return;
         }
 
         grid.speeds[index] = 0;
+        if (window) {
+          // Окно: видно выше подоконника, но не пройти. Перемычку держит
+          // сетка батлграунда; в предпросмотре полоса одна — подоконник.
+          if (sill > 0) {
+            this.paintOccluder(grid, index, 0, sill);
+          } else {
+            this.clearOccluder(grid, index);
+          }
+
+          return;
+        }
+
+        // Стеклянная дверь: закрыта, но прозрачна. Стена под ней уже вырезана.
+        if (element.props.blocksVision === false) {
+          this.clearOccluder(grid, index);
+
+          return;
+        }
+
         this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
       });
     }
+  }
+
+  /** Убирает перекрытие обзора из клетки. */
+  private clearOccluder(grid: SceneSurfaceGrid, index: number): void {
+    grid.sightBottom[index] = Number.POSITIVE_INFINITY;
+    grid.sightTop[index] = Number.NEGATIVE_INFINITY;
   }
 
   /** Заливает клетки, чей центр попал в фигуру; `rotation` — поворот опоры. */

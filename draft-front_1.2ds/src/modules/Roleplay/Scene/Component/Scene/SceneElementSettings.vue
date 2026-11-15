@@ -15,6 +15,7 @@ import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Sc
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_SHORE_OPTIONS';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import {
   sceneDeckBaseElevation,
   sceneDeckClearance,
@@ -49,6 +50,7 @@ const emit = defineEmits<{
   asset: [publicId: string | null, contentBox: ImageContentBox | null, preset: SceneElementProps | null];
   stretch: [];
   widthAll: [width: number];
+  insertOpening: [kind: 'door' | 'window'];
   smooth: [];
   corner: [];
   attachRamp: [end: SceneDeckEnd];
@@ -101,6 +103,58 @@ const defaultSpeed = computed(() => {
   return SCENE_SURFACE.speeds[kind as keyof typeof SCENE_SURFACE.speeds] ?? 100;
 });
 const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.value);
+
+/** Стена-лента: у неё есть толщина и в неё можно вставлять проёмы. */
+const isWallElement = computed(() => props.element.kind === 'obstacle' && props.element.shape.type === 'wall');
+
+/** Толщина стены, единицы сцены. */
+const wallThickness = computed(() => (props.element.shape.type === 'wall' ? props.element.shape.width : 0));
+
+/** Проём-лента: длина вдоль стены и толщина стены. */
+const isWallOpening = computed(() => props.element.kind === 'opening' && props.element.shape.type === 'wall');
+
+/** Длина проёма вдоль стены, единицы сцены. */
+const openingWidth = computed(() => {
+  const shape = props.element.shape;
+  if (shape.type !== 'wall') {
+    return 0;
+  }
+
+  return Math.round(polylineLength(shape.points));
+});
+
+/** Стена, в которую вставлен проём. */
+const openingWall = computed(() => {
+  const wallId = props.element.props.wallId;
+  if (wallId === undefined) {
+    return null;
+  }
+
+  return props.elements.find((element) => element.id === wallId) ?? null;
+});
+
+/** Длина стены проёма, единицы сцены. */
+const openingWallLength = computed(() => {
+  const wall = openingWall.value;
+  if (wall === null || wall.shape.type !== 'wall') {
+    return 0;
+  }
+
+  return Math.round(polylineLength(wall.shape.points));
+});
+
+/** Крайнее смещение проёма: дальше он выйдет за стену. */
+const openingOffsetMax = computed(() => Math.max(0, openingWallLength.value - openingWidth.value));
+
+/** Длина ломаной в единицах сцены. */
+function polylineLength(points: readonly ScenePoint[]): number {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    length += Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1]);
+  }
+
+  return length;
+}
 
 /** Подсказка к глубине воды: без берега вход в воду остаётся обрывом. */
 const depthHint = computed(() =>
@@ -334,6 +388,18 @@ function patchNumber(
 
 function patchText(key: 'label' | 'kind' | 'state' | 'role', value: string | null): void {
   patch({ [key]: value ?? '' });
+}
+
+/** Смена подтипа проёма: окну сразу ставим подоконник и перемычку. */
+function patchOpeningKind(value: string | null): void {
+  const kind = value ?? 'door';
+  const next: SceneElementProps = { kind };
+  if (kind === 'window' && props.element.props.sill === undefined) {
+    next.sill = Math.round(props.resolution * SCENE_WALL.windowSillIpari);
+    next.lintel = Math.round(props.resolution * SCENE_WALL.windowLintelIpari);
+  }
+
+  patch(next);
 }
 
 /** Смена подтипа: если скорость ещё пресетная, подставляем пресет нового типа. */
@@ -683,6 +749,29 @@ function onAssetCleared(publicId: string | null): void {
         :max="100000"
         @update:model-value="(value) => patch({ height: value })"
       />
+      <SceneDistanceField
+        v-if="isWallElement"
+        :model-value="wallThickness"
+        :resolution="props.resolution"
+        label="Толщина стены, ипари"
+        hint="Стена — лента: толщина задаётся здесь, проёмы наследуют её."
+        :min="1"
+        :max="100000"
+        @update:model-value="(value) => emit('widthAll', value)"
+      />
+      <div v-if="isWallElement" class="scene-element-settings__row">
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-door" @click="emit('insertOpening', 'door')">
+          Дверь
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-window-closed-variant"
+          @click="emit('insertOpening', 'window')"
+        >
+          Окно
+        </v-btn>
+      </div>
     </template>
 
     <template v-if="props.element.kind === 'opening'">
@@ -693,7 +782,7 @@ function onAssetCleared(publicId: string | null): void {
         density="compact"
         variant="outlined"
         hide-details
-        @update:model-value="(value) => patchText('kind', value)"
+        @update:model-value="patchOpeningKind"
       />
       <v-select
         :model-value="props.element.props.state ?? 'closed'"
@@ -706,6 +795,46 @@ function onAssetCleared(publicId: string | null): void {
         variant="outlined"
         hide-details
         @update:model-value="(value) => patchText('state', value)"
+      />
+      <SceneDistanceField
+        v-if="isWallOpening"
+        :model-value="openingWidth"
+        :resolution="props.resolution"
+        label="Ширина проёма, ипари"
+        hint="Проём занимает участок стены; ширина меряется вдоль неё."
+        :min="1"
+        :max="100000"
+        @update:model-value="(value) => emit('widthAll', value)"
+      />
+      <SceneDistanceField
+        v-if="openingWall !== null"
+        :model-value="props.element.props.offset ?? 0"
+        :resolution="props.resolution"
+        label="Смещение вдоль стены, ипари"
+        :hint="`От начала стены; дальше ${sceneUnits.formatUnits(openingOffsetMax, props.resolution)} ипари проём выйдет за стену.`"
+        :min="0"
+        :max="openingOffsetMax"
+        @update:model-value="(value) => patch({ offset: value })"
+      />
+      <SceneDistanceField
+        v-if="props.element.props.kind === 'window'"
+        :model-value="props.element.props.sill ?? 0"
+        :resolution="props.resolution"
+        label="Подоконник, ипари"
+        hint="Ниже подоконника окно перекрывает обзор; ход оно не открывает никогда."
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ sill: value })"
+      />
+      <SceneDistanceField
+        v-if="props.element.props.kind === 'window'"
+        :model-value="props.element.props.lintel ?? 0"
+        :resolution="props.resolution"
+        label="Перемычка, ипари"
+        hint="Выше перемычки начинается стена над окном; в предпросмотре полоса одна."
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ lintel: value })"
       />
       <v-switch
         :model-value="props.element.props.blocksVision ?? false"

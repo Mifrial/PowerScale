@@ -17,6 +17,12 @@ const emit = defineEmits<{
   redo: [];
 }>();
 
+/** Подписи групп инструментов с общей кнопкой. */
+const GROUP_LABELS: Record<string, string> = {
+  terrain: 'Террейн',
+  opening: 'Проём',
+};
+
 /** Инструменты, сгруппированные по общей кнопке с меню вариантов. */
 const entries = SCENE_TOOLS.reduce<{ key: string; label: string; icon: string; tools: SceneToolDefinition[] }[]>(
   (list, item) => {
@@ -30,7 +36,7 @@ const entries = SCENE_TOOLS.reduce<{ key: string; label: string; icon: string; t
     if (group === undefined) {
       list.push({
         key: item.group,
-        label: item.group === 'terrain' ? 'Террейн' : item.label,
+        label: GROUP_LABELS[item.group] ?? item.label,
         icon: item.icon,
         tools: [item],
       });
@@ -76,7 +82,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
             size="small"
             :color="isGroupActive(entry) ? 'primary' : undefined"
             :variant="isGroupActive(entry) ? 'flat' : undefined"
-            :title="`Террейн: ${groupTool(entry).variant}`"
+            :title="`${entry.label}: ${groupTool(entry).variant ?? groupTool(entry).label}`"
             @click="emit('update:tool', groupTool(entry).id)"
           >
             {{ entry.label }}
@@ -90,8 +96,8 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
                 :color="isGroupActive(entry) ? 'primary' : undefined"
                 :variant="isGroupActive(entry) ? 'flat' : undefined"
                 class="scene-toolbar__split-toggle"
-                aria-label="Варианты террейна"
-                title="Варианты террейна"
+                :aria-label="`Варианты: ${entry.label}`"
+                :title="`Варианты: ${entry.label}`"
               >
                 <v-icon size="18">mdi-chevron-down</v-icon>
               </v-btn>

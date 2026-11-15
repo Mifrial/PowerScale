@@ -15,5 +15,6 @@ export type SceneTool =
   | 'terrain-trail'
   | 'wall'
   | 'opening'
+  | 'opening-window'
   | 'decor'
   | 'marker';

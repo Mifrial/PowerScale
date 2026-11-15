@@ -9,6 +9,17 @@ import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sce
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
+/** Цвета стены и проёмов. */
+const WALL_FILL = 0x475569;
+const WALL_EDGE = 0xe2e8f0;
+const OPENING_FRAME = 0x78350f;
+const OPENING_EDGE = 0xd6a06a;
+const DOOR_LEAF = 0x7c2d12;
+const DOOR_OPEN = 0xa16207;
+const GATE_LEAF = 0x44403c;
+const WINDOW_GLASS = 0x7dd3fc;
+const WINDOW_SILL = 0xe2e8f0;
+
 /**
  * Рисование фигур и элементов поля в Pixi `Graphics`.
  *
@@ -105,21 +116,189 @@ export class SceneShapePainter {
     return graphics;
   }
 
-  /** Проём: открыт — зелёный, закрыт — красный. */
+  /**
+   * Стена-лента: заливка по контуру ленты, а не линия.
+   *
+   * Линия с толщиной рисует только обводку и не даёт стене объёма; контур
+   * ленты даёт настоящую полосу с углами, как у реки.
+   */
+  paintWall(shape: SceneShape, zoom: number): Graphics {
+    const graphics = new Graphics();
+    if (shape.type !== 'wall' || shape.points.length < 2) {
+      return graphics;
+    }
+
+    const widths = shape.points.map(() => Math.max(1, shape.width));
+    const outline = sceneRibbonService.outline(shape.points, [], widths, sceneCurveService.toleranceFor(zoom));
+    if (outline.length < 3) {
+      return graphics;
+    }
+
+    graphics.poly(outline.flat());
+    graphics.fill({ color: WALL_FILL, alpha: 0.95 });
+    graphics.stroke({ color: WALL_EDGE, width: Math.max(1, 1.5 / zoom), alpha: 0.85 });
+
+    return graphics;
+  }
+
+  /**
+   * Проём: рама и полотно двери или окно с подоконником.
+   *
+   * Проём стоит на вырезанном участке стены. Дверь закрыта — полотно лежит
+   * вдоль стены; открыта — полотно повёрнуто внутрь и видна дуга хода. Окно —
+   * стеклянная полоса с рамой и подоконником, сквозь него видно, но не пройти.
+   */
   private paintOpening(graphics: Graphics, element: SceneElement, zoom: number): void {
+    if (element.shape.type !== 'wall' || element.shape.points.length < 2) {
+      this.paintFreeOpening(graphics, element, zoom);
+
+      return;
+    }
+
+    const shape = element.shape;
+    const start = shape.points[0];
+    const end = shape.points[shape.points.length - 1];
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const length = Math.hypot(dx, dy);
+    if (length < 1) {
+      return;
+    }
+
+    const dir: ScenePoint = [dx / length, dy / length];
+    const normal: ScenePoint = [-dir[1], dir[0]];
+    const thickness = Math.max(1, shape.width);
+    const frame = Math.min(Math.max(2, thickness * 0.32), Math.max(2, length / 3));
+    const kind = element.props.kind ?? 'door';
+    const open = element.props.state === 'open';
+
+    this.paintBand(graphics, start, dir, normal, 0, frame, thickness / 2, OPENING_FRAME, 1);
+    this.paintBand(graphics, start, dir, normal, length - frame, length, thickness / 2, OPENING_FRAME, 1);
+
+    if (kind === 'window') {
+      this.paintBand(graphics, start, dir, normal, frame, length - frame, thickness * 0.42, WINDOW_GLASS, 0.55);
+      // Подоконник: две линии по краям выреза.
+      this.paintLine(
+        graphics,
+        this.pointOn(start, dir, normal, frame, thickness * 0.42),
+        this.pointOn(start, dir, normal, length - frame, thickness * 0.42),
+        WINDOW_SILL,
+        Math.max(1, 2 / zoom),
+        0.9,
+      );
+      this.paintLine(
+        graphics,
+        this.pointOn(start, dir, normal, frame, -thickness * 0.42),
+        this.pointOn(start, dir, normal, length - frame, -thickness * 0.42),
+        WINDOW_SILL,
+        Math.max(1, 2 / zoom),
+        0.9,
+      );
+      // Середина рамы поперёк окна.
+      this.paintLine(
+        graphics,
+        this.pointOn(start, dir, normal, length / 2, thickness / 2),
+        this.pointOn(start, dir, normal, length / 2, -thickness / 2),
+        OPENING_FRAME,
+        Math.max(1, 2 / zoom),
+        0.95,
+      );
+
+      return;
+    }
+
+    const leafColor = kind === 'gate' ? GATE_LEAF : open ? DOOR_OPEN : DOOR_LEAF;
+    if (!open) {
+      this.paintBand(graphics, start, dir, normal, frame, length - frame, thickness * 0.42, leafColor, 0.95);
+      this.paintLine(
+        graphics,
+        this.pointOn(start, dir, normal, frame, 0),
+        this.pointOn(start, dir, normal, length - frame, 0),
+        OPENING_EDGE,
+        Math.max(1, 1.5 / zoom),
+        0.8,
+      );
+
+      return;
+    }
+
+    // Открытая дверь: полотно у первого наличника и дуга хода.
+    const leaf = Math.max(1, length - frame * 2);
+    this.paintBand(
+      graphics,
+      this.pointOn(start, dir, normal, frame, 0),
+      normal,
+      dir,
+      0,
+      leaf,
+      Math.max(2, thickness * 0.22),
+      leafColor,
+      0.95,
+    );
+    const hinge = this.pointOn(start, dir, normal, frame, 0);
+    const from = Math.atan2(dir[1], dir[0]);
+    graphics.moveTo(hinge[0] + Math.cos(from) * leaf, hinge[1] + Math.sin(from) * leaf);
+    graphics.arc(hinge[0], hinge[1], leaf, from, from + Math.PI / 2);
+    graphics.stroke({ color: OPENING_EDGE, width: Math.max(1, 1.5 / zoom), alpha: 0.55 });
+  }
+
+  /** Старый свободный проём без стены: цветная полоса. */
+  private paintFreeOpening(graphics: Graphics, element: SceneElement, zoom: number): void {
     const isOpen = element.props.state === 'open';
-    const color = isOpen ? 0x16a34a : 0xdc2626;
     this.paint(
       graphics,
       element.shape,
       undefined,
       {
-        color,
+        color: isOpen ? 0x16a34a : 0xdc2626,
         width: element.shape.type === 'wall' ? Math.max(4, element.shape.width) : 8,
         alpha: 0.9,
       },
       zoom,
     );
+  }
+
+  /** Полоса вдоль осевой: `from…to` и полуширина поперёк. */
+  private paintBand(
+    graphics: Graphics,
+    origin: ScenePoint,
+    dir: ScenePoint,
+    normal: ScenePoint,
+    from: number,
+    to: number,
+    half: number,
+    color: number,
+    alpha: number,
+  ): void {
+    if (to <= from || half <= 0) {
+      return;
+    }
+
+    const a = this.pointOn(origin, dir, normal, from, half);
+    const b = this.pointOn(origin, dir, normal, to, half);
+    const c = this.pointOn(origin, dir, normal, to, -half);
+    const d = this.pointOn(origin, dir, normal, from, -half);
+    graphics.poly([a, b, c, d].flat());
+    graphics.fill({ color, alpha });
+  }
+
+  /** Точка в системе осевой: вдоль и поперёк. */
+  private pointOn(origin: ScenePoint, dir: ScenePoint, normal: ScenePoint, along: number, across: number): ScenePoint {
+    return [origin[0] + dir[0] * along + normal[0] * across, origin[1] + dir[1] * along + normal[1] * across];
+  }
+
+  /** Отрезок в мировых координатах. */
+  private paintLine(
+    graphics: Graphics,
+    from: ScenePoint,
+    to: ScenePoint,
+    color: number,
+    width: number,
+    alpha: number,
+  ): void {
+    graphics.moveTo(from[0], from[1]);
+    graphics.lineTo(to[0], to[1]);
+    graphics.stroke({ color, width, alpha });
   }
 
   /** Стиль элемента по типу и террейну. */

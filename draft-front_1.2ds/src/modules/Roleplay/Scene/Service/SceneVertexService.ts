@@ -17,7 +17,7 @@ export class SceneVertexService {
 
   /** Вершина под точкой. */
   vertexAt(shape: SceneShape, point: ScenePoint, tolerance: number): number | null {
-    if (shape.type !== 'polygon' && shape.type !== 'path') {
+    if (shape.type !== 'polygon' && shape.type !== 'path' && shape.type !== 'wall') {
       return null;
     }
 

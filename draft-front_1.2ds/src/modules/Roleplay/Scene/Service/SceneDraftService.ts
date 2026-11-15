@@ -10,8 +10,10 @@ import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElemen
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
+import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { scaleSceneFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 /**
@@ -168,15 +170,33 @@ export class SceneDraftService {
   /** Меняет геометрию элемента. */
   updateElementShape(draft: SceneDraft, elementId: number, shape: SceneShape): void {
     const element = draft.elements.find((item) => item.id === elementId);
-    if (element !== undefined) {
-      element.shape = shape;
+    if (element === undefined) {
+      return;
+    }
+
+    element.shape = shape;
+    if (sceneWallService.isWall(element)) {
+      sceneWallService.sync(draft.elements, elementId);
+    } else if (sceneWallService.isOpening(element)) {
+      const placement = sceneWallService.attach(draft.elements, element, draft.resolution * SCENE_WALL.snapIpari);
+      if (placement === null) {
+        delete element.props.wallId;
+        delete element.props.offset;
+      } else {
+        element.props.wallId = placement.wallId;
+        element.props.offset = placement.offset;
+        element.shape = placement.shape;
+      }
     }
   }
 
-  /** Двигает вершину полигона или ленты. */
+  /** Двигает вершину полигона, ленты или стены. */
   setVertex(draft: SceneDraft, elementId: number, index: number, point: ScenePoint): void {
     const element = draft.elements.find((item) => item.id === elementId);
-    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+    if (
+      element === undefined ||
+      (element.shape.type !== 'polygon' && element.shape.type !== 'path' && element.shape.type !== 'wall')
+    ) {
       return;
     }
 
@@ -188,6 +208,9 @@ export class SceneDraftService {
       position === index ? ([point[0], point[1]] as ScenePoint) : item,
     );
     element.shape = { ...element.shape, points };
+    if (element.shape.type === 'wall') {
+      sceneWallService.sync(draft.elements, elementId);
+    }
   }
 
   /** Двигает ручку Безье вершины. */
@@ -593,9 +616,10 @@ export class SceneDraftService {
     element.shape = this.translateShape(element.shape, deltaX, deltaY, bounds);
   }
 
-  /** Удаляет элемент по id. */
+  /** Удаляет элемент по id; вместе со стеной уходят её проёмы. */
   removeElement(draft: SceneDraft, elementId: number): void {
-    draft.elements = draft.elements.filter((element) => element.id !== elementId);
+    const attached = sceneWallService.attachedIds(draft.elements, elementId);
+    draft.elements = draft.elements.filter((element) => element.id !== elementId && !attached.includes(element.id));
   }
 
   /**
@@ -628,6 +652,18 @@ export class SceneDraftService {
 
       if (typeof element.props.elevation === 'number') {
         element.props.elevation = this.scaleLength(element.props.elevation, factor);
+      }
+
+      if (typeof element.props.offset === 'number') {
+        element.props.offset = this.scaleLength(element.props.offset, factor);
+      }
+
+      if (typeof element.props.sill === 'number') {
+        element.props.sill = this.scaleLength(element.props.sill, factor);
+      }
+
+      if (typeof element.props.lintel === 'number') {
+        element.props.lintel = this.scaleLength(element.props.lintel, factor);
       }
 
       if (element.props.footprint !== undefined) {

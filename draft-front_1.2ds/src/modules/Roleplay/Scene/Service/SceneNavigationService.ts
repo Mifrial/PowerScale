@@ -1819,6 +1819,7 @@ export class SceneNavigationService {
           element.props.blocksVision ?? '',
           element.props.blocksMovement ?? '',
           element.props.state ?? '',
+          element.props.sill ?? '',
           JSON.stringify(element.shape),
         ].join(':'),
       );

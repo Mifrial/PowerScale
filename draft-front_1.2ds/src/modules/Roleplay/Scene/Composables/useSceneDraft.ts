@@ -16,6 +16,8 @@ import { SceneDraftService } from '@/modules/Roleplay/Scene/Service/SceneDraftSe
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
+import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import {
   sceneFootprintLocalOffset,
   sceneFootprintLocalPoint,
@@ -327,23 +329,34 @@ export function useSceneDraft(initial: SceneDetail) {
   }
 
   /** Создаёт элемент по протяжке указателя: фигура строится в границах поля. */
-  function createFromDrag(tool: SceneToolDefinition, from: ScenePoint, to: ScenePoint): number | null {
+  function createFromDrag(
+    tool: SceneToolDefinition,
+    from: ScenePoint,
+    to: ScenePoint,
+    props?: SceneElementProps,
+  ): number | null {
     const board = activeBoard.value;
     if (board === null || tool.shapeType === null) {
       return null;
     }
 
-    const shape = shapeBuilder.build(tool.shapeType, from, to, {
-      x: 0,
-      y: 0,
-      width: board.boundWidth,
-      height: board.boundHeight,
-    });
+    const shape = shapeBuilder.build(
+      tool.shapeType,
+      from,
+      to,
+      {
+        x: 0,
+        y: 0,
+        width: board.boundWidth,
+        height: board.boundHeight,
+      },
+      tool.wallWidthIpari === undefined ? undefined : draft.value.resolution * tool.wallWidthIpari,
+    );
     if (shape === null) {
       return null;
     }
 
-    return createElement(tool, shape);
+    return createElement(tool, shape, props);
   }
 
   /** Создаёт ленту по кликам: постоянная ширина и плавные ручки. */
@@ -368,6 +381,22 @@ export function useSceneDraft(initial: SceneDetail) {
     }
 
     element.props = { ...props };
+    // Смещение вдоль стены двигает проём, а не растягивает его: ширина
+    // остаётся прежней, конец пересчитывается от нового начала.
+    if (sceneWallService.isOpening(element) && element.props.wallId !== undefined) {
+      const wall = draft.value.elements.find((item) => item.id === element.props.wallId);
+      if (wall !== undefined && sceneWallService.isWall(wall)) {
+        const length = sceneWallService.length(wall);
+        const width = Math.max(1, Math.min(sceneWallService.length(element), length));
+        const offset = Math.max(0, Math.min(Math.max(0, length - width), Math.round(element.props.offset ?? 0)));
+        const shape = sceneWallService.spanShape(wall, offset, offset + width);
+        if (shape !== null) {
+          element.props.offset = offset;
+          element.shape = shape;
+        }
+      }
+    }
+
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
@@ -411,7 +440,10 @@ export function useSceneDraft(initial: SceneDetail) {
   /** Двигает вершину полигона или ленты в пределах поля. */
   function moveVertex(elementId: number, index: number, point: ScenePoint): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
-    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+    if (
+      element === undefined ||
+      (element.shape.type !== 'polygon' && element.shape.type !== 'path' && element.shape.type !== 'wall')
+    ) {
       return;
     }
 
@@ -567,14 +599,29 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
-  /** Одна ширина на все вершины ленты. */
+  /** Одна ширина на все вершины ленты; у стены — толщина, у проёма — длина. */
   function setPathWidthAll(elementId: number, width: number): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
-    if (element === undefined || element.shape.type !== 'path') {
+    if (element === undefined) {
       return;
     }
 
-    element.shape = { ...element.shape, widths: element.shape.points.map(() => Math.max(1, Math.round(width))) };
+    if (element.shape.type === 'path') {
+      element.shape = {
+        ...element.shape,
+        widths: element.shape.points.map(() => Math.max(1, Math.round(width))),
+      };
+    } else if (element.shape.type === 'wall') {
+      if (sceneWallService.isOpening(element)) {
+        sceneWallService.resize(draft.value.elements, element, width);
+      } else {
+        element.shape = { ...element.shape, width: Math.max(1, Math.round(width)) };
+        sceneWallService.sync(draft.value.elements, elementId);
+      }
+    } else {
+      return;
+    }
+
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
@@ -601,6 +648,36 @@ export function useSceneDraft(initial: SceneDetail) {
 
     for (const elementId of elementIds) {
       service.moveElement(draft.value, elementId, deltaX, deltaY);
+    }
+
+    // Стена тянет за собой вставленные проёмы, а перетащенный проём заново
+    // привязывается к ближайшей стене.
+    for (const elementId of elementIds) {
+      const element = draft.value.elements.find((item) => item.id === elementId);
+      if (element !== undefined && sceneWallService.isWall(element)) {
+        sceneWallService.sync(draft.value.elements, elementId);
+      }
+    }
+
+    for (const elementId of elementIds) {
+      const element = draft.value.elements.find((item) => item.id === elementId);
+      if (element === undefined || !sceneWallService.isOpening(element)) {
+        continue;
+      }
+
+      const placement = sceneWallService.attach(
+        draft.value.elements,
+        element,
+        draft.value.resolution * SCENE_WALL.snapIpari,
+      );
+      if (placement === null) {
+        delete element.props.wallId;
+        delete element.props.offset;
+      } else {
+        element.props.wallId = placement.wallId;
+        element.props.offset = placement.offset;
+        element.shape = placement.shape;
+      }
     }
 
     draft.value.elements = [...draft.value.elements];
@@ -636,6 +713,47 @@ export function useSceneDraft(initial: SceneDetail) {
   /** Задаёт выделение. */
   function select(elementIds: number[]): void {
     selection.value = elementIds;
+  }
+
+  /** Вставляет дверь или окно в середину выбранной стены. */
+  function insertOpening(wallId: number, kind: 'door' | 'window'): number | null {
+    const wall = draft.value.elements.find((item) => item.id === wallId);
+    if (wall === undefined || !sceneWallService.isWall(wall)) {
+      return null;
+    }
+
+    const resolution = draft.value.resolution;
+    const width = Math.max(
+      1,
+      Math.round(resolution * (kind === 'window' ? SCENE_WALL.windowWidthIpari : SCENE_WALL.doorWidthIpari)),
+    );
+    const length = sceneWallService.length(wall);
+    const offset = Math.round(Math.max(0, Math.min(Math.max(0, length - width), (length - width) / 2)));
+    const shape = sceneWallService.spanShape(wall, offset, offset + width);
+    if (shape === null) {
+      return null;
+    }
+
+    const props: SceneElementProps =
+      kind === 'window'
+        ? {
+            kind: 'window',
+            state: 'closed',
+            blocksVision: false,
+            sill: Math.round(resolution * SCENE_WALL.windowSillIpari),
+            lintel: Math.round(resolution * SCENE_WALL.windowLintelIpari),
+          }
+        : { kind: 'door', state: 'closed', blocksVision: true };
+    const element = service.addElement(draft.value, wall.boardId, 'opening', shape, {
+      ...props,
+      wallId,
+      offset,
+    });
+    draft.value.elements = [...draft.value.elements];
+    selection.value = [element.id];
+    markDirty();
+
+    return element.id;
   }
 
   /** Снимок для `scene.save`. */
@@ -675,6 +793,7 @@ export function useSceneDraft(initial: SceneDetail) {
     setElementTarget,
     setElementAsset,
     duplicateSelected,
+    insertOpening,
     updateElementShape,
     moveVertex,
     moveHandle,

@@ -625,11 +625,21 @@ final class SceneElementValidator
             throw new SceneInvalidException($path . '.state is invalid');
         }
 
+        // Дверь закрыта — глухая стена, окно — видно выше подоконника.
+        $blocksVisionDefault = $openingKind !== 'window';
+
         return [
             'props' => [
                 'kind' => $openingKind,
                 'state' => $state,
-                'blocksVision' => $this->boolOrDefault($props, 'blocksVision', $path . '.blocksVision', false),
+                'blocksVision' => $this->boolOrDefault(
+                    $props,
+                    'blocksVision',
+                    $path . '.blocksVision',
+                    $blocksVisionDefault,
+                ),
+                'sill' => $this->intOrDefault($props, 'sill', $path . '.sill', 0, 0, 100000),
+                'lintel' => $this->intOrDefault($props, 'lintel', $path . '.lintel', 0, 0, 100000),
             ],
             'assetFileId' => null,
         ];

@@ -17,6 +17,7 @@ export class SceneToolShape {
     from: ScenePoint,
     to: ScenePoint,
     bounds: SceneBounds,
+    wallWidth?: number,
   ): SceneShape | null {
     if (shapeType === 'polygon' || shapeType === 'path') {
       return null;
@@ -66,7 +67,7 @@ export class SceneToolShape {
         [startX, startY],
         [endX, endY],
       ],
-      width: DEFAULT_WALL_WIDTH,
+      width: Math.max(1, Math.round(wallWidth ?? DEFAULT_WALL_WIDTH)),
     };
   }
 

@@ -18,11 +18,7 @@ import {
   surfaceUnderDeck,
 } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
-import {
-  sceneBodyHeight,
-  sceneBodyIpari,
-  sceneSightEyeIpari,
-} from '@/modules/Roleplay/Scene/Service/SceneSight';
+import { sceneBodyHeight, sceneBodyIpari, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Внешние данные предпросмотра. */
 export interface ScenePreviewActorOptions {
@@ -527,6 +523,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
             element.props.state ?? '',
+            element.props.sill ?? '',
             JSON.stringify(element.shape),
           ].join(':'),
         ),

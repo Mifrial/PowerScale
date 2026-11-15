@@ -548,6 +548,57 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Окно сохраняет подоконник и перемычку.
+     *
+     * @return void
+     */
+    public function testOpeningKeepsSillAndLintel(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'opening',
+            'shape' => ['type' => 'wall', 'points' => [[100, 100], [164, 100]], 'width' => 16],
+            'props' => ['kind' => 'window', 'state' => 'closed', 'sill' => 32, 'lintel' => 96],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(32, $element['props']['sill']);
+        self::assertSame(96, $element['props']['lintel']);
+    }
+
+    /**
+     * Закрытая дверь непрозрачна, окно — прозрачно по умолчанию.
+     *
+     * @return void
+     */
+    public function testOpeningBlocksVisionByKind(): void
+    {
+        $door = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'opening',
+            'shape' => ['type' => 'wall', 'points' => [[100, 100], [164, 100]], 'width' => 16],
+            'props' => ['kind' => 'door', 'state' => 'closed'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $window = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'opening',
+            'shape' => ['type' => 'wall', 'points' => [[100, 100], [164, 100]], 'width' => 16],
+            'props' => ['kind' => 'window', 'state' => 'closed'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertTrue($door['props']['blocksVision']);
+        self::assertFalse($window['props']['blocksVision']);
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.

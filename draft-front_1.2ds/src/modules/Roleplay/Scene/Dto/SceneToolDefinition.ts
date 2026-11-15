@@ -22,4 +22,14 @@ export interface SceneToolDefinition {
   shoreWidthIpari?: number;
   /** Глубина воды в ипари для пресета. */
   depthIpari?: number;
+  /** Толщина стены в ипари для пресета. */
+  wallWidthIpari?: number;
+  /** Ширина проёма в ипари для пресета. */
+  openingWidthIpari?: number;
+  /** Высота стены в ипари для пресета. */
+  heightIpari?: number;
+  /** Подоконник окна в ипари для пресета. */
+  sillIpari?: number;
+  /** Перемычка окна в ипари для пресета. */
+  lintelIpari?: number;
 }

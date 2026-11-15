@@ -9,6 +9,7 @@ import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard
 import type { SceneSaveElement } from '@/modules/Roleplay/Scene/Dto/SceneSaveElement';
 import type { SceneSaveEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneSaveEnclosure';
 import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSnapshot';
+import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 
 /**
  * Перевод между снимком API и черновиком редактора.
@@ -18,6 +19,22 @@ import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSn
 export class SceneDraftMapper {
   /** Снимок API → черновик. */
   fromDetail(detail: SceneDetail): SceneDraft {
+    const elements = detail.elements.map((element): SceneDraftElement => ({
+      id: element.id,
+      boardId: element.boardId,
+      kind: element.kind,
+      shape: element.shape,
+      props: element.props,
+      sortOrder: element.sortOrder,
+      targetBoardId: element.targetBoardId,
+      assetPublicId: element.asset?.publicId ?? null,
+      assetContentBox: element.asset?.contentBox ?? null,
+    }));
+    // Привязки проёма к стене в снимке нет: она редакторская. Восстанавливаем
+    // её по геометрии, иначе после перезагрузки проём перестал бы ехать за
+    // стеной.
+    sceneWallService.attachAll(elements);
+
     return {
       id: detail.id,
       version: detail.version,
@@ -40,17 +57,7 @@ export class SceneDraftMapper {
         fileWidth: board.baseFile?.width ?? null,
         fileHeight: board.baseFile?.height ?? null,
       })),
-      elements: detail.elements.map((element): SceneDraftElement => ({
-        id: element.id,
-        boardId: element.boardId,
-        kind: element.kind,
-        shape: element.shape,
-        props: element.props,
-        sortOrder: element.sortOrder,
-        targetBoardId: element.targetBoardId,
-        assetPublicId: element.asset?.publicId ?? null,
-        assetContentBox: element.asset?.contentBox ?? null,
-      })),
+      elements,
       enclosures: detail.enclosures.map((enclosure) => ({
         id: enclosure.id,
         parentBoardId: enclosure.parentBoardId,
@@ -81,13 +88,22 @@ export class SceneDraftMapper {
       })),
       elements: draft.elements.map((element): SceneSaveElement => {
         const assetPublicId = element.assetPublicId ?? null;
+        // Привязка проёма к стене — редакторская: id временный и после
+        // вставки строк сменится. При загрузке она восстанавливается по
+        // геометрии, поэтому в снимок не попадает.
+        const props = { ...element.props };
+        delete props.wallId;
+        delete props.offset;
+        if (assetPublicId !== null) {
+          props.assetPublicId = assetPublicId;
+        }
 
         return {
           id: element.id,
           boardId: element.boardId,
           kind: element.kind,
           shape: element.shape,
-          props: assetPublicId === null ? { ...element.props } : { ...element.props, assetPublicId },
+          props,
           sortOrder: element.sortOrder,
           targetBoardId: element.targetBoardId,
         };
