@@ -1102,7 +1102,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
     return actor.y + actor.radius;
   }
 
-  /** Ставит актора на его `y` среди статичных детей слоя. */
+  /**
+   * Ставит актора на его `y` среди статичных детей слоя.
+   *
+   * Дети слоя отсортированы по `y` при сборке, поэтому позиция ищется двоичным
+   * поиском. Линейный проход по лесу из десятков тысяч спрайтов на каждого
+   * актора каждый кадр — это уже узкое место, даже без перерисовки.
+   */
   private placeActor(node: Container, y: number): void {
     const layer = this.layers.decor;
     if (layer === undefined) {
@@ -1110,20 +1116,20 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const children = layer.children;
-    let index = 0;
-    for (const child of children) {
-      if (child === node) {
-        continue;
-      }
-
-      if ((this.propY.get(child) ?? 0) <= y) {
-        index += 1;
+    let low = 0;
+    let high = children.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((this.propY.get(children[middle]) ?? 0) <= y) {
+        low = middle + 1;
       } else {
-        break;
+        high = middle;
       }
     }
 
     const current = children.indexOf(node);
+    // Узел ещё стоит в списке со старым `y`: после его снятия позиция сдвигается.
+    const index = current >= 0 && current < low ? low - 1 : low;
     if (current !== index) {
       layer.setChildIndex(node, index);
     }
