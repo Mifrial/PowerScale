@@ -1,5 +1,6 @@
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 
 /** Инструменты редактора локации. */
 export const SCENE_TOOLS: SceneToolDefinition[] = [
@@ -19,8 +20,8 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     kind: 'obstacle',
     shapeType: 'wall',
     props: { blocksMovement: true, blocksVision: true, height: 64 },
-    heightIpari: 2,
-    wallWidthIpari: 0.25,
+    heightIpari: SCENE_WALL.heightIpari,
+    wallWidthIpari: SCENE_WALL.thicknessIpari,
   },
   {
     id: 'support',
@@ -141,7 +142,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     props: { kind: 'door', state: 'closed', blocksVision: true },
     group: 'opening',
     variant: 'Дверь',
-    openingWidthIpari: 1,
+    openingWidthIpari: SCENE_WALL.doorWidthIpari,
   },
   {
     id: 'opening-window',
@@ -152,9 +153,9 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     props: { kind: 'window', state: 'closed', blocksVision: false },
     group: 'opening',
     variant: 'Окно',
-    openingWidthIpari: 1.5,
-    sillIpari: 0.55,
-    lintelIpari: 1.35,
+    openingWidthIpari: SCENE_WALL.windowWidthIpari,
+    sillIpari: SCENE_WALL.windowSillIpari,
+    lintelIpari: SCENE_WALL.windowLintelIpari,
   },
   {
     id: 'decor',
