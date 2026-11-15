@@ -86,6 +86,22 @@ describe('SceneSurfaceService', () => {
     expect(grid.costs[cellOf(grid, 8, 0)]).toBe(5);
   });
 
+  it('остров перекрывает воду независимо от sortOrder', () => {
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'terrain', { type: 'rect', x: 96, y: 0, w: 64, h: 256 }, { kind: 'water' }, -10),
+        element(3, 'terrain', { type: 'rect', x: 96, y: 96, w: 64, h: 64 }, { kind: 'grass', overWater: true }, 100),
+      ],
+      64,
+    );
+
+    expect(grid.kinds[cellOf(grid, 8, 8)]).toBe('grass');
+    expect(grid.costs[cellOf(grid, 8, 8)]).toBe(1);
+    expect(grid.kinds[cellOf(grid, 8, 2)]).toBe('water');
+  });
+
   it('мост возвращает проходимость над водой', () => {
     const grid = service.build(
       board(),

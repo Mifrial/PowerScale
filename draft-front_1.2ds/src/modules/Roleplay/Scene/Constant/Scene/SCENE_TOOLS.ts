@@ -75,6 +75,17 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     variant: 'Полигон',
   },
   {
+    id: 'terrain-island',
+    label: 'Террейн',
+    icon: 'mdi-island',
+    kind: 'terrain',
+    shapeType: 'polygon',
+    props: { kind: 'grass', label: '', speed: 100, overWater: true, shoreKind: 'sand' },
+    group: 'terrain',
+    variant: 'Остров',
+    shoreWidthIpari: 0.5,
+  },
+  {
     id: 'terrain-path',
     label: 'Террейн (лента)',
     icon: 'mdi-vector-polyline',

@@ -677,6 +677,7 @@ final class SceneElementValidator
                 10000,
             ),
             'label' => $this->label($props, $path . '.label'),
+            'overWater' => $this->boolOrDefault($props, 'overWater', $path . '.overWater', false),
         ];
 
         // Глубину несёт только вода: у остального террейна русла нет, и поле

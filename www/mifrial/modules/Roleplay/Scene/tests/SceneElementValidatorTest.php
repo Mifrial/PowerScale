@@ -124,6 +124,27 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Остров сохраняет признак «поверх воды».
+     *
+     * @return void
+     */
+    public function testTerrainKeepsOverWater(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'polygon', 'points' => [[0, 0], [100, 0], [100, 100]]],
+            'props' => ['kind' => 'grass', 'overWater' => true, 'shoreKind' => 'sand', 'shoreWidth' => 32],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertTrue($element['props']['overWater']);
+        self::assertSame('sand', $element['props']['shoreKind']);
+    }
+
+    /**
      * Без кромки ширина обнуляется.
      *
      * @return void

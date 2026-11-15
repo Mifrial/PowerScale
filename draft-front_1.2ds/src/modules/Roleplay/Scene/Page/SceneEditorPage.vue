@@ -20,6 +20,7 @@ import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneVertexPart } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -297,7 +298,25 @@ function onShape(shape: SceneShape): void {
 
   const definition = toolDefinition.value;
   if (definition === null) return;
-  state.createElement(definition, shape);
+  state.createElement(definition, shape, presetExtra(definition));
+}
+
+/**
+ * Свойства пресета в единицах сцены: кромка и глубина заданы в ипари.
+ *
+ * Пресет один на все фигуры, а разрешение локации меняется, поэтому перевод
+ * в единицы делается в момент создания, а не в константе.
+ */
+function presetExtra(definition: SceneToolDefinition): SceneElementProps | undefined {
+  const extra: SceneElementProps = {};
+  if (definition.shoreWidthIpari !== undefined) {
+    extra.shoreWidth = Math.max(1, Math.round(draft.value.resolution * definition.shoreWidthIpari));
+  }
+  if (definition.depthIpari !== undefined) {
+    extra.depth = Math.max(0, Math.round(draft.value.resolution * definition.depthIpari));
+  }
+
+  return Object.keys(extra).length === 0 ? undefined : extra;
 }
 
 /** Начинает обводку зоны выбранного декора: основания или силуэта. */
@@ -362,14 +381,7 @@ function applyOutline(shape: SceneShape): void {
 function onPath(points: ScenePoint[]): void {
   const definition = toolDefinition.value;
   if (definition === null) return;
-  const extra: SceneElementProps = {};
-  if (definition.shoreWidthIpari !== undefined) {
-    extra.shoreWidth = Math.max(1, Math.round(draft.value.resolution * definition.shoreWidthIpari));
-  }
-  if (definition.depthIpari !== undefined) {
-    extra.depth = Math.max(0, Math.round(draft.value.resolution * definition.depthIpari));
-  }
-  state.createPath(definition, points, pathWidth.value, Object.keys(extra).length === 0 ? undefined : extra);
+  state.createPath(definition, points, pathWidth.value, presetExtra(definition));
 }
 
 /** Перетаскивание вершины полигона, ленты или зоны декора. */

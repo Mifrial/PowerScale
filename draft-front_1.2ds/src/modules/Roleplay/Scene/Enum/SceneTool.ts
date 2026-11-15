@@ -8,6 +8,7 @@ export type SceneTool =
   | 'terrain'
   | 'terrain-circle'
   | 'terrain-polygon'
+  | 'terrain-island'
   | 'terrain-path'
   | 'terrain-river'
   | 'terrain-road'

@@ -33,6 +33,22 @@ const TERRAIN_SURFACE: Readonly<Record<string, SceneSurfaceKind>> = {
   water: 'water',
 };
 
+/**
+ * Порядок террейна: суша, вода, поверх воды.
+ *
+ * Вода лежит поверх суши — река перекрывает дорогу независимо от порядка
+ * элементов. Остров и насыпь, наоборот, лежат поверх воды: их контур вырезает
+ * воду, а не тонет под ней. Один порядок нужен и рисунку, и сетке поверхностей,
+ * иначе трава острова разошлась бы с картой проходимости.
+ */
+export function sceneTerrainRank(element: SceneElement): number {
+  if (element.props.kind === 'water') {
+    return 1;
+  }
+
+  return element.props.overWater === true ? 2 : 0;
+}
+
 /** Индекс клетки по мировым координатам; `-1` — точка вне поля. */
 export function surfaceIndex(grid: SceneSurfaceGrid, x: number, y: number): number {
   const column = Math.floor((x - grid.x) / grid.cell);
@@ -136,13 +152,13 @@ export class SceneSurfaceService {
     return grid;
   }
 
-  /** Террейн: вода рисуется последней и перекрывает дорогу. */
+  /** Террейн: вода перекрывает сушу, а остров — воду. */
   private paintTerrain(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
     const terrain = elements
       .filter((element) => element.kind === 'terrain')
       .sort(
         (left, right) =>
-          this.terrainRank(left) - this.terrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
+          sceneTerrainRank(left) - sceneTerrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
       );
 
     for (const element of terrain) {
@@ -471,11 +487,6 @@ export class SceneSurfaceService {
     }
 
     return Math.max(0, Math.min(10000, speed));
-  }
-
-  /** Ранг террейна: вода поверх остальных поверхностей. */
-  private terrainRank(element: SceneElement): number {
-    return element.props.kind === 'water' ? 1 : 0;
   }
 
   /** Ограничение в диапазоне. */

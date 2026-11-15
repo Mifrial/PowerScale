@@ -370,7 +370,7 @@ function patchShoreKind(value: string | null): void {
   patch({ shoreKind });
 }
 
-function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null): void {
+function patchFlag(key: 'blocksMovement' | 'blocksVision' | 'overWater', value: boolean | null): void {
   patch({ [key]: value === true });
 }
 
@@ -794,6 +794,16 @@ function onAssetCleared(publicId: string | null): void {
         :min="0"
         :max="props.resolution * 3"
         @update:model-value="(value) => patch({ depth: value })"
+      />
+      <v-switch
+        v-if="props.element.props.kind !== 'water'"
+        :model-value="props.element.props.overWater === true"
+        label="Лежит поверх воды"
+        hint="Остров или насыпь: контур перекрывает воду, а не тонет под ней."
+        persistent-hint
+        density="compact"
+        hide-details
+        @update:model-value="(value) => patchFlag('overWater', value)"
       />
       <SceneDistanceField
         v-if="props.element.shape.type === 'path'"

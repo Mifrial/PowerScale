@@ -153,7 +153,7 @@ created_at      DateTimeField, required, default now
 | `support` | Земля, настил, крыша, стойка, мост, съезд. | `kind`, `height`, `elevation`, `rotation`, `speed` |
 | `obstacle` | Стена, ствол, мебель, непроходимый объём. | `blocksMovement`, `blocksVision`, `height` |
 | `opening` | Дверь, окно, ворота, лестница, телепорт. | `kind`, `state`, `blocksVision`; цель — колонка `target_board_id` |
-| `terrain` | Грязь, лёд, вода, высокая трава. | `kind`, `shoreKind`, `shoreWidth`, `speed`, `label`, опционально `assetPublicId`; у воды — `depth` |
+| `terrain` | Грязь, лёд, вода, высокая трава. | `kind`, `shoreKind`, `shoreWidth`, `speed`, `label`, `overWater`, опционально `assetPublicId`; у воды — `depth` |
 | `decor` | Декоративный токен или ассет. | `assetPublicId`, `rotation`, `scale`, `footprint`, `silhouette`, `blocksVision`, `speed`, `baseRadius`, `sightRadius`, `sightBottom`, `label` |
 | `marker` | Служебная точка: вход, спавн, добыча. | `role`, `label` |
 
@@ -249,6 +249,13 @@ Game — для runtime-движения. `assetPublicId` — необязате
 
 Пресет «Река» в редакторе ставит `water` + `sand`, ширину кромки `1,5` ипари
 и глубину `0,5` ипари; это значения пресета, а не умолчания валидатора.
+
+`terrain.overWater` — контур лежит поверх воды: остров, насыпь, полуостров.
+Вода рисуется над сушей (река перекрывает дорогу), поэтому без признака трава
+острова утонула бы под озером. Порядок один для рисунка и для сетки
+поверхностей: суша → вода → `overWater`. Пресет «Остров» в редакторе ставит
+`grass` + `sand`, кромку `0,5` ипари и этот признак; декор на острове не
+считается мокрым, хотя формально попадает внутрь контура озера.
 
 Поле можно залить террейном целиком: редактор создаёт обычный элемент
 `terrain` с `rect` по границам поля. Если такой элемент уже есть, меняется его

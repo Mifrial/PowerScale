@@ -12,6 +12,7 @@ import type {
   SceneOverlayPaint,
 } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -45,6 +46,7 @@ import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerra
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
+import { sceneTerrainRank } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
@@ -697,7 +699,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       .filter((element) => element.kind === 'terrain')
       .sort(
         (left, right) =>
-          this.terrainRank(left) - this.terrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
+          sceneTerrainRank(left) - sceneTerrainRank(right) || left.sortOrder - right.sortOrder || left.id - right.id,
       );
     const resolution = this.model?.resolution ?? 64;
     const zoom = this.zoom();
@@ -762,6 +764,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    // Острова и насыпи: на них декор стоит на суше, хотя контур воды его накрывает.
+    const dryElements = terrainElements.filter((element) => element.props.overWater === true);
+
     this.propY.clear();
     this.actorNodes.clear();
     this.carpet = null;
@@ -812,7 +817,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
           order: element.sortOrder,
           id: element.id,
           draw: (): void => {
-            const group = this.decorGroup(element, waterElements, resolution);
+            const group = this.decorGroup(element, waterElements, dryElements, resolution);
             if (group !== null) {
               layer.addChild(group);
               this.propY.set(group, anchorY);
@@ -1047,13 +1052,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Группа декора: тень, спрайт и погружение — один ребёнок слоя. */
-  private decorGroup(element: SceneElement, waterElements: SceneElement[], resolution: number): Container | null {
+  private decorGroup(
+    element: SceneElement,
+    waterElements: SceneElement[],
+    dryElements: SceneElement[],
+    resolution: number,
+  ): Container | null {
     const group = new Container();
     const painted = this.decor.paint(group, element, resolution);
     if (painted === null) {
       group.addChild(this.painter.paintElement(element, this.zoom()));
     } else {
-      this.paintSubmersion(group, element, painted, waterElements, resolution);
+      this.paintSubmersion(group, element, painted, waterElements, dryElements, resolution);
     }
 
     return group;
@@ -1135,11 +1145,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     this.propY.set(node, y);
-  }
-
-  /** Вода выше остальных шаблонов террейна. */
-  private terrainRank(element: SceneElement): number {
-    return element.props.kind === 'water' ? 1 : 0;
   }
 
   private isEdit(): boolean {
@@ -1483,6 +1488,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     element: SceneElement,
     painted: SceneDecorPaint,
     waterElements: SceneElement[],
+    dryElements: SceneElement[],
     resolution: number,
   ): void {
     if (element.shape.type !== 'point') {
@@ -1490,11 +1496,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const anchor = element.shape;
+    const point: ScenePoint = [anchor.x, anchor.y];
+    // Остров лежит поверх воды: дерево на нём стоит на суше, хотя формально
+    // попадает внутрь контура озера.
+    if (dryElements.some((dry) => sceneGeometryService.contains(dry.shape, point, 0, sceneRotation(dry)))) {
+      return;
+    }
+
     let depth = 0;
     for (const waterElement of waterElements) {
       depth = Math.max(
         depth,
-        this.water.depthAt(waterElement, resolution, [anchor.x, anchor.y], this.openEndPads(waterElement, resolution)),
+        this.water.depthAt(waterElement, resolution, point, this.openEndPads(waterElement, resolution)),
       );
     }
 
