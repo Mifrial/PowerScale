@@ -10,6 +10,7 @@ import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElemen
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 
 /**
  * Мутации черновика локации: поля, элементы, временные id.
@@ -302,6 +303,159 @@ export class SceneDraftService {
     };
   }
 
+  /** Полигон основания элемента; null — основание не полигон. */
+  private footprintPolygonOf(element: SceneDraftElement): (SceneShape & { type: 'polygon' }) | null {
+    const footprint = element.props.footprint;
+    if (footprint === undefined || footprint === null || footprint.shape !== 'polygon') {
+      return null;
+    }
+
+    return { type: 'polygon', points: footprint.points, handles: footprint.handles };
+  }
+
+  /** Записывает полигон обратно в основание, сохраняя смещение формы. */
+  private setFootprintPolygon(element: SceneDraftElement, shape: SceneShape & { type: 'polygon' }): void {
+    const offset = element.props.footprint?.offset;
+    element.props = {
+      ...element.props,
+      footprint: {
+        shape: 'polygon',
+        points: shape.points,
+        ...(shape.handles === undefined ? {} : { handles: shape.handles }),
+        ...(offset === undefined ? {} : { offset }),
+      },
+    };
+  }
+
+  /** Двигает вершину основания; точка уже локальная. */
+  setFootprintVertex(draft: SceneDraft, elementId: number, index: number, point: ScenePoint): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null || index < 0 || index >= shape.points.length) {
+      return;
+    }
+
+    const points = shape.points.map((item, position) =>
+      position === index ? ([Math.round(point[0]), Math.round(point[1])] as ScenePoint) : item,
+    );
+    this.setFootprintPolygon(element, { ...shape, points });
+  }
+
+  /** Двигает ручку Безье основания; смещение уже локальное. */
+  setFootprintHandle(
+    draft: SceneDraft,
+    elementId: number,
+    index: number,
+    side: SceneHandleSide,
+    offset: ScenePoint,
+  ): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null || index < 0 || index >= shape.points.length) {
+      return;
+    }
+
+    const handles = sceneCurveService.normalizeHandles(shape.points, shape.handles);
+    handles[index] = { ...handles[index], [side]: [Math.round(offset[0]), Math.round(offset[1])] };
+    this.setFootprintPolygon(element, { ...shape, handles });
+  }
+
+  /** Вставляет вершину в основание, сохраняя форму кривой. */
+  insertFootprintVertex(draft: SceneDraft, elementId: number, point: ScenePoint, tolerance: number): boolean {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return false;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null) {
+      return false;
+    }
+
+    const insertion = sceneVertexService.insertion(shape, point, tolerance);
+    if (insertion === null) {
+      return false;
+    }
+
+    const split = sceneVertexService.split(shape, insertion);
+    if (split === null) {
+      return false;
+    }
+
+    const handles = sceneCurveService.normalizeHandles(shape.points, shape.handles);
+    handles[split.index] = { ...handles[split.index], out: split.startHandle };
+    handles[(split.index + 1) % shape.points.length] = {
+      ...handles[(split.index + 1) % shape.points.length],
+      in: split.endHandle,
+    };
+    const points = shape.points.slice();
+    points.splice(split.index + 1, 0, [Math.round(split.point[0]), Math.round(split.point[1])]);
+    handles.splice(split.index + 1, 0, split.handle);
+    this.setFootprintPolygon(element, { ...shape, points, handles });
+
+    return true;
+  }
+
+  /** Удаляет вершину основания; минимум три точки. */
+  removeFootprintVertex(draft: SceneDraft, elementId: number, index: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null || shape.points.length <= 3 || index < 0 || index >= shape.points.length) {
+      return;
+    }
+
+    const points = shape.points.filter((_, position) => position !== index);
+    const handles = sceneCurveService
+      .normalizeHandles(shape.points, shape.handles)
+      .filter((_, position) => position !== index);
+    this.setFootprintPolygon(element, { ...shape, points, handles });
+  }
+
+  /** Плавные ручки основания по соседним вершинам. */
+  smoothFootprint(draft: SceneDraft, elementId: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null) {
+      return;
+    }
+
+    this.setFootprintPolygon(element, { ...shape, handles: sceneCurveService.autoHandles(shape.points) });
+  }
+
+  /** Прямые сегменты основания. */
+  cornerFootprint(draft: SceneDraft, elementId: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    const shape = this.footprintPolygonOf(element);
+    if (shape === null) {
+      return;
+    }
+
+    this.setFootprintPolygon(element, {
+      ...shape,
+      handles: shape.points.map(() => sceneCurveService.zeroHandle()),
+    });
+  }
+
   /** Лента с постоянной шириной и плавными ручками. */
   pathShape(points: ScenePoint[], width: number): SceneShape {
     const normalized = points.map((point): ScenePoint => [Math.round(point[0]), Math.round(point[1])]);
@@ -536,9 +690,21 @@ export class SceneDraftService {
    * что фигура и высота. Точки локальные и могут быть отрицательными.
    */
   private scaleFootprint(footprint: SceneFootprint, factor: number): SceneFootprint {
+    const offset =
+      footprint.offset === undefined
+        ? {}
+        : {
+            offset: [Math.round(footprint.offset[0] * factor), Math.round(footprint.offset[1] * factor)] as ScenePoint,
+          };
+
     if (footprint.shape === 'circle') {
-      return { shape: 'circle', radius: this.scaleSize(footprint.radius, factor) };
+      return { shape: 'circle', radius: this.scaleSize(footprint.radius, factor), ...offset };
     }
+
+    const handles = footprint.handles?.map((handle) => ({
+      in: [Math.round(handle.in[0] * factor), Math.round(handle.in[1] * factor)] as ScenePoint,
+      out: [Math.round(handle.out[0] * factor), Math.round(handle.out[1] * factor)] as ScenePoint,
+    }));
 
     return {
       shape: 'polygon',
@@ -546,6 +712,8 @@ export class SceneDraftService {
         Math.round(point[0] * factor),
         Math.round(point[1] * factor),
       ]),
+      ...(handles === undefined ? {} : { handles }),
+      ...offset,
     };
   }
 

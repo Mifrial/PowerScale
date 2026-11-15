@@ -4,6 +4,12 @@ import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import type { SceneViewportService } from '@/modules/Roleplay/Scene/Service/SceneViewportService';
+import {
+  sceneDecorFootprint,
+  sceneDecorSilhouette,
+  spriteSize,
+  type SceneWorldFootprint,
+} from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /**
@@ -21,8 +27,9 @@ export class SceneHitTestService {
     viewport: SceneViewport,
     screenPoint: { x: number; y: number },
     tolerancePixels = 8,
+    aspectOf?: (element: SceneElement) => number | null,
   ): SceneElement | null {
-    return this.hits(model, viewport, screenPoint, tolerancePixels)[0] ?? null;
+    return this.hits(model, viewport, screenPoint, tolerancePixels, aspectOf)[0] ?? null;
   }
 
   /** Все элементы под точкой, сверху вниз. */
@@ -31,6 +38,7 @@ export class SceneHitTestService {
     viewport: SceneViewport,
     screenPoint: { x: number; y: number },
     tolerancePixels = 8,
+    aspectOf?: (element: SceneElement) => number | null,
   ): SceneElement[] {
     const scenePoint = this.viewportService.screenToScene(viewport, screenPoint);
     const tolerance = tolerancePixels / viewport.zoom;
@@ -38,11 +46,75 @@ export class SceneHitTestService {
       .filter((element) => element.boardId === model.activeBoardId)
       .sort((left, right) => right.sortOrder - left.sortOrder || right.id - left.id);
 
-    return elements.filter((element) => this.contains(element, scenePoint, tolerance));
+    return elements.filter((element) =>
+      this.contains(element, scenePoint, tolerance, model.resolution, aspectOf?.(element) ?? null),
+    );
   }
 
   /** Попадает ли точка в элемент. */
-  contains(element: SceneElement, point: ScenePoint, tolerance: number): boolean {
+  contains(
+    element: SceneElement,
+    point: ScenePoint,
+    tolerance: number,
+    resolution = 64,
+    aspect: number | null = null,
+  ): boolean {
+    // Декор выделяется по своей видимой зоне, а не по точке якоря: иначе
+    // дерево приходится искать под стволом. Спрайт рисуется выше якоря,
+    // поэтому его видимая коробка — тоже цель; основание и силуэт — та же
+    // геометрия, что видит расчёт хода и обзора.
+    if (element.kind === 'decor' && element.shape.type === 'point') {
+      if (aspect !== null && this.spriteContains(element, point, tolerance, resolution, aspect)) {
+        return true;
+      }
+
+      const footprint = sceneDecorFootprint(element, resolution);
+      if (footprint !== null && this.areaContains(footprint, point, tolerance)) {
+        return true;
+      }
+
+      const silhouette = sceneDecorSilhouette(element, resolution);
+      if (silhouette !== null && this.areaContains(silhouette.area, point, tolerance)) {
+        return true;
+      }
+
+      return Math.hypot(point[0] - element.shape.x, point[1] - element.shape.y) <= tolerance;
+    }
+
     return this.geometryService.contains(element.shape, point, tolerance, sceneRotation(element));
+  }
+
+  /** Точка в видимой коробке спрайта: ширина — `scale`, высота — по аспекту. */
+  private spriteContains(
+    element: SceneElement,
+    point: ScenePoint,
+    tolerance: number,
+    resolution: number,
+    aspect: number,
+  ): boolean {
+    if (element.shape.type !== 'point') {
+      return false;
+    }
+
+    const width = spriteSize(element, resolution);
+    const height = width * Math.max(0.05, aspect);
+    const left = element.shape.x - width / 2 - tolerance;
+    const right = element.shape.x + width / 2 + tolerance;
+    const top = element.shape.y - height - tolerance;
+    const bottom = element.shape.y + tolerance;
+
+    return point[0] >= left && point[0] <= right && point[1] >= top && point[1] <= bottom;
+  }
+
+  /** Точка внутри мировой формы основания или рядом с её краем. */
+  private areaContains(area: SceneWorldFootprint, point: ScenePoint, tolerance: number): boolean {
+    if (area.shape === 'circle') {
+      return Math.hypot(point[0] - area.center[0], point[1] - area.center[1]) <= area.radius + tolerance;
+    }
+
+    return (
+      this.geometryService.pointInPolygon(point, area.points) ||
+      this.geometryService.distanceToPolyline(point, area.points, true) <= tolerance
+    );
   }
 }

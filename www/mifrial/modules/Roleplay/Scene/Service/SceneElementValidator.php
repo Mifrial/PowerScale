@@ -745,17 +745,54 @@ final class SceneElementValidator
         $shape = $this->fields->stringValue($value, 'shape', $path . '.shape');
 
         if ($shape === 'circle') {
-            return [
+            $normalized = [
                 'shape' => 'circle',
                 'radius' => $this->fields->intValue($value, 'radius', $path . '.radius', 1, 100000),
             ];
+            $offset = $this->offsetValue($value, $path);
+            if ($offset !== null) {
+                $normalized['offset'] = $offset;
+            }
+
+            return $normalized;
         }
 
         if ($shape !== 'polygon') {
             throw new SceneInvalidException($path . '.shape is invalid');
         }
 
-        return ['shape' => 'polygon', 'points' => $this->localPoints($value, $path)];
+        $points = $this->localPoints($value, $path);
+        $normalized = ['shape' => 'polygon', 'points' => $points];
+        $handles = $this->handles($value, $path, count($points));
+        if ($handles !== null) {
+            $normalized['handles'] = $handles;
+        }
+
+        $offset = $this->offsetValue($value, $path);
+        if ($offset !== null) {
+            $normalized['offset'] = $offset;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Смещение формы от якоря.
+     *
+     * @param array<string|int, mixed> $value Основание или силуэт.
+     * @param string $path Путь.
+     *
+     * @return array{0: int, 1: int}|null Смещение или null.
+     *
+     * @throws SceneInvalidException Если смещение недопустимо.
+     */
+    private function offsetValue(array $value, string $path): ?array
+    {
+        if (!array_key_exists('offset', $value) || $value['offset'] === null) {
+            return null;
+        }
+
+        return $this->offsetPoint($value['offset'], $path . '.offset');
     }
 
     /**
@@ -806,35 +843,12 @@ final class SceneElementValidator
             }
 
             $normalized[] = [
-                $this->localPointInt($point[0], $path . '.points[' . $index . '][0]'),
-                $this->localPointInt($point[1], $path . '.points[' . $index . '][1]'),
+                $this->signedInt($point[0], $path . '.points[' . $index . '][0]'),
+                $this->signedInt($point[1], $path . '.points[' . $index . '][1]'),
             ];
         }
 
         return $normalized;
-    }
-
-    /**
-     * Координата локальной точки: целая и в пределах допуска.
-     *
-     * @param mixed $value Значение.
-     * @param string $path Путь.
-     *
-     * @return int Координата.
-     *
-     * @throws SceneInvalidException Если значение неверно.
-     */
-    private function localPointInt(mixed $value, string $path): int
-    {
-        if (is_float($value) && floor($value) === $value) {
-            $value = (int) $value;
-        }
-
-        if (!is_int($value) || $value < -100000 || $value > 100000) {
-            throw new SceneInvalidException($path . ' is not an integer');
-        }
-
-        return $value;
     }
 
     /**

@@ -207,6 +207,13 @@ describe('SceneDraftService', () => {
             [40, 20],
             [-40, 20],
           ],
+          handles: [
+            { in: [0, 0], out: [8, 0] },
+            { in: [-8, 0], out: [0, 0] },
+            { in: [0, 0], out: [0, 0] },
+            { in: [0, 0], out: [0, 0] },
+          ],
+          offset: [8, -4],
         },
         silhouette: { shape: 'circle', radius: 60, bottom: 20 },
       },
@@ -222,8 +229,76 @@ describe('SceneDraftService', () => {
         [20, 10],
         [-20, 10],
       ],
+      handles: [
+        { in: [0, 0], out: [4, 0] },
+        { in: [-4, 0], out: [0, 0] },
+        { in: [0, 0], out: [0, 0] },
+        { in: [0, 0], out: [0, 0] },
+      ],
+      offset: [4, -2],
     });
     expect(decor.props.silhouette).toEqual({ shape: 'circle', radius: 30, bottom: 10 });
+  });
+
+  it('редактирует вершины, ручки и кривизну основания декора', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const decor = service.addElement(
+      state,
+      10,
+      'decor',
+      { type: 'point', x: 100, y: 200 },
+      {
+        footprint: {
+          shape: 'polygon',
+          points: [
+            [0, 0],
+            [40, 0],
+            [40, 40],
+            [0, 40],
+          ],
+        },
+      },
+    );
+
+    const points = () => {
+      const footprint = decor.props.footprint;
+      if (footprint?.shape !== 'polygon') {
+        throw new Error('ожидался полигон основания');
+      }
+
+      return footprint.points;
+    };
+
+    service.setFootprintVertex(state, decor.id, 1, [50, 5]);
+    expect(points()[1]).toEqual([50, 5]);
+
+    expect(service.insertFootprintVertex(state, decor.id, [25, 2.5], 3)).toBe(true);
+    expect(points().length).toBe(5);
+
+    service.setFootprintHandle(state, decor.id, 1, 'out', [10, 0]);
+    const withHandle = decor.props.footprint;
+    if (withHandle?.shape !== 'polygon') {
+      throw new Error('ожидался полигон основания');
+    }
+    expect(withHandle.handles?.[1].out).toEqual([10, 0]);
+
+    service.removeFootprintVertex(state, decor.id, 1);
+    expect(points().length).toBe(4);
+
+    service.smoothFootprint(state, decor.id);
+    const smoothed = decor.props.footprint;
+    if (smoothed?.shape !== 'polygon') {
+      throw new Error('ожидался полигон основания');
+    }
+    expect(smoothed.handles?.length).toBe(points().length);
+
+    service.cornerFootprint(state, decor.id);
+    const cornered = decor.props.footprint;
+    if (cornered?.shape !== 'polygon') {
+      throw new Error('ожидался полигон основания');
+    }
+    expect(cornered.handles?.every((handle) => handle.in[0] === 0 && handle.out[0] === 0)).toBe(true);
   });
 
   it('rescales enclosure footprints with the parent board', () => {

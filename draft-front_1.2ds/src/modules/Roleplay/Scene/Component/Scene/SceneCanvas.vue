@@ -10,7 +10,7 @@ import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverla
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
-import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
+import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
@@ -18,6 +18,7 @@ import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRe
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
+import { sceneFootprintShape } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
@@ -69,11 +70,18 @@ const emit = defineEmits<{
   shape: [shape: SceneShape];
   path: [points: ScenePoint[]];
   move: [delta: ScenePoint];
-  vertex: [elementId: number, index: number, point: ScenePoint];
-  handle: [elementId: number, index: number, side: SceneHandleSide, offset: ScenePoint, mirror: boolean];
+  vertex: [elementId: number, index: number, point: ScenePoint, part: SceneVertexPart];
+  handle: [
+    elementId: number,
+    index: number,
+    side: SceneHandleSide,
+    offset: ScenePoint,
+    mirror: boolean,
+    part: SceneVertexPart,
+  ];
   width: [elementId: number, index: number, width: number];
-  insertVertex: [elementId: number, point: ScenePoint, tolerance: number];
-  removeVertex: [elementId: number, index: number];
+  insertVertex: [elementId: number, point: ScenePoint, tolerance: number, part: SceneVertexPart];
+  removeVertex: [elementId: number, index: number, part: SceneVertexPart];
   editStart: [];
   editEnd: [];
   point: [point: ScenePoint, under: boolean, at: ScenePoint];
@@ -466,7 +474,7 @@ function onDoubleClick(event: MouseEvent): void {
 
   const insertion = selectionInsertion(scenePoint, 10 / viewport.zoom);
   if (insertion !== null) {
-    emit('insertVertex', insertion.elementId, scenePoint, 10 / viewport.zoom);
+    emit('insertVertex', insertion.elementId, scenePoint, 10 / viewport.zoom, insertion.part);
   }
 }
 
@@ -487,25 +495,59 @@ function onClickKeydown(event: KeyboardEvent): void {
   }
 }
 
-/** Ближайшая вставка вершины у выделенной фигуры. */
-function selectionInsertion(point: ScenePoint, tolerance: number): { elementId: number } | null {
-  for (const element of selectedShapes()) {
-    if (sceneVertexService.insertion(element.shape, point, tolerance) !== null) {
-      return { elementId: element.id };
+/** Контур, доступный редактированию вершин. */
+interface EditableContour {
+  elementId: number;
+  part: SceneVertexPart;
+  shape: SceneShape;
+}
+
+/** Ближайшая вставка вершины у выделенной фигуры или основания. */
+function selectionInsertion(point: ScenePoint, tolerance: number): { elementId: number; part: SceneVertexPart } | null {
+  for (const contour of selectedContours()) {
+    if (sceneVertexService.insertion(contour.shape, point, tolerance) !== null) {
+      return { elementId: contour.elementId, part: contour.part };
     }
   }
 
   return null;
 }
 
-/** Выделенные фигуры текущего поля, у которых есть вершины. */
-function selectedShapes() {
-  return props.model.elements.filter(
-    (element) =>
-      element.boardId === props.model.activeBoardId &&
-      props.model.selection.includes(element.id) &&
-      (element.shape.type === 'polygon' || element.shape.type === 'path'),
-  );
+/** Выделенные контуры: фигуры и полигоны оснований. */
+function selectedContours(): EditableContour[] {
+  const contours: EditableContour[] = [];
+  for (const element of props.model.elements) {
+    if (element.boardId !== props.model.activeBoardId || !props.model.selection.includes(element.id)) {
+      continue;
+    }
+
+    if (element.shape.type === 'polygon' || element.shape.type === 'path') {
+      contours.push({ elementId: element.id, part: 'shape', shape: element.shape });
+    }
+
+    if (element.kind === 'decor' && element.shape.type === 'point') {
+      const footprint = sceneFootprintShape(element, props.model.resolution);
+      if (footprint !== null) {
+        contours.push({ elementId: element.id, part: 'footprint', shape: footprint });
+      }
+    }
+  }
+
+  return contours;
+}
+
+/** Контур по элементу и части; null — у части нет вершин. */
+function contourShape(elementId: number, part: SceneVertexPart): SceneShape | null {
+  const element = props.model.elements.find((item) => item.id === elementId);
+  if (element === undefined) {
+    return null;
+  }
+
+  if (part === 'footprint') {
+    return sceneFootprintShape(element, props.model.resolution);
+  }
+
+  return element.shape.type === 'polygon' || element.shape.type === 'path' ? element.shape : null;
 }
 
 /** Ручка Безье под точкой у активной вершины. */
@@ -514,17 +556,18 @@ function handleTargetAt(point: ScenePoint, tolerance: number, stub: number): Sce
     return null;
   }
 
-  const element = props.model.elements.find((item) => item.id === vertexTarget?.elementId);
-  if (element === undefined) {
+  const part = vertexTarget.part ?? 'shape';
+  const shape = contourShape(vertexTarget.elementId, part);
+  if (shape === null) {
     return null;
   }
 
-  const handle = sceneVertexService.handleAt(element.shape, point, tolerance, stub);
+  const handle = sceneVertexService.handleAt(shape, point, tolerance, stub);
   if (handle === null || handle.index !== vertexTarget.index) {
     return null;
   }
 
-  return { elementId: element.id, index: handle.index, side: handle.side };
+  return { elementId: vertexTarget.elementId, part, index: handle.index, side: handle.side };
 }
 
 function widthTargetAt(point: ScenePoint, tolerance: number, offset: number): SceneVertexTarget | null {
@@ -539,14 +582,14 @@ function widthTargetAt(point: ScenePoint, tolerance: number, offset: number): Sc
 
   const index = sceneVertexService.widthAt(element.shape, point, tolerance, offset);
 
-  return index === vertexTarget.index ? { elementId: element.id, index } : null;
+  return index === vertexTarget.index ? { elementId: element.id, part: 'shape', index } : null;
 }
 
 function vertexTargetAt(point: ScenePoint, tolerance: number): SceneVertexTarget | null {
-  for (const element of selectedShapes()) {
-    const index = sceneVertexService.vertexAt(element.shape, point, tolerance);
+  for (const contour of selectedContours()) {
+    const index = sceneVertexService.vertexAt(contour.shape, point, tolerance);
     if (index !== null) {
-      return { elementId: element.id, index };
+      return { elementId: contour.elementId, part: contour.part, index };
     }
   }
 
@@ -643,7 +686,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   const width = widthTargetAt(scenePoint, tolerance, 10 / viewport.zoom);
   if (width !== null) {
     widthTarget = width;
-    setFocus({ elementId: width.elementId, index: width.index });
+    setFocus({ elementId: width.elementId, part: 'shape', index: width.index });
     gesture = 'width';
     startEditing();
     capture(event);
@@ -654,7 +697,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   const handle = handleTargetAt(scenePoint, tolerance, stub);
   if (handle !== null) {
     handleTarget = handle;
-    setFocus({ elementId: handle.elementId, index: handle.index });
+    setFocus({ elementId: handle.elementId, part: handle.part, index: handle.index });
     gesture = 'handle';
     startEditing();
     capture(event);
@@ -666,7 +709,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   if (vertex !== null) {
     setFocus(vertex);
     if (event.altKey) {
-      emit('removeVertex', vertex.elementId, vertex.index);
+      emit('removeVertex', vertex.elementId, vertex.index, vertex.part ?? 'shape');
 
       return;
     }
@@ -679,7 +722,13 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   }
 
   setFocus(null);
-  const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
+  const hit = sceneHitTestService.hit(
+    props.model,
+    viewport,
+    screenPointOf(event),
+    8,
+    (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
+  );
   if (hit === null) {
     gesture = 'pan';
     panMoved = false;
@@ -731,24 +780,25 @@ function onPointerMove(event: PointerEvent): void {
   if (scenePoint === null) return;
 
   if (gesture === 'vertex' && vertexTarget !== null) {
-    emit('vertex', vertexTarget.elementId, vertexTarget.index, clampPoint(scenePoint));
+    emit('vertex', vertexTarget.elementId, vertexTarget.index, clampPoint(scenePoint), vertexTarget.part ?? 'shape');
 
     return;
   }
 
   if (gesture === 'handle' && handleTarget !== null) {
-    const element = props.model.elements.find((item) => item.id === handleTarget?.elementId);
-    if (element === undefined || (element.shape.type !== 'polygon' && element.shape.type !== 'path')) {
+    const part = handleTarget.part ?? 'shape';
+    const shape = contourShape(handleTarget.elementId, part);
+    if (shape === null || (shape.type !== 'polygon' && shape.type !== 'path')) {
       return;
     }
 
-    const vertex = element.shape.points[handleTarget.index];
+    const vertex = shape.points[handleTarget.index];
     if (vertex === undefined) {
       return;
     }
 
     const offset: ScenePoint = [Math.round(scenePoint[0] - vertex[0]), Math.round(scenePoint[1] - vertex[1])];
-    emit('handle', handleTarget.elementId, handleTarget.index, handleTarget.side, offset, !event.altKey);
+    emit('handle', handleTarget.elementId, handleTarget.index, handleTarget.side, offset, !event.altKey, part);
 
     return;
   }
@@ -766,7 +816,7 @@ function onPointerMove(event: PointerEvent): void {
 
     const width = Math.max(2, Math.round(Math.hypot(scenePoint[0] - vertex[0], scenePoint[1] - vertex[1]) * 2));
     emit('width', widthTarget.elementId, widthTarget.index, width);
-    setFocus({ elementId: widthTarget.elementId, index: widthTarget.index });
+    setFocus({ elementId: widthTarget.elementId, part: 'shape', index: widthTarget.index });
 
     return;
   }
@@ -810,7 +860,13 @@ function onPointerUp(event: PointerEvent): void {
   }
 
   if (gesture === 'pan' && !props.interactive && !panMoved && viewport !== null) {
-    const hit = sceneHitTestService.hit(props.model, viewport, screenPointOf(event));
+    const hit = sceneHitTestService.hit(
+      props.model,
+      viewport,
+      screenPointOf(event),
+      8,
+      (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
+    );
     applySelection(hit === null ? [] : [hit.id]);
     const point = scenePointOf(event);
     if (point !== null) {

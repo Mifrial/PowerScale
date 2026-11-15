@@ -73,4 +73,44 @@ describe('SceneHitTestService', () => {
 
     expect(service.hits(model(elements), viewport, { x: 500, y: 500 }).map((item) => item.id)).toEqual([3, 2, 1]);
   });
+
+  it('selects decor by its footprint and silhouette, not only by the anchor', () => {
+    const tree = element({
+      id: 7,
+      kind: 'decor',
+      shape: { type: 'point', x: 500, y: 500 },
+      props: { scale: 320, baseRadius: 10, sightRadius: 45, sightBottom: 85 },
+    });
+
+    // Крона: точка далеко от якоря, но внутри силуэта (сцена 490, 430).
+    expect(service.hit(model([tree]), viewport, { x: 940, y: 880 })?.id).toBe(7);
+    // Вне кроны и ствола.
+    expect(service.hit(model([tree]), viewport, { x: 1150, y: 950 })).toBeNull();
+  });
+
+  it('selects decor by the visible sprite box when the aspect is known', () => {
+    const tree = element({
+      id: 9,
+      kind: 'decor',
+      shape: { type: 'point', x: 500, y: 500 },
+      props: { scale: 320, baseRadius: 10, sightRadius: 45, sightBottom: 85 },
+    });
+    const aspectOf = (): number => 340 / 256;
+
+    // Сцена (500, 300): высоко над якорем, вне силуэта, но в спрайте.
+    expect(service.hit(model([tree]), viewport, { x: 950, y: 750 })?.id).toBeUndefined();
+    expect(service.hit(model([tree]), viewport, { x: 950, y: 750 }, 8, aspectOf)?.id).toBe(9);
+  });
+
+  it('selects decor by an explicit footprint with an offset', () => {
+    const boulder = element({
+      id: 8,
+      kind: 'decor',
+      shape: { type: 'point', x: 500, y: 500 },
+      props: { footprint: { shape: 'circle', radius: 20, offset: [40, 0] } },
+    });
+
+    // Смещённый круг: точка справа от якоря (сцена 540, 500).
+    expect(service.hit(model([boulder]), viewport, { x: 990, y: 950 })?.id).toBe(8);
+  });
 });

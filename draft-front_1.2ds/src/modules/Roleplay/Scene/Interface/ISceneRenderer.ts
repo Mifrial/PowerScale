@@ -29,6 +29,8 @@ export interface ISceneRenderer {
   setDraft(shape: SceneShape | null): void;
   /** Анимация воды: пользовательская настройка, работает в preview/play. */
   setWaterAnimation(enabled: boolean): void;
+  /** Соотношение сторон текстуры ассета: высота / ширина; null — нет текстуры. */
+  assetAspect(publicId: string | null): number | null;
   render(): void;
   destroy(): void;
 }

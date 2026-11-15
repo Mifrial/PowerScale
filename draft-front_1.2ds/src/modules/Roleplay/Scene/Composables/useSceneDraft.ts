@@ -14,6 +14,10 @@ import { SceneDraftService } from '@/modules/Roleplay/Scene/Service/SceneDraftSe
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
+import {
+  sceneFootprintLocalOffset,
+  sceneFootprintLocalPoint,
+} from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 /** Предел числа шагов истории. */
 const HISTORY_LIMIT = 50;
@@ -469,6 +473,85 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
+  /** Двигает вершину основания декора; точка приходит в мировых координатах. */
+  function moveFootprintVertex(elementId: number, index: number, point: ScenePoint): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'point') {
+      return;
+    }
+
+    service.setFootprintVertex(draft.value, elementId, index, sceneFootprintLocalPoint(element, point));
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Двигает ручку Безье основания; смещение приходит в мировых координатах. */
+  function moveFootprintHandle(
+    elementId: number,
+    index: number,
+    side: SceneHandleSide,
+    offset: ScenePoint,
+    mirror: boolean,
+  ): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'point') {
+      return;
+    }
+
+    const local = sceneFootprintLocalOffset(element, offset);
+    service.setFootprintHandle(draft.value, elementId, index, side, local);
+    if (mirror) {
+      service.setFootprintHandle(draft.value, elementId, index, side === 'in' ? 'out' : 'in', [-local[0], -local[1]]);
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Вставляет вершину в основание, сохраняя форму кривой. */
+  function insertFootprintVertex(elementId: number, point: ScenePoint, tolerance: number): boolean {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'point') {
+      return false;
+    }
+
+    const inserted = service.insertFootprintVertex(
+      draft.value,
+      elementId,
+      sceneFootprintLocalPoint(element, point),
+      tolerance,
+    );
+    if (!inserted) {
+      return false;
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+
+    return true;
+  }
+
+  /** Удаляет вершину основания; минимум три точки. */
+  function removeFootprintVertex(elementId: number, index: number): void {
+    service.removeFootprintVertex(draft.value, elementId, index);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Сглаживает полигон основания. */
+  function smoothFootprint(elementId: number): void {
+    service.smoothFootprint(draft.value, elementId);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Убирает кривизну основания. */
+  function cornerFootprint(elementId: number): void {
+    service.cornerFootprint(draft.value, elementId);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
   /** Ширина ленты в вершине; остальные ширины масштабируются. */
   function setPathWidth(elementId: number, index: number, width: number): void {
     service.setWidth(draft.value, elementId, index, width);
@@ -589,6 +672,12 @@ export function useSceneDraft(initial: SceneDetail) {
     moveHandle,
     insertVertex,
     removeVertex,
+    moveFootprintVertex,
+    moveFootprintHandle,
+    insertFootprintVertex,
+    removeFootprintVertex,
+    smoothFootprint,
+    cornerFootprint,
     setPathWidth,
     setPathWidthAll,
     smoothShape,

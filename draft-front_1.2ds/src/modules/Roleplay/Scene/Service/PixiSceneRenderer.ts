@@ -13,7 +13,7 @@ import type {
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
-import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
+import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
 import type { SceneLayerName } from '@/modules/Roleplay/Scene/Enum/SceneLayerName';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
@@ -28,6 +28,7 @@ import { sceneRampBlockedShare } from '@/modules/Roleplay/Scene/Service/SceneDec
 import {
   sceneDecorFootprint,
   sceneDecorSilhouette,
+  sceneFootprintShape,
   type SceneWorldFootprint,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { SceneGrassMeshService } from '@/modules/Roleplay/Scene/Service/SceneGrassMeshService';
@@ -399,6 +400,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.vertexFocus = target;
     this.drawSelection();
     this.requestFrame();
+  }
+
+  /**
+   * Соотношение сторон текстуры ассета: высота / ширина.
+   *
+   * Нужно hit-test: спрайт рисуется выше якоря, и клик по кроне должен
+   * выделять дерево, а не искать точку под стволом.
+   */
+  assetAspect(publicId: string | null): number | null {
+    const texture = this.textures.get(publicId);
+
+    return texture === null ? null : texture.height / Math.max(1, texture.width);
   }
 
   /** Анимация воды — пользовательская настройка, а не свойство локации. */
@@ -1537,10 +1550,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
       if (element.kind === 'decor' && element.shape.type === 'point') {
         this.drawDecorContours(layer, element, this.model.resolution);
+        const footprint = sceneFootprintShape(element, this.model.resolution);
+        if (footprint !== null) {
+          this.drawVertices(layer, footprint, element.id, 'footprint');
+        }
       }
 
       if (element.shape.type === 'polygon' || element.shape.type === 'path') {
-        this.drawVertices(layer, element.shape, element.id);
+        this.drawVertices(layer, element.shape, element.id, 'shape');
       }
     }
   }
@@ -1585,7 +1602,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Вершины выделенной фигуры и ручки активной вершины. */
-  private drawVertices(layer: Container, shape: SceneShape, elementId: number): void {
+  private drawVertices(layer: Container, shape: SceneShape, elementId: number, part: SceneVertexPart = 'shape'): void {
     if (shape.type !== 'polygon' && shape.type !== 'path') {
       return;
     }
@@ -1593,18 +1610,20 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const zoom = this.zoom();
     const size = 8 / zoom;
     const focus = this.vertexFocus;
+    const focused = focus !== null && focus.elementId === elementId && (focus.part ?? 'shape') === part;
+    const idleColor = part === 'footprint' ? 0x22d3ee : 0xfacc15;
     const vertices = new Graphics();
     for (let index = 0; index < shape.points.length; index += 1) {
       const [x, y] = shape.points[index];
-      const isActive = focus !== null && focus.elementId === elementId && focus.index === index;
+      const isActive = focused && focus?.index === index;
       vertices
         .rect(x - size / 2, y - size / 2, size, size)
-        .fill({ color: isActive ? 0x38bdf8 : 0xfacc15, alpha: 1 })
+        .fill({ color: isActive ? 0x38bdf8 : idleColor, alpha: 1 })
         .stroke({ color: 0x1f2937, width: 1.5 / zoom, alpha: 1 });
     }
 
     layer.addChild(vertices);
-    if (focus === null || focus.elementId !== elementId || focus.index >= shape.points.length) {
+    if (!focused || focus === null || focus.index >= shape.points.length) {
       return;
     }
 

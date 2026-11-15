@@ -6,6 +6,8 @@ import {
   sceneDecorFootprint,
   sceneDecorFootprintDefaults,
   sceneDecorSilhouette,
+  sceneFootprintLocalPoint,
+  sceneFootprintShape,
   spriteSize,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
@@ -84,6 +86,50 @@ describe('SceneDecorFootprint', () => {
 
     expect(sceneDecorFootprint(rect, RESOLUTION)).toBeNull();
     expect(sceneDecorSilhouette(rect, RESOLUTION)).toBeNull();
+  });
+
+  it('смещает круг основания и возвращает мировую точку в локальную', () => {
+    const element = decor({ footprint: { shape: 'circle', radius: 20, offset: [40, 0] }, rotation: 90 });
+    const footprint = sceneDecorFootprint(element, RESOLUTION);
+
+    // Смещение поворачивается вместе с объектом: (40, 0) → (0, 40).
+    expect(footprint).toEqual({ shape: 'circle', center: [100, 140], radius: 20 });
+    expect(sceneFootprintLocalPoint(element, [100, 140])).toEqual([0, 0]);
+  });
+
+  it('разворачивает кривые основания в контур площади', () => {
+    const handles = [
+      { in: [0, 0] as ScenePoint, out: [0, -20] as ScenePoint },
+      { in: [0, -20] as ScenePoint, out: [0, 0] as ScenePoint },
+      { in: [0, 0] as ScenePoint, out: [0, 0] as ScenePoint },
+      { in: [0, 0] as ScenePoint, out: [0, 0] as ScenePoint },
+    ];
+    const element = decor({
+      footprint: {
+        shape: 'polygon',
+        points: [
+          [-20, -20],
+          [20, -20],
+          [20, 20],
+          [-20, 20],
+        ],
+        handles,
+      },
+    });
+
+    const footprint = sceneDecorFootprint(element, RESOLUTION);
+    if (footprint === null || footprint.shape !== 'polygon') {
+      throw new Error('ожидался полигон основания');
+    }
+    // Площадь идёт по кривой, поэтому точек больше, чем вершин.
+    expect(footprint.points.length).toBeGreaterThan(4);
+
+    const editable = sceneFootprintShape(element, RESOLUTION);
+    if (editable === null || editable.type !== 'polygon') {
+      throw new Error('ожидался редактируемый полигон основания');
+    }
+    expect(editable.points.length).toBe(4);
+    expect(editable.handles?.length).toBe(4);
   });
 
   it('показывает карточке явные поля или старые доли', () => {

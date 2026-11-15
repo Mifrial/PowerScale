@@ -17,6 +17,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
+import type { SceneVertexPart } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
@@ -29,7 +30,7 @@ import { getSceneApi } from '@/modules/Roleplay/Scene/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
-import { sceneDecorRotation } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
+import { sceneFootprintLocalPoint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 const route = useRoute();
 const router = useRouter();
@@ -284,18 +285,11 @@ function applyOutline(shape: SceneShape): void {
     return;
   }
 
-  const anchor = element.shape;
-  const radians = (-sceneDecorRotation(element) * Math.PI) / 180;
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
-  const points = shape.points.map((point): ScenePoint => {
-    const dx = point[0] - anchor.x;
-    const dy = point[1] - anchor.y;
+  const offset = element.props.footprint?.offset;
+  const points = shape.points.map((point): ScenePoint => sceneFootprintLocalPoint(element, point));
+  const footprint = { shape: 'polygon' as const, points, ...(offset === undefined ? {} : { offset }) };
 
-    return [Math.round(dx * cosine - dy * sine), Math.round(dx * sine + dy * cosine)];
-  });
-
-  state.updateElementProps(element.id, { ...element.props, footprint: { shape: 'polygon', points } });
+  state.updateElementProps(element.id, { ...element.props, footprint });
   notice.value = 'Основание обведено';
 }
 
@@ -311,12 +305,31 @@ function onPath(points: ScenePoint[]): void {
 }
 
 /** Перетаскивание вершины полигона или ленты. */
-function onVertex(elementId: number, index: number, point: ScenePoint): void {
+function onVertex(elementId: number, index: number, point: ScenePoint, part: SceneVertexPart = 'shape'): void {
+  if (part === 'footprint') {
+    state.moveFootprintVertex(elementId, index, point);
+
+    return;
+  }
+
   state.moveVertex(elementId, index, point);
 }
 
 /** Перетаскивание ручки Безье. */
-function onHandle(elementId: number, index: number, side: SceneHandleSide, offset: ScenePoint, mirror: boolean): void {
+function onHandle(
+  elementId: number,
+  index: number,
+  side: SceneHandleSide,
+  offset: ScenePoint,
+  mirror: boolean,
+  part: SceneVertexPart = 'shape',
+): void {
+  if (part === 'footprint') {
+    state.moveFootprintHandle(elementId, index, side, offset, mirror);
+
+    return;
+  }
+
   state.moveHandle(elementId, index, side, offset, mirror);
 }
 
@@ -326,13 +339,42 @@ function onWidth(elementId: number, index: number, width: number): void {
 }
 
 /** Двойной клик по контуру вставляет вершину. */
-function onInsertVertex(elementId: number, point: ScenePoint, tolerance: number): void {
+function onInsertVertex(
+  elementId: number,
+  point: ScenePoint,
+  tolerance: number,
+  part: SceneVertexPart = 'shape',
+): void {
+  if (part === 'footprint') {
+    state.insertFootprintVertex(elementId, point, tolerance);
+
+    return;
+  }
+
   state.insertVertex(elementId, point, tolerance);
 }
 
 /** Alt+клик по вершине удаляет её. */
-function onRemoveVertex(elementId: number, index: number): void {
+function onRemoveVertex(elementId: number, index: number, part: SceneVertexPart = 'shape'): void {
+  if (part === 'footprint') {
+    state.removeFootprintVertex(elementId, index);
+
+    return;
+  }
+
   state.removeVertex(elementId, index);
+}
+
+/** Сглаживает полигон основания. */
+function smoothFootprint(): void {
+  if (selectedElement.value === null) return;
+  state.smoothFootprint(selectedElement.value.id);
+}
+
+/** Убирает кривизну основания. */
+function cornerFootprint(): void {
+  if (selectedElement.value === null) return;
+  state.cornerFootprint(selectedElement.value.id);
 }
 
 /** Начало перетаскивания: один шаг истории. */
@@ -837,6 +879,8 @@ function messageOf(exception: unknown): string {
                 @corner="cornerShape"
                 @attach-ramp="attachRamp"
                 @outline="startOutline"
+                @footprint-smooth="smoothFootprint"
+                @footprint-corner="cornerFootprint"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>

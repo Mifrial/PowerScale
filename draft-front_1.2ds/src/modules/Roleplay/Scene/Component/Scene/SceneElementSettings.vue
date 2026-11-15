@@ -28,6 +28,7 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import { sceneDecorFootprintDefaults } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
@@ -49,6 +50,8 @@ const emit = defineEmits<{
   corner: [];
   attachRamp: [end: SceneDeckEnd];
   outline: [target: 'footprint'];
+  footprintSmooth: [];
+  footprintCorner: [];
 }>();
 
 /** Прилагательное для торца по стороне света. */
@@ -118,6 +121,9 @@ const footprintPointCount = computed(() => {
 
   return footprint?.shape === 'polygon' ? footprint.points.length : 0;
 });
+
+/** Смещение всей формы основания от якоря, единицы сцены. */
+const footprintOffset = computed<ScenePoint>(() => props.element.props.footprint?.offset ?? [0, 0]);
 
 const blocksVision = computed(() => props.element.props.blocksVision !== false);
 
@@ -330,7 +336,29 @@ function patchFlag(key: 'blocksMovement' | 'blocksVision', value: boolean | null
 
 /** Радиус круглого основания в единицах сцены. */
 function patchFootprintRadius(value: number): void {
-  patch({ footprint: { shape: 'circle', radius: Math.max(1, Math.round(value)) } });
+  patch({
+    footprint: { shape: 'circle', radius: Math.max(1, Math.round(value)), offset: footprintOffset.value },
+  });
+}
+
+/** Смещение всей формы основания: так круг отвязывается от якоря спрайта. */
+function patchFootprintOffset(axis: 0 | 1, value: number): void {
+  const current = footprintOffset.value;
+  const offset: ScenePoint = axis === 0 ? [Math.round(value), current[1]] : [current[0], Math.round(value)];
+
+  patch({ footprint: footprintWithOffset(offset) });
+}
+
+/** Текущая форма основания с новым смещением. */
+function footprintWithOffset(offset: ScenePoint): SceneFootprint {
+  const footprint = props.element.props.footprint;
+  if (footprint?.shape === 'polygon') {
+    return { ...footprint, offset };
+  }
+
+  const radius = footprint?.shape === 'circle' ? footprint.radius : Math.max(1, footprintRadius.value);
+
+  return { shape: 'circle', radius, offset };
 }
 
 /** Смена типа основания: полигон начинается с восьмиугольника по кругу. */
@@ -340,12 +368,20 @@ function patchFootprintKind(value: string | null): void {
       return;
     }
 
-    patch({ footprint: { shape: 'polygon', points: regularPolygon(Math.max(1, footprintRadius.value)) } });
+    patch({
+      footprint: {
+        shape: 'polygon',
+        points: regularPolygon(Math.max(1, footprintRadius.value)),
+        offset: footprintOffset.value,
+      },
+    });
 
     return;
   }
 
-  patch({ footprint: { shape: 'circle', radius: Math.max(1, footprintRadius.value) } });
+  patch({
+    footprint: { shape: 'circle', radius: Math.max(1, footprintRadius.value), offset: footprintOffset.value },
+  });
 }
 
 /** Восьмиугольник вокруг якоря: стартовая форма для обводки. */
@@ -366,11 +402,14 @@ function outlineRadius(points: ScenePoint[]): number {
 
 /** Радиус силуэта в единицах сцены; полигон не трогаем. */
 function patchSilhouetteRadius(value: number): void {
+  const current = props.element.props.silhouette;
+
   patch({
     silhouette: {
       shape: 'circle',
       radius: Math.max(1, Math.round(value)),
       bottom: silhouetteBottom.value,
+      ...(current?.offset === undefined ? {} : { offset: current.offset }),
     },
   });
 }
@@ -378,10 +417,11 @@ function patchSilhouetteRadius(value: number): void {
 /** Низ силуэта: форму сохраняем, меняем только высоту. */
 function patchSilhouetteBottom(value: number): void {
   const current = props.element.props.silhouette;
+  const offset = current?.offset === undefined ? {} : { offset: current.offset };
   const shape =
     current?.shape === 'polygon'
-      ? { shape: 'polygon' as const, points: current.points }
-      : { shape: 'circle' as const, radius: Math.max(1, silhouetteRadius.value) };
+      ? { shape: 'polygon' as const, points: current.points, ...offset }
+      : { shape: 'circle' as const, radius: Math.max(1, silhouetteRadius.value), ...offset };
 
   patch({ silhouette: { ...shape, bottom: Math.max(0, Math.round(value)) } });
 }
@@ -667,6 +707,28 @@ function onAssetPreset(item: AssetItem): void {
         @select="onAssetPreset"
       />
       <v-text-field
+        :model-value="currentSpeed"
+        type="number"
+        label="Скорость"
+        hint="0 — непроходимо; 100 — можно пройти; выше — быстрее."
+        persistent-hint
+        density="compact"
+        variant="outlined"
+        @update:model-value="patchSpeed"
+      />
+      <div class="scene-element-settings__speeds">
+        <v-chip
+          v-for="preset in SPEED_PRESETS"
+          :key="preset.value"
+          size="x-small"
+          :color="currentSpeed === preset.value ? 'primary' : undefined"
+          variant="tonal"
+          @click="patchSpeed(preset.value)"
+        >
+          {{ preset.label }}
+        </v-chip>
+      </div>
+      <v-text-field
         :model-value="props.element.props.rotation ?? 0"
         label="Поворот"
         type="number"
@@ -711,6 +773,41 @@ function onAssetPreset(item: AssetItem): void {
           Обвести
         </v-btn>
       </div>
+      <div class="scene-element-settings__row">
+        <SceneDistanceField
+          :model-value="footprintOffset[0]"
+          :resolution="props.resolution"
+          label="Смещение X, ипари"
+          hint="Сдвиг всей формы от якоря спрайта."
+          :min="-100000"
+          :max="100000"
+          @update:model-value="(value) => patchFootprintOffset(0, value)"
+        />
+        <SceneDistanceField
+          :model-value="footprintOffset[1]"
+          :resolution="props.resolution"
+          label="Смещение Y, ипари"
+          :min="-100000"
+          :max="100000"
+          @update:model-value="(value) => patchFootprintOffset(1, value)"
+        />
+      </div>
+      <div v-if="footprintKind === 'polygon'" class="scene-element-settings__row">
+        <v-btn
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-transit-connection-variant"
+          @click="emit('footprintSmooth')"
+        >
+          Сгладить
+        </v-btn>
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-vector-square" @click="emit('footprintCorner')">
+          Углы
+        </v-btn>
+      </div>
+      <span v-if="footprintKind === 'polygon'" class="text-caption">
+        Вершины и ручки — на карте у выделенного объекта: тяните, двойной клик добавляет, Alt — удаляет.
+      </span>
       <v-checkbox
         :model-value="blocksVision"
         label="Перекрывает обзор"

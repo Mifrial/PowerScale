@@ -367,11 +367,18 @@ final class SceneElementValidatorTest extends TestCase
             'props' => [
                 'scale' => 350,
                 'blocksVision' => false,
-                'footprint' => ['shape' => 'circle', 'radius' => 42],
+                'footprint' => ['shape' => 'circle', 'radius' => 42, 'offset' => [10, -5]],
                 'silhouette' => [
                     'shape' => 'polygon',
                     'points' => [[-10, -20], [30, -20], [30, 20], [-10, 20]],
+                    'handles' => [
+                        ['in' => [0, 0], 'out' => [5, 0]],
+                        ['in' => [-5, 0], 'out' => [0, 0]],
+                        ['in' => [0, 0], 'out' => [0, 0]],
+                        ['in' => [0, 0], 'out' => [0, 0]],
+                    ],
                     'bottom' => 16,
+                    'offset' => [-2, 3],
                 ],
             ],
             'sortOrder' => 0,
@@ -379,9 +386,23 @@ final class SceneElementValidatorTest extends TestCase
         ]);
 
         self::assertFalse($element['props']['blocksVision']);
-        self::assertSame(['shape' => 'circle', 'radius' => 42], $element['props']['footprint']);
         self::assertSame(
-            ['shape' => 'polygon', 'points' => [[-10, -20], [30, -20], [30, 20], [-10, 20]], 'bottom' => 16],
+            ['shape' => 'circle', 'radius' => 42, 'offset' => [10, -5]],
+            $element['props']['footprint'],
+        );
+        self::assertSame(
+            [
+                'shape' => 'polygon',
+                'points' => [[-10, -20], [30, -20], [30, 20], [-10, 20]],
+                'handles' => [
+                    ['in' => [0, 0], 'out' => [5, 0]],
+                    ['in' => [-5, 0], 'out' => [0, 0]],
+                    ['in' => [0, 0], 'out' => [0, 0]],
+                    ['in' => [0, 0], 'out' => [0, 0]],
+                ],
+                'offset' => [-2, 3],
+                'bottom' => 16,
+            ],
             $element['props']['silhouette'],
         );
     }

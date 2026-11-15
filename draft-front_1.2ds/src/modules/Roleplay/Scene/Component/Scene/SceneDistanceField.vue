@@ -66,7 +66,7 @@ function apply(next: DimensionalNumberValue | null): void {
     :model-value="display"
     :label="props.label"
     :hint="props.hint"
-    :min="0"
+    :min="props.min"
     :max="baseMax"
     :size-min="sizeMin"
     :size-max="sizeMax"

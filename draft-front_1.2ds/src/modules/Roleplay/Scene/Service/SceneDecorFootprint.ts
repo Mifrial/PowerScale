@@ -1,7 +1,10 @@
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
+import type { SceneHandle } from '@/modules/Roleplay/Scene/Dto/SceneHandle';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
+import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 
 /** Мировое основание или силуэт: форма уже перенесена и повёрнута. */
 export type SceneWorldFootprint =
@@ -69,6 +72,62 @@ export function sceneDecorSilhouette(
 }
 
 /**
+ * Мировая фигура основания для редактора вершин.
+ *
+ * Круг не имеет вершин, поэтому возвращается только полигон. Ручки Безье —
+ * смещения от точек, их достаточно повернуть.
+ */
+export function sceneFootprintShape(element: FootprintElement, _resolution: number): SceneShape | null {
+  if (element.shape.type !== 'point') {
+    return null;
+  }
+
+  const footprint = element.props.footprint;
+  if (footprint === undefined || footprint === null || footprint.shape !== 'polygon') {
+    return null;
+  }
+
+  const rotation = sceneDecorRotation(element);
+  const origin = footprintOrigin(footprint, [element.shape.x, element.shape.y], rotation);
+
+  return {
+    type: 'polygon',
+    points: rawWorldPoints(footprint, origin, rotation),
+    handles: footprint.handles?.map((handle) => rotateHandle(handle, rotation)),
+  };
+}
+
+/**
+ * Мировая точка в локальную точку основания.
+ *
+ * Обратный поворот, сдвиг от якоря и смещение самой формы: так перетаскивание
+ * вершины на карте попадает в те же числа, что хранит элемент.
+ */
+export function sceneFootprintLocalPoint(element: FootprintElement, point: ScenePoint): ScenePoint {
+  if (element.shape.type !== 'point') {
+    return [Math.round(point[0]), Math.round(point[1])];
+  }
+
+  const radians = (sceneDecorRotation(element) * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const dx = point[0] - element.shape.x;
+  const dy = point[1] - element.shape.y;
+  const offset = element.props.footprint?.offset ?? ([0, 0] as ScenePoint);
+
+  return [Math.round(dx * cosine + dy * sine - offset[0]), Math.round(-dx * sine + dy * cosine - offset[1])];
+}
+
+/** Мировое смещение ручки в локальное: поворот без переноса. */
+export function sceneFootprintLocalOffset(element: FootprintElement, offset: ScenePoint): ScenePoint {
+  const radians = (sceneDecorRotation(element) * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+
+  return [Math.round(offset[0] * cosine + offset[1] * sine), Math.round(-offset[0] * sine + offset[1] * cosine)];
+}
+
+/**
  * Основание и силуэт по умолчанию для карточки и шаблона.
  *
  * Карточка показывает те же числа, что видит расчёт: явное поле, иначе —
@@ -109,23 +168,58 @@ export function sceneDecorRotation(element: Pick<SceneElement, 'props'>): number
 
 /** Локальная форма в мировых координатах. */
 function footprintWorld(footprint: SceneFootprint, center: ScenePoint, rotation: number): SceneWorldFootprint | null {
+  const origin = footprintOrigin(footprint, center, rotation);
+
   if (footprint.shape === 'circle') {
-    return footprint.radius > 0 ? { shape: 'circle', center, radius: footprint.radius } : null;
+    return footprint.radius > 0 ? { shape: 'circle', center: origin, radius: footprint.radius } : null;
   }
 
   if (footprint.points.length < 3) {
     return null;
   }
 
-  const radians = (rotation * Math.PI) / 180;
+  const points = rawWorldPoints(footprint, origin, rotation);
+  const handles = footprint.handles?.map((handle) => rotateHandle(handle, rotation)) ?? [];
+  // Площадь и маршрут идут по кривой, а не по хордам: иначе безье-основание
+  // блокирует не то, что нарисовано.
+  const outline = sceneCurveService.flattenContour(points, handles);
+
+  return outline.length >= 3 ? { shape: 'polygon', points: outline } : null;
+}
+
+/** Начало локальной формы в мировых координатах: якорь плюс смещение. */
+function footprintOrigin(footprint: SceneFootprint, center: ScenePoint, rotation: number): ScenePoint {
+  const offset = rotatePoint(footprint.offset ?? ([0, 0] as ScenePoint), rotation);
+
+  return [center[0] + offset[0], center[1] + offset[1]];
+}
+
+/** Сырые мировые точки формы, без разворота кривых. */
+function rawWorldPoints(footprint: SceneFootprint, origin: ScenePoint, rotation: number): ScenePoint[] {
+  if (footprint.shape === 'circle') {
+    return [];
+  }
+
+  return footprint.points.map((point): ScenePoint => {
+    const rotated = rotatePoint(point, rotation);
+
+    return [origin[0] + rotated[0], origin[1] + rotated[1]];
+  });
+}
+
+/** Поворот вектора на угол в градусах. */
+function rotatePoint(point: ScenePoint, degrees: number): ScenePoint {
+  const radians = (degrees * Math.PI) / 180;
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
 
+  return [point[0] * cosine - point[1] * sine, point[0] * sine + point[1] * cosine];
+}
+
+/** Поворот ручки Безье: обе точки — смещения. */
+function rotateHandle(handle: SceneHandle, degrees: number): SceneHandle {
   return {
-    shape: 'polygon',
-    points: footprint.points.map((point): ScenePoint => [
-      center[0] + point[0] * cosine - point[1] * sine,
-      center[1] + point[0] * sine + point[1] * cosine,
-    ]),
+    in: rotatePoint(handle.in, degrees),
+    out: rotatePoint(handle.out, degrees),
   };
 }
