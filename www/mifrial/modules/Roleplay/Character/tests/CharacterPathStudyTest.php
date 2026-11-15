@@ -41,6 +41,41 @@ final class CharacterPathStudyTest extends TestCase
     }
 
     /**
+     * Потолок изучения Шамана считается от Духовности, а не фиксирован числом.
+     *
+     * @return void
+     */
+    public function testDynamicSpiritualityCapOpensCostlyCard(): void
+    {
+        $sheet = [
+            'abilityLevels' => ['contact' => 1, 'big' => 1],
+            'characteristics' => [[
+                'characteristicCode' => 'spirituality',
+                'value' => ['base' => 4, 'size' => 1],
+            ]],
+        ];
+        $problems = $this->study(
+            [
+                $this->rule('shaman', 'magic_path', []),
+                $this->rule('contact', 'ability', ['grants' => [$this->studyGrant(['shaman'], [
+                    'type' => 'characteristic_floor_div',
+                    'characteristic_code' => 'spirituality',
+                    'divisor' => 2,
+                ])]]),
+                $this->studyCard('big', 4),
+            ],
+            [
+                $this->ability('contact', 1),
+                $this->ability('big', 1, 'shaman'),
+            ],
+            $sheet,
+        );
+
+        // Духовность 4¹ = 8; половина — 4, карточка Стоимости 4 открыта.
+        self::assertSame([], $this->codes($problems));
+    }
+
+    /**
      * Без гранта изучения карточка не покупается.
      *
      * @return void
@@ -295,7 +330,7 @@ final class CharacterPathStudyTest extends TestCase
      *
      * @return array<int, CharacterProblem> Отказы.
      */
-    private function study(array $rules, array $abilities): array
+    private function study(array $rules, array $abilities, array $sheet = []): array
     {
         $slice = $this->slice($rules);
         $choices = new CharacterChoices('Имя', 'human', $abilities, [], [], [], true);
@@ -307,7 +342,7 @@ final class CharacterPathStudyTest extends TestCase
         return (new CharacterPathStudy())->problems(
             $slice,
             $choices,
-            ['abilityLevels' => $levels, 'characteristics' => []],
+            array_merge(['abilityLevels' => $levels, 'characteristics' => []], $sheet),
             [],
         );
     }
@@ -351,7 +386,7 @@ final class CharacterPathStudyTest extends TestCase
      *
      * @return array<string, mixed> Блок грантов.
      */
-    private function studyGrant(array $paths, int $maxCost, ?int $maxInstances = null): array
+    private function studyGrant(array $paths, int|array $maxCost, ?int $maxInstances = null): array
     {
         $grant = ['type' => 'magic_study', 'paths' => $paths, 'max_cost' => $maxCost];
         if ($maxInstances !== null) {

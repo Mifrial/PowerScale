@@ -16,6 +16,20 @@ export class ActiveSpellService {
     return spells.some((spell) => spell.casterKey === casterKey && spell.sourceKey === sourceKey);
   }
 
+  /** Сколько активных волшебств держит кастер. */
+  countForCaster(spells: ActiveSpell[], casterKey: CombatEntityKey): number {
+    return spells.filter((spell) => spell.casterKey === casterKey).length;
+  }
+
+  /** Предел пути уже выбран: новое активное волшебство не помещается. */
+  isCasterLimitReached(spells: ActiveSpell[], casterKey: CombatEntityKey, limit: number | null): boolean {
+    if (limit === null || limit <= 0) {
+      return false;
+    }
+
+    return this.countForCaster(spells, casterKey) >= limit;
+  }
+
   shouldPromptSustain(spell: ActiveSpell, round: number, participantId: string): boolean {
     if (spell.casterKey !== participantId) {
       return false;

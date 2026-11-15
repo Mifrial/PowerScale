@@ -339,6 +339,19 @@ const pathItems = computed(() => paths.value.map((path) => ({ value: path.pathCo
 const selectedPath = computed(() => paths.value.find((path) => path.pathCode === pathCode.value) ?? null);
 const selectedSpell = computed(() => props.rules.find((rule) => rule.code === spellCode.value));
 const spellSpec = computed(() => spellCastDifficultyService.asSpellAbilitySpec(selectedSpell.value));
+/** Каст создаст активное волшебство: длительность поддерживаемая. */
+const castCreatesActiveSpell = computed(() => spellSpec.value?.spell?.duration?.type === 'sustained');
+/** Предел активных волшебств выбранного пути уже исчерпан. */
+const activeLimitReached = computed(() => {
+  const limit = selectedPath.value?.activeSpellLimit ?? null;
+  if (limit === null || !resolvedCasterKey.value) return false;
+
+  return activeSpellService.isCasterLimitReached(activeSpells.value, resolvedCasterKey.value, limit);
+});
+const activeLimitMessage = computed(
+  () =>
+    `Путь «${selectedPath.value?.name ?? pathCode.value}» держит не больше ${selectedPath.value?.activeSpellLimit ?? 0} активных волшебств`,
+);
 const spellAvailable = computed(() => {
   if (!overview.value || !spellCode.value) return false;
   if (selectedPath.value?.recordedCasting) return true;
@@ -868,6 +881,14 @@ watch(spells, (list) => {
 });
 
 watch(spellCode, () => {
+  const preferred = spellCastOptionsService.defaultPathForSpell(
+    spellCode.value,
+    paths.value,
+    casterVersion.value?.abilities ?? [],
+  );
+  if (preferred && preferred !== pathCode.value) {
+    pathCode.value = preferred;
+  }
   hasTarget.value = needsSpellTarget.value;
   if (!needsSpellTarget.value) {
     targetKey.value = null;
@@ -1037,6 +1058,11 @@ async function runCast(): Promise<void> {
 
         return;
       }
+      if (castCreatesActiveSpell.value && activeLimitReached.value) {
+        error.value = activeLimitMessage.value;
+
+        return;
+      }
       const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
       const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, cost);
       if (!spellAvailable.value) {
@@ -1070,6 +1096,11 @@ async function runCast(): Promise<void> {
       activeSpellService.isSourceOccupied(activeSpells.value, resolvedCasterKey.value, sourceKey.value)
     ) {
       error.value = 'Источник занят поддержанием';
+
+      return;
+    }
+    if (castCreatesActiveSpell.value && activeLimitReached.value) {
+      error.value = activeLimitMessage.value;
 
       return;
     }

@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicFloorDivScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeScalar;
@@ -128,8 +129,31 @@ final class Formulas
             'characteristic_size' => new CharacteristicSizeScalar(SpecShape::string($node, 'characteristic_code')),
             'characteristic_size_positive' => new CharacteristicSizePositiveScalar(SpecShape::string($node, 'characteristic_code')),
             'characteristic_size_gap' => self::sizeGap($node),
+            'characteristic_floor_div' => self::characteristicFloorDiv($node),
             default => throw new RuleSpecShapeException('type'),
         };
+    }
+
+    /**
+     * Целое частное значения характеристики.
+     *
+     * @param array<string|int, mixed> $node Узел.
+     *
+     * @return CharacteristicFloorDivScalar Узел.
+     *
+     * @throws RuleSpecShapeException Если делитель не положительный.
+     */
+    private static function characteristicFloorDiv(array $node): CharacteristicFloorDivScalar
+    {
+        $divisor = SpecShape::int($node, 'divisor');
+        if ($divisor <= 0) {
+            throw new RuleSpecShapeException('divisor');
+        }
+
+        return new CharacteristicFloorDivScalar(
+            SpecShape::string($node, 'characteristic_code'),
+            $divisor,
+        );
     }
 
     /**

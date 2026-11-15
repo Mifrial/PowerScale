@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Spec;
 
+use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicAggregate;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicBaseFrom;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\DamageTypeSpec;
@@ -127,6 +128,7 @@ final class RootSpecs
             SpecShape::bool($document, 'dodge_soak'),
             self::baseFrom($document),
             self::weaponMastery($document),
+            self::aggregate($document),
         );
     }
 
@@ -326,5 +328,36 @@ final class RootSpecs
         $row = SpecShape::object($document, 'weapon_mastery');
 
         return $row === null ? [] : SpecShape::stringList($row, 'profiles');
+    }
+
+    /**
+     * Агрегат вкладов других характеристик.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return CharacteristicAggregate|null Агрегат.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function aggregate(array $document): ?CharacteristicAggregate
+    {
+        $row = SpecShape::object($document, 'aggregate');
+        if ($row === null) {
+            return null;
+        }
+
+        $pointsPerStep = SpecShape::int($row, 'points_per_step');
+        $step = SpecShape::int($row, 'step');
+        if ($pointsPerStep <= 0 || $step === 0) {
+            throw new RuleSpecShapeException('aggregate');
+        }
+
+        return new CharacteristicAggregate(
+            DimensionalNumbers::characteristic($row, 'base'),
+            SpecShape::stringList($row, 'sources'),
+            DimensionalNumbers::characteristic($row, 'reference'),
+            $pointsPerStep,
+            $step,
+        );
     }
 }

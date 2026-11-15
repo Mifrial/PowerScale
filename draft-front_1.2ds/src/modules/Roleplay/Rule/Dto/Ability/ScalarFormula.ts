@@ -14,4 +14,6 @@ export type ScalarFormula =
       type: 'characteristic_size_gap';
       characteristic_code_from: string;
       characteristic_code_to: string;
-    };
+    }
+  /** Целое частное значения характеристики: «уменьшить на размер, затем к числу». */
+  | { type: 'characteristic_floor_div'; characteristic_code: string; divisor: number };

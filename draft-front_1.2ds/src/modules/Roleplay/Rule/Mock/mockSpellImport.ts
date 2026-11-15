@@ -135,8 +135,18 @@ const spellImportRules: Rule[] = [
     type: 'characteristic',
     name: 'Духовность',
     description:
-      'Характеристика пути Шамана. Старт 3↑ от Потустороннего контакта. Рост от вкладов Общения, Силы воли и Внимательности относительно 5 средних описан у контакта; сама формула в характеристике ещё не считается автоматически.',
-    spec: { type: 'characteristic', group: 'important' },
+      'Характеристика пути Шамана. Старт 3↑ от Потустороннего контакта. Растёт от вкладов Общения, Силы воли и Внимательности относительно 5 средних: за каждые 2 пункта суммы +1 к базе.',
+    spec: {
+      type: 'characteristic',
+      group: 'important',
+      aggregate: {
+        base: dim(3, 1),
+        sources: ['communication', 'willpower', 'attention'],
+        reference: dim(5, 0),
+        points_per_step: 2,
+        step: 1,
+      },
+    },
     catalogSection: 'magic-rules-characteristics',
     keywordIds: [],
   }),
@@ -344,6 +354,7 @@ const spellImportRules: Rule[] = [
       control_characteristic_code: 'magic-control',
       study_cost: null,
       includes_path_codes: [],
+      active_spell_limit: 1,
     },
     catalogSection: 'magic-rules-paths',
     keywordIds: [],
@@ -444,7 +455,7 @@ const spellImportRules: Rule[] = [
     type: 'ability',
     name: 'Потусторонний контакт',
     description:
-      '<p>Даёт путь «Шаман» и Духовность 3↑. Открывает изучение заклинаний и прочих навыков волшебства со стоимостью не выше Духовности: значение уменьшают на один размер, затем приводят к простому числу. Пока формула не считается в редакторе, потолок зафиксирован стартовым значением (3).</p>',
+      '<p>Даёт путь «Шаман» и Духовность 3↑. Открывает изучение заклинаний и прочих навыков волшебства со стоимостью не выше Духовности: значение уменьшают на один размер, затем приводят к простому числу (половина Духовности).</p>',
     spec: {
       type: 'skill',
       zones: orCost(2),
@@ -466,8 +477,18 @@ const spellImportRules: Rule[] = [
           grants: [
             { type: 'magic_path', path_code: 'shaman' },
             { type: 'characteristic', characteristic_code: 'spirituality', value: dim(3, 1) },
-            { type: 'magic_study', scope: 'spell', max_cost: 3, path_code: 'shaman' },
-            { type: 'magic_study', scope: 'non_spell', max_cost: 3, path_code: 'shaman' },
+            {
+              type: 'magic_study',
+              scope: 'spell',
+              max_cost: { type: 'characteristic_floor_div', characteristic_code: 'spirituality', divisor: 2 },
+              path_code: 'shaman',
+            },
+            {
+              type: 'magic_study',
+              scope: 'non_spell',
+              max_cost: { type: 'characteristic_floor_div', characteristic_code: 'spirituality', divisor: 2 },
+              path_code: 'shaman',
+            },
           ],
         },
       ],

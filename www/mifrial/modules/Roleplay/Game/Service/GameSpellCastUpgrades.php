@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterStudyPaths;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastAppliedUpgrade;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastUpgradeResolution;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
@@ -20,6 +21,18 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgrade;
  */
 final class GameSpellCastUpgrades
 {
+    private readonly CharacterStudyPaths $paths;
+
+    /**
+     * Создаёт разрешение улучшений.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->paths = new CharacterStudyPaths();
+    }
+
     /**
      * Проверяет выбранные улучшения и собирает их эффект.
      *
@@ -65,6 +78,7 @@ final class GameSpellCastUpgrades
             if ($recordedCodes === null) {
                 $this->assertLevel($abilityLevels, $code);
                 $this->assertApplicable(
+                    $slice,
                     $upgrade,
                     $parent,
                     $this->instancesOf($model, $code),
@@ -238,6 +252,7 @@ final class GameSpellCastUpgrades
      * @throws GameInvalidException Если улучшение чужое.
      */
     private function assertApplicable(
+        CharacterRuleSlice $slice,
         SpellUpgrade $upgrade,
         ?string $parent,
         array $instances,
@@ -251,7 +266,7 @@ final class GameSpellCastUpgrades
 
             foreach ($instances as $instance) {
                 $domain = $instance->getDomainCode();
-                if ($upgrade->isAnyPath() || $domain === '' || $domain === $pathCode) {
+                if ($this->covers($slice, $pathCode, $upgrade, $domain)) {
                     return;
                 }
             }
@@ -265,12 +280,35 @@ final class GameSpellCastUpgrades
                 continue;
             }
 
-            if ($upgrade->isAnyPath() || $domain === $pathCode) {
+            if ($this->covers($slice, $pathCode, $upgrade, $domain)) {
                 return;
             }
         }
 
         throw new GameInvalidException('Game spell upgrade belongs to another path');
+    }
+
+    /**
+     * Улучшение пути применимо к экземпляру на этом пути или на включённом.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $pathCode Путь каста.
+     * @param SpellUpgrade $upgrade Улучшение.
+     * @param string $domain Домен экземпляра.
+     *
+     * @return bool true, если применимо.
+     */
+    private function covers(
+        CharacterRuleSlice $slice,
+        string $pathCode,
+        SpellUpgrade $upgrade,
+        string $domain,
+    ): bool {
+        if ($upgrade->isAnyPath() || $domain === '') {
+            return true;
+        }
+
+        return $this->paths->reaches($slice, $pathCode, $domain);
     }
 
     /**

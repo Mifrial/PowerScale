@@ -21,6 +21,7 @@ final class GameSpellTouchFacts
      * @param GameSpellCastFacts $facts Общая подготовка каста.
      * @param GameStrikeSheets $sheets Снимки цели касания.
      * @param GameActiveSpellGuard $guard Занятость источника.
+     * @param GameSpellDurationRules $durations Форма длительности.
      *
      * @return void
      */
@@ -28,6 +29,7 @@ final class GameSpellTouchFacts
         private readonly GameSpellCastFacts $facts,
         private readonly GameStrikeSheets $sheets,
         private readonly GameActiveSpellGuard $guard,
+        private readonly GameSpellDurationRules $durations = new GameSpellDurationRules(),
     ) {
     }
 
@@ -56,6 +58,14 @@ final class GameSpellTouchFacts
                 $prepared->casterKind,
                 $prepared->casterId,
                 $prepared->sourceKey,
+            );
+        }
+        if ($this->durations->isSustained($prepared->spell->getSpell()->getDuration())) {
+            $this->guard->assertCasterLimit(
+                $battle->getId(),
+                $prepared->casterKind,
+                $prepared->casterId,
+                $prepared->path->getActiveSpellLimit(),
             );
         }
 

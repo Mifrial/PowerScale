@@ -22,6 +22,7 @@ final class MagicPathSpec implements RuleSpec
      * @param array<int, string> $includesPathCodes Включённые пути.
      * @param bool $noControl Путь не использует Контроль.
      * @param bool $recordedCasting Заклинания берутся из записей источника.
+     * @param int|null $activeSpellLimit Предел одновременных активных волшебств кастера; null — без предела.
      *
      * @return void
      */
@@ -34,6 +35,7 @@ final class MagicPathSpec implements RuleSpec
         private readonly array $includesPathCodes,
         private readonly bool $noControl = false,
         private readonly bool $recordedCasting = false,
+        private readonly ?int $activeSpellLimit = null,
     ) {
     }
 
@@ -125,5 +127,15 @@ final class MagicPathSpec implements RuleSpec
     public function castsRecorded(): bool
     {
         return $this->recordedCasting;
+    }
+
+    /**
+     * Предел одновременных активных волшебств кастера.
+     *
+     * @return int|null Число или null, если предела нет.
+     */
+    public function getActiveSpellLimit(): ?int
+    {
+        return $this->activeSpellLimit;
     }
 }

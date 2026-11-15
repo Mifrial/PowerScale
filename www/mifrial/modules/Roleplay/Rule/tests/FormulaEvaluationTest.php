@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicFloorDivScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeScalar;
@@ -22,6 +23,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ToScalar;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
+use Mifrial\Roleplay\Rule\Spec\Formulas;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
@@ -76,6 +78,30 @@ final class FormulaEvaluationTest extends TestCase
     public function testFixed(): void
     {
         self::assertSame(4, $this->evaluations->evaluateScalar(new FixedScalar(4), $this->context()));
+    }
+
+    /**
+     * Половина характеристики: «уменьшить на размер, затем к простому числу».
+     *
+     * @return void
+     */
+    public function testCharacteristicFloorDiv(): void
+    {
+        $node = Formulas::scalarNode([
+            'type' => 'characteristic_floor_div',
+            'characteristic_code' => 'dexterity',
+            'divisor' => 2,
+        ]);
+
+        self::assertInstanceOf(CharacteristicFloorDivScalar::class, $node);
+        self::assertSame(
+            4,
+            $this->evaluations->evaluateScalar($node, $this->context(['dexterity' => new CharacteristicNumber(4, 1)])),
+        );
+        self::assertSame(
+            0,
+            $this->evaluations->evaluateScalar($node, $this->context(['dexterity' => new CharacteristicNumber(3, -1)])),
+        );
     }
 
     /**

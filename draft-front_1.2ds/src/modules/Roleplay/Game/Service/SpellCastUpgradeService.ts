@@ -5,6 +5,7 @@ import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageMod
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { magicStudyUnlockService } from '@/modules/Roleplay/Character/init';
 
 /** Какие `spell_upgrade` можно отметить на этот каст. */
 export class SpellCastUpgradeService {
@@ -26,7 +27,7 @@ export class SpellCastUpgradeService {
       if (!rule || !spec) {
         continue;
       }
-      if (!this.matches(spec, ability, pathCode, spellCode)) {
+      if (!this.matches(spec, ability, pathCode, spellCode, rules)) {
         continue;
       }
       if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
@@ -207,6 +208,7 @@ export class SpellCastUpgradeService {
     ability: CharacterAbility,
     pathCode: string | null,
     spellCode: string,
+    rules: Rule[],
   ): boolean {
     const parent = spec.parent_ability_code;
     if (parent) {
@@ -214,14 +216,31 @@ export class SpellCastUpgradeService {
         return false;
       }
 
-      return spec.spell_upgrade.any_path === true || !ability.domainCode || ability.domainCode === pathCode;
+      return this.upgradeOnPath(spec, ability, pathCode, rules);
     }
 
     if (!pathCode || !ability.domainCode) {
       return false;
     }
 
-    return spec.spell_upgrade.any_path === true || ability.domainCode === pathCode;
+    return this.upgradeOnPath(spec, ability, pathCode, rules);
+  }
+
+  /** Улучшение пути применимо к домену экземпляра или включённому пути. */
+  private upgradeOnPath(
+    spec: { spell_upgrade: SpellUpgrade },
+    ability: CharacterAbility,
+    pathCode: string | null,
+    rules: Rule[],
+  ): boolean {
+    if (spec.spell_upgrade.any_path === true || !ability.domainCode) {
+      return true;
+    }
+    if (!pathCode) {
+      return false;
+    }
+
+    return magicStudyUnlockService.coveredPathCodes(rules, pathCode).has(ability.domainCode);
   }
 
   private upgradeSpec(rule: Rule | undefined): {

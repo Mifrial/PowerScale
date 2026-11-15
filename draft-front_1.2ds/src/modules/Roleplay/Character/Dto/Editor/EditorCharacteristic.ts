@@ -13,4 +13,8 @@ export interface EditorCharacteristic {
   /** Итог: база + дельта (размерность базы сохраняется). */
   value: DimensionalNumberValue;
   modifiers: CharacteristicModifier[];
+  /** Вклады характеристик-источников агрегата (Духовность). */
+  contributions?: { code: string; delta: number }[];
+  /** Сумма вкладов агрегата в пунктах. */
+  contributionSum?: number;
 }

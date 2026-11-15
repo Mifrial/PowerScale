@@ -13,6 +13,7 @@ export class MagicPathSpecService {
       includes_path_codes: [],
       no_control: false,
       recorded_casting: false,
+      active_spell_limit: null,
     };
   }
 
@@ -43,6 +44,12 @@ export class MagicPathSpecService {
       includes_path_codes: includes,
       no_control: value.no_control === true,
       recorded_casting: value.recorded_casting === true,
+      active_spell_limit:
+        typeof value.active_spell_limit === 'number' &&
+        Number.isInteger(value.active_spell_limit) &&
+        value.active_spell_limit > 0
+          ? value.active_spell_limit
+          : null,
     };
   }
 }

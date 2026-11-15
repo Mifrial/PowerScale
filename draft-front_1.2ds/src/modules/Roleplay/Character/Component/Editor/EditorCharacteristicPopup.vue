@@ -108,6 +108,26 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
         <span class="font-weight-medium">{{ label(stat.characteristic.base) }}</span>
       </div>
 
+      <template v-if="stat.characteristic.contributions?.length">
+        <v-divider class="my-2" />
+        <div class="text-caption text-medium-emphasis mb-1">Вклады характеристик</div>
+        <div
+          v-for="contribution in stat.characteristic.contributions"
+          :key="contribution.code"
+          class="d-flex align-center ga-2 py-1 text-body-2"
+        >
+          <span class="font-weight-medium">{{ signed(contribution.delta) }}</span>
+          <span class="text-medium-emphasis">|</span>
+          <RuleLink :rule-code="contribution.code">
+            {{ byCode.get(contribution.code)?.name ?? contribution.code }}
+          </RuleLink>
+        </div>
+        <div class="d-flex align-center justify-space-between py-1 text-caption text-medium-emphasis">
+          <span>Сумма вкладов</span>
+          <span>{{ stat.characteristic.contributionSum }}</span>
+        </div>
+      </template>
+
       <div
         v-for="(modifier, index) in stat.characteristic.modifiers"
         :key="`${modifier.sourceRuleCode}_${modifier.target}_${index}`"

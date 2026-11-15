@@ -159,6 +159,26 @@ final class GameActiveSpellRepository
     }
 
     /**
+     * Число активных волшебств кастера в бою.
+     *
+     * @param int $battleId Бой.
+     * @param string $casterKind character или npc.
+     * @param int $casterId Id кастера.
+     *
+     * @return int Строки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function countForCaster(int $battleId, string $casterKind, int $casterId): int
+    {
+        return count($this->rows(new FilterGroup('AND', [
+            new FilterCondition('battle_id', '=', $battleId),
+            new FilterCondition('caster_kind', '=', $casterKind),
+            new FilterCondition('caster_id', '=', $casterId),
+        ])));
+    }
+
+    /**
      * Меняет мощь поддержания с проверкой версии строки.
      *
      * @param int $spellId Id строки.

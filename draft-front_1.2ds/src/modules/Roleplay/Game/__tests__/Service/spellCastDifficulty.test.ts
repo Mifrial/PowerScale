@@ -6,6 +6,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_SIMPLE_CODE, CHECK_SPELL_CAST_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { asActionAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
+import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
 import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
 import { spellCastService } from '@/modules/Roleplay/Game/Service/Instance/spellCastService';
 import { SPELL_CAST_SKIP_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_CAST_SKIP_DIFFICULTY';
@@ -392,6 +393,8 @@ describe('SpellCastOptionsService', () => {
         controlCharacteristicCode: 'magic-control',
         noControl: false,
         recordedCasting: false,
+        activeSpellLimit: null,
+        includesPathCodes: [],
       },
     ]);
     expect(
@@ -461,6 +464,8 @@ describe('SpellCastOptionsService', () => {
         controlCharacteristicCode: null,
         noControl: true,
         recordedCasting: true,
+        activeSpellLimit: null,
+        includesPathCodes: [],
       },
     ]);
   });
@@ -1006,5 +1011,72 @@ describe('простейшее волшебство', () => {
 
   it('без стата источника не подставляет {3|0}', () => {
     expect(spellCastOptionsService.sourceCapOf(null, null, [], [], '', null)).toBeNull();
+  });
+
+  it('путь по умолчанию: включающий раньше собственного', () => {    const path = (code: string, includes: string[]) => ({
+      pathCode: code,
+      name: code,
+      checkCode: null,
+      castCheckCode: null,
+      powerCharacteristicCode: null,
+      controlCharacteristicCode: null,
+      noControl: false,
+      recordedCasting: false,
+      activeSpellLimit: code === 'psionic' ? 1 : null,
+      includesPathCodes: includes,
+    });
+    const paths = [path('psionic', []), path('shaman', ['psionic'])];
+
+    expect(
+      spellCastOptionsService.defaultPathForSpell('lightning-strike', paths, [
+        { ruleCode: 'lightning-strike', level: 1, domainCode: 'psionic' },
+      ]),
+    ).toBe('shaman');
+    expect(
+      spellCastOptionsService.defaultPathForSpell('lightning-strike', paths, [
+        { ruleCode: 'lightning-strike', level: 1, domainCode: 'shaman' },
+      ]),
+    ).toBe('shaman');
+  });
+
+  it('экземпляр псионического заклинания доступен через Шамана, но не через Арканиста', () => {
+    const spell = spellRule('zap', 'electricity');
+    const pathRule = (code: string, includes: string[]): Rule => ({
+      ...spell,
+      code,
+      type: 'magic_path',
+      spec: {
+        type: 'magic_path',
+        check_code: CHECK_SPELL_CAST_CODE,
+        cast_check_code: CHECK_SPELL_CAST_CODE,
+        power_characteristic_code: 'magic-power',
+        control_characteristic_code: 'magic-control',
+        includes_path_codes: includes,
+      },
+    });
+    const rules = [spell, pathRule('arcanist', []), pathRule('psionic', []), pathRule('shaman', ['psionic'])];
+    const overview = {
+      characteristics: [{ ruleCode: 'magic-power', value: { base: 4, size: 0 } }],
+    } as unknown as CharacterOverview;
+    const abilities = [{ ruleCode: 'zap', level: 1, domainCode: 'psionic' }];
+
+    expect(
+      spellCastExecutionService.isSpellAvailableForUse({
+        spellCode: 'zap',
+        pathCode: 'shaman',
+        casterOverview: overview,
+        casterAbilities: abilities,
+        rules,
+      }),
+    ).toBe(true);
+    expect(
+      spellCastExecutionService.isSpellAvailableForUse({
+        spellCode: 'zap',
+        pathCode: 'arcanist',
+        casterOverview: overview,
+        casterAbilities: abilities,
+        rules,
+      }),
+    ).toBe(false);
   });
 });

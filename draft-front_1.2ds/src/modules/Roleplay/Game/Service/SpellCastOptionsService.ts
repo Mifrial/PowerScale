@@ -1,5 +1,6 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
+import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { SpellCastPathOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastPathOption';
@@ -171,10 +172,46 @@ export class SpellCastOptionsService {
         controlCharacteristicCode: spec?.control_characteristic_code ?? null,
         noControl: spec?.no_control === true,
         recordedCasting: spec?.recorded_casting === true,
+        activeSpellLimit: spec?.active_spell_limit ?? null,
+        includesPathCodes: spec?.includes_path_codes ?? [],
       });
     }
 
     return options;
+  }
+
+  /**
+   * Путь по умолчанию для заклинания: включающий путь раньше собственного.
+   *
+   * Псионическое заклинание у Шамана подставляется как шаманское (SR-071);
+   * если включающего пути нет, остаётся путь, на котором заклинание изучено.
+   */
+  defaultPathForSpell(
+    spellCode: string,
+    paths: readonly SpellCastPathOption[],
+    abilities: readonly CharacterAbility[],
+  ): string | null {
+    const domain = abilities.find(
+      (ability) => ability.ruleCode === spellCode && ability.level >= 1 && ability.domainCode,
+    )?.domainCode;
+    if (!domain) return null;
+
+    const covers = (owner: string): boolean => {
+      const seen = new Set<string>();
+      const queue = [owner];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current || seen.has(current)) continue;
+        if (current === domain) return true;
+        seen.add(current);
+        queue.push(...(paths.find((path) => path.pathCode === current)?.includesPathCodes ?? []));
+      }
+
+      return false;
+    };
+    const covering = paths.filter((path) => covers(path.pathCode));
+
+    return covering.find((path) => path.pathCode !== domain)?.pathCode ?? covering[0]?.pathCode ?? null;
   }
 
   /** Характеристика листа или null: подставлять «3» вместо отсутствующего стата нельзя. */

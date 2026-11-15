@@ -1,4 +1,5 @@
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SpellCastExecutionInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionInput';
 import type { SpellCastExecutionResult } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionResult';
@@ -78,6 +79,10 @@ export class SpellCastExecutionService {
     const spellSpec = this.spellSpec(input.spellCode, input.rules);
     if (!spellSpec) return true;
 
+    if (input.pathCode && !this.instanceOnPath(input.spellCode, input.pathCode, input.casterAbilities, input.rules)) {
+      return false;
+    }
+
     return magicStudyUnlockService.isAvailableForUse(
       spellSpec,
       input.pathCode,
@@ -87,6 +92,29 @@ export class SpellCastExecutionService {
         input.casterOverview.characteristics.map((characteristic) => [characteristic.ruleCode, characteristic.value]),
       ),
     );
+  }
+
+  /**
+   * Экземпляр заклинания изучен на выбранном пути или на включённом им пути.
+   *
+   * Легаси без домена у экземпляра не блокируется: принадлежность ему не задана.
+   */
+  private instanceOnPath(
+    spellCode: string,
+    pathCode: string,
+    abilities: readonly CharacterAbility[],
+    rules: Rule[],
+  ): boolean {
+    const domains = abilities
+      .filter((ability) => ability.ruleCode === spellCode && ability.level >= 1 && ability.domainCode)
+      .map((ability) => ability.domainCode as string);
+    if (domains.length === 0) {
+      return true;
+    }
+
+    const covered = magicStudyUnlockService.coveredPathCodes(rules, pathCode);
+
+    return domains.some((domain) => covered.has(domain));
   }
 
   private castAdvantages(input: SpellCastExecutionInput) {

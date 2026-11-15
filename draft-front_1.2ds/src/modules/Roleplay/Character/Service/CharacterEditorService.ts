@@ -259,6 +259,14 @@ export class CharacterEditorService {
       if (parsed) derivedFormulas.set(rule.code, parsed);
     }
 
+    // Агрегаты характеристик (Духовность): база плюс вклады других характеристик.
+    const aggregates = new Map<string, NonNullable<CharacteristicSpec['aggregate']>>();
+    for (const rule of reference.rules()) {
+      if (rule.type !== 'characteristic') continue;
+      const aggregate = (rule.spec as CharacteristicSpec | undefined)?.aggregate;
+      if (aggregate) aggregates.set(rule.code, aggregate);
+    }
+
     // 1) Базы из расы (fixed — фикс.; purchased — минимум или закупленный уровень).
     const bases = new Map<string, DimensionalNumberValue>();
     const ruleCodes = new Map<string, string>();
@@ -488,7 +496,7 @@ export class CharacterEditorService {
       else deltas.set('attention', [entry]);
     }
 
-    const result = [...bases.entries()].map(([code, base]) => {
+    const result: EditorCharacteristic[] = [...bases.entries()].map(([code, base]) => {
       const modifiers = this.aggregateModifiers(code, deltas.get(code) ?? []);
       const scopedModifiers = (scoped.get(code) ?? []).map((entry) => ({
         sourceRuleCode: entry.sourceRuleCode,
@@ -509,6 +517,44 @@ export class CharacterEditorService {
         modifiers: [...modifiers, ...scopedModifiers],
       };
     });
+
+    // 4.0) Агрегаты: база из спеки, вклады источников и общий сдвиг входят в delta.
+    for (const [code, aggregate] of aggregates) {
+      const row = result.find((characteristic) => characteristic.code === code);
+      if (!row) continue;
+
+      const contributions: { code: string; delta: number }[] = [];
+      let sum = 0;
+      let complete = true;
+      for (const source of aggregate.sources) {
+        const sourceRow = result.find((characteristic) => characteristic.code === source);
+        if (!sourceRow) {
+          complete = false;
+          break;
+        }
+
+        const delta =
+          new DimensionalNumber(sourceRow.value).toNumber() -
+          new DimensionalNumber(aggregate.reference).toNumber();
+        contributions.push({ code: source, delta });
+        sum += delta;
+      }
+      if (!complete) continue;
+
+      const points = Math.floor(sum / aggregate.points_per_step) * aggregate.step;
+      row.base = aggregate.base;
+      row.delta += points;
+      row.value = CharacteristicNumber.from(aggregate.base).modifyWith(row.delta).value;
+      row.contributions = contributions;
+      row.contributionSum = sum;
+      row.modifiers.unshift({
+        sourceRuleCode: null,
+        sourceLabel: 'вклады характеристик',
+        delta: points,
+        target: code,
+        scope: null,
+      });
+    }
 
     // 4.1) Экипированное снаряжение: потолки по characteristic_limits с кодом.
     const finalValues = new Map(result.map((characteristic) => [characteristic.code, characteristic.value]));

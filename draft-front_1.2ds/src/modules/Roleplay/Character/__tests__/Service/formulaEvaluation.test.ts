@@ -167,6 +167,22 @@ describe('FormulaEvaluationService', () => {
     expect(service.evaluate({ type: 'characteristic_size', characteristic_code: 'magic' }, sized)).toBe(0);
   });
 
+  it('characteristic_floor_div — половина значения характеристики', () => {
+    expect(
+      service.evaluate({ type: 'characteristic_floor_div', characteristic_code: 'dexterity', divisor: 2 }, context),
+    ).toBe(3);
+    const sized: FormulaContext = {
+      ...context,
+      characteristicValues: new Map([['spirituality', { base: 3, size: 1 }]]),
+    };
+    expect(
+      service.evaluate({ type: 'characteristic_floor_div', characteristic_code: 'spirituality', divisor: 2 }, sized),
+    ).toBe(3);
+    expect(() =>
+      service.evaluate({ type: 'characteristic_floor_div', characteristic_code: 'missing', divisor: 2 }, context),
+    ).toThrow(/missing/);
+  });
+
   it('characteristic_size_gap — число полных размеров, на которое from выше to', () => {
     const sized: FormulaContext = {
       ...context,

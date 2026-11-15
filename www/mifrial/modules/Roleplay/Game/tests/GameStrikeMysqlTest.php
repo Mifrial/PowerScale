@@ -1942,6 +1942,85 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Шаман кастует псионическое заклинание через включённый путь.
+     *
+     * @return void
+     */
+    public function testShamanCastsPsionicSpellThroughIncludedPath(): void
+    {
+        $scene = $this->spellScene(10, extraAbilities: [
+            ['ruleCode' => 'discharge', 'level' => 1, 'domainCode' => 'psionic'],
+            ['ruleCode' => 'lightning-strike', 'level' => 1, 'domainCode' => 'psionic'],
+        ], extraRules: $this->inclusionRules());
+        $body = $this->spellBody($scene);
+        $body['pathCode'] = 'shaman';
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertIsArray($cast['data']['cast'] ?? null);
+    }
+
+    /**
+     * Включение одностороннее: Псионик не кастует шаманское заклинание.
+     *
+     * @return void
+     */
+    public function testPsionicCannotCastShamanSpell(): void
+    {
+        $scene = $this->spellScene(10, extraAbilities: [
+            ['ruleCode' => 'lightning-strike', 'level' => 1, 'domainCode' => 'shaman'],
+        ], extraRules: $this->inclusionRules());
+        $body = $this->spellBody($scene);
+        $body['pathCode'] = 'psionic';
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertSame('GAME_INVALID', $cast['error']['code'] ?? null, json_encode($cast));
+    }
+
+    /**
+     * Псионик держит одно активное волшебство: второй источник не помогает.
+     *
+     * @return void
+     */
+    public function testPsionicActiveSpellLimitBlocksSecondSource(): void
+    {
+        $scene = $this->dualCrystalScene([], 1);
+        $version = $this->rollSceneInitiative($scene);
+
+        $first = $this->dispatch('game.castSpell', $this->crystalSustainBody($scene, 1, $version, 'cast-a'));
+        self::assertTrue($first['success'], json_encode($first));
+
+        $second = $this->crystalSustainBody($scene, 2, $first['data']['version'], 'cast-b');
+        $second['expectedSheetVersion'] = $first['data']['caster']['sheetVersion'];
+        $response = $this->dispatch('game.castSpell', $second);
+
+        self::assertSame('GAME_INVALID', $response['error']['code'] ?? null, json_encode($response));
+        self::assertStringContainsString('active limit', $response['error']['message'] ?? '');
+    }
+
+    /**
+     * Путь без предела активных волшебств держит второе с другого источника.
+     *
+     * @return void
+     */
+    public function testPathWithoutActiveLimitAllowsSecondSource(): void
+    {
+        $scene = $this->dualCrystalScene([], null);
+        $version = $this->rollSceneInitiative($scene);
+
+        $first = $this->dispatch('game.castSpell', $this->crystalSustainBody($scene, 1, $version, 'cast-a'));
+        self::assertTrue($first['success'], json_encode($first));
+
+        $second = $this->crystalSustainBody($scene, 2, $first['data']['version'], 'cast-b');
+        $second['expectedSheetVersion'] = $first['data']['caster']['sheetVersion'];
+        $response = $this->dispatch('game.castSpell', $second);
+
+        self::assertTrue($response['success'], json_encode($response));
+    }
+
+    /**
      * Поддержание из кристалла каждый ход списывает ману и пересчитывает Стабильность.
      *
      * @return void
@@ -2906,6 +2985,77 @@ final class GameStrikeMysqlTest extends TestCase
         ];
 
         return $body;
+    }
+
+    /**
+     * Сцена с двумя кристаллами-хранилищами: предел кастера проверяется на разных источниках.
+     *
+     * @param array<string, array<string, mixed>> $extraRules Дополнительные правила.
+     * @param int|null $limit Предел активных волшебств пути записей; null — без предела.
+     *
+     * @return array<string, mixed> Сцена.
+     */
+    private function dualCrystalScene(array $extraRules, ?int $limit): array
+    {
+        $rules = array_merge($this->crystalRules(), $extraRules);
+        if ($limit !== null) {
+            $rules['simple-magic']['spec']['active_spell_limit'] = $limit;
+        }
+
+        $recorded = [['ruleCode' => 'crystal-generator']];
+        $occupied = $this->occupiedVolume($recorded);
+        $mana = 20 - $occupied;
+        $crystal = static fn (int $id): array => [
+            'id' => $id,
+            'ruleCode' => 'magic-crystal',
+            'quantity' => 1,
+            'equipped' => true,
+            'parameters' => ['max_power' => ['base' => 4, 'size' => 0]],
+            'payload' => ['volume' => 20, 'recorded_spells' => $recorded],
+        ];
+        $item = static fn (int $id): array => [
+            'ruleCode' => 'magic-crystal',
+            'inventoryId' => $id,
+            'maxPower' => ['base' => 4, 'size' => 0],
+            'volume' => 20,
+            'occupied' => $occupied,
+            'mana' => $mana,
+            'manaMax' => $mana,
+        ];
+
+        return $this->spellScene(
+            10,
+            null,
+            [],
+            extraRules: $rules,
+            withNpc: false,
+            heroInventory: [$crystal(1), $crystal(2)],
+            heroSheet: ['items' => ['inventory:1' => $item(1), 'inventory:2' => $item(2)]],
+        );
+    }
+
+    /**
+     * Пути Псионика и Шамана: второе включает первое односторонне.
+     *
+     * @return array<string, array<string, mixed>> Правила.
+     */
+    private function inclusionRules(): array
+    {
+        $spec = static fn (array $includes): array => [
+            'type' => 'magic_path',
+            'spec' => [
+                'check_code' => 'cast-check',
+                'cast_check_code' => 'cast-check',
+                'power_characteristic_code' => 'magic-power',
+                'control_characteristic_code' => 'magic-control',
+                'includes_path_codes' => $includes,
+            ],
+        ];
+
+        return [
+            'psionic' => $spec([]),
+            'shaman' => $spec(['psionic']),
+        ];
     }
 
     /**

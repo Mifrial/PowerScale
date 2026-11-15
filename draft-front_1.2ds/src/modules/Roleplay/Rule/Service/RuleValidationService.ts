@@ -1489,6 +1489,9 @@ export class RuleValidationService {
       if (node.characteristic_code_from) collect({ code: node.characteristic_code_from, type: 'characteristic' });
       if (node.characteristic_code_to) collect({ code: node.characteristic_code_to, type: 'characteristic' });
     }
+    if (node.type === 'characteristic_floor_div' && node.characteristic_code) {
+      collect({ code: node.characteristic_code, type: 'characteristic' });
+    }
     if (node.type === 'ability_level' && node.ability_code) {
       collect({ code: node.ability_code, type: 'ability' });
     }

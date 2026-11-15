@@ -39,4 +39,15 @@ export interface CharacteristicSpec {
   initiative?: boolean;
   /** Поглощение уклонения читает эту характеристику. Нет флага — характеристика не читается. */
   dodge_soak?: boolean;
+  /**
+   * Агрегат вкладов других характеристик: база плюс сдвиг за каждые
+   * `points_per_step` пунктов суммы превышений над `reference`.
+   */
+  aggregate?: {
+    base: DimensionalNumberValue;
+    sources: string[];
+    reference: DimensionalNumberValue;
+    points_per_step: number;
+    step: number;
+  };
 }

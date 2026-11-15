@@ -449,6 +449,45 @@ final class GameSpellCastUpgradesTest extends TestCase
     }
 
     /**
+     * Улучшение на включённом пути применяется через включающий путь.
+     *
+     * @return void
+     */
+    public function testIncludedPathUpgradeIsApplied(): void
+    {
+        $resolution = $this->resolve(
+            [
+                $this->pathRule('shaman', ['psionic']),
+                $this->upgradeRule('careful', $this->pathUpgrade()),
+            ],
+            [$this->ability('careful', 'psionic')],
+            'shaman',
+            [['code' => 'careful', 'value' => null]],
+        );
+
+        self::assertFalse($resolution->isEmpty());
+    }
+
+    /**
+     * Включение одностороннее: псионик не кастует улучшение шаманского пути.
+     *
+     * @return void
+     */
+    public function testIncludedPathIsNotSymmetric(): void
+    {
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [
+                $this->pathRule('shaman', ['psionic']),
+                $this->upgradeRule('careful', $this->pathUpgrade()),
+            ],
+            [$this->ability('careful', 'shaman')],
+            'psionic',
+            [['code' => 'careful', 'value' => null]],
+        );
+    }
+
+    /**
      * Карточка улучшения.
      *
      * @param string $code Код.
@@ -468,6 +507,36 @@ final class GameSpellCastUpgradesTest extends TestCase
                 'Name',
                 '',
                 $spec,
+                [],
+                [],
+                'ready',
+                '',
+                DateTime::now(),
+            ),
+            [],
+        );
+    }
+
+    /**
+     * Карточка пути с включениями.
+     *
+     * @param string $code Путь.
+     * @param array<int, string> $includes Включённые пути.
+     *
+     * @return CharacterResolvedRule Карточка.
+     */
+    private function pathRule(string $code, array $includes): CharacterResolvedRule
+    {
+        return new CharacterResolvedRule(
+            new RuleVersionRecord(
+                1,
+                1,
+                $code,
+                true,
+                'magic_path',
+                'Name',
+                '',
+                ['type' => 'magic_path', 'includes_path_codes' => $includes],
                 [],
                 [],
                 'ready',

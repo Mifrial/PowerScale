@@ -76,6 +76,9 @@ export class RuleViewLabelService {
     if (node.type === 'characteristic_size_gap') {
       return `разница размеров «${this.ruleName(rules, node.characteristic_code_from)}» − «${this.ruleName(rules, node.characteristic_code_to)}»`;
     }
+    if (node.type === 'characteristic_floor_div') {
+      return `⌊«${this.ruleName(rules, node.characteristic_code)}» / ${node.divisor}⌋`;
+    }
     if (node.type === 'actionCharacteristic') {
       const characteristic = this.ruleName(rules, node.characteristic);
       const action = WEAPON_ACTION_GENITIVE[node.action] ?? node.action;

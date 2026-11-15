@@ -81,6 +81,7 @@ final class GameSpellCast
         private readonly GameActiveSpellCharge $activeCharge,
         private readonly GameSpellMana $mana = new GameSpellMana(),
         private readonly GameSpellStability $stability = new GameSpellStability(),
+        private readonly GameSpellDurationRules $durations = new GameSpellDurationRules(),
     ) {
         $this->lookup = new GameStrikeBattleLookup($repos->battles);
     }
@@ -359,6 +360,14 @@ final class GameSpellCast
                 $prepared->casterKind,
                 $prepared->casterId,
                 $prepared->sourceKey,
+            );
+        }
+        if ($this->durations->isSustained($prepared->spell->getSpell()->getDuration())) {
+            $this->activeGuard->assertCasterLimit(
+                $battle->getId(),
+                $prepared->casterKind,
+                $prepared->casterId,
+                $prepared->path->getActiveSpellLimit(),
             );
         }
         $this->perform->assertSpends($game, $prepared->casterSheet, $prepared->spends);

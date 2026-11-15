@@ -30,6 +30,7 @@ final class CharacteristicSpec implements RuleSpec
      * @param bool $dodgeSoak Поглощение уклонения.
      * @param CharacteristicBaseFrom|null $baseFrom База из другой характеристики.
      * @param array<int, string> $weaponMasteryProfiles Профили мастерства.
+     * @param CharacteristicAggregate|null $aggregate Агрегат вкладов других характеристик.
      *
      * @return void
      */
@@ -46,6 +47,7 @@ final class CharacteristicSpec implements RuleSpec
         private readonly bool $dodgeSoak,
         private readonly ?CharacteristicBaseFrom $baseFrom,
         private readonly array $weaponMasteryProfiles,
+        private readonly ?CharacteristicAggregate $aggregate = null,
     ) {
     }
 
@@ -177,5 +179,15 @@ final class CharacteristicSpec implements RuleSpec
     public function getWeaponMasteryProfiles(): array
     {
         return $this->weaponMasteryProfiles;
+    }
+
+    /**
+     * Агрегат вкладов других характеристик.
+     *
+     * @return CharacteristicAggregate|null Агрегат или null.
+     */
+    public function getAggregate(): ?CharacteristicAggregate
+    {
+        return $this->aggregate;
     }
 }

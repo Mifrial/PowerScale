@@ -862,6 +862,44 @@ final class CharacterLiveComputeTest extends TestCase
     }
 
     /**
+     * Духовность — база 3↑ плюс вклады Общения/Воли/Внимательности относительно 5.
+     *
+     * @return void
+     */
+    public function testSpiritualityAggregatesThreeContributions(): void
+    {
+        $slice = $this->slice([
+            $this->aggregateCharacteristic('spirituality'),
+            $this->characteristic('communication', ['base' => 4, 'size' => 1]),
+            $this->characteristic('willpower', ['base' => 4, 'size' => 1]),
+            $this->characteristic('attention', ['base' => 3, 'size' => 1]),
+        ]);
+        $sheet = Character::fromDocument($slice, ['money' => 0], [], $this->sheets())->getSheet();
+
+        // 8 + 8 + 6 − 3×5 = 7; 7 / 2 = 3 шага: 3↑ + 3 = 3².
+        self::assertSame(['base' => 3, 'size' => 2], $this->characteristicValueOf($sheet, 'spirituality'));
+    }
+
+    /**
+     * Недобор трёх характеристик опускает Духовность ниже старта.
+     *
+     * @return void
+     */
+    public function testSpiritualityFallsBelowStartOnDeficit(): void
+    {
+        $slice = $this->slice([
+            $this->aggregateCharacteristic('spirituality'),
+            $this->characteristic('communication', ['base' => 3, 'size' => 0]),
+            $this->characteristic('willpower', ['base' => 3, 'size' => 0]),
+            $this->characteristic('attention', ['base' => 3, 'size' => 0]),
+        ]);
+        $sheet = Character::fromDocument($slice, ['money' => 0], [], $this->sheets())->getSheet();
+
+        // 3 + 3 + 3 − 3×5 = −6; −6 / 2 = −3 шага: 3↑ − 3 = 3.
+        self::assertSame(['base' => 3, 'size' => 0], $this->characteristicValueOf($sheet, 'spirituality'));
+    }
+
+    /**
      * Заклинание или улучшение с ценой.
      *
      * @param string $code Код.
@@ -871,8 +909,7 @@ final class CharacterLiveComputeTest extends TestCase
      * @return CharacterResolvedRule Правило.
      */
     private function spell(string $code, int $cost, bool $upgrade = false): CharacterResolvedRule
-    {
-        return $this->ability($code, array_merge([
+    {        return $this->ability($code, array_merge([
             'type' => 'spell',
             'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [$cost]]],
             'spell' => [
@@ -915,6 +952,46 @@ final class CharacterLiveComputeTest extends TestCase
             'initiative' => false,
             'dodge_soak' => false,
         ]);
+    }
+
+    /**
+     * Авто-характеристика с агрегатом вкладов.
+     *
+     * @param string $code Код.
+     *
+     * @return CharacterResolvedRule Карточка.
+     */
+    private function aggregateCharacteristic(string $code): CharacterResolvedRule
+    {
+        return $this->rule($code, 'characteristic', [
+            'automatic' => ['value' => ['base' => 3, 'size' => 1]],
+            'aggregate' => [
+                'base' => ['base' => 3, 'size' => 1],
+                'sources' => ['communication', 'willpower', 'attention'],
+                'reference' => ['base' => 5, 'size' => 0],
+                'points_per_step' => 2,
+                'step' => 1,
+            ],
+        ]);
+    }
+
+    /**
+     * Значение характеристики из листа.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     * @param string $code Код.
+     *
+     * @return array{base: int, size: int}|null Пара.
+     */
+    private function characteristicValueOf(array $sheet, string $code): ?array
+    {
+        foreach ($sheet['characteristics'] ?? [] as $row) {
+            if (is_array($row) && ($row['characteristicCode'] ?? null) === $code) {
+                return $row['value'] ?? null;
+            }
+        }
+
+        return null;
     }
 
     /**

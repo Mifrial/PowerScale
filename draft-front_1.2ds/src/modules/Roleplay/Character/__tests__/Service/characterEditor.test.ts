@@ -905,4 +905,46 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
     expect(version.points.orTotal).toBeNull();
     expect(version.points.orSpent).toBe(3);
   });
+
+  it('Духовность: база 3↑ и вклады Общения/Воли/Внимательности относительно 5', () => {
+    const aggregateRules: Rule[] = [
+      base(null, 'communication', 'characteristic', 'Общение', { type: 'characteristic', group: 'important' }),
+      base(null, 'willpower', 'characteristic', 'Воля', { type: 'characteristic', group: 'important' }),
+      base(null, 'attention', 'characteristic', 'Внимательность', { type: 'characteristic', group: 'important' }),
+      base(null, 'spirituality', 'characteristic', 'Духовность', {
+        type: 'characteristic',
+        group: 'important',
+        automatic: { value: dim(3, 1) },
+        aggregate: {
+          base: dim(3, 1),
+          sources: ['communication', 'willpower', 'attention'],
+          reference: dim(5),
+          points_per_step: 2,
+          step: 1,
+        },
+      }),
+      base(null, 'human', 'race', 'Человек', {
+        parent_race_code: null,
+        cost_os: 0,
+        characteristics: [
+          { characteristic_code: 'communication', mode: 'fixed', base: dim(4, 1) },
+          { characteristic_code: 'willpower', mode: 'fixed', base: dim(4, 1) },
+          { characteristic_code: 'attention', mode: 'fixed', base: dim(3, 1) },
+        ],
+        abilities: [],
+      }),
+    ];
+
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), aggregateRules, config);
+    const spirituality = model.characteristics.find((characteristic) => characteristic.code === 'spirituality');
+
+    // 8 + 8 + 6 − 3×5 = 7; 7 / 2 = 3 шага: 3↑ + 3 = 3².
+    expect(spirituality?.value).toEqual(dim(3, 2));
+    expect(spirituality?.contributionSum).toBe(7);
+    expect(spirituality?.contributions).toEqual([
+      { code: 'communication', delta: 3 },
+      { code: 'willpower', delta: 3 },
+      { code: 'attention', delta: 1 },
+    ]);
+  });
 });

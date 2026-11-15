@@ -46,6 +46,13 @@ export class FormulaEvaluationService {
 
         return Math.trunc(delta / 3) || 0;
       }
+      case 'characteristic_floor_div': {
+        const value = context.characteristicValues.get(formula.characteristic_code);
+        if (!value) throw new Error(`Нет характеристики «${formula.characteristic_code}»`);
+        if (formula.divisor <= 0) throw new Error('Делитель characteristic_floor_div не положительный');
+
+        return Math.floor(new DimensionalNumber(value).toNumber() / formula.divisor);
+      }
     }
   }
 
@@ -90,6 +97,7 @@ export class FormulaEvaluationService {
       formula.type === 'characteristic_size' ||
       formula.type === 'characteristic_size_positive' ||
       formula.type === 'characteristic_size_gap' ||
+      formula.type === 'characteristic_floor_div' ||
       formula.type === 'to_scalar'
     );
   }

@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterStudyPaths;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterRaceAbilityCodes;
@@ -73,6 +74,7 @@ final class GameSpellCastFacts
      * @param GameActionHands $hands Руки кастера.
      * @param GameSpellDeviation $deviation Отклонение и штраф к мощи.
      * @param GameActiveSpellRepository $activeSpells Строки поддержания.
+     * @param CharacterStudyPaths $paths Включения путей.
      *
      * @return void
      */
@@ -85,6 +87,7 @@ final class GameSpellCastFacts
         private readonly GameActionHands $hands,
         private readonly GameSpellDeviation $deviation,
         private readonly GameActiveSpellRepository $activeSpells,
+        private readonly CharacterStudyPaths $paths = new CharacterStudyPaths(),
     ) {
         $this->assembler = new CharacterChoiceAssembler();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
@@ -141,7 +144,7 @@ final class GameSpellCastFacts
         $power = $this->usedPower($body, $path, $caster, $model, $slice);
         $this->assertCastingSource($path, $power['key'], $spellCode, $caster);
         if (!$recorded) {
-            $this->assertInstance($model, $spellCode, $pathCode);
+            $this->assertInstance($model, $slice, $spellCode, $pathCode);
         }
 
         $this->hands->assertAvailable(
@@ -597,28 +600,51 @@ final class GameSpellCastFacts
     }
 
     /**
-     * Ровно один экземпляр заклинания на пути.
+     * Экземпляр заклинания на выбранном пути или на включённом им пути.
+     *
+     * Псионическое заклинание, изученное на Псионике, Шаман кастует без
+     * повторного изучения: выбранный путь покрывает домен экземпляра.
+     * Точный экземпляр выбранного пути приоритетен; иначе покрытый домен
+     * должен быть единственным, иначе непонятно, какой экземпляр кастовать.
      *
      * @param CharacterChoices $model Выборы.
+     * @param CharacterRuleSlice $slice Срез ревизии.
      * @param string $spellCode Заклинание.
      * @param string $pathCode Путь.
      *
      * @return void
      *
-     * @throws GameInvalidException Если экземпляра нет или их несколько.
+     * @throws GameInvalidException Если экземпляра нет, их несколько или домен не покрыт.
      */
-    private function assertInstance(CharacterChoices $model, string $spellCode, string $pathCode): void
-    {
-        $count = 0;
+    private function assertInstance(
+        CharacterChoices $model,
+        CharacterRuleSlice $slice,
+        string $spellCode,
+        string $pathCode,
+    ): void {
+        $exact = false;
+        $covered = [];
         foreach ($model->getAbilities() as $ability) {
-            if ($ability->getRuleCode() === $spellCode && $ability->getDomainCode() === $pathCode) {
-                $count++;
+            if ($ability->getRuleCode() !== $spellCode) {
+                continue;
+            }
+
+            $domain = $ability->getDomainCode();
+            if ($domain === $pathCode) {
+                $exact = true;
+                continue;
+            }
+
+            if ($domain !== '' && $this->paths->reaches($slice, $pathCode, $domain)) {
+                $covered[$domain] = true;
             }
         }
 
-        if ($count !== 1) {
-            throw new GameInvalidException('Game spell instance is invalid');
+        if ($exact || count($covered) === 1) {
+            return;
         }
+
+        throw new GameInvalidException('Game spell instance is invalid');
     }
 
     /**

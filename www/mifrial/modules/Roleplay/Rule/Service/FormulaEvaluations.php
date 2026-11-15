@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\FixedNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\AbilityLevelScalar;
+use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicFloorDivScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeGapScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizePositiveScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\CharacteristicSizeScalar;
@@ -47,6 +48,10 @@ final class FormulaEvaluations implements IFormulaEvaluations
 
         if ($node instanceof ParameterScalar || $node instanceof ParameterFloorDivScalar) {
             return $this->evaluateParameter($node, $context);
+        }
+
+        if ($node instanceof CharacteristicFloorDivScalar) {
+            return $this->characteristicFloorDiv($node, $context);
         }
 
         return $this->evaluateLevelOrSize($node, $context);
@@ -112,6 +117,26 @@ final class FormulaEvaluations implements IFormulaEvaluations
         }
 
         return $this->evaluateSize($node, $context);
+    }
+
+    /**
+     * Целое частное значения характеристики.
+     *
+     * @param CharacteristicFloorDivScalar $node Узел.
+     * @param FormulaContext $context Значения вызывающего.
+     *
+     * @return int Число.
+     *
+     * @throws RuleInvalidException Если характеристики нет.
+     */
+    private function characteristicFloorDiv(CharacteristicFloorDivScalar $node, FormulaContext $context): int
+    {
+        $value = $context->findCharacteristic($node->getCharacteristicCode());
+        if ($value === null) {
+            throw new RuleInvalidException('Нет характеристики «' . $node->getCharacteristicCode() . '»');
+        }
+
+        return $this->floorQuotient($value->toInteger(), $node->getDivisor());
     }
 
     /**

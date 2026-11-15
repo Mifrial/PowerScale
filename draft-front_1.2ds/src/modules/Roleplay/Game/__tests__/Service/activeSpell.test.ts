@@ -26,6 +26,13 @@ describe('ActiveSpellService', () => {
     expect(activeSpellService.isSourceOccupied([spell], 'character:2', 'inventory:9')).toBe(false);
   });
 
+  it('предел активных волшебств считается по кастеру', () => {
+    expect(activeSpellService.isCasterLimitReached([spell], 'character:1', 1)).toBe(true);
+    expect(activeSpellService.isCasterLimitReached([spell], 'character:1', 2)).toBe(false);
+    expect(activeSpellService.isCasterLimitReached([spell], 'character:2', 1)).toBe(false);
+    expect(activeSpellService.isCasterLimitReached([spell], 'character:1', null)).toBe(false);
+  });
+
   it('не спрашивает поддержание в ход сотворения', () => {
     expect(activeSpellService.shouldPromptSustain(spell, 1, 'character:1')).toBe(false);
     expect(activeSpellService.shouldPromptSustain(spell, 2, 'character:1')).toBe(true);

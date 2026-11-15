@@ -3414,6 +3414,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-11-psionic-shaman.md",
+                    "title": "План M11–M12 — Псионик и Шаман",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-15",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",

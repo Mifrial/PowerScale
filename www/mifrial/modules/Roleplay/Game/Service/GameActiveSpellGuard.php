@@ -43,6 +43,48 @@ final class GameActiveSpellGuard
     }
 
     /**
+     * Кастер не превысил предел активных волшебств пути.
+     *
+     * @param int $battleId Бой.
+     * @param string $casterKind character или npc.
+     * @param int $casterId Id кастера.
+     * @param int|null $limit Предел пути; null — предела нет.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если предел уже выбран.
+     */
+    public function assertCasterLimit(int $battleId, string $casterKind, int $casterId, ?int $limit): void
+    {
+        if (!$this->isCasterLimitReached($battleId, $casterKind, $casterId, $limit)) {
+            return;
+        }
+
+        throw new GameInvalidException('Game spell active limit is reached');
+    }
+
+    /**
+     * Предел активных волшебств выбран.
+     *
+     * @param int $battleId Бой.
+     * @param string $casterKind character или npc.
+     * @param int $casterId Id кастера.
+     * @param int|null $limit Предел пути; null — предела нет.
+     *
+     * @return bool true, если новое волшебство сверх предела.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function isCasterLimitReached(int $battleId, string $casterKind, int $casterId, ?int $limit): bool
+    {
+        if ($limit === null || $limit <= 0) {
+            return false;
+        }
+
+        return $this->spells->countForCaster($battleId, $casterKind, $casterId) >= $limit;
+    }
+
+    /**
      * Источник свободен.
      *
      * @param int $battleId Бой.

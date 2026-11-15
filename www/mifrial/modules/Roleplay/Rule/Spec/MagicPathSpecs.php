@@ -33,7 +33,27 @@ final class MagicPathSpecs
             SpecShape::stringList($document, 'includes_path_codes'),
             SpecShape::bool($document, 'no_control'),
             SpecShape::bool($document, 'recorded_casting'),
+            self::activeSpellLimit($document),
         );
+    }
+
+    /**
+     * Предел активных волшебств: null или положительное число.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return int|null Число или null.
+     *
+     * @throws RuleSpecShapeException Если значение не положительное.
+     */
+    private static function activeSpellLimit(array $document): ?int
+    {
+        $limit = SpecShape::optionalInt($document, 'active_spell_limit');
+        if ($limit !== null && $limit <= 0) {
+            throw new RuleSpecShapeException('active_spell_limit');
+        }
+
+        return $limit;
     }
 
     /**

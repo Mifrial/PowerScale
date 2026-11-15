@@ -66,6 +66,12 @@ final class GameActiveSpellCreate
             return null;
         }
 
+        $this->guard->assertCasterLimit(
+            $battle->getId(),
+            $prepared->casterKind,
+            $prepared->casterId,
+            $prepared->path->getActiveSpellLimit(),
+        );
         $this->guard->assertSourceFree(
             $battle->getId(),
             $prepared->casterKind,

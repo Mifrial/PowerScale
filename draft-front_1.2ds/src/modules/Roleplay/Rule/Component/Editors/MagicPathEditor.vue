@@ -135,6 +135,15 @@ function patchStudyCost(partial: Partial<NonNullable<MagicPathSpec['study_cost']
         class="mb-3"
         @update:model-value="(value) => patch({ recorded_casting: value === true })"
       />
+      <ClampedNumberField
+        :model-value="inner.active_spell_limit ?? 0"
+        :min="0"
+        label="Предел активных волшебств (0 — без предела)"
+        density="compact"
+        hide-details
+        class="mb-3"
+        @update:model-value="(value) => patch({ active_spell_limit: value != null && value > 0 ? value : null })"
+      />
       <v-autocomplete
         :model-value="inner.includes_path_codes"
         :items="includePathOptions"

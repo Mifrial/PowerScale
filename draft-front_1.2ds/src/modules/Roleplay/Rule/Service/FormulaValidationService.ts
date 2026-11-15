@@ -16,6 +16,7 @@ const SCALAR_TYPES = new Set([
   'characteristic_size',
   'characteristic_size_positive',
   'characteristic_size_gap',
+  'characteristic_floor_div',
 ]);
 
 const DIMENSIONAL_TYPES = new Set([
@@ -165,6 +166,12 @@ export class FormulaValidationService {
       const divisor = this.record(node).divisor;
       if (typeof divisor !== 'number' || !Number.isFinite(divisor) || divisor === 0) {
         return 'делитель parameter_floor_div должен быть ненулевым числом';
+      }
+    }
+    if (type === 'characteristic_floor_div') {
+      const divisor = this.record(node).divisor;
+      if (typeof divisor !== 'number' || !Number.isFinite(divisor) || divisor <= 0) {
+        return 'делитель characteristic_floor_div должен быть положительным числом';
       }
     }
     if (type === 'to_scalar') {

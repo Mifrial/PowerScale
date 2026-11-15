@@ -49,6 +49,11 @@ export function formulaLabel(
 
       return `${from} − ${to}`;
     }
+    case 'characteristic_floor_div': {
+      const name = resolveName(formula.characteristic_code) ?? formula.characteristic_code;
+
+      return `⌊${name} / ${formula.divisor}⌋`;
+    }
     case 'actionCharacteristic': {
       const name = resolveName(formula.characteristic) ?? formula.characteristic;
       const delta = formula.modifier.reduce((sum, entry) => sum + entry.delta, 0);

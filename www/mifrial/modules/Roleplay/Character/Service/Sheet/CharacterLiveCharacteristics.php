@@ -66,6 +66,7 @@ final class CharacterLiveCharacteristics
         $bases = $this->baseFrom($slice, $bases, $deltas);
         $values = $this->applied($bases, $deltas);
         $values = $this->derived($slice, $values);
+        $values = $this->aggregated($slice, $values);
         $values = $this->capped($slice, $choices, $values);
 
         return $this->rows($bases, $values, $deltas);
@@ -167,6 +168,69 @@ final class CharacterLiveCharacteristics
         }
 
         return $values;
+    }
+
+    /**
+     * Агрегат характеристики из вкладов других характеристик.
+     *
+     * Характеристика должна уже существовать (грант/покупка): агрегат не
+     * создаёт её сам. Вклад — разница числовых значений с опорным; сумма
+     * делится на шаг, результат сдвигает базу по шкале характеристик.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, CharacteristicNumber> $values Значения.
+     *
+     * @return array<string, CharacteristicNumber> Значения.
+     */
+    private function aggregated(CharacterRuleSlice $slice, array $values): array
+    {
+        foreach ($slice->getLiveRules() as $rule) {
+            $spec = $rule->getSpec();
+            $aggregate = $spec instanceof CharacteristicSpec ? $spec->getAggregate() : null;
+            $code = $rule->getCode();
+            if ($aggregate === null || !isset($values[$code])) {
+                continue;
+            }
+
+            $sum = 0;
+            $complete = true;
+            foreach ($aggregate->getSourceCodes() as $source) {
+                $value = $values[$source] ?? null;
+                if ($value === null) {
+                    $complete = false;
+                    break;
+                }
+
+                $sum += $value->toInteger() - $aggregate->getReference()->toInteger();
+            }
+
+            if (!$complete) {
+                continue;
+            }
+
+            $points = $this->floorQuotient($sum, $aggregate->getPointsPerStep()) * $aggregate->getStep();
+            $values[$code] = $aggregate->getBase()->modify($points);
+        }
+
+        return $values;
+    }
+
+    /**
+     * Деление с округлением вниз, включая отрицательные числа.
+     *
+     * @param int $dividend Делимое.
+     * @param int $divisor Делитель.
+     *
+     * @return int Частное.
+     */
+    private function floorQuotient(int $dividend, int $divisor): int
+    {
+        $quotient = intdiv($dividend, $divisor);
+        if ($dividend % $divisor !== 0 && ($dividend < 0) !== ($divisor < 0)) {
+            return $quotient - 1;
+        }
+
+        return $quotient;
     }
 
     /**

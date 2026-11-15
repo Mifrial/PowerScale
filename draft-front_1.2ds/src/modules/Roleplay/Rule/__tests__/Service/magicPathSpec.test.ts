@@ -25,6 +25,7 @@ describe('MagicPathSpecService', () => {
       includes_path_codes: [],
       no_control: true,
       recorded_casting: true,
+      active_spell_limit: null,
     });
   });
 });
