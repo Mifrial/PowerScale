@@ -532,6 +532,7 @@
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
+                "Roleplay/Lore",
                 "Roleplay/Map",
                 "Roleplay/Mechanic",
                 "Roleplay/Rule",
@@ -784,6 +785,7 @@
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
+                "Roleplay/Lore",
                 "Roleplay/Map",
                 "Roleplay/Mechanic",
                 "Roleplay/Rule",
@@ -1119,6 +1121,7 @@
                 "Roleplay/Character",
                 "Roleplay/Game",
                 "Roleplay/Keyword",
+                "Roleplay/Lore",
                 "Roleplay/Map",
                 "Roleplay/Mechanic",
                 "Roleplay/RuleSpace",
@@ -2833,6 +2836,7 @@
             ],
             "dependedOnBy": [
                 "Roleplay/Character",
+                "Roleplay/Lore",
                 "Roleplay/Rule"
             ],
             "plans": [
@@ -2861,6 +2865,113 @@
                     "hasStatus": true
                 }
             ]
+        },
+        {
+            "key": "Roleplay/Lore",
+            "group": "Roleplay",
+            "name": "Lore",
+            "path": "modules/Roleplay/Lore",
+            "namespace": "Mifrial\\Roleplay\\Lore",
+            "container": "Mifrial\\Roleplay\\Lore\\Container\\LoreContainer",
+            "locator": "Mifrial\\Roleplay\\Lore\\Interface\\Container\\ILoreContainer",
+            "setup": "Mifrial\\Roleplay\\Lore\\Setup\\LoreModuleSetup",
+            "requestBind": null,
+            "ports": [
+                "Mifrial\\Roleplay\\Lore\\Service\\LoreTransferHttpService",
+                "Mifrial\\Roleplay\\Lore\\Service\\LoreWorldHttpService",
+                "Mifrial\\Roleplay\\Lore\\Service\\LoreArticleHttpService",
+                "Mifrial\\Roleplay\\Lore\\Action\\FindLoreWorldPageAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\GetLoreWorldAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreWorldAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\ArchiveLoreWorldAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreTreeAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\FindLoreArticlePageAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\GetLoreArticleAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreArticleAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\ArchiveLoreArticleAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\ExportLoreWorldAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\ImportLoreWorldAction",
+                "Mifrial\\Roleplay\\Lore\\Action\\FindLoreReaderCandidatesAction"
+            ],
+            "routes": [
+                {
+                    "action": "lore.findWorldPage",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\FindLoreWorldPageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.getWorld",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\GetLoreWorldAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.saveWorld",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreWorldAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.archiveWorld",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\ArchiveLoreWorldAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.saveTree",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreTreeAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.findArticlePage",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\FindLoreArticlePageAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.getArticle",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\GetLoreArticleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.saveArticle",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\SaveLoreArticleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.archiveArticle",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\ArchiveLoreArticleAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.findReaderCandidates",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\FindLoreReaderCandidatesAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.exportWorld",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\ExportLoreWorldAction",
+                    "csrf": true
+                },
+                {
+                    "action": "lore.importWorld",
+                    "handler": "Mifrial\\Roleplay\\Lore\\Action\\ImportLoreWorldAction",
+                    "csrf": true
+                }
+            ],
+            "events": [],
+            "contracts": [
+                {
+                    "name": "ILoreContainer",
+                    "path": "Interface/Container/ILoreContainer.php",
+                    "summary": "Публичный контейнер модуля Roleplay/Lore."
+                }
+            ],
+            "readme": false,
+            "dependsOn": [
+                "Core/Kernel",
+                "Core/SmartTable",
+                "Core/User",
+                "Roleplay/Keyword"
+            ],
+            "dependedOnBy": [],
+            "plans": []
         },
         {
             "key": "Roleplay/Map",

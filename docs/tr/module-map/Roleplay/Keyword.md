@@ -40,7 +40,7 @@
 ## Зависимости
 
 - **Зависит от:** [Core/Kernel](../Core/Kernel.md), [Core/SmartTable](../Core/SmartTable.md), [Core/User](../Core/User.md)
-- **От него зависят:** [Roleplay/Character](Character.md), [Roleplay/Rule](Rule.md)
+- **От него зависят:** [Roleplay/Character](Character.md), [Roleplay/Lore](Lore.md), [Roleplay/Rule](Rule.md)
 
 ## События
 
