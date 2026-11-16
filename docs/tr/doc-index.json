@@ -323,7 +323,7 @@
             },
             "layer": {
                 "PHP": 9,
-                "VUE": 10,
+                "VUE": 9,
                 "МОК": 4
             }
         },
@@ -3507,7 +3507,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 34482,
+            "bytes": 34901,
             "lines": 150,
             "modules": [],
             "linksCount": 20,
@@ -7781,12 +7781,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-12",
-            "bytes": 35269,
-            "lines": 490,
+            "bytes": 35605,
+            "lines": 494,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 12,
+            "linksCount": 13,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7963,13 +7963,12 @@
             "stateSource": "token",
             "statusRaw": "~ПЛАН~, 2026-11-16.",
             "layers": [
-                "PHP",
-                "VUE"
+                "PHP"
             ],
             "basis": null,
             "date": "2026-11-16",
-            "bytes": 21492,
-            "lines": 244,
+            "bytes": 29897,
+            "lines": 311,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7977,6 +7976,7 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/decisions.md",
+                "docs/tr/scene-plan-01.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/scene-system.md"
             ]
@@ -7996,8 +7996,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-16",
-            "bytes": 61547,
-            "lines": 667,
+            "bytes": 63182,
+            "lines": 680,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8030,8 +8030,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-16",
-            "bytes": 54184,
-            "lines": 632,
+            "bytes": 56913,
+            "lines": 655,
             "modules": [
                 "Roleplay/Scene"
             ],
