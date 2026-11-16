@@ -1192,8 +1192,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
     for (const prop of props) {
       prop.draw();
     }
-
-    this.paintActors();
   }
 
   /**
