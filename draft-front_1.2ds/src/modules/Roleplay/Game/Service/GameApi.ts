@@ -848,6 +848,8 @@ export class GameApi implements IGameApi {
     for (const [key, raw] of Object.entries(debt)) {
       if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) continue;
       const slot = raw as Record<string, unknown>;
+      // Удар и действие ведут свои окна; здесь только долг сотворения.
+      if (slot.kind !== 'spell') continue;
       const remaining = typeof slot.remaining === 'number' ? slot.remaining : 0;
       sessions[key as CombatEntityKey] = {
         gameId,

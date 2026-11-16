@@ -640,6 +640,16 @@ function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]
   });
 }
 
+/** Курсор, версии листов и вопросы после команды хода. */
+async function afterPhpTurn(key: CombatEntityKey, result: GamePhpTurnResult): Promise<void> {
+  if (typeof result.sheetVersion === 'number') gamePhpBattleContext.rememberSheet(key, result.sheetVersion);
+  const scale = gamePhpBattleContext.getScale();
+  if (scale !== null) initiative.value = scale;
+  await promptPhpSustains(result);
+  const next = scale === null ? undefined : scale.participants[scale.activeIndex ?? 0];
+  if (next && result.debt?.kind === 'spell') await promptCommittedContinue(next);
+}
+
 function speakerFor(participant: NonNullable<typeof activeParticipant.value>): ChatSpeaker {
   return participant.kind === 'npc'
     ? { kind: 'npc', npcId: participant.entityId ?? 0, npcName: participant.name }
@@ -678,7 +688,7 @@ async function confirmWaitAndPass(): Promise<void> {
     } finally {
       waitBusy.value = false;
     }
-    if (result) await promptPhpSustains(result);
+    if (result) await afterPhpTurn(key, result);
 
     return;
   }
@@ -852,13 +862,8 @@ async function nextTurn(): Promise<void> {
     const key = activeParticipantKey.value;
     if (!key) return;
     const result = await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
-    if (typeof result.sheetVersion === 'number') gamePhpBattleContext.rememberSheet(key, result.sheetVersion);
-    const scale = gamePhpBattleContext.getScale();
-    if (scale !== null) initiative.value = scale;
     emit('overlay-changed');
-    await promptPhpSustains(result);
-    const next = scale === null ? undefined : scale.participants[scale.activeIndex ?? 0];
-    if (next && result.debt) await promptCommittedContinue(next);
+    await afterPhpTurn(key, result);
 
     return;
   }
