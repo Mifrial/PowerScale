@@ -1628,7 +1628,8 @@ function messageOf(exception: unknown): string {
               />
               <template v-if="floorOwner !== null">
                 <div class="text-caption text-medium-emphasis mt-2">
-                  Пол принадлежит {{ floorOwner.kind === 'room' ? 'комнате' : 'строению' }} и тянет его целиком.
+                  Пол принадлежит {{ floorOwner.kind === 'room' ? 'комнате' : 'строению' }}: перетаскивание тянет
+                  {{ floorOwner.kind === 'room' ? 'её' : 'его' }} целиком.
                 </div>
                 <v-btn
                   variant="tonal"
@@ -1649,7 +1650,6 @@ function messageOf(exception: unknown): string {
             <v-expansion-panel-text>
               <div class="text-body-2">Выбрано элементов: {{ selection.length }}</div>
               <template v-if="selectedRoom !== null">
-                <div class="text-body-2 mt-2">Комната: {{ roomAreaText }}</div>
                 <v-select
                   v-model="roomFloorKind"
                   :items="SCENE_TERRAIN_KIND_OPTIONS"
