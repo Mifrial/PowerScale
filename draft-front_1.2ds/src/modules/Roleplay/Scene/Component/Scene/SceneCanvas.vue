@@ -9,6 +9,7 @@ import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
@@ -35,6 +36,10 @@ const props = withDefaults(
     interactive?: boolean;
     /** Ширина ленты для превью, единицы сцены. */
     pathWidth?: number;
+    /** Толщина стены для превью, единицы сцены. */
+    wallWidth?: number;
+    /** Комнаты активного поля: грани сети стен. */
+    rooms?: SceneRoom[];
     /** Пользовательская настройка анимации воды. */
     waterAnimation?: boolean;
     /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
@@ -54,6 +59,8 @@ const props = withDefaults(
     tool: 'select',
     interactive: false,
     pathWidth: 256,
+    wallWidth: 16,
+    rooms: () => [],
     waterAnimation: true,
     actors: () => [],
     selectedActorId: null,
@@ -87,6 +94,8 @@ const emit = defineEmits<{
   editEnd: [];
   point: [point: ScenePoint, under: boolean, at: ScenePoint];
   level: [level: number];
+  room: [elementIds: number[]];
+  building: [elementId: number];
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -105,6 +114,7 @@ let moveLast: ScenePoint | null = null;
 let panMoved = false;
 let clickPoints: ScenePoint[] = [];
 let clickHover: ScenePoint | null = null;
+let clickClosed = false;
 let vertexTarget: SceneVertexTarget | null = null;
 let handleTarget: SceneHandleTarget | null = null;
 let widthTarget: SceneVertexTarget | null = null;
@@ -399,14 +409,57 @@ function toolDefinition() {
   return SCENE_TOOLS.find((item) => item.id === props.tool) ?? null;
 }
 
-function clickShape(): 'polygon' | 'path' | null {
+/** Комната под точкой: из вложенных берётся самая маленькая. */
+function roomAt(point: ScenePoint): SceneRoom | null {
+  let best: SceneRoom | null = null;
+  for (const room of props.rooms) {
+    if (!pointInPolygon(point, room.points)) {
+      continue;
+    }
+
+    if (best === null || room.area < best.area) {
+      best = room;
+    }
+  }
+
+  return best;
+}
+
+/** Точка внутри полигона: тот же луч, что у графа стен. */
+function pointInPolygon(point: ScenePoint, points: readonly ScenePoint[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+    const a = points[index];
+    const b = points[previous];
+    if (
+      point[1] > Math.min(a[1], b[1]) &&
+      point[1] <= Math.max(a[1], b[1]) &&
+      point[0] <= Math.max(a[0], b[0]) &&
+      a[1] !== b[1]
+    ) {
+      const x = ((point[1] - a[1]) * (b[0] - a[0])) / (b[1] - a[1]) + a[0];
+      if (point[0] <= x) {
+        inside = !inside;
+      }
+    }
+  }
+
+  return inside;
+}
+
+function clickShape(): 'polygon' | 'path' | 'wall' | null {
   if (props.shapeOverride !== null) {
     return props.shapeOverride;
   }
 
-  const shapeType = toolDefinition()?.shapeType ?? null;
+  const definition = toolDefinition();
+  const shapeType = definition?.shapeType ?? null;
   if (shapeType === 'polygon' || shapeType === 'path') {
     return shapeType;
+  }
+
+  if (shapeType === 'wall' && definition?.wallMode !== 'ring') {
+    return 'wall';
   }
 
   return null;
@@ -443,6 +496,7 @@ function setFocus(target: SceneVertexTarget | null): void {
 function cancelClickDraft(): void {
   clickPoints = [];
   clickHover = null;
+  clickClosed = false;
   renderer?.setDraft(null);
 }
 
@@ -470,6 +524,12 @@ function refreshClickDraft(): void {
     return;
   }
 
+  if (clickShape() === 'wall') {
+    renderer.setDraft({ type: 'wall', points, width: Math.max(1, props.wallWidth) });
+
+    return;
+  }
+
   renderer.setDraft({ type: 'polygon', points });
 }
 
@@ -489,7 +549,16 @@ function refreshDragDraft(point: ScenePoint): void {
     return;
   }
 
-  renderer.setDraft(shapeBuilder.build(definition.shapeType, drawStart, point, bounds));
+  renderer.setDraft(
+    shapeBuilder.build(
+      definition.shapeType,
+      drawStart,
+      point,
+      bounds,
+      definition.shapeType === 'wall' ? props.wallWidth : undefined,
+      definition.wallMode,
+    ),
+  );
 }
 
 function addClickPoint(point: ScenePoint): void {
@@ -504,6 +573,7 @@ function addClickPoint(point: ScenePoint): void {
     const first = clickPoints[0];
     const tolerance = 10 / viewport.zoom;
     if (Math.hypot(first[0] - next[0], first[1] - next[1]) <= tolerance) {
+      clickClosed = shape === 'wall';
       finishClickShape();
 
       return;
@@ -520,11 +590,15 @@ function finishClickShape(): void {
     (point, index) =>
       index === 0 || Math.hypot(point[0] - clickPoints[index - 1][0], point[1] - clickPoints[index - 1][1]) > 0,
   );
+  const closed = clickClosed;
   cancelClickDraft();
   if (shape === 'polygon' && points.length >= 3) {
     emit('shape', { type: 'polygon', points });
   } else if (shape === 'path' && points.length >= 2) {
     emit('path', points);
+  } else if (shape === 'wall' && points.length >= 2) {
+    const loop = closed ? [...points, points[0]] : points;
+    emit('shape', { type: 'wall', points: loop, width: Math.max(1, props.wallWidth) });
   }
 }
 
@@ -744,6 +818,13 @@ function onPointerDown(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
+  if (props.tool === 'room') {
+    const room = roomAt(scenePoint);
+    emit('room', room === null ? [] : room.elementIds);
+
+    return;
+  }
+
   if (clickShape() !== null) {
     addClickPoint(scenePoint);
 
@@ -832,13 +913,25 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     return;
   }
 
+  if (event.altKey && hit.kind === 'obstacle' && hit.shape.type === 'wall') {
+    emit('building', hit.id);
+
+    return;
+  }
+
   const additive = event.shiftKey || event.ctrlKey || event.metaKey;
-  const nextIds = additive
-    ? selection.value.includes(hit.id)
+  if (additive) {
+    const nextIds = selection.value.includes(hit.id)
       ? selection.value.filter((id) => id !== hit.id)
-      : [...selection.value, hit.id]
-    : [hit.id];
-  applySelection(nextIds);
+      : [...selection.value, hit.id];
+    applySelection(nextIds);
+    if (!nextIds.includes(hit.id)) {
+      return;
+    }
+  } else if (!selection.value.includes(hit.id)) {
+    applySelection([hit.id]);
+  }
+
   gesture = 'move';
   moveLast = scenePoint;
   startEditing();

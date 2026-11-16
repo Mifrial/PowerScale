@@ -21,6 +21,7 @@ const emit = defineEmits<{
 const GROUP_LABELS: Record<string, string> = {
   terrain: 'Террейн',
   opening: 'Проём',
+  wall: 'Стена',
 };
 
 /** Инструменты, сгруппированные по общей кнопке с меню вариантов. */

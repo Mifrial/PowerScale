@@ -55,4 +55,20 @@ describe('SceneToolShape', () => {
   it('does not build a polygon from a drag', () => {
     expect(service.build('polygon', [100, 100], [500, 500], bounds)).toBeNull();
   });
+
+  it('builds a closed ring wall from center to radius', () => {
+    const shape = service.build('wall', [400, 400], [500, 400], bounds, 16, 'ring');
+
+    expect(shape?.type).toBe('wall');
+    if (shape?.type !== 'wall') {
+      return;
+    }
+
+    expect(shape.points.length).toBeGreaterThan(12);
+    expect(shape.points[0]).toEqual(shape.points[shape.points.length - 1]);
+    expect(shape.width).toBe(16);
+    for (const point of shape.points) {
+      expect(Math.hypot(point[0] - 400, point[1] - 400)).toBeLessThanOrEqual(101);
+    }
+  });
 });

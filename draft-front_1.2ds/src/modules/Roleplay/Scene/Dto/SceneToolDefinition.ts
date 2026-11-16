@@ -24,6 +24,8 @@ export interface SceneToolDefinition {
   depthIpari?: number;
   /** Толщина стены в ипари для пресета. */
   wallWidthIpari?: number;
+  /** Форма стены: обычная лента или замкнутое кольцо. */
+  wallMode?: 'line' | 'ring';
   /** Ширина проёма в ипари для пресета. */
   openingWidthIpari?: number;
   /** Высота стены в ипари для пресета. */

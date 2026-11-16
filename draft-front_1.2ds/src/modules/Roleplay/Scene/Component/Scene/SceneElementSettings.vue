@@ -50,7 +50,9 @@ const emit = defineEmits<{
   asset: [publicId: string | null, contentBox: ImageContentBox | null, preset: SceneElementProps | null];
   stretch: [];
   widthAll: [width: number];
+  size: [width: number, height: number];
   insertOpening: [kind: 'door' | 'window'];
+  building: [];
   smooth: [];
   corner: [];
   attachRamp: [end: SceneDeckEnd];
@@ -106,9 +108,51 @@ const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.va
 
 /** Стена-лента: у неё есть толщина и в неё можно вставлять проёмы. */
 const isWallElement = computed(() => props.element.kind === 'obstacle' && props.element.shape.type === 'wall');
-
 /** Толщина стены, единицы сцены. */
 const wallThickness = computed(() => (props.element.shape.type === 'wall' ? props.element.shape.width : 0));
+
+/** Прямоугольник: у опор и террейна размер задаётся здесь. */
+const rectShape = computed(() => (props.element.shape.type === 'rect' ? props.element.shape : null));
+/** У опоры длинная сторона — длина, короткая — ширина. */
+const rectAsDeck = computed(() => props.element.kind === 'support');
+const rectLength = computed(() => (rectShape.value === null ? 0 : Math.max(rectShape.value.w, rectShape.value.h)));
+const rectWidth = computed(() => (rectShape.value === null ? 0 : Math.min(rectShape.value.w, rectShape.value.h)));
+
+/** Длина меняет длинную сторону, ориентация прямоугольника сохраняется. */
+function setRectLength(value: number): void {
+  const shape = rectShape.value;
+  if (shape === null) {
+    return;
+  }
+
+  emit('size', shape.w >= shape.h ? value : shape.w, shape.h > shape.w ? value : shape.h);
+}
+
+/** Ширина меняет короткую сторону. */
+function setRectWidth(value: number): void {
+  const shape = rectShape.value;
+  if (shape === null) {
+    return;
+  }
+
+  emit('size', shape.w <= shape.h ? value : shape.w, shape.h < shape.w ? value : shape.h);
+}
+
+/** Ширина прямоугольника без перестановки сторон. */
+function setRectW(value: number): void {
+  const shape = rectShape.value;
+  if (shape !== null) {
+    emit('size', value, shape.h);
+  }
+}
+
+/** Высота прямоугольника. */
+function setRectH(value: number): void {
+  const shape = rectShape.value;
+  if (shape !== null) {
+    emit('size', shape.w, value);
+  }
+}
 
 /** Проём-лента: длина вдоль стены и толщина стены. */
 const isWallOpening = computed(() => props.element.kind === 'opening' && props.element.shape.type === 'wall');
@@ -641,6 +685,46 @@ function onAssetCleared(publicId: string | null): void {
       @update:model-value="(value) => patchText('label', value)"
     />
 
+    <template v-if="rectShape !== null">
+      <template v-if="rectAsDeck">
+        <SceneDistanceField
+          :model-value="rectLength"
+          :resolution="props.resolution"
+          label="Длина, ипари"
+          hint="Длинная сторона настила; короткая сторона — ширина."
+          :min="1"
+          :max="100000"
+          @update:model-value="setRectLength"
+        />
+        <SceneDistanceField
+          :model-value="rectWidth"
+          :resolution="props.resolution"
+          label="Ширина, ипари"
+          :min="1"
+          :max="100000"
+          @update:model-value="setRectWidth"
+        />
+      </template>
+      <template v-else>
+        <SceneDistanceField
+          :model-value="rectShape.w"
+          :resolution="props.resolution"
+          label="Ширина, ипари"
+          :min="1"
+          :max="100000"
+          @update:model-value="setRectW"
+        />
+        <SceneDistanceField
+          :model-value="rectShape.h"
+          :resolution="props.resolution"
+          label="Высота, ипари"
+          :min="1"
+          :max="100000"
+          @update:model-value="setRectH"
+        />
+      </template>
+    </template>
+
     <template v-if="props.element.kind === 'support'">
       <v-select
         :model-value="props.element.props.kind ?? 'ground'"
@@ -772,6 +856,17 @@ function onAssetCleared(publicId: string | null): void {
           Окно
         </v-btn>
       </div>
+      <v-btn
+        v-if="isWallElement"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-home-group"
+        block
+        class="mt-2"
+        @click="emit('building')"
+      >
+        Всё строение
+      </v-btn>
     </template>
 
     <template v-if="props.element.kind === 'opening'">

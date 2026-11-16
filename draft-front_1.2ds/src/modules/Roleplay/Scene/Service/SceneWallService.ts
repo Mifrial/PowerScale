@@ -35,6 +35,14 @@ export interface SceneWallPlacement {
   shape: SceneShape;
 }
 
+/** Стык стен: точка, где сходятся две и более ленты. */
+export interface SceneWallJoint {
+  /** Вершина стыка. */
+  point: ScenePoint;
+  /** Наибольшая толщина среди сходящихся стен. */
+  width: number;
+}
+
 /** Минимальная длина сегмента и проёма в единицах сцены. */
 const MIN_SIZE = 1;
 
@@ -388,6 +396,155 @@ export class SceneWallService {
     }
   }
 
+  /** Вершины осевой стены; пусто у не-стены. */
+  vertices(element: SceneWallElement): ScenePoint[] {
+    return this.points(element) ?? [];
+  }
+
+  /**
+   * Сваривает стены в сеть.
+   *
+   * Сначала близкие вершины стягиваются в одну точку, затем конец одной стены,
+   * лежащий на теле другой, вставляется в неё коллинеарной вершиной. Длина
+   * стены-хозяина не меняется, поэтому смещения проёмов остаются прежними.
+   *
+   * Возвращает id стен, которые изменились.
+   */
+  weld(elements: readonly SceneWallElement[], boardId: number, tolerance: number): number[] {
+    const walls = elements.filter(
+      (element) => element.boardId === boardId && this.isWall(element) && element.shape.type === 'wall',
+    );
+    if (walls.length === 0) {
+      return [];
+    }
+
+    const affected = new Set<number>();
+    const limit = Math.max(0, tolerance);
+    const known: ScenePoint[] = [];
+
+    // 1. Близкие вершины — одна точка. Порядок по id делает результат
+    //    устойчивым: вторая вершина приходит к первой, а не наоборот.
+    for (const wall of walls) {
+      if (wall.shape.type !== 'wall') {
+        continue;
+      }
+
+      let changed = false;
+      const points = wall.shape.points.map((point) => {
+        let next: ScenePoint = point;
+        if (limit > 0) {
+          let best: { point: ScenePoint; distance: number } | null = null;
+          for (const candidate of known) {
+            const distance = Math.hypot(candidate[0] - point[0], candidate[1] - point[1]);
+            if (distance > 0 && distance <= limit && (best === null || distance < best.distance)) {
+              best = { point: candidate, distance };
+            }
+          }
+
+          if (best !== null) {
+            next = best.point;
+          }
+        }
+
+        if (next[0] !== point[0] || next[1] !== point[1]) {
+          changed = true;
+        }
+
+        known.push(next);
+
+        return next;
+      });
+
+      if (changed) {
+        wall.shape = { ...wall.shape, points: this.dedupe(points) };
+        affected.add(wall.id);
+      }
+    }
+
+    // 2. Конец или угол одной стены на теле другой — общая вершина.
+    for (const wall of walls) {
+      if (wall.shape.type !== 'wall') {
+        continue;
+      }
+
+      const points: ScenePoint[] = wall.shape.points.map((point) => [point[0], point[1]]);
+      let changed = false;
+      for (const point of points) {
+        for (const host of walls) {
+          if (host.id === wall.id || host.shape.type !== 'wall' || this.hasVertex(host, point)) {
+            continue;
+          }
+
+          const projection = this.insertVertex(host, point, limit);
+          if (projection === null) {
+            continue;
+          }
+
+          point[0] = projection[0];
+          point[1] = projection[1];
+          changed = true;
+          affected.add(host.id);
+        }
+      }
+
+      if (changed) {
+        wall.shape = { ...wall.shape, points: this.dedupe(points) };
+        affected.add(wall.id);
+      }
+    }
+
+    for (const wallId of affected) {
+      this.sync(elements, wallId);
+    }
+
+    return [...affected];
+  }
+
+  /**
+   * Стыки, которым нужен уголок.
+   *
+   * Вершина одной стены — её собственный угол: лента сама сходится митрой.
+   * Вершина, общая для двух и более лент, и шов замкнутого кольца — это стык,
+   * где два прямоугольных торца оставляют щель.
+   */
+  joints(elements: readonly SceneWallElement[], boardId: number): SceneWallJoint[] {
+    const joints = new Map<string, { point: ScenePoint; width: number; count: number }>();
+    for (const element of elements) {
+      if (element.boardId !== boardId || !this.isWall(element) || element.shape.type !== 'wall') {
+        continue;
+      }
+
+      const points = element.shape.points;
+      if (points.length < 2) {
+        continue;
+      }
+
+      const closed = this.isClosed(points);
+      const unique = closed ? points.slice(0, -1) : points;
+      const add = (point: ScenePoint): void => {
+        const key = `${point[0]},${point[1]}`;
+        const joint = joints.get(key) ?? { point, width: 0, count: 0 };
+        joint.width = Math.max(joint.width, element.shape.type === 'wall' ? element.shape.width : 0);
+        joint.count += 1;
+        joints.set(key, joint);
+      };
+
+      for (const point of unique) {
+        add(point);
+      }
+
+      // Шов кольца: первая и последняя точки — одна вершина, но торец у неё
+      // один, поэтому считаем её дважды.
+      if (closed) {
+        add(points[0]);
+      }
+    }
+
+    return [...joints.values()]
+      .filter((joint) => joint.count >= 2)
+      .map((joint) => ({ point: joint.point, width: joint.width }));
+  }
+
   /**
    * Пересчитывает проёмы, вставленные в стену.
    *
@@ -457,7 +614,9 @@ export class SceneWallService {
     tolerance: number,
     gridStep: number,
   ): ScenePoint {
-    let best: { point: ScenePoint; distance: number } | null = null;
+    // Вершина важнее тела стены: ветку начинают от узла, а не от случайной
+    // точки на полосе. Поэтому сначала ищем вершины, и только потом проекцию.
+    let vertex: { point: ScenePoint; distance: number } | null = null;
     for (const element of elements) {
       if (element.boardId !== boardId || !this.isWall(element)) {
         continue;
@@ -468,16 +627,43 @@ export class SceneWallService {
         continue;
       }
 
-      for (const endpoint of [points[0], points[points.length - 1]]) {
-        const distance = Math.hypot(endpoint[0] - point[0], endpoint[1] - point[1]);
-        if (distance <= tolerance && (best === null || distance < best.distance)) {
-          best = { point: [endpoint[0], endpoint[1]], distance };
+      for (const candidate of points) {
+        const distance = Math.hypot(candidate[0] - point[0], candidate[1] - point[1]);
+        if (distance <= tolerance && (vertex === null || distance < vertex.distance)) {
+          vertex = { point: [candidate[0], candidate[1]], distance };
         }
       }
     }
 
-    if (best !== null) {
-      return best.point;
+    if (vertex !== null) {
+      return vertex.point;
+    }
+
+    let segment: { point: ScenePoint; distance: number } | null = null;
+    for (const element of elements) {
+      if (element.boardId !== boardId || !this.isWall(element)) {
+        continue;
+      }
+
+      const points = this.points(element);
+      if (points === null) {
+        continue;
+      }
+
+      for (let index = 1; index < points.length; index += 1) {
+        const projected = this.projectOnSegment(point, points[index - 1], points[index]);
+        if (projected === null) {
+          continue;
+        }
+
+        if (projected.distance <= tolerance && (segment === null || projected.distance < segment.distance)) {
+          segment = projected;
+        }
+      }
+    }
+
+    if (segment !== null) {
+      return segment.point;
     }
 
     if (gridStep > 0) {
@@ -526,6 +712,93 @@ export class SceneWallService {
   /** Вершины осевой или null. */
   private points(element: SceneWallElement): ScenePoint[] | null {
     return element.shape.type === 'wall' ? element.shape.points : null;
+  }
+
+  /** Замкнутое кольцо: последняя точка совпадает с первой. */
+  private isClosed(points: readonly ScenePoint[]): boolean {
+    if (points.length < 3) {
+      return false;
+    }
+
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    return first[0] === last[0] && first[1] === last[1];
+  }
+
+  /** Убирает совпавшие подряд точки, но не рвёт шов кольца. */
+  private dedupe(points: readonly ScenePoint[]): ScenePoint[] {
+    const result: ScenePoint[] = [];
+    for (const point of points) {
+      const last = result[result.length - 1];
+      if (last === undefined || last[0] !== point[0] || last[1] !== point[1]) {
+        result.push([point[0], point[1]]);
+      }
+    }
+
+    return result.length >= 2 ? result : points.map((point) => [point[0], point[1]]);
+  }
+
+  /** Точка уже есть среди вершин стены. */
+  private hasVertex(element: SceneWallElement, point: ScenePoint): boolean {
+    const points = this.points(element);
+
+    return points !== null && points.some((item) => item[0] === point[0] && item[1] === point[1]);
+  }
+
+  /**
+   * Вставляет точку в тело стены коллинеарной вершиной.
+   *
+   * Возвращает округлённую проекцию или null, если точка не лежит на полосе.
+   * Длина ломаной не меняется: точка стоит на её отрезке.
+   */
+  private insertVertex(element: SceneWallElement, point: ScenePoint, tolerance: number): ScenePoint | null {
+    if (element.shape.type !== 'wall') {
+      return null;
+    }
+
+    const points = element.shape.points;
+    let best: { index: number; point: ScenePoint; distance: number } | null = null;
+    for (let index = 1; index < points.length; index += 1) {
+      const projected = this.projectOnSegment(point, points[index - 1], points[index]);
+      if (projected === null) {
+        continue;
+      }
+
+      if (best === null || projected.distance < best.distance) {
+        best = { index, point: projected.point, distance: projected.distance };
+      }
+    }
+
+    if (best === null || best.distance > tolerance || this.hasVertex(element, best.point)) {
+      return null;
+    }
+
+    element.shape = {
+      ...element.shape,
+      points: [...points.slice(0, best.index), best.point, ...points.slice(best.index)],
+    };
+
+    return best.point;
+  }
+
+  /** Ближайшая точка отрезка; координаты целые, как и вся сцена. */
+  private projectOnSegment(
+    point: ScenePoint,
+    from: ScenePoint,
+    to: ScenePoint,
+  ): { point: ScenePoint; distance: number } | null {
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const square = dx * dx + dy * dy;
+    if (square <= 0) {
+      return null;
+    }
+
+    const t = Math.max(0, Math.min(1, ((point[0] - from[0]) * dx + (point[1] - from[1]) * dy) / square));
+    const projected: ScenePoint = [Math.round(from[0] + dx * t), Math.round(from[1] + dy * t)];
+
+    return { point: projected, distance: Math.hypot(point[0] - projected[0], point[1] - projected[1]) };
   }
 
   /** Длина ломаной. */

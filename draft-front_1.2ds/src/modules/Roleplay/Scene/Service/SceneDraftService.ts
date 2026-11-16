@@ -149,6 +149,14 @@ export class SceneDraftService {
     if (shape.type === 'point') {
       shape.x += offset;
       shape.y += offset;
+    } else if (shape.type === 'rect') {
+      shape.x += offset;
+      shape.y += offset;
+    } else if (shape.type === 'circle') {
+      shape.cx += offset;
+      shape.cy += offset;
+    } else {
+      shape.points = shape.points.map((point): ScenePoint => [point[0] + offset, point[1] + offset]);
     }
 
     const element: SceneDraftElement = {
@@ -602,7 +610,7 @@ export class SceneDraftService {
   }
 
   /** Сдвигает элемент в пределах его поля. */
-  moveElement(draft: SceneDraft, elementId: number, deltaX: number, deltaY: number): void {
+  moveElement(draft: SceneDraft, elementId: number, deltaX: number, deltaY: number, clampToBounds = true): void {
     const element = draft.elements.find((item) => item.id === elementId);
     if (element === undefined) {
       return;
@@ -613,7 +621,103 @@ export class SceneDraftService {
       return;
     }
 
-    element.shape = this.translateShape(element.shape, deltaX, deltaY, bounds);
+    element.shape = this.translateShape(element.shape, deltaX, deltaY, bounds, clampToBounds);
+  }
+
+  /**
+   * Общий сдвиг группы, прижатый к границам поля.
+   *
+   * Прижимать каждый элемент отдельно нельзя: у края один встанет, остальные
+   * поедут дальше, и дом сложится. Поэтому сначала считается допустимый сдвиг
+   * для всей группы, потом он применяется целиком.
+   */
+  groupDelta(draft: SceneDraft, elementIds: readonly number[], deltaX: number, deltaY: number): ScenePoint {
+    let minX = -Infinity;
+    let maxX = Infinity;
+    let minY = -Infinity;
+    let maxY = Infinity;
+    for (const elementId of elementIds) {
+      const element = draft.elements.find((item) => item.id === elementId);
+      if (element === undefined) {
+        continue;
+      }
+
+      const bounds = this.boardBounds(draft, element.boardId);
+      if (bounds === null) {
+        continue;
+      }
+
+      const box = this.shapeBox(element.shape);
+      minX = Math.max(minX, -box.minX);
+      maxX = Math.min(maxX, bounds.width - box.maxX);
+      minY = Math.max(minY, -box.minY);
+      maxY = Math.min(maxY, bounds.height - box.maxY);
+    }
+
+    const clamp = (value: number, min: number, max: number): number =>
+      max < min ? 0 : Math.min(max, Math.max(min, Math.round(value)));
+
+    return [clamp(deltaX, minX, maxX), clamp(deltaY, minY, maxY)];
+  }
+
+  /** Сдвигает вершину стены вместе со всеми совпавшими вершинами её сети. */
+  setVertexShared(draft: SceneDraft, elementId: number, index: number, point: ScenePoint): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (
+      element === undefined ||
+      (element.shape.type !== 'polygon' && element.shape.type !== 'path' && element.shape.type !== 'wall')
+    ) {
+      return;
+    }
+
+    if (index < 0 || index >= element.shape.points.length) {
+      return;
+    }
+
+    const old = element.shape.points[index];
+    this.setVertex(draft, elementId, index, point);
+    if (element.shape.type !== 'wall') {
+      return;
+    }
+
+    const points = element.shape.points.map((item): ScenePoint => [item[0], item[1]]);
+    // Шов замкнутого кольца — одна вершина в двух позициях.
+    if (this.isClosedPoints(points) && (index === 0 || index === points.length - 1)) {
+      points[index === 0 ? points.length - 1 : 0] = [point[0], point[1]];
+    }
+
+    // Совпавшие вершины в этой же стене (дубли) тоже едут.
+    for (let position = 0; position < points.length; position += 1) {
+      if (position !== index && points[position][0] === old[0] && points[position][1] === old[1]) {
+        points[position] = [point[0], point[1]];
+      }
+    }
+
+    element.shape = { ...element.shape, points };
+
+    for (const other of draft.elements) {
+      if (other.id === elementId || other.boardId !== element.boardId || other.shape.type !== 'wall') {
+        continue;
+      }
+
+      let changed = false;
+      const next = other.shape.points.map((item): ScenePoint => {
+        if (item[0] === old[0] && item[1] === old[1]) {
+          changed = true;
+
+          return [point[0], point[1]];
+        }
+
+        return item;
+      });
+
+      if (changed) {
+        other.shape = { ...other.shape, points: next };
+        sceneWallService.sync(draft.elements, other.id);
+      }
+    }
+
+    sceneWallService.sync(draft.elements, elementId);
   }
 
   /** Удаляет элемент по id; вместе со стеной уходят её проёмы. */
@@ -811,7 +915,32 @@ export class SceneDraftService {
   }
 
   /** Сдвиг фигуры с прижатием к границам поля. */
-  private translateShape(shape: SceneShape, deltaX: number, deltaY: number, bounds: SceneBounds): SceneShape {
+  private translateShape(
+    shape: SceneShape,
+    deltaX: number,
+    deltaY: number,
+    bounds: SceneBounds,
+    clampToBounds = true,
+  ): SceneShape {
+    if (!clampToBounds) {
+      if (shape.type === 'rect') {
+        return { ...shape, x: shape.x + deltaX, y: shape.y + deltaY };
+      }
+
+      if (shape.type === 'circle') {
+        return { ...shape, cx: shape.cx + deltaX, cy: shape.cy + deltaY };
+      }
+
+      if (shape.type === 'point') {
+        return { ...shape, x: shape.x + deltaX, y: shape.y + deltaY };
+      }
+
+      return {
+        ...shape,
+        points: shape.points.map((point): ScenePoint => [point[0] + deltaX, point[1] + deltaY]),
+      };
+    }
+
     if (shape.type === 'rect') {
       return {
         ...shape,
@@ -845,6 +974,38 @@ export class SceneDraftService {
       ...shape,
       points: shape.points.map((point): ScenePoint => [point[0] + shiftX, point[1] + shiftY]),
     };
+  }
+
+  /** Коробка фигуры в единицах сцены. */
+  private shapeBox(shape: SceneShape): { minX: number; minY: number; maxX: number; maxY: number } {
+    if (shape.type === 'rect') {
+      return { minX: shape.x, minY: shape.y, maxX: shape.x + shape.w, maxY: shape.y + shape.h };
+    }
+
+    if (shape.type === 'circle') {
+      return { minX: shape.cx - shape.r, minY: shape.cy - shape.r, maxX: shape.cx + shape.r, maxY: shape.cy + shape.r };
+    }
+
+    if (shape.type === 'point') {
+      return { minX: shape.x, minY: shape.y, maxX: shape.x, maxY: shape.y };
+    }
+
+    const xs = shape.points.map((point) => point[0]);
+    const ys = shape.points.map((point) => point[1]);
+
+    return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+  }
+
+  /** Замкнутая ломаная: последняя точка совпадает с первой. */
+  private isClosedPoints(points: readonly ScenePoint[]): boolean {
+    if (points.length < 3) {
+      return false;
+    }
+
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    return first[0] === last[0] && first[1] === last[1];
   }
 
   /** Сжимает значение в диапазон с округлением. */

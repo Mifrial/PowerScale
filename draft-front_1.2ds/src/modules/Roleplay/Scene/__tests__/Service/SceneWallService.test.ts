@@ -250,4 +250,108 @@ describe('SceneWallService', () => {
 
     expect(snapped).toEqual([64, 32]);
   });
+
+  it('притягивает к телу стены, а не только к её концам', () => {
+    const snapped = service.snapPoint(
+      [
+        wall([
+          [0, 100],
+          [400, 100],
+        ]),
+      ],
+      1,
+      [200, 108],
+      10,
+      32,
+    );
+
+    expect(snapped).toEqual([200, 100]);
+  });
+
+  it('сваривает близкие вершины в общий узел', () => {
+    const first = element(1, 'obstacle', {
+      type: 'wall',
+      points: [
+        [0, 0],
+        [200, 0],
+      ],
+      width: 8,
+    });
+    const second = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [201, 1],
+        [200, 200],
+      ],
+      width: 8,
+    });
+
+    service.weld([first, second], 1, 2);
+
+    expect(second.shape.type === 'wall' ? second.shape.points[0] : null).toEqual([200, 0]);
+  });
+
+  it('вставляет T-стык в тело стены, не меняя её длину', () => {
+    const host = element(1, 'obstacle', {
+      type: 'wall',
+      points: [
+        [0, 0],
+        [400, 0],
+      ],
+      width: 8,
+    });
+    const branch = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [200, 0],
+        [200, 200],
+      ],
+      width: 8,
+    });
+
+    const affected = service.weld([host, branch], 1, 1);
+
+    expect(affected).toContain(host.id);
+    expect(host.shape.type === 'wall' ? host.shape.points : []).toEqual([
+      [0, 0],
+      [200, 0],
+      [400, 0],
+    ]);
+    expect(service.length(host)).toBe(400);
+  });
+
+  it('возвращает стыки углов и шов кольца', () => {
+    const corner = element(1, 'obstacle', {
+      type: 'wall',
+      points: [
+        [0, 0],
+        [100, 0],
+      ],
+      width: 8,
+    });
+    const side = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [100, 0],
+        [100, 100],
+      ],
+      width: 8,
+    });
+    const ring = element(3, 'obstacle', {
+      type: 'wall',
+      points: [
+        [200, 0],
+        [300, 0],
+        [300, 100],
+        [200, 0],
+      ],
+      width: 8,
+    });
+
+    const joints = service.joints([corner, side, ring], 1);
+
+    expect(joints).toContainEqual({ point: [100, 0], width: 8 });
+    expect(joints).toContainEqual({ point: [200, 0], width: 8 });
+    expect(joints.some((joint) => joint.point[0] === 0 && joint.point[1] === 0)).toBe(false);
+  });
 });

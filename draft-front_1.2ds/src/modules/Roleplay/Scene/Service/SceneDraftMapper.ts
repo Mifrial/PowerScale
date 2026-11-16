@@ -33,6 +33,11 @@ export class SceneDraftMapper {
     // Привязки проёма к стене в снимке нет: она редакторская. Восстанавливаем
     // её по геометрии, иначе после перезагрузки проём перестал бы ехать за
     // стеной.
+    const weldTolerance = Math.max(1, Math.round(detail.resolution / 64));
+    for (const boardId of new Set(elements.map((element) => element.boardId))) {
+      sceneWallService.weld(elements, boardId, weldTolerance);
+    }
+
     sceneWallService.attachAll(elements);
 
     return {

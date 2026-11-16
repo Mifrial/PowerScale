@@ -503,4 +503,81 @@ describe('SceneDraftService', () => {
       { in: [-50, 0], out: [0, 0] },
     ]);
   });
+
+  it('прижимает сдвиг группы по самому тесному элементу', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    service.addElement(state, 10, 'obstacle', { type: 'rect', x: 800, y: 0, w: 100, h: 100 }, {});
+    service.addElement(state, 10, 'obstacle', { type: 'rect', x: 100, y: 0, w: 100, h: 100 }, {});
+
+    const ids = state.elements.map((element) => element.id);
+
+    expect(service.groupDelta(state, ids, 150, 0)).toEqual([100, 0]);
+    expect(service.groupDelta(state, ids, -150, 0)).toEqual([-100, 0]);
+  });
+
+  it('двигает общий узел стены вместе с соседней стеной', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const first = service.addElement(
+      state,
+      10,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [100, 100],
+          [300, 100],
+        ],
+        width: 8,
+      },
+      {},
+    );
+    const second = service.addElement(
+      state,
+      10,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [300, 100],
+          [300, 300],
+        ],
+        width: 8,
+      },
+      {},
+    );
+
+    service.setVertexShared(state, first.id, 1, [350, 150]);
+
+    expect(second.shape.type === 'wall' ? second.shape.points[0] : null).toEqual([350, 150]);
+  });
+
+  it('двигает шов замкнутого кольца как одну вершину', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const ring = service.addElement(
+      state,
+      10,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [100, 100],
+          [300, 100],
+          [300, 300],
+          [100, 300],
+          [100, 100],
+        ],
+        width: 8,
+      },
+      {},
+    );
+
+    service.setVertexShared(state, ring.id, 0, [50, 50]);
+
+    if (ring.shape.type !== 'wall') return;
+    expect(ring.shape.points[0]).toEqual([50, 50]);
+    expect(ring.shape.points[ring.shape.points.length - 1]).toEqual([50, 50]);
+  });
 });

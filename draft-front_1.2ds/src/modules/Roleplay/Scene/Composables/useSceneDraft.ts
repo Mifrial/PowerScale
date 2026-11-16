@@ -299,6 +299,42 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
+  /** Меняет порядок отрисовки элемента в его слое. */
+  function setSortOrder(elementId: number, sortOrder: number): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      return;
+    }
+
+    element.sortOrder = Math.max(0, Math.round(sortOrder));
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Меняет размер прямоугольника, сохраняя его центр. */
+  function setRectSize(elementId: number, width: number, height: number): void {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'rect') {
+      return;
+    }
+
+    const board = draft.value.boards.find((item) => item.id === element.boardId);
+    if (board === undefined) {
+      return;
+    }
+
+    const w = Math.max(1, Math.min(board.boundWidth, Math.round(width)));
+    const h = Math.max(1, Math.min(board.boundHeight, Math.round(height)));
+    const cx = element.shape.x + element.shape.w / 2;
+    const cy = element.shape.y + element.shape.h / 2;
+    const x = Math.max(0, Math.min(board.boundWidth - w, Math.round(cx - w / 2)));
+    const y = Math.max(0, Math.min(board.boundHeight - h, Math.round(cy - h / 2)));
+
+    element.shape = { ...element.shape, x, y, w, h };
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
   /** Меняет подложку поля и её пиксельные размеры. */
   function setBackdrop(boardId: number, publicId: string | null, width: number | null, height: number | null): void {
     const board = draft.value.boards.find((item) => item.id === boardId);
@@ -351,6 +387,7 @@ export function useSceneDraft(initial: SceneDetail) {
         height: board.boundHeight,
       },
       tool.wallWidthIpari === undefined ? undefined : draft.value.resolution * tool.wallWidthIpari,
+      tool.wallMode,
     );
     if (shape === null) {
       return null;
@@ -456,7 +493,7 @@ export function useSceneDraft(initial: SceneDetail) {
       Math.min(board.boundWidth, Math.max(0, Math.round(point[0]))),
       Math.min(board.boundHeight, Math.max(0, Math.round(point[1]))),
     ];
-    service.setVertex(draft.value, elementId, index, clamped);
+    service.setVertexShared(draft.value, elementId, index, clamped);
     draft.value.elements = [...draft.value.elements];
     markDirty();
   }
@@ -646,20 +683,63 @@ export function useSceneDraft(initial: SceneDetail) {
       return;
     }
 
-    for (const elementId of elementIds) {
-      service.moveElement(draft.value, elementId, deltaX, deltaY);
+    const ids = [...new Set(elementIds)];
+    const selected = new Set(ids);
+    const delta = service.groupDelta(draft.value, ids, deltaX, deltaY);
+    if (delta[0] === 0 && delta[1] === 0) {
+      return;
+    }
+
+    // Вершины выбранных стен до сдвига: по ним находим общие узлы у соседних
+    // стен. Соседняя стена не выделена, но её узел должен поехать вместе с
+    // узлом выбранной — иначе сеть рвётся.
+    const moved = new Set<string>();
+    for (const element of draft.value.elements) {
+      if (!selected.has(element.id) || !sceneWallService.isWall(element) || element.shape.type !== 'wall') {
+        continue;
+      }
+
+      for (const point of element.shape.points) {
+        moved.add(`${element.boardId}:${point[0]},${point[1]}`);
+      }
+    }
+
+    for (const elementId of ids) {
+      service.moveElement(draft.value, elementId, delta[0], delta[1], false);
+    }
+
+    for (const element of draft.value.elements) {
+      if (selected.has(element.id) || element.shape.type !== 'wall') {
+        continue;
+      }
+
+      let changed = false;
+      const points = element.shape.points.map((point): ScenePoint => {
+        if (moved.has(`${element.boardId}:${point[0]},${point[1]}`)) {
+          changed = true;
+
+          return [point[0] + delta[0], point[1] + delta[1]];
+        }
+
+        return point;
+      });
+
+      if (changed) {
+        element.shape = { ...element.shape, points };
+        sceneWallService.sync(draft.value.elements, element.id);
+      }
     }
 
     // Стена тянет за собой вставленные проёмы, а перетащенный проём заново
     // привязывается к ближайшей стене.
-    for (const elementId of elementIds) {
+    for (const elementId of ids) {
       const element = draft.value.elements.find((item) => item.id === elementId);
       if (element !== undefined && sceneWallService.isWall(element)) {
         sceneWallService.sync(draft.value.elements, elementId);
       }
     }
 
-    for (const elementId of elementIds) {
+    for (const elementId of ids) {
       const element = draft.value.elements.find((item) => item.id === elementId);
       if (element === undefined || !sceneWallService.isOpening(element)) {
         continue;
@@ -684,6 +764,22 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
   }
 
+  /** Сваривает стены активного поля: близкие вершины и T-стыки. */
+  function weldWalls(): void {
+    const boardId = draft.value.activeBoardId;
+    if (boardId === null) {
+      return;
+    }
+
+    const affected = sceneWallService.weld(draft.value.elements, boardId, 1);
+    if (affected.length === 0) {
+      return;
+    }
+
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
   /** Удаляет выделенные элементы. */
   function removeSelected(): void {
     for (const elementId of selection.value) {
@@ -698,11 +794,39 @@ export function useSceneDraft(initial: SceneDetail) {
   /** Дублирует выделение; копии становятся новым выделением. */
   function duplicateSelected(): void {
     const offset = Math.max(1, Math.round(draft.value.resolution / 4));
-    const copies = selection.value
-      .map((elementId) => service.duplicateElement(draft.value, elementId, offset))
-      .filter((element): element is NonNullable<typeof element> => element !== null);
+    const copies: NonNullable<ReturnType<typeof service.duplicateElement>>[] = [];
+    const idMap = new Map<number, number>();
+    for (const elementId of selection.value) {
+      const copy = service.duplicateElement(draft.value, elementId, offset);
+      if (copy !== null) {
+        idMap.set(elementId, copy.id);
+        copies.push(copy);
+      }
+    }
+
     if (copies.length === 0) {
       return;
+    }
+
+    // Проём копии должен ехать за копией стены, а не за оригиналом.
+    for (const copy of copies) {
+      if (!sceneWallService.isOpening(copy) || copy.props.wallId === undefined) {
+        continue;
+      }
+
+      const mapped = idMap.get(copy.props.wallId);
+      if (mapped === undefined) {
+        delete copy.props.wallId;
+        delete copy.props.offset;
+      } else {
+        copy.props.wallId = mapped;
+      }
+    }
+
+    for (const copy of copies) {
+      if (sceneWallService.isWall(copy)) {
+        sceneWallService.sync(draft.value.elements, copy.id);
+      }
     }
 
     draft.value.elements = [...draft.value.elements];
@@ -786,6 +910,8 @@ export function useSceneDraft(initial: SceneDetail) {
     setBackdrop,
     fillTerrain,
     stretchTerrain,
+    setSortOrder,
+    setRectSize,
     createElement,
     createFromDrag,
     createPath,
@@ -810,6 +936,7 @@ export function useSceneDraft(initial: SceneDetail) {
     smoothShape,
     cornerShape,
     moveElements,
+    weldWalls,
     removeSelected,
     select,
     snapshot,

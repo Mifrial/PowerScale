@@ -15,10 +15,12 @@ import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.
 import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
 import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
+import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
@@ -30,6 +32,7 @@ import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Sce
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
+import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { useSceneDraft } from '@/modules/Roleplay/Scene/Composables/useSceneDraft';
 import { useSceneFullscreen } from '@/modules/Roleplay/Scene/Composables/useSceneFullscreen';
@@ -39,6 +42,8 @@ import { getAssetApi } from '@/modules/Library/Asset/init';
 import { SceneApiError } from '@/modules/Roleplay/Scene/Service/SceneApiError';
 import { SceneDraftMapper } from '@/modules/Roleplay/Scene/Service/SceneDraftMapper';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
+import { sceneWallGraphService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallGraphService';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneRampAttachment, type SceneDeckEnd } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
 import {
   sceneFootprintLocalPoint,
@@ -165,6 +170,114 @@ const canRedo = state.canRedo;
 const pathWidth = computed(() =>
   Math.max(1, Math.round(draft.value.resolution * (toolDefinition.value.widthIpari ?? 4))),
 );
+const wallWidth = computed(() =>
+  Math.max(1, Math.round(draft.value.resolution * (toolDefinition.value.wallWidthIpari ?? SCENE_WALL.thicknessIpari))),
+);
+const toolHint = computed<string | null>(() => {
+  if (tool.value === 'wall') {
+    return 'Клик — точка, Enter — конец, клик по первой точке — замкнуть';
+  }
+
+  if (tool.value === 'wall-ring') {
+    return 'Протяжка от центра к радиусу';
+  }
+
+  if (tool.value === 'room') {
+    return 'Клик внутри замкнутого контура выбирает комнату';
+  }
+
+  if (tool.value === 'select') {
+    return 'Alt+клик по стене — всё строение';
+  }
+
+  return null;
+});
+const rooms = computed<SceneRoom[]>(() => {
+  const board = activeBoard.value;
+  if (board === null) {
+    return [];
+  }
+
+  return sceneWallGraphService.rooms(draft.value.elements, board.id, {
+    x: 0,
+    y: 0,
+    width: board.boundWidth,
+    height: board.boundHeight,
+  });
+});
+const selectedRoom = computed<SceneRoom | null>(() => {
+  if (selection.value.length < 2) {
+    return null;
+  }
+
+  const wanted = new Set(selection.value);
+  for (const room of rooms.value) {
+    if (room.elementIds.length === wanted.size && room.elementIds.every((id) => wanted.has(id))) {
+      return room;
+    }
+  }
+
+  return null;
+});
+const selectedRoomFloor = computed(() => {
+  const room = selectedRoom.value;
+  if (room === null) {
+    return null;
+  }
+
+  // Свой пол комнаты — тот, что по площади ближе всего к грани. Пол соседней
+  // комнаты или дома внутри двора заметно меньше или больше и не подходит.
+  let best: SceneDraftElement | null = null;
+  let bestDiff = Infinity;
+  for (const elementId of room.floorIds) {
+    const element = draft.value.elements.find((item) => item.id === elementId);
+    if (element === undefined) {
+      continue;
+    }
+
+    const diff = Math.abs(shapeArea(element.shape) - room.area);
+    if (diff < bestDiff && diff <= room.area * 0.15) {
+      best = element;
+      bestDiff = diff;
+    }
+  }
+
+  return best;
+});
+const roomFloorKind = computed({
+  get: () => selectedRoomFloor.value?.props.kind ?? 'dirt',
+  set: (kind: string) => setRoomFloor(kind),
+});
+const roomAreaText = computed(() => {
+  const room = selectedRoom.value;
+  if (room === null) {
+    return '';
+  }
+
+  return `${(room.area / (draft.value.resolution * draft.value.resolution)).toFixed(1)} ипари²`;
+});
+const roomOverWater = computed(() => {
+  const room = selectedRoom.value;
+  if (room === null) {
+    return false;
+  }
+
+  let x = 0;
+  let y = 0;
+  for (const point of room.points) {
+    x += point[0];
+    y += point[1];
+  }
+
+  const centroid: ScenePoint = [x / room.points.length, y / room.points.length];
+
+  return draft.value.elements.some(
+    (element) =>
+      element.kind === 'terrain' &&
+      element.props.overWater === true &&
+      sceneGeometryService.contains(element.shape, centroid, 0),
+  );
+});
 const elementTitle = computed(() =>
   selectedElement.value === null ? 'Элемент' : `Элемент · ${SCENE_ELEMENT_KIND_LABELS[selectedElement.value.kind]}`,
 );
@@ -294,7 +407,13 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
   }
 
   if (definition.kind === 'obstacle' && definition.shapeType === 'wall') {
-    state.createFromDrag(definition, snapWallPoint(from), snapWallPoint(to), presetExtra(definition));
+    if (definition.wallMode === 'ring') {
+      state.createFromDrag(definition, from, to, presetExtra(definition));
+    } else {
+      state.createFromDrag(definition, snapWallPoint(from), snapWallPoint(to), presetExtra(definition));
+    }
+
+    state.weldWalls();
 
     return;
   }
@@ -356,6 +475,21 @@ function onShape(shape: SceneShape): void {
 
   const definition = toolDefinition.value;
   if (definition === null) return;
+  if (definition.kind === 'obstacle' && definition.shapeType === 'wall' && shape.type === 'wall') {
+    const points = shape.points.map((point) => snapWallPoint(point));
+    const clean = points.filter(
+      (point, index) => index === 0 || point[0] !== points[index - 1][0] || point[1] !== points[index - 1][1],
+    );
+    if (clean.length < 2) {
+      return;
+    }
+
+    state.createElement(definition, { ...shape, points: clean }, presetExtra(definition));
+    state.weldWalls();
+
+    return;
+  }
+
   state.createElement(definition, shape, presetExtra(definition));
 }
 
@@ -683,6 +817,7 @@ function beginEdit(): void {
 
 /** Конец перетаскивания. */
 function endEdit(): void {
+  state.weldWalls();
   state.endEdit();
 }
 
@@ -698,6 +833,18 @@ function redo(): void {
 function setWidthAll(width: number): void {
   if (selectedElement.value === null) return;
   state.setPathWidthAll(selectedElement.value.id, width);
+}
+
+/** Размер прямоугольника из карточки: мост, настил, террейн. */
+function setRectSize(width: number, height: number): void {
+  if (selectedElement.value === null) return;
+  state.setRectSize(selectedElement.value.id, width, height);
+}
+
+/** Кнопка «Всё строение» у выбранной стены. */
+function selectBuilding(): void {
+  if (selectedElement.value === null) return;
+  onBuilding(selectedElement.value.id);
 }
 
 /** Вставляет дверь или окно в середину выбранной стены. */
@@ -766,6 +913,114 @@ function onMove(delta: ScenePoint): void {
 function onSelection(ids: number[]): void {
   outlineTarget.value = null;
   state.select(ids);
+}
+
+/** Комната выбрана инструментом: в набор входят стены, пол и содержимое. */
+function onRoom(ids: number[]): void {
+  outlineTarget.value = null;
+  state.select(ids);
+  openPanels.value = ids.length > 1 ? ['multi'] : ['element'];
+}
+
+/** Строение: связная сеть стен и всё внутри внешнего контура. */
+function onBuilding(wallId: number): void {
+  const board = activeBoard.value;
+  if (board === null) {
+    return;
+  }
+
+  const ids = sceneWallGraphService.building(draft.value.elements, board.id, wallId, {
+    x: 0,
+    y: 0,
+    width: board.boundWidth,
+    height: board.boundHeight,
+  });
+  if (ids.length === 0) {
+    return;
+  }
+
+  outlineTarget.value = null;
+  state.select(ids);
+  openPanels.value = ids.length > 1 ? ['multi'] : ['element'];
+}
+
+/** Площадь фигуры в единицах сцены²: для пола достаточно rect/circle/polygon. */
+function shapeArea(shape: SceneShape): number {
+  if (shape.type === 'rect') {
+    return shape.w * shape.h;
+  }
+
+  if (shape.type === 'circle') {
+    return Math.PI * shape.r * shape.r;
+  }
+
+  if (shape.type !== 'polygon') {
+    return 0;
+  }
+
+  let area = 0;
+  for (let index = 0; index < shape.points.length; index += 1) {
+    const current = shape.points[index];
+    const next = shape.points[(index + 1) % shape.points.length];
+    area += current[0] * next[1] - next[0] * current[1];
+  }
+
+  return Math.abs(area) / 2;
+}
+
+/** Ставит пол комнаты: у существующего меняет тип, иначе создаёт полигон. */
+function setRoomFloor(kind: string): void {
+  const room = selectedRoom.value;
+  if (room === null) {
+    return;
+  }
+
+  const floor = selectedRoomFloor.value;
+  if (floor !== null) {
+    state.updateElementProps(floor.id, { ...floor.props, kind });
+
+    return;
+  }
+
+  const definition = SCENE_TOOLS.find((item) => item.id === 'terrain-polygon');
+  if (definition === undefined) {
+    return;
+  }
+
+  const id = state.createElement(
+    definition,
+    { type: 'polygon', points: room.points },
+    { ...(presetExtra(definition) ?? {}), kind, overWater: roomOverWater.value },
+  );
+  if (id === null) {
+    return;
+  }
+
+  // Новый пол ложится под уже существующие полы внутри грани, иначе поверх
+  // базы. Так пол двора не перекрывает пол дома, стоящего во дворе.
+  const existing = draft.value.elements.filter((element) => room.floorIds.includes(element.id));
+  if (existing.length > 0) {
+    state.setSortOrder(id, Math.max(0, Math.min(...existing.map((element) => element.sortOrder)) - 1));
+  }
+
+  state.select([...room.elementIds, id]);
+}
+
+/** Подгоняет пол комнаты под текущий контур стен. */
+function fitRoomFloor(): void {
+  const room = selectedRoom.value;
+  if (room === null) {
+    return;
+  }
+
+  const floor = selectedRoomFloor.value;
+  if (floor === null) {
+    setRoomFloor(roomFloorKind.value);
+
+    return;
+  }
+
+  state.updateElementShape(floor.id, { type: 'polygon', points: room.points });
 }
 
 function addBoard(): void {
@@ -1027,6 +1282,7 @@ function messageOf(exception: unknown): string {
       @undo="undo"
       @redo="redo"
     />
+    <div v-if="!preview && toolHint !== null" class="text-caption text-medium-emphasis mt-1">{{ toolHint }}</div>
 
     <SceneBoardTabs
       :model-value="draft.activeBoardId"
@@ -1044,6 +1300,8 @@ function messageOf(exception: unknown): string {
           :board="activeViewBoard"
           :tool="tool"
           :path-width="pathWidth"
+          :wall-width="wallWidth"
+          :rooms="rooms"
           :water-animation="waterAnimation"
           :interactive="!preview"
           :overlay="overlay"
@@ -1066,6 +1324,8 @@ function messageOf(exception: unknown): string {
           @edit-end="endEdit"
           @move="onMove"
           @selection="onSelection"
+          @room="onRoom"
+          @building="onBuilding"
           @viewport="onViewport"
         />
         <SceneOverlayControls v-if="preview" v-model:costs="overlayCosts" v-model:visibility="overlayVisibility" />
@@ -1221,7 +1481,9 @@ function messageOf(exception: unknown): string {
                 @asset="updateElementAsset"
                 @stretch="stretchTerrain"
                 @width-all="setWidthAll"
+                @size="setRectSize"
                 @insert-opening="insertWallOpening"
+                @building="selectBuilding"
                 @smooth="smoothShape"
                 @corner="cornerShape"
                 @attach-ramp="attachRamp"
@@ -1240,6 +1502,40 @@ function messageOf(exception: unknown): string {
             <v-expansion-panel-title class="text-subtitle-2">Элементы</v-expansion-panel-title>
             <v-expansion-panel-text>
               <div class="text-body-2">Выбрано элементов: {{ selection.length }}</div>
+              <template v-if="selectedRoom !== null">
+                <div class="text-body-2 mt-2">Комната: {{ roomAreaText }}</div>
+                <v-select
+                  v-model="roomFloorKind"
+                  :items="SCENE_TERRAIN_KIND_OPTIONS"
+                  label="Пол комнаты"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  class="mt-2"
+                />
+                <v-btn
+                  v-if="selectedRoomFloor === null"
+                  variant="tonal"
+                  size="small"
+                  prepend-icon="mdi-floor-plan"
+                  block
+                  class="mt-2"
+                  @click="setRoomFloor(roomFloorKind)"
+                >
+                  Установить пол
+                </v-btn>
+                <v-btn
+                  v-else
+                  variant="tonal"
+                  size="small"
+                  prepend-icon="mdi-floor-plan"
+                  block
+                  class="mt-2"
+                  @click="fitRoomFloor"
+                >
+                  Подогнать пол под комнату
+                </v-btn>
+              </template>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>

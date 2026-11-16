@@ -142,6 +142,22 @@ export class SceneShapePainter {
   }
 
   /**
+   * Уголок стыка.
+   *
+   * Две отдельные ленты встречаются прямоугольными торцами и оставляют
+   * квадратную щель на внешнем углу. Квадрат по толщине закрывает её и
+   * совпадает с рёбрами стен на прямом угле.
+   */
+  paintWallJoint(point: ScenePoint, width: number, _zoom: number): Graphics {
+    const graphics = new Graphics();
+    const size = Math.max(1, width);
+    graphics.rect(point[0] - size / 2, point[1] - size / 2, size, size);
+    graphics.fill({ color: WALL_FILL, alpha: 0.95 });
+
+    return graphics;
+  }
+
+  /**
    * Проём: рама и полотно двери или окно с подоконником.
    *
    * Проём стоит на вырезанном участке стены. Дверь закрыта — полотно лежит

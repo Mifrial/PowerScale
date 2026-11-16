@@ -740,6 +740,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
     }
 
+    this.drawWallJoints(elements, board.id);
+
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution);
     this.drawOverlay();
     this.drawRoute();
@@ -1496,6 +1498,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
     layer.addChild(this.painter.paintElement(element, this.zoom()));
   }
 
+  /** Уголки стыков: закрывают щели между отдельными лентами стен. */
+  private drawWallJoints(elements: readonly SceneElement[], boardId: number): void {
+    const layer = this.layers.obstacles;
+    if (layer === undefined) {
+      return;
+    }
+
+    for (const joint of sceneWallService.joints(elements, boardId)) {
+      layer.addChild(this.painter.paintWallJoint(joint.point, joint.width, this.zoom()));
+    }
+  }
+
   /** Декор-спрайт; без ассета — прежний маркер. */
   /**
    * Погружение объекта в воду по его нижней точке.
@@ -1632,7 +1646,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         }
       }
 
-      if (element.shape.type === 'polygon' || element.shape.type === 'path') {
+      if (element.shape.type === 'polygon' || element.shape.type === 'path' || element.shape.type === 'wall') {
         this.drawVertices(layer, element.shape, element.id, 'shape');
       }
     }
@@ -1679,7 +1693,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   /** Вершины выделенной фигуры и ручки активной вершины. */
   private drawVertices(layer: Container, shape: SceneShape, elementId: number, part: SceneVertexPart = 'shape'): void {
-    if (shape.type !== 'polygon' && shape.type !== 'path') {
+    if (shape.type !== 'polygon' && shape.type !== 'path' && shape.type !== 'wall') {
       return;
     }
 
@@ -1699,7 +1713,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     layer.addChild(vertices);
-    if (!focused || focus === null || focus.index >= shape.points.length) {
+    if (shape.type === 'wall' || !focused || focus === null || focus.index >= shape.points.length) {
       return;
     }
 

@@ -18,6 +18,7 @@ export class SceneToolShape {
     to: ScenePoint,
     bounds: SceneBounds,
     wallWidth?: number,
+    wallMode: 'line' | 'ring' = 'line',
   ): SceneShape | null {
     if (shapeType === 'polygon' || shapeType === 'path') {
       return null;
@@ -57,6 +58,23 @@ export class SceneToolShape {
       };
     }
 
+    if (wallMode === 'ring') {
+      const requestedRadius = Math.round(Math.hypot(endX - startX, endY - startY));
+      const radius = Math.min(requestedRadius, Math.floor(Math.min(bounds.width, bounds.height) / 2));
+      if (radius < 2) {
+        return null;
+      }
+
+      const cx = this.clamp(startX, radius, bounds.width - radius);
+      const cy = this.clamp(startY, radius, bounds.height - radius);
+
+      return {
+        type: 'wall',
+        points: this.ringPoints(cx, cy, radius, bounds),
+        width: Math.max(1, Math.round(wallWidth ?? DEFAULT_WALL_WIDTH)),
+      };
+    }
+
     if (startX === endX && startY === endY) {
       return null;
     }
@@ -69,6 +87,30 @@ export class SceneToolShape {
       ],
       width: Math.max(1, Math.round(wallWidth ?? DEFAULT_WALL_WIDTH)),
     };
+  }
+
+  /**
+   * Замкнутое кольцо стеной-лентой.
+   *
+   * Число точек выбирается по радиусу: отклонение хорды от окружности не
+   * больше двух единиц сцены. При радиусе 5 ипари это 24–28 точек — на поле
+   * 80×80 кольцо читается как круглое, а данные остаются целыми.
+   */
+  private ringPoints(cx: number, cy: number, radius: number, bounds: SceneBounds): ScenePoint[] {
+    const step = Math.acos(Math.max(-1, Math.min(1, 1 - 2 / radius)));
+    const count = Math.max(12, Math.min(48, Math.ceil(Math.PI / step)));
+    const points: ScenePoint[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const angle = (Math.PI * 2 * index) / count;
+      points.push([
+        this.clamp(cx + radius * Math.cos(angle), 0, bounds.width),
+        this.clamp(cy + radius * Math.sin(angle), 0, bounds.height),
+      ]);
+    }
+
+    points.push([points[0][0], points[0][1]]);
+
+    return points;
   }
 
   /** Сжимает значение в диапазон. */

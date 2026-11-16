@@ -14,6 +14,8 @@ export type SceneTool =
   | 'terrain-road'
   | 'terrain-trail'
   | 'wall'
+  | 'wall-ring'
+  | 'room'
   | 'opening'
   | 'opening-window'
   | 'decor'
