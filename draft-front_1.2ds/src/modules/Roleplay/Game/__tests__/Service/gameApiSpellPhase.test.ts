@@ -154,6 +154,87 @@ describe('GameApi spell phases', () => {
     expect(gamePhpBattleContext.battleVersion).toBe(8);
   });
 
+  it('прыжок цепи отправляет цель и запоминает версию листа', async () => {
+    runAction.mockResolvedValue({
+      success: true,
+      data: {
+        kind: 'spell',
+        phase: 'chain',
+        battleId: 9,
+        castId: 'cast-1',
+        version: 9,
+        broke: false,
+        hop: {
+          target: { type: 'npc', id: 2 },
+          damage: { base: 5, size: 0 },
+          injury: { base: 3, size: 0 },
+          sheetVersion: 4,
+        },
+        chain: {
+          castId: 'cast-1',
+          ruleCode: 'chain-lightning',
+          spellCode: 'lightning-strike',
+          damageTypeCode: 'electricity',
+          amount: { base: 5, size: 0 },
+          min: { base: 3, size: -1 },
+          damageSizePerHop: 1,
+          sameTarget: 'via_other',
+          retarget: 'from_last_hit',
+          spellSr: 2,
+          lastKey: 'npc:2',
+          hit: ['npc:1', 'npc:2'],
+        },
+      },
+    });
+
+    const result = await api.chainSpellHop({
+      gameId: 1,
+      battleId: 9,
+      expectedVersion: 8,
+      castId: 'cast-1',
+      target: { type: 'npc', id: 2, distanceIpari: 1 },
+    });
+
+    expect(runAction.mock.calls[0]?.[1]).toMatchObject({
+      action: {
+        phase: 'chain',
+        kind: 'spell',
+        context: {
+          castId: 'cast-1',
+          chainTarget: { type: 'npc', id: 2, distanceIpari: 1 },
+        },
+      },
+    });
+    expect(result.chain?.amount).toEqual({ base: 5, size: 0 });
+    expect(gamePhpBattleContext.battleVersion).toBe(9);
+    expect(gamePhpBattleContext.sheetVersionByKey['npc:2']).toBe(4);
+  });
+
+  it('остановка цепи идёт фазой chainStop', async () => {
+    runAction.mockResolvedValue({
+      success: true,
+      data: {
+        kind: 'spell',
+        phase: 'chainStop',
+        battleId: 9,
+        castId: 'cast-1',
+        version: 10,
+      },
+    });
+
+    await api.stopSpellChain({
+      gameId: 1,
+      battleId: 9,
+      expectedVersion: 9,
+      castId: 'cast-1',
+    });
+
+    expect(runAction.mock.calls[0]?.[1]).toMatchObject({
+      action: { phase: 'chainStop', kind: 'spell', context: { castId: 'cast-1' } },
+    });
+    expect(gamePhpBattleContext.battleVersion).toBe(10);
+  });
+
   it('abort обновляет версию и очищает отложенный каст', async () => {
     gamePhpBattleContext.rememberPendingSpellCast({
       castId: 'cast-1',

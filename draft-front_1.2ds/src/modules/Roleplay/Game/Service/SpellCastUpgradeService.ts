@@ -100,9 +100,9 @@ export class SpellCastUpgradeService {
     );
   }
 
-  /** Runtime M2 исполняет скалярные примитивы и не умеет цепь и заряды. */
+  /** Runtime исполняет скалярные примитивы и цепь; заряды пока не умеет. */
   isRuntimeSupported(option: SpellCastUpgradeOption): boolean {
-    return !option.upgrade.chain && !option.upgrade.charge_cap;
+    return !option.upgrade.charge_cap;
   }
 
   /** Запрос улучшений: value уходит только для улучшения с шагами пробития. */

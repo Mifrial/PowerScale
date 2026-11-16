@@ -78,6 +78,7 @@ import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePh
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
+import type { GamePhpSpellChainResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
@@ -1383,6 +1384,67 @@ export class GameApi implements IGameApi {
     return result;
   }
 
+  /** Прыжок цепи к следующей цели. */
+  async chainSpellHop(
+    body: {
+      gameId: number;
+      battleId: number;
+      expectedVersion: number;
+      castId: string;
+      target: { type: 'character' | 'npc'; id: number; distanceIpari: number };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellChainResult> {
+    const result = await this.requireData<GamePhpSpellChainResult>(
+      'game.runAction',
+      {
+        gameId: body.gameId,
+        battleId: body.battleId,
+        idempotencyKey: createRandomId(),
+        expectedVersion: body.expectedVersion,
+        action: {
+          phase: 'chain',
+          kind: 'spell',
+          context: { castId: body.castId, chainTarget: body.target },
+        },
+      },
+      signal,
+    );
+    this.rememberChainResult(result);
+
+    return result;
+  }
+
+  /** Останавливает цепь без следующей цели. */
+  async stopSpellChain(
+    body: {
+      gameId: number;
+      battleId: number;
+      expectedVersion: number;
+      castId: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellChainResult> {
+    const result = await this.requireData<GamePhpSpellChainResult>(
+      'game.runAction',
+      {
+        gameId: body.gameId,
+        battleId: body.battleId,
+        idempotencyKey: createRandomId(),
+        expectedVersion: body.expectedVersion,
+        action: {
+          phase: 'chainStop',
+          kind: 'spell',
+          context: { castId: body.castId },
+        },
+      },
+      signal,
+    );
+    this.rememberChainResult(result);
+
+    return result;
+  }
+
   /** Прерывает отложенный каст без трат. */
   async abortSpellCast(
     body: {
@@ -1812,8 +1874,22 @@ export class GameApi implements IGameApi {
     if (typeof row.spellCode !== 'string' || typeof row.pathCode !== 'string') return null;
     if (typeof row.touch !== 'boolean') return null;
     if (row.actor === null || typeof row.actor !== 'object' || Array.isArray(row.actor)) return null;
+    if (row.phase === 'chain') return null;
 
     return value as GamePhpPendingSpellCast;
+  }
+
+  private rememberChainResult(result: GamePhpSpellChainResult): void {
+    if (result.battleId > 0 && typeof result.version === 'number') {
+      gamePhpBattleContext.rememberBattle(result.battleId, result.version);
+    }
+    const hop = result.hop;
+    if (hop) {
+      gamePhpBattleContext.rememberSheet(
+        `${hop.target.type}:${hop.target.id}`,
+        hop.sheetVersion,
+      );
+    }
   }
 
   private openStrikeOf(value: unknown): GamePhpOpenStrike | null {

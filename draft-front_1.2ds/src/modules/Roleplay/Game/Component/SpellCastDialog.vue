@@ -69,18 +69,17 @@ import SpellChainHopDialog from '@/modules/Roleplay/Game/Component/SpellChainHop
 import SpellArcaneBurstDialog from '@/modules/Roleplay/Game/Component/SpellArcaneBurstDialog.vue';
 import SpellBurstTargetPicker from '@/modules/Roleplay/Game/Component/SpellBurstTargetPicker.vue';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
-import { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/spellChainHopService';
 import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
 import { toBurstTargetRequest } from '@/modules/Roleplay/Game/Utils/spellBurstTargets';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { GamePhpSpellChain } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import {
   buildAttackCalcPayload,
   formatSpellCastBeginMessage,
   formatSpellCastCheckMessage,
   formatSpellCastOutcomeMessage,
-  formatChainBreakMessage,
   formatSpellEffectMessage,
   formatSustainBeginMessage,
 } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
@@ -1286,6 +1285,7 @@ async function runPhpCast(): Promise<void> {
   emit('overlay-changed');
   emit('settled');
   emit('update:open', false);
+  await runPhpChain(result.chain, result.castId ?? request.idempotencyKey, result.version ?? 0);
 }
 
 function participantOf(key: CombatEntityKey): { type: 'character' | 'npc'; id: number } {
@@ -1449,6 +1449,7 @@ async function resolvePhpCast(steps: number): Promise<void> {
     emit('overlay-changed');
     emit('settled');
     emit('update:open', false);
+    await runPhpChain(result.chain, pending.castId, result.version ?? gamePhpBattleContext.battleVersion);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Не удалось завершить сотворение';
   } finally {
@@ -1759,7 +1760,6 @@ async function resolveTargetedCast(
       if (chatId !== null) {
         await announceSpellApply(outcome, effectKey, chatId);
       }
-      await runChainHops(outcome, effectKey);
     }
   } finally {
     if (chatId !== null) {
@@ -2095,101 +2095,57 @@ function stopHop(): void {
   hopWait = null;
 }
 
-async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatEntityKey): Promise<void> {
-  const selected = spellCastUpgradeService.selectedOf(upgradeOptions.value, appliedUpgradeCodes.value);
-  const chainOption = selected.find((option) => option.upgrade.chain);
-  const chain = chainOption?.upgrade.chain;
-  if (!chain || !chainOption || !outcome.spellApply || outcome.spellApply.raw <= 0 || !outcome.spellDamage) {
-    return;
-  }
-  const spec = spellSpec.value;
-  const typeCode = spec?.spell.damage?.damage_type_code ?? null;
-  const sr = outcome.spellSr ?? 0;
-  const hopRuleCode = chainOption.ruleCode;
-  let lastKey = firstKey;
-  hopLastKey.value = lastKey;
-  const alreadyHit = [firstKey];
-  let lastAmount = outcome.spellDamage;
-  let lastRaw = outcome.spellApply.raw;
-  while (true) {
+async function runPhpChain(
+  chain: GamePhpSpellChain | null | undefined,
+  castId: string,
+  version: number,
+): Promise<void> {
+  let current = chain ?? null;
+  let currentVersion = version;
+  while (current) {
+    hopLastKey.value = current.lastKey as CombatEntityKey;
     const choice = await waitHopChoice();
     if (!choice) {
-      return;
-    }
-    if (
-      !spellChainHopService.canHop({
-        raw: lastRaw,
-        nextKey: choice.key,
-        lastKey,
-        alreadyHit,
-        sameTarget: chain.same_target,
-      })
-    ) {
-      hopOpen.value = true;
-      continue;
-    }
-    const nextAmount = spellChainHopService.nextAmount(
-      lastAmount,
-      chain,
-      choice.distanceIpari,
-      spec?.spell.damage?.falloff,
-    );
-    if (!nextAmount) {
-      if (props.chatId !== null) {
-        await sendChat(
-          formatChainBreakMessage({
-            spellRuleCode: hopRuleCode,
-            spellName: findRuleByRef(props.rules, hopRuleCode)?.name ?? hopRuleCode,
-            rules: props.rules,
-          }),
-          [],
-          props.chatId,
-          speaker(),
-        );
-      }
+      await stopPhpChain(castId, currentVersion);
 
       return;
     }
-    const applied = spellCastExecutionService.applySpellDamage(
-      nextAmount,
-      sr,
-      typeCode,
-      overviewOf(choice.key),
-      props.rules,
-      props.mechanics,
-    );
-    await persistDamage(choice.key, applied);
-    if (props.chatId !== null) {
-      await announceSpellApply(
-        { ...outcome, spellApply: applied, spellDamage: nextAmount },
-        choice.key,
-        props.chatId,
-        hopRuleCode,
-      );
+    const target = participantOf(choice.key);
+    try {
+      const result = await getGameApi().chainSpellHop({
+        gameId: props.gameId,
+        battleId: gamePhpBattleContext.battleId ?? 0,
+        expectedVersion: currentVersion,
+        castId,
+        target: { ...target, distanceIpari: choice.distanceIpari },
+      });
+      currentVersion = result.version;
+      emit('overlay-changed');
+      emit('settled');
+      current = result.broke ? null : (result.chain ?? null);
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Цель цепи недоступна';
     }
-    if (applied.raw <= 0) {
-      if (props.chatId !== null) {
-        await sendChat(
-          formatChainBreakMessage({
-            spellRuleCode: hopRuleCode,
-            spellName: findRuleByRef(props.rules, hopRuleCode)?.name ?? hopRuleCode,
-            rules: props.rules,
-          }),
-          [],
-          props.chatId,
-          speaker(),
-        );
-      }
-
-      return;
-    }
-    lastKey = choice.key;
-    hopLastKey.value = lastKey;
-    alreadyHit.push(choice.key);
-    lastAmount = nextAmount;
-    lastRaw = applied.raw;
   }
 }
+
+async function stopPhpChain(castId: string, version: number): Promise<void> {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) {
+    return;
+  }
+  try {
+    await getGameApi().stopSpellChain({
+      gameId: props.gameId,
+      battleId,
+      expectedVersion: version,
+      castId,
+    });
+  } catch {
+    // Цепь уже прервана локально: сервер снимет запись следующей командой.
+  }
+}
+
 </script>
 
 <template>

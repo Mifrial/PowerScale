@@ -236,12 +236,6 @@ export function formatSpellEffectMessage(input: {
   return `${spell} бьёт по ${defender} и наносит ${bits.join(' и ')}!`;
 }
 
-export function formatChainBreakMessage(input: { spellRuleCode: string; spellName: string; rules: Rule[] }): string {
-  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
-
-  return `${spell} обрывается.`;
-}
-
 export function formatSustainBeginMessage(input: {
   casterKey: CombatEntityKey;
   casterName: string;

@@ -220,10 +220,10 @@ describe('SpellCastUpgradeService', () => {
       spellCastUpgradeService
         .listRuntimeRecorded(['chain-lightning', 'careful-lightning'], 'lightning-strike', [spellUpgrade, chain])
         .map((item) => item.ruleCode),
-    ).toEqual(['careful-lightning']);
+    ).toEqual(['chain-lightning', 'careful-lightning']);
   });
 
-  it('real-фильтр убирает цепь и заряды по форме, а не по коду', () => {
+  it('real-фильтр убирает заряды по форме, а цепь пропускает', () => {
     const abilities = [
       { ruleCode: 'careful-magic', level: 1, domainCode: 'arcanist' },
       { ruleCode: 'chain-lightning', level: 1, domainCode: 'arcanist' },
@@ -234,7 +234,7 @@ describe('SpellCastUpgradeService', () => {
       spellCastUpgradeService
         .listRuntimeApplicable(abilities, 'arcanist', 'lightning-strike', [careful, chain, piercing])
         .map((item) => item.ruleCode),
-    ).toEqual(['careful-magic', 'piercing-magic']);
+    ).toEqual(['careful-magic', 'chain-lightning', 'piercing-magic']);
   });
 
   it('запрос отправляет value только для улучшения с шагами пробития', () => {

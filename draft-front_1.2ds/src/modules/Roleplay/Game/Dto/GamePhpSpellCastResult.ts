@@ -2,6 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 import type { GamePhpSpellDeviation } from '@/modules/Roleplay/Game/Dto/GamePhpSpellDeviation';
 import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
+import type { GamePhpSpellChain } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 
 /** Применённое сервером улучшение каста. */
 export interface GamePhpSpellCastAppliedUpgrade {
@@ -69,5 +70,7 @@ export interface GamePhpSpellCastResult {
   spellDamage: DimensionalNumberValue | null;
   injury: DimensionalNumberValue | null;
   consequence: Record<string, unknown>;
+  /** Продолжение цепи после попадания; null — цепь не открыта. */
+  chain?: GamePhpSpellChain | null;
   pendingSpellCast?: GamePhpPendingSpellCast | null;
 }
