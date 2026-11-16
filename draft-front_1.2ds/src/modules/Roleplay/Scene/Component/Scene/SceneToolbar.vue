@@ -19,6 +19,7 @@ const emit = defineEmits<{
 
 /** Подписи групп инструментов с общей кнопкой. */
 const GROUP_LABELS: Record<string, string> = {
+  select: 'Выбор',
   terrain: 'Террейн',
   opening: 'Проём',
   wall: 'Стена',
@@ -86,7 +87,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
             :title="`${entry.label}: ${groupTool(entry).variant ?? groupTool(entry).label}`"
             @click="emit('update:tool', groupTool(entry).id)"
           >
-            {{ entry.label }}
+            {{ groupTool(entry).variant ?? entry.label }}
           </v-btn>
           <v-menu location="bottom start">
             <template #activator="{ props: menuProps }">

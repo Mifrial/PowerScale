@@ -1618,17 +1618,26 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const selected = this.model.elements.filter(
       (element) => element.boardId === this.model?.activeBoardId && this.model?.selection.includes(element.id),
     );
+    // У группы рисуется общий габарит, а не ручки каждого элемента: иначе
+    // выделенный дом превращается в частокол вершин.
+    const group = selected.length > 1;
     for (const element of selected) {
       const graphics = new Graphics();
       this.painter.paint(
         graphics,
         element.shape,
         undefined,
-        { color: 0xfacc15, width: 3 / this.zoom(), alpha: 1 },
+        group
+          ? { color: 0xfacc15, width: 1.5 / this.zoom(), alpha: 0.45 }
+          : { color: 0xfacc15, width: 3 / this.zoom(), alpha: 1 },
         this.zoom(),
         sceneRotation(element),
       );
       layer.addChild(graphics);
+
+      if (group) {
+        continue;
+      }
 
       if (element.kind === 'decor' && element.shape.type === 'point') {
         this.drawDecorContours(layer, element, this.model.resolution);
@@ -1653,6 +1662,77 @@ export class PixiSceneRenderer implements ISceneRenderer {
       if (element.shape.type === 'rect') {
         this.drawRectHandles(layer, element);
       }
+    }
+
+    if (group) {
+      this.drawGroupBox(layer, selected);
+    }
+  }
+
+  /** Пунктирный габарит группы: видно, что поедет целиком. */
+  private drawGroupBox(layer: Container, elements: readonly SceneElement[]): void {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const element of elements) {
+      const box = sceneGeometryService.bounds(element.shape, sceneRotation(element));
+      minX = Math.min(minX, box.x);
+      minY = Math.min(minY, box.y);
+      maxX = Math.max(maxX, box.x + box.width);
+      maxY = Math.max(maxY, box.y + box.height);
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return;
+    }
+
+    const zoom = this.zoom();
+    const dash = 6 / zoom;
+    const gap = 4 / zoom;
+    const graphics = new Graphics();
+    const edges: [ScenePoint, ScenePoint][] = [
+      [
+        [minX, minY],
+        [maxX, minY],
+      ],
+      [
+        [maxX, minY],
+        [maxX, maxY],
+      ],
+      [
+        [maxX, maxY],
+        [minX, maxY],
+      ],
+      [
+        [minX, maxY],
+        [minX, minY],
+      ],
+    ];
+    for (const [from, to] of edges) {
+      this.dashLine(graphics, from, to, dash, gap);
+    }
+
+    graphics.stroke({ color: 0xfacc15, width: 1.5 / zoom, alpha: 0.9 });
+    layer.addChild(graphics);
+  }
+
+  /** Пунктир по отрезку: штрихи постоянной длины на экране. */
+  private dashLine(graphics: Graphics, from: ScenePoint, to: ScenePoint, dash: number, gap: number): void {
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    if (length <= 0) {
+      return;
+    }
+
+    const step = dash + gap;
+    const count = Math.max(1, Math.floor(length / step));
+    const unitX = (to[0] - from[0]) / length;
+    const unitY = (to[1] - from[1]) / length;
+    for (let index = 0; index < count; index += 1) {
+      const start = index * step;
+      const end = Math.min(length, start + dash);
+      graphics.moveTo(from[0] + unitX * start, from[1] + unitY * start);
+      graphics.lineTo(from[0] + unitX * end, from[1] + unitY * end);
     }
   }
 

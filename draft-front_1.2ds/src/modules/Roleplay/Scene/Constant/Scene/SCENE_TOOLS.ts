@@ -4,7 +4,16 @@ import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 
 /** Инструменты редактора локации. */
 export const SCENE_TOOLS: SceneToolDefinition[] = [
-  { id: 'select', label: 'Выбор', icon: 'mdi-cursor-default', kind: null, shapeType: null, props: {} },
+  {
+    id: 'select',
+    label: 'Выбор',
+    icon: 'mdi-cursor-default',
+    kind: null,
+    shapeType: null,
+    props: {},
+    group: 'select',
+    variant: 'Объект',
+  },
   {
     id: 'obstacle',
     label: 'Препятствие',
@@ -45,6 +54,18 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     kind: null,
     shapeType: null,
     props: {},
+    group: 'select',
+    variant: 'Комната',
+  },
+  {
+    id: 'building',
+    label: 'Строение',
+    icon: 'mdi-home-group',
+    kind: null,
+    shapeType: null,
+    props: {},
+    group: 'select',
+    variant: 'Строение',
   },
   {
     id: 'support',

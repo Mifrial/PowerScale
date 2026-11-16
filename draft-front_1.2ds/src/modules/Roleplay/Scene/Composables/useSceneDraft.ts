@@ -18,6 +18,7 @@ import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape'
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
+import { sceneWallGraphService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallGraphService';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import {
   sceneFootprintLocalOffset,
@@ -698,9 +699,34 @@ export function useSceneDraft(initial: SceneDetail) {
       return;
     }
 
-    const ids = [...new Set(elementIds)];
-    const selected = new Set(ids);
-    const delta = service.groupDelta(draft.value, ids, deltaX, deltaY);
+    // Пол, совпадающий с гранью, тянет грань целиком: пол комнаты — комнату,
+    // пол дома — всё строение. Иначе «взять дом за пол» оставлял бы стены на
+    // месте.
+    const ids = new Set(elementIds);
+    for (const elementId of elementIds) {
+      const element = draft.value.elements.find((item) => item.id === elementId);
+      if (element === undefined || element.kind !== 'terrain') {
+        continue;
+      }
+
+      const bounds = service.boardBounds(draft.value, element.boardId);
+      if (bounds === null) {
+        continue;
+      }
+
+      for (const id of sceneWallGraphService.buildingOfTerrain(
+        draft.value.elements,
+        element.boardId,
+        element.id,
+        bounds,
+      )) {
+        ids.add(id);
+      }
+    }
+
+    const movedIds = [...ids];
+    const selected = new Set(movedIds);
+    const delta = service.groupDelta(draft.value, movedIds, deltaX, deltaY);
     if (delta[0] === 0 && delta[1] === 0) {
       return;
     }
@@ -719,7 +745,7 @@ export function useSceneDraft(initial: SceneDetail) {
       }
     }
 
-    for (const elementId of ids) {
+    for (const elementId of movedIds) {
       service.moveElement(draft.value, elementId, delta[0], delta[1], false);
     }
 

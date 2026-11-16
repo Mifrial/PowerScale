@@ -14,6 +14,7 @@ import SceneObjectPalette from '@/modules/Roleplay/Scene/Component/Scene/SceneOb
 import SceneToolbar from '@/modules/Roleplay/Scene/Component/Scene/SceneToolbar.vue';
 import type { AssetItem } from '@/modules/Library/Asset/Dto/AssetItem';
 import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
+import type { SceneBuilding } from '@/modules/Roleplay/Scene/Dto/SceneBuilding';
 import type { SceneConflict } from '@/modules/Roleplay/Scene/Dto/SceneConflict';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
@@ -184,11 +185,15 @@ const toolHint = computed<string | null>(() => {
   }
 
   if (tool.value === 'room') {
-    return 'Клик внутри замкнутого контура выбирает комнату';
+    return 'Клик внутри контура выбирает комнату; протяжка двигает её';
+  }
+
+  if (tool.value === 'building') {
+    return 'Клик внутри контура выбирает строение; протяжка двигает его';
   }
 
   if (tool.value === 'select') {
-    return 'Alt+клик по стене — всё строение';
+    return 'Клик по полу внутри стен тянет всё строение';
   }
 
   return null;
@@ -206,6 +211,19 @@ const rooms = computed<SceneRoom[]>(() => {
     height: board.boundHeight,
   });
 });
+const buildings = computed<SceneBuilding[]>(() => {
+  const board = activeBoard.value;
+  if (board === null) {
+    return [];
+  }
+
+  return sceneWallGraphService.buildings(draft.value.elements, board.id, {
+    x: 0,
+    y: 0,
+    width: board.boundWidth,
+    height: board.boundHeight,
+  });
+});
 const selectedRoom = computed<SceneRoom | null>(() => {
   if (selection.value.length < 2) {
     return null;
@@ -215,6 +233,20 @@ const selectedRoom = computed<SceneRoom | null>(() => {
   for (const room of rooms.value) {
     if (room.elementIds.length === wanted.size && room.elementIds.every((id) => wanted.has(id))) {
       return room;
+    }
+  }
+
+  return null;
+});
+const selectedBuilding = computed<SceneBuilding | null>(() => {
+  if (selection.value.length < 2) {
+    return null;
+  }
+
+  const wanted = new Set(selection.value);
+  for (const building of buildings.value) {
+    if (building.elementIds.length === wanted.size && building.elementIds.every((id) => wanted.has(id))) {
+      return building;
     }
   }
 
@@ -257,6 +289,17 @@ const roomAreaText = computed(() => {
 
   return `${(room.area / (draft.value.resolution * draft.value.resolution)).toFixed(1)} ипари²`;
 });
+const selectionTitle = computed(() => {
+  if (selectedRoom.value !== null) {
+    return `Комната · ${roomAreaText.value}`;
+  }
+
+  if (selectedBuilding.value !== null) {
+    return `Строение · ${selection.value.length} элементов`;
+  }
+
+  return 'Элементы';
+});
 const roomOverWater = computed(() => {
   const room = selectedRoom.value;
   if (room === null) {
@@ -278,6 +321,38 @@ const roomOverWater = computed(() => {
       element.props.overWater === true &&
       sceneGeometryService.contains(element.shape, centroid, 0),
   );
+});
+/** Грань, которой соответствует выделенный пол: комната или строение. */
+const floorOwner = computed<{ kind: 'room' | 'building'; elementIds: number[] } | null>(() => {
+  const element = selectedElement.value;
+  const board = activeBoard.value;
+  if (element === null || element.kind !== 'terrain' || board === null) {
+    return null;
+  }
+
+  const ids = sceneWallGraphService.buildingOfTerrain(draft.value.elements, board.id, element.id, {
+    x: 0,
+    y: 0,
+    width: board.boundWidth,
+    height: board.boundHeight,
+  });
+  if (ids.length <= 1) {
+    return null;
+  }
+
+  const wanted = new Set(ids);
+  const matches = (candidate: { elementIds: number[] }): boolean =>
+    candidate.elementIds.length === wanted.size && candidate.elementIds.every((id) => wanted.has(id));
+
+  if (rooms.value.some(matches)) {
+    return { kind: 'room', elementIds: ids };
+  }
+
+  if (buildings.value.some(matches)) {
+    return { kind: 'building', elementIds: ids };
+  }
+
+  return null;
 });
 const elementTitle = computed(() =>
   selectedElement.value === null ? 'Элемент' : `Элемент · ${SCENE_ELEMENT_KIND_LABELS[selectedElement.value.kind]}`,
@@ -926,11 +1001,55 @@ function onSelection(ids: number[]): void {
   state.select(ids);
 }
 
-/** Комната выбрана инструментом: в набор входят стены, пол и содержимое. */
-function onRoom(ids: number[]): void {
+/** Клик областью выбора: комната или строение под точкой. */
+function onPick(scope: 'room' | 'building', point: ScenePoint): void {
+  const board = activeBoard.value;
+  if (board === null) {
+    return;
+  }
+
+  let ids: number[];
+  if (scope === 'room') {
+    let best: SceneRoom | null = null;
+    for (const room of rooms.value) {
+      if (!sceneGeometryService.pointInPolygon(point, room.points)) {
+        continue;
+      }
+
+      if (best === null || room.area < best.area) {
+        best = room;
+      }
+    }
+
+    ids = best?.elementIds ?? [];
+  } else {
+    ids = sceneWallGraphService.buildingAt(draft.value.elements, board.id, point, {
+      x: 0,
+      y: 0,
+      width: board.boundWidth,
+      height: board.boundHeight,
+    });
+  }
+
   outlineTarget.value = null;
   state.select(ids);
-  openPanels.value = ids.length > 1 ? ['multi'] : ['element'];
+  if (ids.length > 1) {
+    openPanels.value = ['multi'];
+  } else if (ids.length === 1) {
+    openPanels.value = ['element'];
+  }
+}
+
+/** Выбрать грань, которой принадлежит выделенный пол. */
+function selectFloorOwner(): void {
+  const owner = floorOwner.value;
+  if (owner === null) {
+    return;
+  }
+
+  outlineTarget.value = null;
+  state.select(owner.elementIds);
+  openPanels.value = ['multi'];
 }
 
 /** Строение: связная сеть стен и всё внутри внешнего контура. */
@@ -1312,7 +1431,6 @@ function messageOf(exception: unknown): string {
           :tool="tool"
           :path-width="pathWidth"
           :wall-width="wallWidth"
-          :rooms="rooms"
           :water-animation="waterAnimation"
           :interactive="!preview"
           :overlay="overlay"
@@ -1337,7 +1455,7 @@ function messageOf(exception: unknown): string {
           @edit-end="endEdit"
           @move="onMove"
           @selection="onSelection"
-          @room="onRoom"
+          @pick="onPick"
           @building="onBuilding"
           @viewport="onViewport"
         />
@@ -1508,11 +1626,26 @@ function messageOf(exception: unknown): string {
                 @save-object="startSaveObject"
                 @apply-object="startApplyObject"
               />
+              <template v-if="floorOwner !== null">
+                <div class="text-caption text-medium-emphasis mt-2">
+                  Пол принадлежит {{ floorOwner.kind === 'room' ? 'комнате' : 'строению' }} и тянет его целиком.
+                </div>
+                <v-btn
+                  variant="tonal"
+                  size="small"
+                  prepend-icon="mdi-select-group"
+                  block
+                  class="mt-2"
+                  @click="selectFloorOwner"
+                >
+                  {{ floorOwner.kind === 'room' ? 'Выбрать комнату' : 'Выбрать строение' }}
+                </v-btn>
+              </template>
             </v-expansion-panel-text>
           </v-expansion-panel>
 
           <v-expansion-panel v-else-if="selection.length > 1" value="multi">
-            <v-expansion-panel-title class="text-subtitle-2">Элементы</v-expansion-panel-title>
+            <v-expansion-panel-title class="text-subtitle-2">{{ selectionTitle }}</v-expansion-panel-title>
             <v-expansion-panel-text>
               <div class="text-body-2">Выбрано элементов: {{ selection.length }}</div>
               <template v-if="selectedRoom !== null">

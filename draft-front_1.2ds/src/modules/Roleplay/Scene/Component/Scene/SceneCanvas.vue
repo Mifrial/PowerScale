@@ -10,7 +10,6 @@ import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverla
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
-import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneViewport } from '@/modules/Roleplay/Scene/Dto/SceneViewport';
@@ -41,8 +40,6 @@ const props = withDefaults(
     pathWidth?: number;
     /** Толщина стены для превью, единицы сцены. */
     wallWidth?: number;
-    /** Комнаты активного поля: грани сети стен. */
-    rooms?: SceneRoom[];
     /** Пользовательская настройка анимации воды. */
     waterAnimation?: boolean;
     /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
@@ -63,7 +60,6 @@ const props = withDefaults(
     interactive: false,
     pathWidth: 256,
     wallWidth: 16,
-    rooms: () => [],
     waterAnimation: true,
     actors: () => [],
     selectedActorId: null,
@@ -99,7 +95,7 @@ const emit = defineEmits<{
   editEnd: [];
   point: [point: ScenePoint, under: boolean, at: ScenePoint];
   level: [level: number];
-  room: [elementIds: number[]];
+  pick: [scope: 'room' | 'building', point: ScenePoint];
   building: [elementId: number];
 }>();
 
@@ -414,44 +410,6 @@ watch(
 
 function toolDefinition() {
   return SCENE_TOOLS.find((item) => item.id === props.tool) ?? null;
-}
-
-/** Комната под точкой: из вложенных берётся самая маленькая. */
-function roomAt(point: ScenePoint): SceneRoom | null {
-  let best: SceneRoom | null = null;
-  for (const room of props.rooms) {
-    if (!pointInPolygon(point, room.points)) {
-      continue;
-    }
-
-    if (best === null || room.area < best.area) {
-      best = room;
-    }
-  }
-
-  return best;
-}
-
-/** Точка внутри полигона: тот же луч, что у графа стен. */
-function pointInPolygon(point: ScenePoint, points: readonly ScenePoint[]): boolean {
-  let inside = false;
-  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
-    const a = points[index];
-    const b = points[previous];
-    if (
-      point[1] > Math.min(a[1], b[1]) &&
-      point[1] <= Math.max(a[1], b[1]) &&
-      point[0] <= Math.max(a[0], b[0]) &&
-      a[1] !== b[1]
-    ) {
-      const x = ((point[1] - a[1]) * (b[0] - a[0])) / (b[1] - a[1]) + a[0];
-      if (point[0] <= x) {
-        inside = !inside;
-      }
-    }
-  }
-
-  return inside;
 }
 
 function clickShape(): 'polygon' | 'path' | 'wall' | null {
@@ -875,9 +833,14 @@ function onPointerDown(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
-  if (props.tool === 'room') {
-    const room = roomAt(scenePoint);
-    emit('room', room === null ? [] : room.elementIds);
+  if (props.tool === 'room' || props.tool === 'building') {
+    // Область выбирает грань и сразу готова её тащить: клик без движения
+    // оставляет выделение, протяжка двигает.
+    emit('pick', props.tool, scenePoint);
+    gesture = 'move';
+    moveLast = scenePoint;
+    startEditing();
+    capture(event);
 
     return;
   }
@@ -908,6 +871,39 @@ function startEditing(): void {
 function stopEditing(): void {
   renderer?.setEditing(false);
   emit('editEnd');
+}
+
+/** Нажатие внутри уже выделенного: группа тянется целиком. */
+function insideSelection(point: ScenePoint): boolean {
+  if (selection.value.length < 2) {
+    return false;
+  }
+
+  const board = props.board;
+  for (const element of props.model.elements) {
+    if (!selection.value.includes(element.id) || element.boardId !== props.model.activeBoardId) {
+      continue;
+    }
+
+    // Террейн на всё поле содержит любую точку и перехватил бы нажатия у всей
+    // группы, поэтому в липкое выделение он не входит.
+    if (
+      board !== null &&
+      element.shape.type === 'rect' &&
+      element.shape.x === 0 &&
+      element.shape.y === 0 &&
+      element.shape.w === board.boundWidth &&
+      element.shape.h === board.boundHeight
+    ) {
+      continue;
+    }
+
+    if (sceneHitTestService.contains(element, point, 0, props.model.resolution, null)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
@@ -964,6 +960,19 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     }
 
     gesture = 'vertex';
+    startEditing();
+    capture(event);
+
+    return;
+  }
+
+  // Нажатие внутри уже выделенной группы тянет её целиком, а не верхний
+  // объект под курсором. Иначе дом, выбранный со всем содержимым, терялся бы
+  // от клика по стоящему в нём дереву.
+  if (!event.shiftKey && !event.ctrlKey && !event.metaKey && insideSelection(scenePoint)) {
+    setFocus(null);
+    gesture = 'move';
+    moveLast = scenePoint;
     startEditing();
     capture(event);
 

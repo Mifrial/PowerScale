@@ -138,4 +138,67 @@ describe('SceneWallGraphService', () => {
     expect(ids).not.toContain(11);
     expect(ids).not.toContain(12);
   });
+
+  it('находит строение под точкой и берёт самое маленькое из вложенных', () => {
+    const house = square(10, 200, 200, 100);
+    const yard = square(20, 100, 100, 300);
+    const elements = [...house, ...yard];
+
+    const insideHouse = service.buildingAt(elements, 1, [250, 250], bounds);
+    const insideYard = service.buildingAt(elements, 1, [120, 120], bounds);
+
+    expect(insideHouse).toEqual(expect.arrayContaining([10, 11, 12, 13]));
+    expect(insideHouse).not.toContain(20);
+    expect(insideYard).toEqual(expect.arrayContaining([20, 21, 22, 23, 10]));
+  });
+
+  it('пол дома тянет всё строение, а заплатка внутри — нет', () => {
+    const elements = [
+      ...square(1, 0, 0, 400),
+      element(10, 'terrain', { type: 'rect', x: 0, y: 0, w: 400, h: 400 }, { kind: 'dirt' }),
+      element(11, 'terrain', { type: 'rect', x: 50, y: 50, w: 50, h: 50 }, { kind: 'dirt' }),
+    ];
+
+    const house = service.buildingOfTerrain(elements, 1, 10, bounds);
+    const patch = service.buildingOfTerrain(elements, 1, 11, bounds);
+
+    expect(house).toEqual(expect.arrayContaining([1, 2, 3, 4, 10]));
+    expect(patch).toEqual([]);
+  });
+
+  it('пол комнаты тянет комнату, а не всё строение', () => {
+    const elements = [
+      wall(1, [
+        [0, 0],
+        [200, 0],
+      ]),
+      wall(2, [
+        [200, 0],
+        [400, 0],
+      ]),
+      wall(3, [
+        [400, 0],
+        [400, 400],
+      ]),
+      wall(4, [
+        [400, 400],
+        [0, 400],
+      ]),
+      wall(5, [
+        [0, 400],
+        [0, 0],
+      ]),
+      wall(6, [
+        [200, 0],
+        [200, 400],
+      ]),
+      element(10, 'terrain', { type: 'rect', x: 0, y: 0, w: 200, h: 400 }, { kind: 'dirt' }),
+    ];
+
+    const ids = service.buildingOfTerrain(elements, 1, 10, bounds);
+
+    expect(ids).toContain(6);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+  });
 });

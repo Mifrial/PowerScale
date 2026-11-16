@@ -865,7 +865,7 @@ function onAssetCleared(publicId: string | null): void {
         class="mt-2"
         @click="emit('building')"
       >
-        Всё строение
+        Выбрать строение
       </v-btn>
     </template>
 

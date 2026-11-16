@@ -1,4 +1,5 @@
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
+import type { SceneBuilding } from '@/modules/Roleplay/Scene/Dto/SceneBuilding';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
@@ -15,6 +16,9 @@ export interface SceneWallGraphElement {
   shape: SceneShape;
   props: SceneElementProps;
 }
+
+/** Насколько площадь пола может отличаться от грани, чтобы считаться её полом. */
+const FLOOR_AREA_TOLERANCE = 0.15;
 
 /** Узел сети стен. */
 interface WallGraphNode {
@@ -230,52 +234,63 @@ export class SceneWallGraphService {
         continue;
       }
 
-      const wallIds = new Set(face.wallIds);
-      const elementIds = new Set<number>(wallIds);
-      const floorIds = new Set<number>();
-
-      for (const element of elements) {
-        if (element.boardId !== boardId || wallIds.has(element.id) || this.isFullBoard(element, bounds)) {
-          continue;
-        }
-
-        if (element.kind === 'opening' && element.props.wallId !== undefined && wallIds.has(element.props.wallId)) {
-          elementIds.add(element.id);
-
-          continue;
-        }
-
-        if (element.kind === 'terrain') {
-          // Террейн принадлежит комнате, только если лежит в ней целиком:
-          // озеро или остров, накрывающие комнату, двигать вместе с ней нельзя.
-          if (!this.insideShape(element.shape, face.points)) {
-            continue;
-          }
-
-          elementIds.add(element.id);
-          floorIds.add(element.id);
-
-          continue;
-        }
-
-        const anchor = this.anchor(element);
-        if (anchor === null || !this.contains(face.points, anchor)) {
-          continue;
-        }
-
-        elementIds.add(element.id);
-      }
-
+      const { elementIds, floorIds } = this.faceElements(elements, boardId, bounds, face);
       rooms.push({
         points: face.points,
         area: face.area,
-        wallIds: [...wallIds],
-        elementIds: [...elementIds],
-        floorIds: [...floorIds],
+        wallIds: [...face.wallIds],
+        elementIds,
+        floorIds,
       });
     }
 
     return rooms.sort((left, right) => left.area - right.area);
+  }
+
+  /** Набор элементов грани: стены, проёмы, полы и содержимое. */
+  private faceElements(
+    elements: readonly SceneWallGraphElement[],
+    boardId: number,
+    bounds: SceneBounds,
+    face: WallGraphFace,
+  ): { elementIds: number[]; floorIds: number[] } {
+    const wallIds = new Set(face.wallIds);
+    const elementIds = new Set<number>(wallIds);
+    const floorIds = new Set<number>();
+
+    for (const element of elements) {
+      if (element.boardId !== boardId || wallIds.has(element.id) || this.isFullBoard(element, bounds)) {
+        continue;
+      }
+
+      if (element.kind === 'opening' && element.props.wallId !== undefined && wallIds.has(element.props.wallId)) {
+        elementIds.add(element.id);
+
+        continue;
+      }
+
+      if (element.kind === 'terrain') {
+        // Террейн принадлежит комнате, только если лежит в ней целиком:
+        // озеро или остров, накрывающие комнату, двигать вместе с ней нельзя.
+        if (!this.insideShape(element.shape, face.points)) {
+          continue;
+        }
+
+        elementIds.add(element.id);
+        floorIds.add(element.id);
+
+        continue;
+      }
+
+      const anchor = this.anchor(element);
+      if (anchor === null || !this.contains(face.points, anchor)) {
+        continue;
+      }
+
+      elementIds.add(element.id);
+    }
+
+    return { elementIds: [...elementIds], floorIds: [...floorIds] };
   }
 
   /**
@@ -290,6 +305,130 @@ export class SceneWallGraphService {
       return [wallId];
     }
 
+    return this.buildingIds(graph, elements, boardId, wallIds, bounds);
+  }
+
+  /** Строения поля: по одному на связную сеть стен. */
+  buildings(elements: readonly SceneWallGraphElement[], boardId: number, bounds: SceneBounds): SceneBuilding[] {
+    return this.buildingsOf(this.build(elements, boardId), elements, boardId, bounds);
+  }
+
+  /** Строение под точкой; из вложенных берётся самое маленькое. */
+  buildingAt(
+    elements: readonly SceneWallGraphElement[],
+    boardId: number,
+    point: ScenePoint,
+    bounds: SceneBounds,
+  ): number[] {
+    let best: SceneBuilding | null = null;
+    for (const building of this.buildings(elements, boardId, bounds)) {
+      if (!this.contains(building.points, point)) {
+        continue;
+      }
+
+      if (best === null || building.area < best.area) {
+        best = building;
+      }
+    }
+
+    return best === null ? [] : best.elementIds;
+  }
+
+  /**
+   * Грань, которой соответствует пол.
+   *
+   * Пол дома совпадает по площади с внешним контуром — он тянет всё строение.
+   * Пол комнаты совпадает с её гранью — тянет комнату. Дорога или заплатка
+   * внутри двора по площади не совпадают и остаются собой.
+   */
+  buildingOfTerrain(
+    elements: readonly SceneWallGraphElement[],
+    boardId: number,
+    terrainId: number,
+    bounds: SceneBounds,
+  ): number[] {
+    const terrain = elements.find(
+      (element) => element.id === terrainId && element.boardId === boardId && element.kind === 'terrain',
+    );
+    if (terrain === undefined) {
+      return [];
+    }
+
+    const graph = this.build(elements, boardId);
+    const area = this.shapeArea(terrain.shape);
+    const candidates: { area: number; elementIds: number[] }[] = [];
+    const consider = (points: readonly ScenePoint[], target: number, elementIds: number[]): void => {
+      if (!this.insideShape(terrain.shape, points) || Math.abs(area - target) > target * FLOOR_AREA_TOLERANCE) {
+        return;
+      }
+
+      candidates.push({ area: target, elementIds });
+    };
+
+    for (const face of graph.faces) {
+      if (!face.bounded) {
+        continue;
+      }
+
+      consider(face.points, face.area, this.faceElements(elements, boardId, bounds, face).elementIds);
+    }
+
+    for (const building of this.buildingsOf(graph, elements, boardId, bounds)) {
+      consider(building.points, building.area, building.elementIds);
+    }
+
+    candidates.sort((left, right) => left.area - right.area);
+
+    return candidates[0]?.elementIds ?? [];
+  }
+
+  /** Строения по готовому графу. */
+  private buildingsOf(
+    graph: WallGraph,
+    elements: readonly SceneWallGraphElement[],
+    boardId: number,
+    bounds: SceneBounds,
+  ): SceneBuilding[] {
+    const seen = new Set<string>();
+    const list: SceneBuilding[] = [];
+    for (const face of graph.faces) {
+      for (const wallId of face.wallIds) {
+        const wallIds = this.component(graph, wallId);
+        if (wallIds.length === 0) {
+          continue;
+        }
+
+        const key = [...wallIds].sort((left, right) => left - right).join(',');
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        const outer = this.outerFace(graph, wallIds);
+        if (outer === null || outer.points.length < 3) {
+          continue;
+        }
+
+        list.push({
+          points: outer.points,
+          area: Math.abs(outer.area),
+          wallIds,
+          elementIds: this.buildingIds(graph, elements, boardId, wallIds, bounds),
+        });
+      }
+    }
+
+    return list.sort((left, right) => left.area - right.area);
+  }
+
+  /** Элементы строения: сеть стен, проёмы в них и всё внутри внешнего контура. */
+  private buildingIds(
+    graph: WallGraph,
+    elements: readonly SceneWallGraphElement[],
+    boardId: number,
+    wallIds: readonly number[],
+    bounds: SceneBounds,
+  ): number[] {
     const ids = new Set<number>(wallIds);
     for (const element of elements) {
       if (
@@ -424,6 +563,23 @@ export class SceneWallGraphService {
     }
 
     return shape.points;
+  }
+
+  /** Площадь фигуры в единицах сцены². */
+  private shapeArea(shape: SceneShape): number {
+    if (shape.type === 'rect') {
+      return shape.w * shape.h;
+    }
+
+    if (shape.type === 'circle') {
+      return Math.PI * shape.r * shape.r;
+    }
+
+    if (shape.type !== 'polygon') {
+      return 0;
+    }
+
+    return Math.abs(this.signedArea(shape.points));
   }
 
   /** Точка на грани или рядом с ней. */

@@ -16,6 +16,7 @@ export type SceneTool =
   | 'wall'
   | 'wall-ring'
   | 'room'
+  | 'building'
   | 'opening'
   | 'opening-window'
   | 'decor'

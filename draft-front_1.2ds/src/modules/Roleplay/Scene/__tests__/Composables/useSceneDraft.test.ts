@@ -171,3 +171,48 @@ describe('useSceneDraft duplicate', () => {
     expect(state.draft.value.elements).toHaveLength(1);
   });
 });
+
+describe('useSceneDraft floor drag', () => {
+  it('пол внутри стен тянет строение целиком', () => {
+    const state = useSceneDraft(detail());
+    const wallTool = SCENE_TOOLS.find((tool) => tool.id === 'wall')!;
+    const terrainTool = SCENE_TOOLS.find((tool) => tool.id === 'terrain')!;
+    const walls: number[] = [];
+    const corners: [number, number][][] = [
+      [
+        [100, 100],
+        [500, 100],
+      ],
+      [
+        [500, 100],
+        [500, 500],
+      ],
+      [
+        [500, 500],
+        [100, 500],
+      ],
+      [
+        [100, 500],
+        [100, 100],
+      ],
+    ];
+    for (const points of corners) {
+      const id = state.createElement(wallTool, { type: 'wall', points, width: 8 }, {});
+      if (id !== null) {
+        walls.push(id);
+      }
+    }
+
+    const floor = state.createElement(terrainTool, { type: 'rect', x: 100, y: 100, w: 400, h: 400 }, { kind: 'dirt' });
+    if (floor === null) {
+      throw new Error('floor was not created');
+    }
+
+    state.moveElements([floor], 40, 0);
+
+    const wall = state.draft.value.elements.find((element) => element.id === walls[0]);
+    expect(wall?.shape.type === 'wall' ? wall.shape.points[0] : null).toEqual([140, 100]);
+    const movedFloor = state.draft.value.elements.find((element) => element.id === floor);
+    expect(movedFloor?.shape.type === 'rect' ? movedFloor.shape.x : null).toBe(140);
+  });
+});
