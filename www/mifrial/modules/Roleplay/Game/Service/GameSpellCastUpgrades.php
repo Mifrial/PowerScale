@@ -23,6 +23,8 @@ final class GameSpellCastUpgrades
 {
     private readonly CharacterStudyPaths $paths;
 
+    private readonly GameSpellChainHop $chain;
+
     /**
      * Создаёт разрешение улучшений.
      *
@@ -31,6 +33,7 @@ final class GameSpellCastUpgrades
     public function __construct()
     {
         $this->paths = new CharacterStudyPaths();
+        $this->chain = new GameSpellChainHop();
     }
 
     /**
@@ -72,6 +75,11 @@ final class GameSpellCastUpgrades
             $upgrade = $this->upgradeOf($spec);
             if (!$this->supports($upgrade)) {
                 throw new GameInvalidException('Game spell upgrade is not supported');
+            }
+
+            $chain = $upgrade->getChain();
+            if ($chain !== null) {
+                $this->chain->assertSupported($chain);
             }
 
             $parent = $spec->getBase()->getParentAbilityCode();
@@ -168,7 +176,7 @@ final class GameSpellCastUpgrades
      */
     private function supports(SpellUpgrade $upgrade): bool
     {
-        return $upgrade->getChain() === null && $upgrade->getChargeCap() === null;
+        return $upgrade->getChargeCap() === null;
     }
 
     /**
@@ -362,6 +370,7 @@ final class GameSpellCastUpgrades
             $upgrade->getCheckAdvantage() ?? 0,
             $perStep === null ? 0 : $value * $perStep,
             $perStep === null ? 0 : $value,
+            $upgrade->getChain(),
         );
     }
 }

@@ -26,6 +26,7 @@ final class GameSpellCastDamage
      * @param GameStrikeAmounts $amounts Арифметика урона.
      * @param GameSpellMagicResistance $magicResistance Сопротивление магии.
      * @param GameStrikeConsequences $consequences Последствия.
+     * @param GameSpellFalloff $falloff Снижение по дистанции.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class GameSpellCastDamage
         private readonly GameStrikeAmounts $amounts,
         private readonly GameSpellMagicResistance $magicResistance,
         private readonly GameStrikeConsequences $consequences,
+        private readonly GameSpellFalloff $falloff = new GameSpellFalloff(),
     ) {
     }
 
@@ -182,7 +184,7 @@ final class GameSpellCastDamage
             $prepared->spellPower->getSize(),
         ))->modify($modify + $powerDelta);
 
-        return $this->falloff($amount, $damage, $prepared->distanceIpari);
+        return $this->falloff->apply($amount, $damage, $prepared->distanceIpari);
     }
 
     /**
@@ -212,35 +214,5 @@ final class GameSpellCastDamage
         }
 
         return $steps === [] ? 0 : $steps[0]->getModify();
-    }
-
-    /**
-     * Снижение урона по дистанции.
-     *
-     * @param CharacteristicNumber $amount Урон.
-     * @param SpellDamage $damage Урон карточки.
-     * @param int $distanceIpari Дистанция в ипари.
-     *
-     * @return CharacteristicNumber|null Урон или null ниже минимума.
-     */
-    private function falloff(
-        CharacteristicNumber $amount,
-        SpellDamage $damage,
-        int $distanceIpari,
-    ): ?CharacteristicNumber {
-        $free = $damage->getFreeIpari();
-        $perExtra = $damage->getSizePerExtraIpari();
-        if ($free === null || $perExtra === null) {
-            return $amount;
-        }
-
-        $extra = max(0, $distanceIpari - $free);
-        $reduced = $extra === 0 ? $amount : $amount->modify(-3 * $extra * $perExtra);
-        $min = $damage->getMin();
-        if ($min instanceof DimensionalNumber && $reduced->characteristicDiffTo($min) < 0) {
-            return null;
-        }
-
-        return $reduced;
     }
 }

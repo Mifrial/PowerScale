@@ -259,19 +259,83 @@ final class GameSpellCastUpgradesTest extends TestCase
      */
     public static function unsupportedProvider(): iterable
     {
-        yield 'chain' => [[
-            'action_point_delta' => 0,
-            'chain' => [
-                'damage_size_per_hop' => 1,
-                'min' => ['base' => 1, 'size' => 0],
-                'retarget' => 'nearest',
-                'same_target' => 'forbidden',
-            ],
-        ]];
         yield 'charge cap' => [[
             'action_point_delta' => 0,
             'charge_cap' => ['base' => 1, 'experience_keyword_code' => 'magic'],
         ]];
+    }
+
+    /**
+     * Цепь применяется и отдаётся из разрешения.
+     *
+     * @return void
+     */
+    public function testAppliesChainUpgrade(): void
+    {
+        $resolution = $this->resolve(
+            [$this->upgradeRule('chain', $this->chainUpgrade())],
+            [$this->ability('chain', 'psionics')],
+            'psionics',
+            [['code' => 'chain', 'value' => null]],
+        );
+
+        self::assertSame(1, $resolution->getActionPointDelta());
+        self::assertNotNull($resolution->getChain());
+        self::assertSame(1, $resolution->getChain()?->getDamageSizePerHop());
+    }
+
+    /**
+     * Неизвестное значение формы цепи отклоняется при касте.
+     *
+     * @param string $key Поле формы.
+     * @param string $value Значение.
+     *
+     * @return void
+     */
+    #[DataProvider('unknownChainProvider')]
+    public function testRejectsUnknownChainForm(string $key, string $value): void
+    {
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [$this->upgradeRule('chain', $this->chainUpgrade([$key => $value]))],
+            [$this->ability('chain', 'psionics')],
+            'psionics',
+            [['code' => 'chain', 'value' => null]],
+        );
+    }
+
+    /**
+     * Неизвестные значения формы цепи.
+     *
+     * @return iterable<string, array{string, string}> Наборы.
+     */
+    public static function unknownChainProvider(): iterable
+    {
+        yield 'retarget' => ['retarget', 'nearest'];
+        yield 'same target' => ['same_target', 'forbidden'];
+    }
+
+    /**
+     * Цепь любого пути.
+     *
+     * @param array<string, mixed> $extra Поля цепи.
+     *
+     * @return array<string, mixed> Spec.
+     */
+    private function chainUpgrade(array $extra = []): array
+    {
+        return $this->skill([
+            'parent_ability_code' => 'lightning-strike',
+            'spell_upgrade' => [
+                'action_point_delta' => 1,
+                'chain' => array_merge([
+                    'damage_size_per_hop' => 1,
+                    'min' => ['base' => 3, 'size' => -1],
+                    'retarget' => 'from_last_hit',
+                    'same_target' => 'via_other',
+                ], $extra),
+            ],
+        ]);
     }
 
     /**

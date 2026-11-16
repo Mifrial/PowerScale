@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Dto;
 
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellChain;
 
 /**
  * Разрешённые улучшения каста и их суммарный эффект.
@@ -98,5 +99,21 @@ final class GameSpellCastUpgradeResolution
     public function isEmpty(): bool
     {
         return $this->applied === [];
+    }
+
+    /**
+     * Цепь прыжков из выбранных улучшений.
+     *
+     * @return SpellChain|null Цепь или null, если цепь не выбрана.
+     */
+    public function getChain(): ?SpellChain
+    {
+        foreach ($this->applied as $upgrade) {
+            if ($upgrade->getChain() instanceof SpellChain) {
+                return $upgrade->getChain();
+            }
+        }
+
+        return null;
     }
 }
