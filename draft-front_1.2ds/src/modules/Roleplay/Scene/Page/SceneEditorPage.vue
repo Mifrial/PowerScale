@@ -1339,6 +1339,11 @@ function setRoofsShown(value: boolean | null): void {
   window.localStorage.setItem(ROOFS_HIDDEN_KEY, roofsHidden.value ? '1' : '0');
 }
 
+/** Кнопка-иконка: показать или скрыть крыши. */
+function toggleRoofs(): void {
+  setRoofsShown(roofsHidden.value);
+}
+
 function onBeforeUnload(event: BeforeUnloadEvent): void {
   if (!isDirty.value) return;
 
@@ -1515,15 +1520,18 @@ function messageOf(exception: unknown): string {
               />
             </template>
           </v-tooltip>
-          <v-switch
-            :model-value="!roofsHidden"
-            label="Крыши"
-            density="compact"
-            hide-details
-            color="primary"
-            class="scene-editor__water-switch"
-            @update:model-value="setRoofsShown"
-          />
+          <v-tooltip location="bottom" :text="roofsHidden ? 'Показать крыши' : 'Скрыть крыши'">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                :icon="roofsHidden ? 'mdi-home-outline' : 'mdi-home-roof'"
+                size="small"
+                variant="flat"
+                :color="roofsHidden ? 'surface-variant' : 'primary'"
+                @click="toggleRoofs"
+              />
+            </template>
+          </v-tooltip>
           <v-switch
             v-if="preview"
             :model-value="waterAnimation"

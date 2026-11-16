@@ -165,6 +165,11 @@ function setRoofsShown(value: boolean | null): void {
   window.localStorage.setItem(ROOFS_HIDDEN_KEY, roofsHidden.value ? '1' : '0');
 }
 
+/** Кнопка-иконка: показать или скрыть крыши. */
+function toggleRoofs(): void {
+  setRoofsShown(roofsHidden.value);
+}
+
 function onViewport(next: SceneViewport): void {
   viewport.value = next;
 }
@@ -209,6 +214,17 @@ function zoomLabel(): string {
         <v-btn variant="tonal" prepend-icon="mdi-magnify-minus" @click="canvas?.zoomBy(0.9)"> − </v-btn>
         <v-btn variant="tonal" prepend-icon="mdi-magnify-plus" @click="canvas?.zoomBy(1.1)"> + </v-btn>
         <v-btn variant="tonal" prepend-icon="mdi-fit-to-screen" @click="canvas?.fit()"> Вписать </v-btn>
+        <v-tooltip location="bottom" :text="roofsHidden ? 'Показать крыши' : 'Скрыть крыши'">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-bind="tooltipProps"
+              variant="tonal"
+              :icon="roofsHidden ? 'mdi-home-outline' : 'mdi-home-roof'"
+              :color="roofsHidden ? undefined : 'primary'"
+              @click="toggleRoofs"
+            />
+          </template>
+        </v-tooltip>
         <v-btn
           variant="tonal"
           :prepend-icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
@@ -261,15 +277,6 @@ function zoomLabel(): string {
             @viewport="onViewport"
           />
           <SceneOverlayControls v-model:costs="overlayCosts" v-model:visibility="overlayVisibility" />
-          <v-switch
-            :model-value="!roofsHidden"
-            label="Крыши"
-            density="compact"
-            hide-details
-            color="primary"
-            class="scene-viewer__roofs"
-            @update:model-value="setRoofsShown"
-          />
           <ScenePreviewActorPanel
             :actors="previewActorList"
             :selected="previewSelectedActor"
@@ -404,15 +411,6 @@ function zoomLabel(): string {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.scene-viewer__roofs {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 0 10px;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.78);
 }
 
 .scene-panel {
