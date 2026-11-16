@@ -832,16 +832,117 @@ final class GameSpellCastChat
         int $remaining,
         int $total,
     ): void {
-        $chatId = $this->chatId($game);
-        $thread = GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
-        $attachments = $this->attachments($thread, $prepared->casterKind, $prepared->casterId);
-        $token = $this->tokens->getEntityToken($prepared->casterKind, $prepared->casterId);
-        $this->send(
-            $chatId,
+        $this->castLine(
+            $game,
             $actorUserId,
-            $token . ' начинает сотворение [[rule:' . $prepared->spellCode . ']]: оплачено '
+            $battle,
+            $prepared->casterKind,
+            $prepared->casterId,
+            'начинает сотворение [[rule:' . $prepared->spellCode . ']]: оплачено '
                 . $paid . ' из ' . $total . ' ОД, остаток ' . $remaining . '.',
-            $attachments,
+        );
+    }
+
+    /**
+     * Пишет доплату, не закрывшую долг ОД.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameBattleRecord $battle Бой.
+     * @param string $casterKind Вид кастера.
+     * @param int $casterId Кастер.
+     * @param string $spellCode Код карточки.
+     * @param int $paid Оплачено всего.
+     * @param int $remaining Остаток.
+     * @param int $total Полная цена.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function continued(
+        GameRecord $game,
+        int $actorUserId,
+        GameBattleRecord $battle,
+        string $casterKind,
+        int $casterId,
+        string $spellCode,
+        int $paid,
+        int $remaining,
+        int $total,
+    ): void {
+        $this->castLine(
+            $game,
+            $actorUserId,
+            $battle,
+            $casterKind,
+            $casterId,
+            'продолжает сотворение [[rule:' . $spellCode . ']]: оплачено '
+                . $paid . ' из ' . $total . ' ОД, остаток ' . $remaining . '.',
+        );
+    }
+
+    /**
+     * Пишет отказ от сотворения в долг.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameBattleRecord $battle Бой.
+     * @param string $casterKind Вид кастера.
+     * @param int $casterId Кастер.
+     * @param string $spellCode Код карточки.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function aborted(
+        GameRecord $game,
+        int $actorUserId,
+        GameBattleRecord $battle,
+        string $casterKind,
+        int $casterId,
+        string $spellCode,
+    ): void {
+        $this->castLine(
+            $game,
+            $actorUserId,
+            $battle,
+            $casterKind,
+            $casterId,
+            'бросает сотворение [[rule:' . $spellCode . ']]: эффекта не будет, '
+                . 'оплаченные ОД не возвращаются.',
+        );
+    }
+
+    /**
+     * Пишет строку хода о сотворении в долг.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameBattleRecord $battle Бой.
+     * @param string $casterKind Вид кастера.
+     * @param int $casterId Кастер.
+     * @param string $text Текст без имени.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    private function castLine(
+        GameRecord $game,
+        int $actorUserId,
+        GameBattleRecord $battle,
+        string $casterKind,
+        int $casterId,
+        string $text,
+    ): void {
+        $thread = GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+        $this->send(
+            $this->chatId($game),
+            $actorUserId,
+            $this->tokens->getEntityToken($casterKind, $casterId) . ' ' . $text,
+            $this->attachments($thread, $casterKind, $casterId),
         );
     }
 

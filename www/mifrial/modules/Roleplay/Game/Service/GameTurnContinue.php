@@ -26,6 +26,7 @@ final class GameTurnContinue
      * @param GameWoundActions $wounds Сценарий раны.
      * @param GameStrikeOpen $open Открытие оплаченного удара.
      * @param GameSpellCast $spells Завершение оплаченного каста.
+     * @param GameSpellCastChat $chat Строки сотворения в долг.
      *
      * @return void
      */
@@ -37,6 +38,7 @@ final class GameTurnContinue
         private readonly GameWoundActions $wounds,
         private readonly GameStrikeOpen $open,
         private readonly GameSpellCast $spells,
+        private readonly GameSpellCastChat $chat,
     ) {
     }
 
@@ -72,6 +74,7 @@ final class GameTurnContinue
     ): array {
         $prepared = $this->slot($battle, $current, $expectedSheet);
         $debt = new GameActionDebt();
+        $before = is_int($prepared['slot']['remaining'] ?? null) ? $prepared['slot']['remaining'] : 0;
         $paid = $debt->continuePay($this->snapshot->slice($game), $prepared['snapshot']['sheet'], $prepared['slot']);
         $sheetVersion = $this->spend($game, $current, $expectedSheet, $paid['spend']);
         $payload = $debt->payloadOf($paid['slot']);
@@ -92,7 +95,70 @@ final class GameTurnContinue
             );
         }
 
+        $this->notifyContinued($game, $actorUserId, $battle, $current, $paid['slot'], $before);
+
         return $this->save($battle, $expectedBattle, $sheetVersion, $prepared, $paid['slot']);
+    }
+
+    /**
+     * Пишет строку о доплате, если долг остался открыт.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param GameBattleRecord $battle Бой.
+     * @param array{type: string, id: int} $current Текущий.
+     * @param array<string, mixed> $slot Слот после оплаты.
+     * @param int $before Остаток до оплаты.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    private function notifyContinued(
+        GameRecord $game,
+        int $actorUserId,
+        GameBattleRecord $battle,
+        array $current,
+        array $slot,
+        int $before,
+    ): void {
+        $remaining = is_int($slot['remaining'] ?? null) ? $slot['remaining'] : $before;
+        $total = is_int($slot['total'] ?? null) ? $slot['total'] : 0;
+        if ($remaining >= $before || $total <= 0) {
+            return;
+        }
+
+        $spellCode = $this->spellCodeOf($slot);
+        if ($spellCode === '') {
+            return;
+        }
+
+        $this->chat->continued(
+            $game,
+            $actorUserId,
+            $battle,
+            $current['type'],
+            $current['id'],
+            $spellCode,
+            $total - $remaining,
+            $remaining,
+            $total,
+        );
+    }
+
+    /**
+     * Код карточки сотворения из слота долга.
+     *
+     * @param array<string, mixed> $slot Слот.
+     *
+     * @return string Код или пустая строка.
+     */
+    private function spellCodeOf(array $slot): string
+    {
+        $payload = (new GameActionDebt())->payloadOf($slot);
+        $code = $payload['spellCode'] ?? null;
+
+        return is_string($code) ? $code : '';
     }
 
     /**

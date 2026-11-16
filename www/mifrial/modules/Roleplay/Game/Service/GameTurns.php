@@ -158,6 +158,8 @@ final class GameTurns
             $viewAll,
             $body,
             fn (GameRecord $game, array $prepared): array => $this->abort->abort(
+                $game,
+                $actorUserId,
                 $prepared['battle'],
                 $prepared['expectedBattle'],
                 $prepared['current'],

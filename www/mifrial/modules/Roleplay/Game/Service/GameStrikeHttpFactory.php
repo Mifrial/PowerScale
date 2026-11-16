@@ -326,13 +326,14 @@ final class GameStrikeHttpFactory
             $ports->events(),
         );
         $active = new GameActiveSpellWiring($serviceLocator, $rules, $shared, $access);
+        $spellChat = new GameSpellCastChat($ports->chats(), $shared->chat);
 
         return new GameTurns(
             $this->turnEnvelope($serviceLocator, $gateway, $access),
             new GameTurnScenario(new GameBattleLookup($battles), $access, $cursor),
             $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor, $active->turnStart),
-            $this->turnContinue($serviceLocator, $rules, $write, $snapshot, $battles),
-            new GameTurnAbort($battles),
+            $this->turnContinue($serviceLocator, $rules, $write, $snapshot, $battles, $spellChat),
+            new GameTurnAbort($battles, $spellChat),
             $this->turnProcessAbort($serviceLocator, $rules, $write, $gateway, $access, $battles),
             $active->sustain,
             $active->drop,
@@ -432,6 +433,7 @@ final class GameStrikeHttpFactory
      * @param GameStrikeWriteWiring $write Запись.
      * @param GameTurnSnapshot $snapshot Снимок.
      * @param GameBattleRepository $battles Бои.
+     * @param GameSpellCastChat $chat Строки сотворения в долг.
      *
      * @return GameTurnContinue Сценарий.
      */
@@ -441,6 +443,7 @@ final class GameStrikeHttpFactory
         GameStrikeWriteWiring $write,
         GameTurnSnapshot $snapshot,
         GameBattleRepository $battles,
+        GameSpellCastChat $chat,
     ): GameTurnContinue {
         return new GameTurnContinue(
             $snapshot,
@@ -450,6 +453,7 @@ final class GameStrikeHttpFactory
             (new GameWoundPortFactory())->createActions($serviceLocator),
             $write->open($rules),
             $this->spellCast($serviceLocator),
+            $chat,
         );
     }
 

@@ -1743,6 +1743,9 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
         self::assertArrayNotHasKey('activeSpell', $cast['data']);
         self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+        $start = $this->castContents($scene['gameId']);
+        $startLine = $start[$this->messageIndexOf($start, 'начинает сотворение')];
+        self::assertStringContainsString('остаток ' . $beforeAp, $startLine);
 
         $end = $this->dispatch('game.endTurn', [
             'gameId' => $scene['gameId'],
@@ -1770,6 +1773,9 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertNotNull($sense, 'После доплаты каст должен дать чувство');
         self::assertSame(-4, $sense['value']);
         self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
+        $done = $this->castContents($scene['gameId']);
+        self::assertTrue($this->hasLine($done, 'сотворяет'));
+        self::assertFalse($this->hasLine($done, 'продолжает сотворение'));
     }
 
     /**
@@ -1818,6 +1824,86 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($abort['success'], json_encode($abort));
         self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
         self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+        $contents = $this->castContents($scene['gameId']);
+        self::assertTrue($this->hasLine($contents, 'бросает сотворение'));
+        self::assertFalse($this->hasLine($contents, 'сотворяет'));
+    }
+
+    /**
+     * Доплата, не закрывшая долг, пишет строку и оставляет слот.
+     *
+     * @return void
+     */
+    public function testTwoTurnSpellPartialContinueKeepsDebtAndWritesLine(): void
+    {
+        $scene = $this->perceptionScene($this->perceptionCardTurns(3));
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $limit = $this->resourceCurrent($scene['hero'], 'action-points');
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-partial-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'magic-perception',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame($limit * 3, $cast['data']['total'] ?? null);
+        self::assertSame($limit * 2, $cast['data']['remaining'] ?? null);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-partial-end-1',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+
+        $first = $this->dispatch('game.continueAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-partial-continue-1',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+        ]);
+        self::assertTrue($first['success'], json_encode($first));
+        self::assertFalse($first['data']['opened'] ?? true, 'Неполная доплата не завершает каст');
+        self::assertSame($limit, $first['data']['remaining'] ?? null);
+        self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+        self::assertSame($limit, $this->battleDebt($scene['gameId'], $scene['battleId'])['character:' . $scene['hero']]['remaining'] ?? null);
+        $contents = $this->castContents($scene['gameId']);
+        $line = $contents[$this->messageIndexOf($contents, 'продолжает сотворение')];
+        self::assertStringContainsString('оплачено ' . ($limit * 2) . ' из ' . ($limit * 3) . ' ОД, остаток ' . $limit, $line);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-partial-end-2',
+            'expectedBattleVersion' => $first['data']['version'],
+            'expectedSheetVersion' => $first['data']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+
+        $second = $this->dispatch('game.continueAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-partial-continue-2',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+        ]);
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertTrue($second['data']['opened'] ?? false, 'Вторая доплата завершает каст');
+        self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
+        self::assertNotNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
     }
 
     /**
@@ -1885,10 +1971,56 @@ final class GameStrikeMysqlTest extends TestCase
      */
     private function perceptionCardTwoTurns(): array
     {
+        return $this->perceptionCardTurns(2);
+    }
+
+    /**
+     * Карточка «Восприятия магии» на заданное число ходов.
+     *
+     * @param int $count Ходы.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function perceptionCardTurns(int $count): array
+    {
         $card = $this->perceptionCard();
-        $card['spec']['action_components'][0]['amount'] = ['type' => 'turn', 'count' => 2];
+        $card['spec']['action_components'][0]['amount'] = ['type' => 'turn', 'count' => $count];
 
         return $card;
+    }
+
+    /**
+     * Тексты строк хода и тредов сотворения.
+     *
+     * @param int $gameId Игра.
+     *
+     * @return array<int, string> Тексты.
+     */
+    private function castContents(int $gameId): array
+    {
+        return array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($gameId, ['turn', 'spell']),
+        );
+    }
+
+    /**
+     * Есть ли среди строк подстрока.
+     *
+     * @param array<int, string> $contents Тексты.
+     * @param string $needle Подстрока.
+     *
+     * @return bool Есть или нет.
+     */
+    private function hasLine(array $contents, string $needle): bool
+    {
+        foreach ($contents as $content) {
+            if (str_contains($content, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
