@@ -30,6 +30,7 @@ final class GameSpellChainPending
      * @param array<string, mixed> $damage Итог урона первого попадания.
      * @param string $ruleCode Код улучшения цепи.
      * @param array{id: string, parentId: string, kind: string}|null $thread Нить чата.
+     * @param int $rating Остаток успеха каста после насыщения.
      *
      * @return array<string, mixed>|null Продолжение или null, если цепь не открывается.
      */
@@ -39,6 +40,7 @@ final class GameSpellChainPending
         array $damage,
         string $ruleCode,
         ?array $thread,
+        int $rating,
     ): ?array {
         $chain = $prepared->upgrades->getChain();
         $amount = $damage['spellDamage'] ?? null;
@@ -73,6 +75,7 @@ final class GameSpellChainPending
             'retarget' => $chain->getRetarget(),
             'sameTarget' => $chain->getSameTarget(),
             'spellSr' => $spellSr,
+            'rating' => $rating,
             'penetration' => $prepared->upgrades->getResistancePenetration(),
             'lastKey' => $target['type'] . ':' . $target['id'],
             'hit' => [$target['type'] . ':' . $target['id']],
@@ -106,7 +109,7 @@ final class GameSpellChainPending
             }
         }
 
-        foreach (['damageSizePerHop', 'spellSr', 'penetration', 'createdAt'] as $key) {
+        foreach (['damageSizePerHop', 'spellSr', 'penetration', 'createdAt', 'rating'] as $key) {
             if (!is_int($value[$key] ?? null)) {
                 throw new GameInvalidException(self::INVALID);
             }
@@ -200,16 +203,18 @@ final class GameSpellChainPending
      * @param array<string, mixed> $chain Продолжение.
      * @param DimensionalNumber $amount Урон прыжка.
      * @param string $key Поражённая цель.
+     * @param int $rating Остаток успеха после траты.
      *
      * @return array<string, mixed> Новое продолжение.
      */
-    public function advance(array $chain, DimensionalNumber $amount, string $key): array
+    public function advance(array $chain, DimensionalNumber $amount, string $key, int $rating): array
     {
         $hit = is_array($chain['hit'] ?? null) ? $chain['hit'] : [];
         $hit[] = $key;
         $chain['amount'] = ['base' => $amount->getBase(), 'size' => $amount->getSize()];
         $chain['lastKey'] = $key;
         $chain['hit'] = array_values($hit);
+        $chain['rating'] = $rating;
 
         return $chain;
     }
@@ -234,6 +239,10 @@ final class GameSpellChainPending
             'sameTarget' => $chain['sameTarget'],
             'retarget' => $chain['retarget'],
             'spellSr' => $chain['spellSr'],
+            'rating' => $chain['rating'],
+            'freeIpari' => $chain['freeIpari'],
+            'sizePerExtraIpari' => $chain['sizePerExtraIpari'],
+            'damageMin' => $chain['damageMin'],
             'lastKey' => $chain['lastKey'],
             'hit' => $chain['hit'],
         ];

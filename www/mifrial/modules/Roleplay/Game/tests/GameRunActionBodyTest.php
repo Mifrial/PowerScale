@@ -249,4 +249,83 @@ final class GameRunActionBodyTest extends TestCase
         self::assertSame(['kind' => 'npc', 'id' => 2], $parsed['context']['target']);
         self::assertSame('hold', $parsed['context']['operation']);
     }
+
+    /**
+     * Прыжок цепи принимает размерную дистанцию.
+     *
+     * @return void
+     */
+    public function testChainTargetAcceptsDimensionalDistance(): void
+    {
+        $parsed = (new GameRunActionBody())->parse([
+            'phase' => 'chain',
+            'kind' => 'spell',
+            'context' => [
+                'castId' => 'cast-1',
+                'chainTarget' => [
+                    'type' => 'npc',
+                    'id' => 2,
+                    'distance' => [
+                        'type' => 'ipari',
+                        'value' => ['type' => 'literal', 'value' => ['base' => 3, 'size' => 1]],
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertSame(6, $parsed['context']['chainTarget']['distanceIpari']);
+    }
+
+    /**
+     * Старое целое и размерная дистанция не расходятся.
+     *
+     * @return void
+     */
+    public function testChainTargetRejectsDistanceMismatch(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameRunActionBody())->parse([
+            'phase' => 'chain',
+            'kind' => 'spell',
+            'context' => [
+                'castId' => 'cast-1',
+                'chainTarget' => [
+                    'type' => 'npc',
+                    'id' => 2,
+                    'distanceIpari' => 3,
+                    'distance' => [
+                        'type' => 'ipari',
+                        'value' => ['type' => 'literal', 'value' => ['base' => 4, 'size' => 0]],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Дистанция в шагах у заклинания не поддерживается.
+     *
+     * @return void
+     */
+    public function testChainTargetRejectsStepDistance(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameRunActionBody())->parse([
+            'phase' => 'chain',
+            'kind' => 'spell',
+            'context' => [
+                'castId' => 'cast-1',
+                'chainTarget' => [
+                    'type' => 'npc',
+                    'id' => 2,
+                    'distance' => [
+                        'type' => 'step',
+                        'value' => ['type' => 'literal', 'value' => ['base' => 1, 'size' => 0]],
+                    ],
+                ],
+            ],
+        ]);
+    }
 }

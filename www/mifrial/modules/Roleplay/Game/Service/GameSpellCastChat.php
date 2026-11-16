@@ -405,7 +405,7 @@ final class GameSpellCastChat
     }
 
     /**
-     * Прыжок цепи: строка попадания, разрыв или последствия.
+     * Прыжок цепи: строка попадания, промах по сопротивлению или последствия.
      *
      * @param GameRecord $game Игра.
      * @param int $actorUserId Автор.
@@ -413,6 +413,10 @@ final class GameSpellCastChat
      * @param array<string, mixed> $chain Состояние цепи.
      * @param array<string, mixed>|null $row Строка прыжка или null.
      * @param bool $broken Цепь оборвалась.
+     * @param bool $avoided Цель избежала заклинания из-за Сопротивления магии.
+     * @param int $spentRating Сколько успеха каста поглотило сопротивление.
+     * @param int $ratingAfter Остаток успеха после прыжка.
+     * @param array{type: string, id: int} $target Цель прыжка.
      *
      * @return void
      *
@@ -425,6 +429,10 @@ final class GameSpellCastChat
         array $chain,
         ?array $row,
         bool $broken,
+        bool $avoided,
+        int $spentRating,
+        int $ratingAfter,
+        array $target,
     ): void {
         $chatId = $this->chatId($game);
         $thread = is_array($chain['thread'] ?? null)
@@ -437,25 +445,59 @@ final class GameSpellCastChat
             is_int($actor['id'] ?? null) ? $actor['id'] : 0,
         );
         $spell = '[[rule:' . (string) $chain['ruleCode'] . ']]';
-        if ($broken || $row === null) {
-            $this->send($chatId, $actorUserId, $spell . ' обрывается.', $attachments);
+        $hit = is_array($row['target'] ?? null) ? $row['target'] : $target;
+        $targetToken = $this->tokens->getEntityToken((string) $hit['type'], (int) $hit['id']);
+        if ($row !== null) {
+            $damageName = is_string($row['damageName'] ?? null) ? $row['damageName'] : null;
+            $this->send(
+                $chatId,
+                $actorUserId,
+                $targetToken . ' попадает под ' . $spell . '.',
+                [['type' => 'attack-calc', 'payload' => $this->calc($row, 'Цепь', 'РУ цепи')], ...$attachments],
+            );
+            $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
+            $this->postConsequence($chatId, $actorUserId, $targetToken, null, $consequence, $attachments, $damageName);
+        }
+
+        if ($avoided) {
+            $this->send(
+                $chatId,
+                $actorUserId,
+                $targetToken . ' гасит ' . $spell . ' Сопротивлением магии: сопротивление '
+                    . $spentRating . ' РУ, остаток каста ' . ($ratingAfter + $spentRating)
+                    . ' РУ; ' . $spell . ' обрывается.',
+                $attachments,
+            );
 
             return;
         }
 
-        $target = is_array($row['target'] ?? null) ? $row['target'] : null;
-        $targetToken = $target === null
-            ? ''
-            : $this->tokens->getEntityToken((string) $target['type'], (int) $target['id']);
-        $damageName = is_string($row['damageName'] ?? null) ? $row['damageName'] : null;
-        $this->send(
-            $chatId,
-            $actorUserId,
-            $targetToken . ' попадает под ' . $spell . '.',
-            [['type' => 'attack-calc', 'payload' => $this->calc($row, 'Цепь', 'РУ цепи')], ...$attachments],
-        );
-        $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
-        $this->postConsequence($chatId, $actorUserId, $targetToken, null, $consequence, $attachments, $damageName);
+        if ($spentRating > 0) {
+            $this->send(
+                $chatId,
+                $actorUserId,
+                'Сопротивление магии ' . $targetToken . ' забирает ' . $spentRating
+                    . ' РУ каста; остаток ' . $ratingAfter . '.',
+                $attachments,
+            );
+        }
+
+        if (!$broken) {
+            return;
+        }
+
+        if ($row === null) {
+            $this->send(
+                $chatId,
+                $actorUserId,
+                $spell . ' не долетает до ' . $targetToken . ': урон ниже минимума, цепь обрывается.',
+                $attachments,
+            );
+
+            return;
+        }
+
+        $this->send($chatId, $actorUserId, $spell . ' обрывается.', $attachments);
     }
 
     /**

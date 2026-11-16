@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Контекст заклинания в game.runAction.
@@ -67,10 +68,7 @@ final class GameRunActionSpellBody
             throw $this->invalid();
         }
 
-        $distanceIpari = $context['distanceIpari'] ?? 0;
-        if (!is_int($distanceIpari) || $distanceIpari < 0) {
-            throw $this->invalid();
-        }
+        $distanceIpari = $this->distanceIpari($context);
 
         $chargeSpellId = $context['chargeSpellId'] ?? null;
         if ($chargeSpellId !== null) {
@@ -156,16 +154,21 @@ final class GameRunActionSpellBody
             throw $this->invalid();
         }
 
-        $this->fields->assertKeys($value, ['type', 'id', 'distanceIpari'], 'chain target');
+        $allowed = ['type', 'id'];
+        foreach (['distanceIpari', 'distance'] as $key) {
+            if (array_key_exists($key, $value)) {
+                $allowed[] = $key;
+            }
+        }
+
+        $this->fields->assertKeys($value, $allowed, 'chain target');
         $type = $value['type'] ?? null;
         $id = $value['id'] ?? null;
-        $distance = $value['distanceIpari'] ?? null;
+        $distance = $this->distanceIpari($value);
         if (
             !in_array($type, ['character', 'npc'], true)
             || !is_int($id)
             || $id < 1
-            || !is_int($distance)
-            || $distance < 0
         ) {
             throw $this->invalid();
         }
@@ -183,13 +186,107 @@ final class GameRunActionSpellBody
     private function keys(array $context): array
     {
         $allowed = ['expectedSheetVersion', 'pathCode', 'parameters', 'usedPower'];
-        foreach (['target', 'expectedTargetVersion', 'distanceIpari', 'upgrades', 'chargeSpellId'] as $key) {
+        foreach (['target', 'expectedTargetVersion', 'distanceIpari', 'distance', 'upgrades', 'chargeSpellId'] as $key) {
             if (array_key_exists($key, $context)) {
                 $allowed[] = $key;
             }
         }
 
         return $allowed;
+    }
+
+    /**
+     * Точная дистанция в ипари: размерная форма или старое целое.
+     *
+     * @param array<string, mixed> $holder Контекст каста или цель прыжка.
+     *
+     * @return int Ипари.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function distanceIpari(array $holder): int
+    {
+        $legacy = $holder['distanceIpari'] ?? null;
+        if ($legacy !== null && (!is_int($legacy) || $legacy < 0)) {
+            throw $this->invalid();
+        }
+
+        if (!array_key_exists('distance', $holder) || $holder['distance'] === null) {
+            return $legacy ?? 0;
+        }
+
+        $ipari = $this->distanceValue($holder['distance'])->toInteger();
+        if ($legacy !== null && $legacy !== $ipari) {
+            throw $this->invalid();
+        }
+
+        return $ipari;
+    }
+
+    /**
+     * Размерная дистанция в форме удара.
+     *
+     * @param mixed $distance Значение.
+     *
+     * @return DimensionalNumber Дистанция.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function distanceValue(mixed $distance): DimensionalNumber
+    {
+        if (!is_array($distance)) {
+            throw $this->invalid();
+        }
+
+        $this->fields->assertKeys($distance, ['type', 'value'], 'spell distance');
+        $type = $distance['type'] ?? null;
+        $value = $distance['value'] ?? null;
+        if ($type !== 'ipari' || !is_array($value)) {
+            throw $this->invalid();
+        }
+
+        $node = $value['type'] ?? null;
+        if ($node === 'literal') {
+            $pair = $value['value'] ?? null;
+            if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
+                throw $this->invalid();
+            }
+
+            return $this->dimensional((int) $pair['base'], (int) $pair['size']);
+        }
+
+        if ($node === 'dimensional') {
+            if (!is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
+                throw $this->invalid();
+            }
+
+            return $this->dimensional((int) $value['base'], (int) $value['size']);
+        }
+
+        if ($node === 'fixed' && is_int($value['value'] ?? null)) {
+            return $this->dimensional((int) $value['value'], 0);
+        }
+
+        throw $this->invalid();
+    }
+
+    /**
+     * Неотрицательная пара дистанции.
+     *
+     * @param int $base База.
+     * @param int $size Размер.
+     *
+     * @return DimensionalNumber Число.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function dimensional(int $base, int $size): DimensionalNumber
+    {
+        if ($base < 0) {
+            throw $this->invalid();
+        }
+
+        return new DimensionalNumber($base, $size);
     }
 
     /**

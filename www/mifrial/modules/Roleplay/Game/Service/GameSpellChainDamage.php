@@ -17,8 +17,9 @@ use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 /**
  * Урон прыжка цепи по выбранной цели.
  *
- * Считает по записанному состоянию цепи: остаток урона, карточка урона
- * и РУ первого попадания. Лист цели читается текущим, как у взрыва.
+ * Сначала цель тратит остаток успеха каста на своё Сопротивление магии:
+ * отрицательный остаток — цель избегает заклинания. Затем считается урон
+ * по записанному состоянию цепи. Лист цели читается текущим, как у взрыва.
  */
 final class GameSpellChainDamage
 {
@@ -30,10 +31,11 @@ final class GameSpellChainDamage
      * @param ICharacterSheets $characterSheets Пересчёт листа.
      * @param GameStrikeDefense $defense Сопротивление.
      * @param GameStrikeAmounts $amounts Арифметика урона.
-     * @param GameSpellMagicResistance $magicResistance Признак магии.
+     * @param GameSpellMagicResistance $magicResistance Сопротивление магии.
      * @param GameStrikeConsequences $consequences Последствия.
      * @param GameSpellChainHop $hop Правила прыжка.
      * @param GameSpellChainPending $pending Состояние цепи.
+     * @param GameSpellChainForce $force Остаток успеха против сопротивления.
      *
      * @return void
      */
@@ -47,36 +49,27 @@ final class GameSpellChainDamage
         private readonly GameStrikeConsequences $consequences,
         private readonly GameSpellChainHop $hop,
         private readonly GameSpellChainPending $pending,
+        private readonly GameSpellChainForce $force = new GameSpellChainForce(),
     ) {
     }
 
     /**
-     * Урон и операции прыжка по цели.
+     * Прыжок по цели: трата успеха, урон и операции.
      *
      * @param GameRecord $game Игра.
      * @param array<string, mixed> $chain Состояние цепи.
      * @param array{type: string, id: int, distanceIpari: int} $target Цель.
      *
-     * @return array<string, mixed>|null Строка цели или null, если цепь оборвалась.
+     * @return array{row: array<string, mixed>|null, rating: int, spend: int, avoided: bool} Прыжок.
      *
      * @throws GameInvalidException Если тип урона или лист битые.
      */
-    public function hop(GameRecord $game, array $chain, array $target): ?array
+    public function hop(GameRecord $game, array $chain, array $target): array
     {
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $type = $slice->findLive((string) $chain['damageTypeCode'])?->getSpec();
         if (!$type instanceof DamageTypeSpec) {
             throw new GameInvalidException('Game spell chain damage type is invalid');
-        }
-
-        $amount = $this->hop->nextAmount(
-            $this->pending->chainSpec($chain),
-            $this->pending->damageSpec($chain),
-            $this->pending->amount($chain),
-            $target['distanceIpari'],
-        );
-        if (!$amount instanceof CharacteristicNumber) {
-            return null;
         }
 
         $snapshot = $this->sheets->snapshot($game, $target['type'], $target['id']);
@@ -88,6 +81,25 @@ final class GameSpellChainDamage
         }
 
         $sheet = $this->characterSheets->compute($slice, $choices, $sheet);
+        $force = $this->force->spend(
+            (int) $chain['rating'],
+            $this->magicResistance->sumResistance($game, $slice, $sheet, $choices),
+            (int) $chain['penetration'],
+        );
+        if ($force['avoided']) {
+            return ['row' => null, 'rating' => $force['rating'], 'spend' => $force['spend'], 'avoided' => true];
+        }
+
+        $amount = $this->hop->nextAmount(
+            $this->pending->chainSpec($chain),
+            $this->pending->damageSpec($chain),
+            $this->pending->amount($chain),
+            $target['distanceIpari'],
+        );
+        if (!$amount instanceof CharacteristicNumber) {
+            return ['row' => null, 'rating' => $force['rating'], 'spend' => $force['spend'], 'avoided' => false];
+        }
+
         $code = (string) $chain['damageTypeCode'];
         $spellSr = (int) $chain['spellSr'];
         $resistance = $this->defense->resistanceByType($game, $code, $sheet, $choices);
@@ -133,17 +145,22 @@ final class GameSpellChainDamage
         );
 
         return [
-            'target' => ['type' => $target['type'], 'id' => $target['id']],
-            'version' => $version,
-            'damage' => $amount,
-            'injury' => $injury,
-            'resistance' => $resistance,
-            'endurance' => $endurance,
-            'defenseIgnored' => $type->isDefenseIgnored(),
-            'successRating' => $spellSr,
-            'operations' => $effects['operations'],
-            'consequence' => $effects['consequence'],
-            'damageName' => $type->getGenitive(),
+            'row' => [
+                'target' => ['type' => $target['type'], 'id' => $target['id']],
+                'version' => $version,
+                'damage' => $amount,
+                'injury' => $injury,
+                'resistance' => $resistance,
+                'endurance' => $endurance,
+                'defenseIgnored' => $type->isDefenseIgnored(),
+                'successRating' => $spellSr,
+                'operations' => $effects['operations'],
+                'consequence' => $effects['consequence'],
+                'damageName' => $type->getGenitive(),
+            ],
+            'rating' => $force['rating'],
+            'spend' => $force['spend'],
+            'avoided' => false,
         ];
     }
 }

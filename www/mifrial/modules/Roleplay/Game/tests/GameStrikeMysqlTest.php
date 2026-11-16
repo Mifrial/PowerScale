@@ -3899,10 +3899,66 @@ final class GameStrikeMysqlTest extends TestCase
             (string) $cast['data']['castId'],
             'chain-far',
             (int) $cast['data']['version'],
-            ['type' => 'npc', 'id' => $second, 'distanceIpari' => 4],
+            [
+                'type' => 'npc',
+                'id' => $second,
+                'distance' => [
+                    'type' => 'ipari',
+                    'value' => ['type' => 'literal', 'value' => ['base' => 4, 'size' => 0]],
+                ],
+            ],
         ));
         self::assertTrue($hop['success'], json_encode($hop));
         self::assertTrue($hop['data']['broke'] ?? false);
+        self::assertNull($hop['data']['hop']);
+        self::assertNull($hop['data']['chain']);
+        self::assertSame($npcVersion, (int) $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $second,
+        ])['data']['actualVersion']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+    }
+
+    /**
+     * Прыжок тратит остаток успеха каста на Сопротивление магии цели.
+     *
+     * @return void
+     */
+    public function testChainLightningSpendsCastRatingOnMagicResistance(): void
+    {
+        $scene = $this->spellScene(
+            12,
+            extraAbilities: [['ruleCode' => 'chain-lightning', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraRules: $this->magicResistanceRules(100),
+            extraCards: ['chain-lightning' => $this->chainCard()],
+            npcs: 2,
+            npcAbilities: [1 => [['ruleCode' => 'magic-resistance', 'level' => 1]]],
+        );
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'chain-lightning']];
+        $body['parameters'] = ['x' => ['base' => 5, 'size' => 1]];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $chain = $cast['data']['chain'] ?? null;
+        self::assertIsArray($chain);
+        self::assertGreaterThanOrEqual(1, $chain['rating']);
+
+        $second = $scene['npcIds'][1];
+        $npcVersion = (int) $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $second,
+        ])['data']['actualVersion'];
+        $hop = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            (string) $cast['data']['castId'],
+            'chain-resist',
+            (int) $cast['data']['version'],
+            ['type' => 'npc', 'id' => $second, 'distanceIpari' => 0],
+        ));
+        self::assertTrue($hop['success'], json_encode($hop));
+        self::assertTrue($hop['data']['avoided'] ?? false);
+        self::assertTrue($hop['data']['broke'] ?? false);
+        self::assertSame(100, $hop['data']['spentRating'] ?? 0);
         self::assertNull($hop['data']['hop']);
         self::assertNull($hop['data']['chain']);
         self::assertSame($npcVersion, (int) $this->dispatch('game.getNpc', [
@@ -3970,6 +4026,8 @@ final class GameStrikeMysqlTest extends TestCase
     /**
      * Сцена каста: герой, NPC и бой.
      *
+     * @param array<int, array<int, array<string, mixed>>> $npcAbilities Способности NPC по индексу.
+     *
      * @return array{
      *     gameId: int,
      *     battleId: int,
@@ -3995,6 +4053,7 @@ final class GameStrikeMysqlTest extends TestCase
         array $heroInventory = [],
         array $heroSheet = [],
         int $npcs = 1,
+        array $npcAbilities = [],
     ): array {
         $world = $this->spellWorld(
             $occupyHands,
@@ -4030,8 +4089,8 @@ final class GameStrikeMysqlTest extends TestCase
                     'name' => 'Guard ' . ($index + 1),
                     'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
                 ]));
-                if ($targetAbilities !== []) {
-                    $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+                if (isset($npcAbilities[$index]) || $targetAbilities !== []) {
+                    $npc = $this->endureNpcAbilities($gameId, $npc, $npcAbilities[$index] ?? $targetAbilities);
                 }
                 if ($targetRaceCode !== null) {
                     $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);

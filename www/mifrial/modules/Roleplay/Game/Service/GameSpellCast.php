@@ -633,7 +633,13 @@ final class GameSpellCast
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
 
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
-        $chain = $this->chainOf($castId, $prepared, $damageForPower, $this->threadOf($battle, $castId, $pendingCast));
+        $chain = $this->chainOf(
+            $castId,
+            $prepared,
+            $damageForPower,
+            $this->threadOf($battle, $castId, $pendingCast),
+            $saturation->getRemainingRating(),
+        );
         $saved = $this->saveBattle($battle, $pending, $pendingCast, $chain);
 
         return $this->respond(
@@ -1029,7 +1035,13 @@ final class GameSpellCast
         );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
-        $chain = $this->chainOf($castId, $prepared, $damage, $this->threadOf($battle, $castId, $pendingCast));
+        $chain = $this->chainOf(
+            $castId,
+            $prepared,
+            $damage,
+            $this->threadOf($battle, $castId, $pendingCast),
+            $saturation->getRemainingRating(),
+        );
         $saved = $chain === null
             ? $this->repos->battles->finishSpellCast($battleId, $expected, $pending)
             : $this->repos->battles->replacePending($battleId, $expected, $pending, null, $chain);
@@ -1159,15 +1171,27 @@ final class GameSpellCast
             throw new GameInvalidException('Game spell chain target is invalid');
         }
 
-        $row = $this->chainDamage->hop($game, $chain, $target);
+        $hop = $this->chainDamage->hop($game, $chain, $target);
+        $row = $hop['row'];
         $broken = $row === null || $this->chainBroke($row);
         if (!$broken) {
             $row = $this->writeHop($game, $target, $row);
-            $chain = $this->chainPending->advance($chain, $row['damage'], $key);
+            $chain = $this->chainPending->advance($chain, $row['damage'], $key, $hop['rating']);
         }
 
         $next = $broken ? null : $this->chainNext($chain);
-        $this->chat->postChain($game, $actorUserId, $battle, $chain, $row, $broken);
+        $this->chat->postChain(
+            $game,
+            $actorUserId,
+            $battle,
+            $chain,
+            $row,
+            $broken,
+            $hop['avoided'],
+            $hop['spend'],
+            $hop['rating'],
+            ['type' => $target['type'], 'id' => $target['id']],
+        );
         $saved = $next === null
             ? $this->repos->battles->finishSpellCast($battleId, $expected, $battle->getPendingActionEffects())
             : $this->repos->battles->replacePending(
@@ -1185,6 +1209,9 @@ final class GameSpellCast
             'castId' => $castId,
             'version' => $saved->getStateVersion(),
             'broke' => $broken,
+            'avoided' => $hop['avoided'],
+            'rating' => $hop['rating'],
+            'spentRating' => $hop['spend'],
             'hop' => $row === null ? null : $this->hopView($row),
             'chain' => $next === null ? null : $this->chainPending->view($next),
         ];
@@ -1240,6 +1267,7 @@ final class GameSpellCast
      * @param GameSpellCastPrepared $prepared Подготовка.
      * @param array<string, mixed> $damage Итог урона.
      * @param array<string, mixed> $thread Нить чата.
+     * @param int $rating Остаток успеха каста после насыщения.
      *
      * @return array<string, mixed>|null Продолжение или null.
      */
@@ -1248,12 +1276,13 @@ final class GameSpellCast
         GameSpellCastPrepared $prepared,
         array $damage,
         array $thread,
+        int $rating,
     ): ?array {
         $ruleCode = $prepared->upgrades->getChainRuleCode();
 
         return $ruleCode === null
             ? null
-            : $this->chainPending->build($castId, $prepared, $damage, $ruleCode, $thread);
+            : $this->chainPending->build($castId, $prepared, $damage, $ruleCode, $thread, $rating);
     }
 
     /**
