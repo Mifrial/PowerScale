@@ -193,6 +193,43 @@ final class GameSpellCast
     }
 
     /**
+     * Завершает оплаченный долгом каст по сохранённому объявлению.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой после доплаты.
+     * @param int $sheetVersion Версия листа кастера после доплаты.
+     * @param int $actorUserId Пользователь.
+     * @param array<string, mixed> $payload Слот долга.
+     *
+     * @return array<string, mixed> Итог каста.
+     *
+     * @throws GameInvalidException Если объявление битое или каст отвергнут.
+     * @throws GameNotFoundException Если заклинания или цели нет.
+     * @throws GameBattleConflictException Если версия цели чужая.
+     */
+    public function resumePaid(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        int $sheetVersion,
+        int $actorUserId,
+        array $payload,
+    ): array {
+        $body = is_array($payload['body'] ?? null) ? $payload['body'] : [];
+        if ($body === []) {
+            throw new GameInvalidException('Game spell cast debt is invalid');
+        }
+
+        $body['gameId'] = $game->getId();
+        $body['battleId'] = $battle->getId();
+        $body['expectedVersion'] = $battle->getStateVersion();
+        $body['expectedSheetVersion'] = $sheetVersion;
+
+        return $this->work($game, $sessionId, $actorUserId, $body, true, true);
+    }
+
+    /**
      * Прыжок цепи к следующей цели.
      *
      * @param int $gameId Игра.
@@ -418,6 +455,7 @@ final class GameSpellCast
      * @param int $actorUserId Пользователь.
      * @param array<string, mixed> $body Тело.
      * @param bool $allowPause Разрешить паузу.
+     * @param bool $prepaid Каст уже оплачен долгом.
      *
      * @return array<string, mixed> Итог.
      *
@@ -431,6 +469,7 @@ final class GameSpellCast
         int $actorUserId,
         array $body,
         bool $allowPause,
+        bool $prepaid = false,
     ): array {
         $battleId = is_int($body['battleId'] ?? null) ? $body['battleId'] : 0;
         $expected = is_int($body['expectedVersion'] ?? null) ? $body['expectedVersion'] : -1;
@@ -460,8 +499,20 @@ final class GameSpellCast
                 $prepared->path->getActiveSpellLimit(),
             );
         }
-        $this->perform->assertSpends($game, $prepared->casterSheet, $prepared->spends);
         $actorKey = $prepared->casterKind . ':' . $prepared->casterId;
+        if ($prepaid) {
+            if ($prepared->target !== null) {
+                $body['expectedTargetVersion'] = $prepared->target['version'];
+            }
+        } else {
+            $opened = $this->castDebt($game, $battle, $expected, $body, $prepared, $actorKey);
+            if ($opened !== null) {
+                return $opened;
+            }
+
+            $this->perform->assertSpends($game, $prepared->casterSheet, $prepared->spends);
+        }
+
         $trainingDelta = $this->nextCast->peek($battle->getPendingActionEffects(), $actorKey, $prepared->spent);
         $check = $this->check->check($game, $prepared, $trainingDelta);
         $plan = $this->saturation->plan($prepared->saturationSource, $check);
@@ -479,6 +530,7 @@ final class GameSpellCast
                 $battle,
                 $plan,
                 $deviation,
+                $prepaid,
             );
         }
 
@@ -494,7 +546,84 @@ final class GameSpellCast
             0,
             null,
             $deviation,
+            $prepaid,
         );
+    }
+
+    /**
+     * Открывает долг ОД, если ресурса хода не хватает.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expected Версия боя из запроса.
+     * @param array<string, mixed> $body Тело.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param string $actorKey Ключ кастера.
+     *
+     * @return array<string, mixed>|null Итог долга или null, если хватает.
+     *
+     * @throws GameInvalidException Если долг открыт или траты не покрыты.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    private function castDebt(
+        GameRecord $game,
+        GameBattleRecord $battle,
+        int $expected,
+        array $body,
+        GameSpellCastPrepared $prepared,
+        string $actorKey,
+    ): ?array {
+        $debt = new GameActionDebt();
+        $debt->assertFree($battle->getActionDebt(), $actorKey);
+        $castId = is_string($body['idempotencyKey'] ?? null) ? $body['idempotencyKey'] : '';
+        $planned = $debt->plan(
+            $prepared->slice,
+            $prepared->casterSheet,
+            $prepared->spends,
+            $debt->refillCode($prepared->slice),
+            'spell',
+            [
+                'actionRuleCode' => $prepared->spellCode,
+                'spellCode' => $prepared->spellCode,
+                'castId' => $castId,
+                'body' => $body,
+            ],
+        );
+        if ($planned['open']) {
+            return null;
+        }
+
+        $this->perform->assertSpends($game, $prepared->casterSheet, $planned['spends']);
+        $sheetVersion = $this->perform->spend(
+            $game,
+            $prepared->casterKind,
+            $prepared->casterId,
+            $prepared->casterVersion,
+            $planned['spends'],
+        );
+        $debtMap = $battle->getActionDebt();
+        $debtMap[$actorKey] = $planned['slot'];
+        $saved = $this->repos->battles->replaceTracked($battle->getId(), $expected, null, $debtMap, null, null);
+        $total = is_int($planned['slot']['total'] ?? null) ? $planned['slot']['total'] : 0;
+        $remaining = is_int($planned['slot']['remaining'] ?? null) ? $planned['slot']['remaining'] : 0;
+
+        return [
+            'kind' => 'spell',
+            'debt' => true,
+            'battleId' => $battle->getId(),
+            'castId' => $castId,
+            'spellCode' => $prepared->spellCode,
+            'version' => $saved->getStateVersion(),
+            'sheetVersion' => $sheetVersion,
+            'total' => $total,
+            'spent' => $total - $remaining,
+            'remaining' => $remaining,
+            'caster' => [
+                'type' => $prepared->casterKind,
+                'id' => $prepared->casterId,
+                'sheetVersion' => $sheetVersion,
+            ],
+        ];
     }
 
     /**
@@ -525,6 +654,7 @@ final class GameSpellCast
         GameBattleRecord $battle,
         GameSpellCastSaturationPlan $plan,
         ?array $deviation,
+        bool $prepaid = false,
     ): array {
         $actionId = $this->repos->actions->add([
             'kind' => 'spell',
@@ -549,6 +679,7 @@ final class GameSpellCast
             GameCombatThread::buildSpellCast($battle, $castId),
             $plan,
             $deviation,
+            $prepaid,
         );
         $saved = $this->repos->battles->beginSpellCast($battle->getId(), $battle->getStateVersion(), $pending);
 
@@ -605,6 +736,7 @@ final class GameSpellCast
         int $steps,
         ?array $pendingCast,
         ?array $deviation,
+        bool $prepaid = false,
     ): array {
         $saturation = $this->saturation->apply($plan, $steps);
         $damageForPower = $this->damage->apply($game, $prepared, $check['castOk'], null, $saturation->getPowerDelta());
@@ -621,6 +753,7 @@ final class GameSpellCast
             $damageForPower,
             $pendingCast === null ? null : (int) $pendingCast['casterVersion'],
             $casterOperations,
+            $prepaid ? [] : null,
         );
         $activeSpell = $this->activeCreate->fromCast(
             $game,
@@ -1023,7 +1156,15 @@ final class GameSpellCast
         );
         $castBody = $this->pending->bodyOf($pendingCast, $game->getId(), $battleId);
         $deviation = is_array($pendingCast['deviation'] ?? null) ? $pendingCast['deviation'] : null;
-        $versions = $this->resolveWrite($game, $prepared, $castBody, $damage, $pendingCast, $deviation);
+        $versions = $this->resolveWrite(
+            $game,
+            $prepared,
+            $castBody,
+            $damage,
+            $pendingCast,
+            $deviation,
+            ($pendingCast['prepaid'] ?? false) === true,
+        );
         $deliverySr = is_int($pendingCast['deliverySr'] ?? null) ? $pendingCast['deliverySr'] : null;
         $activeSpell = $this->activeCreate->fromCast(
             $game,
@@ -1524,6 +1665,7 @@ final class GameSpellCast
         array $damage,
         array $pendingCast,
         ?array $deviation = null,
+        bool $prepaid = false,
     ): array {
         $casterOperations = [
             ...$this->casterOperations($prepared, $deviation),
@@ -1543,6 +1685,7 @@ final class GameSpellCast
                 $damage,
                 (int) $pendingCast['casterVersion'],
                 $casterOperations,
+                $prepaid ? [] : null,
             );
         }
 

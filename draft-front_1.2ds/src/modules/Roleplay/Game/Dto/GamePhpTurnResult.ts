@@ -18,6 +18,13 @@ export interface GamePhpTurnResult {
   remaining?: number;
   /** Вопросы поддержания на входе хода нового текущего. */
   sustain?: GamePhpSustainPrompt[];
+  /** Долг ОД нового текущего. */
+  debt?: {
+    kind: string;
+    actionRuleCode: string;
+    remaining: number;
+    total: number;
+  } | null;
   /** Прерванный процесс: карточка и шаг. */
   processRuleCode?: string;
   stepCode?: string;

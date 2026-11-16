@@ -86,12 +86,36 @@ final class GameTurnEnd
             'round' => $cursor['round'],
             'pendingActionEffects' => $performed['pending'],
             'sustain' => $sustain,
+            'debt' => $this->debtOf($saved, $this->cursor->current($saved)),
         ];
         $this->announce->wait($game, $actorUserId, $current, $battle, $performed['waitCode'], $performed);
         $this->announce->rolls($game, $ticked['rolls']);
         $this->announce->passed($game, $actorUserId, $battle, $result);
 
         return $result;
+    }
+
+    /**
+     * Долг нового текущего или null.
+     *
+     * @param GameBattleRecord $battle Бой.
+     * @param array{type: string, id: int} $current Новый текущий.
+     *
+     * @return array{kind: string, actionRuleCode: string, remaining: int, total: int}|null Слот.
+     */
+    private function debtOf(GameBattleRecord $battle, array $current): ?array
+    {
+        $slot = $battle->getActionDebt()[$current['type'] . ':' . $current['id']] ?? null;
+        if (!is_array($slot)) {
+            return null;
+        }
+
+        return [
+            'kind' => (new GameActionDebt())->kindOf($slot),
+            'actionRuleCode' => is_string($slot['actionRuleCode'] ?? null) ? $slot['actionRuleCode'] : '',
+            'remaining' => is_int($slot['remaining'] ?? null) ? $slot['remaining'] : 0,
+            'total' => is_int($slot['total'] ?? null) ? $slot['total'] : 0,
+        ];
     }
 
     /**

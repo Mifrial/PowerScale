@@ -837,10 +837,32 @@ export class GameApi implements IGameApi {
   }
 
   async getCommittedActionSessions(
-    _gameId: number,
-    _signal?: AbortSignal,
+    gameId: number,
+    signal?: AbortSignal,
   ): Promise<Record<CombatEntityKey, CommittedActionSession>> {
-    return {};
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) return {};
+    const sheets = await this.getBattleSheets({ gameId, battleId }, signal).catch(() => null);
+    const debt = sheets?.actionDebt ?? {};
+    const sessions: Record<CombatEntityKey, CommittedActionSession> = {};
+    for (const [key, raw] of Object.entries(debt)) {
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) continue;
+      const slot = raw as Record<string, unknown>;
+      const remaining = typeof slot.remaining === 'number' ? slot.remaining : 0;
+      sessions[key as CombatEntityKey] = {
+        gameId,
+        entityKey: key as CombatEntityKey,
+        actionRuleCode: typeof slot.actionRuleCode === 'string' ? slot.actionRuleCode : '',
+        remainingOd: remaining,
+        totalOd: typeof slot.total === 'number' ? slot.total : remaining,
+        targetKey: null,
+        stateIndices: [],
+        startedAt: '',
+        updatedAt: '',
+      };
+    }
+
+    return sessions;
   }
 
   async setCommittedActionSession(
@@ -1588,6 +1610,14 @@ export class GameApi implements IGameApi {
     const result = await this.requireData<GamePhpTurnResult>(action, body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
     gamePhpBattleContext.rememberDebt(false, result.version);
+    const scale = gamePhpBattleContext.getScale();
+    if (scale !== null && typeof result.activeIndex === 'number') {
+      gamePhpBattleContext.rememberScale({
+        ...scale,
+        activeIndex: result.activeIndex,
+        round: typeof result.round === 'number' ? result.round : scale.round,
+      });
+    }
     if (result.pendingActionEffects) {
       gamePhpBattleContext.rememberPending(result.pendingActionEffects);
     }

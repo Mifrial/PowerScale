@@ -1161,17 +1161,19 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
-     * Без ОД каст отклоняется до записи.
+     * Без ОД каст уходит в долг целиком, листа не касается.
      *
      * @return void
      */
-    public function testSpellCastWithoutApIsRejected(): void
+    public function testSpellCastWithoutApTakesFullDebt(): void
     {
         $scene = $this->spellScene(0);
         $cast = $this->dispatch('game.castSpell', $this->spellBody($scene));
-        self::assertFalse($cast['success']);
-        self::assertSame('GAME_INVALID', $cast['error']['code']);
-        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertTrue($cast['data']['debt'] ?? false);
+        self::assertSame(0, $cast['data']['spent'] ?? null);
+        self::assertSame($cast['data']['total'] ?? 0, $cast['data']['remaining'] ?? -1);
+        self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
     }
 
     /**
@@ -1710,17 +1712,128 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Двухходовое «Восприятие магии»: долг, продолжение и отмена.
+     *
+     * @return void
+     */
+    public function testTwoTurnSpellTakesDebtAndCompletesAfterContinue(): void
+    {
+        $scene = $this->perceptionScene($this->perceptionCardTwoTurns());
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-debt-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'magic-perception',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertTrue($cast['data']['debt'] ?? false, 'Двухходовой каст должен уйти в долг');
+        self::assertSame(20, $cast['data']['total'] ?? null);
+        self::assertSame($beforeAp, $cast['data']['remaining'] ?? null);
+        self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertArrayNotHasKey('activeSpell', $cast['data']);
+        self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-debt-end',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        self::assertSame('spell', $end['data']['debt']['kind'] ?? null);
+        self::assertSame('magic-perception', $end['data']['debt']['actionRuleCode'] ?? null);
+        self::assertSame($beforeAp, $end['data']['debt']['remaining'] ?? null);
+
+        $continue = $this->dispatch('game.continueAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-debt-continue',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+        ]);
+        self::assertTrue($continue['success'], json_encode($continue));
+        self::assertTrue($continue['data']['opened'] ?? false, 'Долг должен закрыться кастом');
+        self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
+        $sense = $this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation');
+        self::assertNotNull($sense, 'После доплаты каст должен дать чувство');
+        self::assertSame(-4, $sense['value']);
+        self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
+    }
+
+    /**
+     * Отмена долга двухходового каста: оплата не возвращается, эффекта нет.
+     *
+     * @return void
+     */
+    public function testTwoTurnSpellDebtAbortLeavesNoEffect(): void
+    {
+        $scene = $this->perceptionScene($this->perceptionCardTwoTurns());
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-abort-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'magic-perception',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertTrue($cast['data']['debt'] ?? false);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-abort-end',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+
+        $abort = $this->dispatch('game.abortAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-abort-2',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+        ]);
+        self::assertTrue($abort['success'], json_encode($abort));
+        self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
+        self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+    }
+
+    /**
      * Сцена «Восприятия магии»: путь, чувство и карточка.
+     *
+     * @param array<string, mixed>|null $perceptionCard Карточка или null для одного хода.
      *
      * @return array<string, mixed> Сцена.
      */
-    private function perceptionScene(): array
+    private function perceptionScene(?array $perceptionCard = null): array
     {
         return $this->spellScene(
             10,
             null,
             [['ruleCode' => 'magic-perception', 'level' => 1, 'domainCode' => 'arcanist']],
-            extraCards: ['magic-perception' => $this->perceptionCard()],
+            extraCards: ['magic-perception' => $perceptionCard ?? $this->perceptionCard()],
             extraRules: [
                 'magic-sensation' => [
                     'type' => 'sense',
@@ -1744,6 +1857,38 @@ final class GameStrikeMysqlTest extends TestCase
             ],
             withNpc: false,
         );
+    }
+
+    /**
+     * Слоты долга боя.
+     *
+     * @param int $gameId Игра.
+     * @param int $battleId Бой.
+     *
+     * @return array<string, mixed> Карта.
+     */
+    private function battleDebt(int $gameId, int $battleId): array
+    {
+        $sheets = $this->dispatch('game.getBattleSheets', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+        ]);
+        self::assertTrue($sheets['success'], json_encode($sheets));
+
+        return is_array($sheets['data']['actionDebt'] ?? null) ? $sheets['data']['actionDebt'] : [];
+    }
+
+    /**
+     * Карточка «Восприятия магии» на два хода.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function perceptionCardTwoTurns(): array
+    {
+        $card = $this->perceptionCard();
+        $card['spec']['action_components'][0]['amount'] = ['type' => 'turn', 'count' => 2];
+
+        return $card;
     }
 
     /**

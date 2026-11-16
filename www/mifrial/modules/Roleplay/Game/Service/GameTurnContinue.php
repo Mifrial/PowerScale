@@ -25,6 +25,7 @@ final class GameTurnContinue
      * @param GameActionDeclare $actionDeclare Сценарий карточки.
      * @param GameWoundActions $wounds Сценарий раны.
      * @param GameStrikeOpen $open Открытие оплаченного удара.
+     * @param GameSpellCast $spells Завершение оплаченного каста.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class GameTurnContinue
         private readonly GameActionDeclare $actionDeclare,
         private readonly GameWoundActions $wounds,
         private readonly GameStrikeOpen $open,
+        private readonly GameSpellCast $spells,
     ) {
     }
 
@@ -201,7 +203,7 @@ final class GameTurnContinue
             return $this->save($battle, $expectedBattle, $sheetVersion, $prepared, $paid['slot'], $attempt['refused']);
         }
 
-        if ($kind === 'action' || $kind === 'wound') {
+        if ($kind === 'action' || $kind === 'wound' || $kind === 'spell') {
             unset($prepared['debtMap'][$prepared['key']]);
             $this->battles->replaceActionDebt($battle->getId(), $prepared['debtMap']);
         }
@@ -291,6 +293,7 @@ final class GameTurnContinue
         return match ((new GameActionDebt())->kindOf($paid['slot'])) {
             'action' => $this->action($game, $actorUserId, $editAll, $viewAll, $payload, $expectedBattle, $sheetVersion),
             'wound' => $this->wound($game, $actorUserId, $payload, $expectedBattle, $sheetVersion),
+            'spell' => $this->spells->resumePaid($game, $sessionId, $battle, $sheetVersion, $actorUserId, $payload),
             default => $this->open->openPaidAction(
                 $game,
                 $sessionId,

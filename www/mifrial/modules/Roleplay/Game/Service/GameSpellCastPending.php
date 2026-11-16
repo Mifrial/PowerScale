@@ -31,6 +31,7 @@ final class GameSpellCastPending
      * @param array<string, mixed>|null $thread Нить чата.
      * @param GameSpellCastSaturationPlan $plan Выбор насыщения.
      * @param array<string, mixed>|null $deviation Исход отклонения.
+     * @param bool $prepaid Каст уже оплачен долгом.
      *
      * @return array<string, mixed> Отложенный каст.
      */
@@ -48,6 +49,7 @@ final class GameSpellCastPending
         ?array $thread,
         GameSpellCastSaturationPlan $plan,
         ?array $deviation = null,
+        bool $prepaid = false,
     ): array {
         $target = $touch ? $prepared->damageTarget : $prepared->target;
 
@@ -72,6 +74,7 @@ final class GameSpellCastPending
             'thread' => $thread,
             'saturation' => $plan->toArray(),
             'deviation' => $deviation,
+            'prepaid' => $prepaid,
             'createdAt' => time(),
         ];
     }
@@ -112,6 +115,10 @@ final class GameSpellCastPending
         }
 
         if (!is_bool($value['touch'] ?? null)) {
+            throw new GameInvalidException(self::INVALID);
+        }
+
+        if (array_key_exists('prepaid', $value) && !is_bool($value['prepaid'])) {
             throw new GameInvalidException(self::INVALID);
         }
 

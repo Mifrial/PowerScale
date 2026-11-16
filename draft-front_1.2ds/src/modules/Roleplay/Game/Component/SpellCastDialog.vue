@@ -153,6 +153,12 @@ const targetKey = ref<CombatEntityKey | null>(null);
 const parameterPower = ref<DimensionalNumberValue>({ base: 3, size: 0 });
 const busy = ref(false);
 const error = ref<string | null>(null);
+/** Подтверждение сотворения в долг ОД. */
+const debtConfirmOpen = ref(false);
+const debtAccepted = ref(false);
+/** Сообщение об открытом долге после отправки каста. */
+const debtNotice = ref<string | null>(null);
+const debtNeedNow = computed(() => Math.max(0, actionPointCost.value - casterAp.value.base));
 const lastSkip = ref(false);
 const lastMilk = ref(false);
 const lastAutoFail = ref(false);
@@ -792,6 +798,9 @@ async function loadCastContext(open: boolean): Promise<void> {
   loadPhase.value = 'loading';
   loadError.value = null;
   error.value = null;
+  debtNotice.value = null;
+  debtConfirmOpen.value = false;
+  debtAccepted.value = false;
   lastSkip.value = false;
   lastMilk.value = false;
   lastAutoFail.value = false;
@@ -995,8 +1004,14 @@ function assertHandsAvailable(): boolean {
   return false;
 }
 
-async function runCast(): Promise<void> {
-  if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
+/** Подтверждает сотворение в долг ОД и повторяет отправку. */
+function confirmDebtCast(): void {
+  debtAccepted.value = true;
+  debtConfirmOpen.value = false;
+  void runCast();
+}
+
+async function runCast(): Promise<void> {  if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
     return;
   }
   if (busy.value) return;
@@ -1207,10 +1222,17 @@ async function runCast(): Promise<void> {
     }
     await settleCast(executionInput, preparedCast, 0, pendingResolution.remainingEffects, effectKey);
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Не удалось сотворить заклинание';
+    error.value = castErrorMessage(caught);
   } finally {
     busy.value = false;
   }
+}
+
+/** Понятный текст отказа каста вместо доменного сообщения. */
+function castErrorMessage(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : '';
+
+  return message === 'Game action debt is open' ? 'Сначала закончи или сорви текущее сотворение' : message || 'Не удалось сотворить заклинание';
 }
 
 async function runPhpCast(): Promise<void> {
@@ -1240,9 +1262,18 @@ async function runPhpCast(): Promise<void> {
   }
   if (!assertHandsAvailable()) return;
   if (actionPointCost.value > casterAp.value.base) {
-    error.value = 'Недостаточно ОД для сотворения';
+    if (needsTouchAttack.value) {
+      error.value = 'Недостаточно ОД для сотворения';
 
-    return;
+      return;
+    }
+    if (!debtAccepted.value) {
+      debtConfirmOpen.value = true;
+
+      return;
+    }
+    debtAccepted.value = false;
+    debtConfirmOpen.value = false;
   }
   if (needsTouchAttack.value) {
     await runPhpTouchCast(caster);
@@ -1276,6 +1307,12 @@ async function runPhpCast(): Promise<void> {
   const result = await getGameApi().castSpell(request);
   rememberSheet(result.caster);
   if (result.target) rememberSheet(result.target);
+  if (result.debt === true) {
+    debtNotice.value = `Сотворение начато: оплачено ${result.spent ?? 0} из ${result.total ?? 0} ОД, остаток ${result.remaining ?? 0}. Продолжите в свой ход — эффект появится после полной оплаты.`;
+    emit('overlay-changed');
+
+    return;
+  }
   if (result.phase === 'check' && result.castId && (result.saturation || result.deviation?.burst)) {
     phpSaturationSteps.value = 0;
     phpBurstTargets.value = [];
@@ -2278,6 +2315,9 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
             <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
               Каст через электрозаряд
             </v-alert>
+            <v-alert v-if="debtNotice" type="info" variant="tonal" density="compact" class="mb-3">
+              {{ debtNotice }}
+            </v-alert>
             <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
             <SpellCastUpgradeList
               v-model="appliedUpgradeCodes"
@@ -2502,13 +2542,29 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
               !preview ||
               !spellAvailable ||
               !handsAvailable ||
-              manaShortage
+              manaShortage ||
+              Boolean(debtNotice)
             "
             @click="runCast"
           >
             Сотворить
           </v-btn>
         </template>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+  <v-dialog v-model="debtConfirmOpen" max-width="460">
+    <v-card>
+      <v-card-title>Сотворение займёт несколько ходов</v-card-title>
+      <v-card-text>
+        Цена — {{ actionPointCost }} ОД, сейчас {{ casterAp.base }}. Не хватает {{ debtNeedNow }} ОД: они спишутся в
+        следующий ход. Пока долг не закрыт, другие действия недоступны. Эффект появится после полной оплаты;
+        оплаченное не возвращается, если сорвать сотворение.
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="debtConfirmOpen = false">Отмена</v-btn>
+        <v-btn color="primary" @click="confirmDebtCast">Начать сотворение</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

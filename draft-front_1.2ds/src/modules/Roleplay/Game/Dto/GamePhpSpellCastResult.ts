@@ -70,6 +70,12 @@ export interface GamePhpSpellCastResult {
   spellDamage: DimensionalNumberValue | null;
   injury: DimensionalNumberValue | null;
   consequence: Record<string, unknown>;
+  /** Каст ушёл в долг ОД: эффект появится после полной оплаты. */
+  debt?: boolean;
+  /** Остаток долга в ОД. */
+  remaining?: number;
+  /** Полная цена каста в ОД. */
+  total?: number;
   /** Продолжение цепи после попадания; null — цепь не открыта. */
   chain?: GamePhpSpellChain | null;
   pendingSpellCast?: GamePhpPendingSpellCast | null;

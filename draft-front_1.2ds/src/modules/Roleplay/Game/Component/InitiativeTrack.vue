@@ -400,6 +400,11 @@ async function load(): Promise<void> {
     processSessions.value = nextProcesses;
     pendingEffectsByEntity.value = nextPendingEffects;
     committedSessions.value = nextCommitted;
+    if (gamePhpMode.isEnabled() && nextInitiative?.active) {
+      const current = nextInitiative.participants[nextInitiative.activeIndex ?? 0];
+      const committed = nextCommitted as Record<CombatEntityKey, CommittedActionSession>;
+      if (current && committed[current.id as CombatEntityKey]) void promptCommittedContinue(current);
+    }
     emit(
       'participants',
       (initiative.value?.active ? initiative.value.participants : []).map((participant) => participant.id),
@@ -844,8 +849,13 @@ async function nextTurn(): Promise<void> {
     const key = activeParticipantKey.value;
     if (!key) return;
     const result = await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
+    if (typeof result.sheetVersion === 'number') gamePhpBattleContext.rememberSheet(key, result.sheetVersion);
+    const scale = gamePhpBattleContext.getScale();
+    if (scale !== null) initiative.value = scale;
     emit('overlay-changed');
     await promptPhpSustains(result);
+    const next = scale === null ? undefined : scale.participants[scale.activeIndex ?? 0];
+    if (next && result.debt) await promptCommittedContinue(next);
 
     return;
   }
@@ -946,6 +956,20 @@ function actionOptionForCommitted(session: CommittedActionSession): CombatAction
   };
 }
 
+/** Свежие версии листов боя после команды. */
+async function rememberBattleSheetVersions(): Promise<void> {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) return;
+  try {
+    const sheets = await getGameApi().getBattleSheets({ gameId: props.gameId, battleId });
+    for (const sheet of sheets.sheets ?? []) {
+      gamePhpBattleContext.rememberSheet(`${sheet.type}:${sheet.id}`, sheet.actualVersion);
+    }
+  } catch {
+    // Версии обновятся следующей командой.
+  }
+}
+
 async function promptCommittedContinue(participant: GameInitiativeParticipant): Promise<void> {
   const participantId = participant.id as CombatEntityKey;
   const sessions: Record<CombatEntityKey, CommittedActionSession> = await getGameApi()
@@ -974,6 +998,30 @@ async function continueCommittedTurn(): Promise<void> {
   if (!session || !speaker) return;
   committedContinueBusy.value = true;
   error.value = null;
+  if (gamePhpMode.isEnabled()) {
+    try {
+      const result = await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, session.entityKey, false);
+      if (result.refused) {
+        error.value = result.refused;
+
+        return;
+      }
+      await rememberBattleSheetVersions();
+      const nextMap = { ...committedSessions.value };
+      delete nextMap[session.entityKey];
+      committedSessions.value = nextMap;
+      committedContinueOpen.value = false;
+      committedContinueSession.value = null;
+      await loadOverlays();
+      emit('overlay-changed');
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'Не удалось продолжить действие';
+    } finally {
+      committedContinueBusy.value = false;
+    }
+
+    return;
+  }
   try {
     await loadOverlays();
     const overlay = overlays.value.find((item) => item.entityKey === session.entityKey) ?? null;
@@ -1023,6 +1071,23 @@ async function abortCommittedTurn(): Promise<void> {
   if (!session || !speaker) return;
   committedContinueBusy.value = true;
   error.value = null;
+  if (gamePhpMode.isEnabled()) {
+    try {
+      await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, session.entityKey, true);
+      const nextMap = { ...committedSessions.value };
+      delete nextMap[session.entityKey];
+      committedSessions.value = nextMap;
+      committedContinueOpen.value = false;
+      committedContinueSession.value = null;
+      emit('overlay-changed');
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'Не удалось сорвать действие';
+    } finally {
+      committedContinueBusy.value = false;
+    }
+
+    return;
+  }
   try {
     await committedActionFlowService.abort(props.gameId, session, props.rules, props.chatId, speaker, sendChat);
     const nextMap = { ...committedSessions.value };
@@ -1565,7 +1630,13 @@ function kindIcon(kind: 'character' | 'npc'): string {
       <v-card-text>
         <p>Для передачи хода будет выполнено действие «Ожидание» за {{ activeActionPoints }} ОД.</p>
         <p v-if="hasActiveProcess" class="text-warning mt-2">Активный процесс будет прерван.</p>
-        <p v-if="hasActiveCommitted" class="text-warning mt-2">Незавершённое действие будет сорвано, ОД не вернутся.</p>
+        <p v-if="hasActiveCommitted" class="text-warning mt-2">
+          {{
+            gamePhpMode.isEnabled()
+              ? 'Долг ОД сохранится до следующего хода.'
+              : 'Незавершённое действие будет сорвано, ОД не вернутся.'
+          }}
+        </p>
         <v-alert v-if="waitError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ waitError }}
         </v-alert>

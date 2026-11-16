@@ -63,6 +63,7 @@ final class GameSpellCastWrite
      * } $damage Урон и операции.
      * @param int|null $expectedCasterVersion Версия листа кастера или null.
      * @param list<array<string, mixed>> $casterOperations Операции кастера.
+     * @param list<\Mifrial\Roleplay\Character\Dto\ResourceSpend>|null $spends Траты или null для трат подготовки.
      *
      * @return array{casterVersion: int, targetVersion: int|null} Версии.
      *
@@ -75,7 +76,9 @@ final class GameSpellCastWrite
         array $damage,
         ?int $expectedCasterVersion = null,
         array $casterOperations = [],
+        ?array $spends = null,
     ): array {
+        $spends ??= $prepared->spends;
         $casterExpected = $expectedCasterVersion ?? $prepared->casterVersion;
         $target = $prepared->target;
         $targetVersion = null;
@@ -94,7 +97,7 @@ final class GameSpellCastWrite
                     [...$damage['operations'], ...$casterOperations],
                     null,
                     null,
-                    $prepared->spends,
+                    $spends,
                 );
 
                 return ['casterVersion' => $version, 'targetVersion' => $version];
@@ -117,7 +120,7 @@ final class GameSpellCastWrite
                 $prepared->casterKind,
                 $prepared->casterId,
                 $casterExpected,
-                $prepared->spends,
+                $spends,
             )
             : $this->writes->write(
                 $game,
@@ -127,7 +130,7 @@ final class GameSpellCastWrite
                 $casterOperations,
                 null,
                 null,
-                $prepared->spends,
+                $spends,
             );
 
         return ['casterVersion' => $casterVersion, 'targetVersion' => $targetVersion];

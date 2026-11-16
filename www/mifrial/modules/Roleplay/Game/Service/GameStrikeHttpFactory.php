@@ -449,6 +449,7 @@ final class GameStrikeHttpFactory
             $this->actionDomain($serviceLocator),
             (new GameWoundPortFactory())->createActions($serviceLocator),
             $write->open($rules),
+            $this->spellCast($serviceLocator),
         );
     }
 
