@@ -1,6 +1,7 @@
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -31,6 +32,8 @@ export interface ISceneRenderer {
   setWaterAnimation(enabled: boolean): void;
   /** Крыши скрыты: тумблер обзора в редакторе и на карте. */
   setRoofsHidden(hidden: boolean): void;
+  /** Точка под курсором: подсветка площадки перехода; null — убрать. */
+  setHoverPoint(point: ScenePoint | null): void;
   /** Соотношение сторон текстуры ассета: высота / ширина; null — нет текстуры. */
   assetAspect(publicId: string | null): number | null;
   render(): void;

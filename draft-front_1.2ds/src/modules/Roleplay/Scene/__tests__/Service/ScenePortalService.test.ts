@@ -38,6 +38,19 @@ function opening(
   };
 }
 
+function landing(id: number, boardId: number, targetBoardId: number | null): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'opening',
+    shape: { type: 'rect', x: 20, y: 30, w: 40, h: 20 },
+    props: { kind: 'stairs', state: 'open' },
+    sortOrder: 0,
+    targetBoardId,
+    asset: null,
+  };
+}
+
 describe('ScenePortalService', () => {
   it('находит проём с целевым полем под точкой', () => {
     const elements = [opening(1, 10, 20), opening(2, 10, null, [10, 10], [20, 10])];
@@ -50,6 +63,13 @@ describe('ScenePortalService', () => {
     const elements = [opening(1, 20, 10, [10, 10], [20, 10]), opening(2, 20, 10, [80, 80], [90, 80])];
 
     expect(service.paired(elements, 20, 10, [85, 80])?.id).toBe(2);
+  });
+
+  it('находит площадку перехода прямоугольником', () => {
+    const elements = [landing(1, 10, 20)];
+
+    expect(service.portalAt(elements, 10, [40, 40], 0)?.opening.id).toBe(1);
+    expect(service.portalAt(elements, 10, [10, 10], 0)).toBeNull();
   });
 
   it('переносит точку между полями через пятно вложения', () => {

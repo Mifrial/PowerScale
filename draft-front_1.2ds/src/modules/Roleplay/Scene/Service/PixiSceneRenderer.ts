@@ -97,6 +97,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private draftGraphics: Graphics | null = null;
 
+  /** Точка под курсором в предпросмотре: подсветка площадки перехода. */
+  private hoverPoint: ScenePoint | null = null;
+
+  /** Нарисованная подсветка площадки; своя, чтобы не чистить чужие gizmos. */
+  private hoverGraphics: Graphics | null = null;
+
   private vertexFocus: SceneVertexTarget | null = null;
 
   private readonly textures = new SceneTextureCache();
@@ -479,6 +485,68 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     layer.visible = !hidden;
     this.requestFrame();
+  }
+
+  /** Подсветка площадки перехода под курсором; null — убрать. */
+  setHoverPoint(point: ScenePoint | null): void {
+    this.hoverPoint = point;
+    this.drawPortalHover();
+    this.requestFrame();
+  }
+
+  /**
+   * Подсветка площадки перехода.
+   *
+   * Площадка — проём с целевым полем. Наведение мыши делает её заметной:
+   * рамка и заливка в цвет выделения. Это подсказка, а не выбор: клик по
+   * площадке по-прежнему отправляет актора к ней.
+   */
+  private drawPortalHover(): void {
+    if (this.hoverGraphics !== null) {
+      this.hoverGraphics.removeFromParent();
+      this.hoverGraphics.destroy();
+      this.hoverGraphics = null;
+    }
+
+    if (this.model === null || this.hoverPoint === null) {
+      return;
+    }
+
+    const layer = this.layers.gizmos;
+    if (layer === undefined) {
+      return;
+    }
+
+    const point = this.hoverPoint;
+    const portal = this.model.elements.find(
+      (element) =>
+        element.boardId === this.model?.activeBoardId &&
+        element.kind === 'opening' &&
+        element.targetBoardId !== null &&
+        sceneGeometryService.contains(element.shape, point, 0, 0),
+    );
+    if (portal === undefined) {
+      return;
+    }
+
+    const graphics = new Graphics();
+    if (portal.shape.type === 'rect') {
+      graphics
+        .rect(portal.shape.x, portal.shape.y, portal.shape.w, portal.shape.h)
+        .fill({ color: 0xfacc15, alpha: 0.18 })
+        .stroke({ color: 0xfacc15, width: Math.max(1, 4 / this.zoom()), alpha: 0.95 });
+    } else {
+      this.painter.paint(
+        graphics,
+        portal.shape,
+        undefined,
+        { color: 0xfacc15, width: Math.max(1, 6 / this.zoom()), alpha: 0.95 },
+        this.zoom(),
+      );
+    }
+
+    layer.addChild(graphics);
+    this.hoverGraphics = graphics;
   }
 
   /** Немедленный кадр. Сеттеры просят кадр через `requestFrame`, а не рисуют сами. */
@@ -1266,6 +1334,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     if (name === 'gizmos') {
       this.draftGraphics = null;
+      this.hoverGraphics = null;
     }
 
     if (name === 'terrain' || name === 'waterPlane') {

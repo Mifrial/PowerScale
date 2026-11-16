@@ -1472,6 +1472,7 @@ function messageOf(exception: unknown): string {
           :water-animation="waterAnimation"
           :roofs-hidden="roofsHidden"
           :interactive="!preview"
+          :preview="preview"
           :overlay="overlay"
           :actors="previewActorList"
           :selected-actor-id="previewSelectedId"

@@ -620,6 +620,28 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Прямоугольный проём — площадка лестницы или лестничный проём.
+     *
+     * @return void
+     */
+    public function testRectStairsOpening(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'opening',
+            'shape' => ['type' => 'rect', 'x' => 100, 'y' => 100, 'w' => 144, 'h' => 190],
+            'props' => ['kind' => 'stairs', 'state' => 'closed', 'blocksMovement' => true, 'blocksVision' => false],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('rect', $element['shape']['type']);
+        self::assertSame('stairs', $element['props']['kind']);
+        self::assertFalse($element['props']['blocksVision']);
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.

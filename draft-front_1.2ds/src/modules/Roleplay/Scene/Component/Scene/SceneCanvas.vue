@@ -44,6 +44,8 @@ const props = withDefaults(
     waterAnimation?: boolean;
     /** Крыши скрыты: тумблер обзора в редакторе и на карте. */
     roofsHidden?: boolean;
+    /** Предпросмотр: наведение подсвечивает площадки перехода. */
+    preview?: boolean;
     /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
     actors?: SceneActor[];
     /** Выбранный актор; от него считается туман и радиус обзора. */
@@ -64,6 +66,7 @@ const props = withDefaults(
     wallWidth: 16,
     waterAnimation: true,
     roofsHidden: false,
+    preview: false,
     actors: () => [],
     selectedActorId: null,
     route: null,
@@ -809,7 +812,43 @@ function fitViewport(size: { width: number; height: number }): SceneViewport {
     return { x: 0, y: 0, zoom: 1, ...size };
   }
 
-  return sceneViewportService.fit({ x: 0, y: 0, width: board.boundWidth, height: board.boundHeight }, size);
+  // Поле-этаж шире своего плана на поля обзора. Кадр по всему полю показал бы
+  // дом крошкой посреди поляны; поэтому дочернее поле вписывается по плану, а
+  // поляна остаётся вокруг при отдалении.
+  const child = props.model.enclosures.some((enclosure) => enclosure.childBoardId === board.id);
+  const bounds = (child ? contentBounds(board.id) : null) ?? {
+    x: 0,
+    y: 0,
+    width: board.boundWidth,
+    height: board.boundHeight,
+  };
+
+  return sceneViewportService.fit(bounds, size);
+}
+
+/** Габарит террейна поля: по нему вписывается план этажа. */
+function contentBounds(boardId: number): { x: number; y: number; width: number; height: number } | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const element of props.model.elements) {
+    if (element.boardId !== boardId || element.kind !== 'terrain') {
+      continue;
+    }
+
+    const box = sceneGeometryService.bounds(element.shape, sceneRotation(element));
+    minX = Math.min(minX, box.x);
+    minY = Math.min(minY, box.y);
+    maxX = Math.max(maxX, box.x + box.width);
+    maxY = Math.max(maxY, box.y + box.height);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return null;
+  }
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 function fit(): void {
@@ -1033,6 +1072,11 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
 }
 
 function onPointerMove(event: PointerEvent): void {
+  if (gesture === 'none' && props.preview) {
+    const scenePoint = scenePointOf(event);
+    renderer?.setHoverPoint(scenePoint);
+  }
+
   if (gesture === 'none' && clickShape() !== null && clickPoints.length > 0) {
     const scenePoint = scenePointOf(event);
     if (scenePoint !== null) {
@@ -1210,6 +1254,7 @@ function cancelPointer(): void {
   rotateTarget = null;
   panMoved = false;
   renderer?.setDraft(null);
+  renderer?.setHoverPoint(null);
   if (editing) {
     stopEditing();
   }

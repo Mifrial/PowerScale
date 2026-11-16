@@ -19,7 +19,7 @@ final class SceneElementValidator
     private const SHAPES = [
         'support' => ['rect', 'circle', 'wall'],
         'obstacle' => ['rect', 'circle', 'wall'],
-        'opening' => ['wall'],
+        'opening' => ['wall', 'rect'],
         'terrain' => ['rect', 'circle', 'polygon', 'path'],
         'decor' => ['point', 'rect', 'circle'],
         'marker' => ['point'],

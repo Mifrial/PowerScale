@@ -70,6 +70,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   // Позиции актора по полям: перешедший на этаж манекен не должен пропадать
   // при смене поля и не должен прыгать к маркеру при возврате.
   const placements = new Map<number, Map<number, ScenePreviewActor>>();
+  // Где актор сейчас: маркер задаёт стартовое поле, портал переносит его на
+  // другое. Актор рисуется только на своём поле, иначе на этаже оставалась бы
+  // его копия с прошлого визита.
+  const actorBoards = new Map<number, number>();
   let pendingPortal: ScenePortal | null = null;
   let gridKey = '';
   let grid: SceneSurfaceGrid | null = null;
@@ -81,10 +85,32 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   const selectedActor = computed(() => actors.value.find((actor) => actor.id === selectedId.value) ?? null);
 
-  watch([options.enabled, options.board, options.elements, options.resolution], () => syncFromScene());
+  watch([options.enabled, options.board, options.elements, options.resolution], () => {
+    syncFromScene();
+    prepareNavigation();
+  });
   syncFromScene();
+  prepareNavigation();
 
   onBeforeUnmount(() => stopMotion());
+
+  /**
+   * Строит навигацию заранее, а не в момент клика.
+   *
+   * Сетка по большому полю строится заметно долго; если делать это на первом
+   * клике, актор «зависает» и прыгает с места. Кэш навигации живёт до смены
+   * поля или элементов, поэтому подготовка переносит паузу на включение
+   * предпросмотра.
+   */
+  function prepareNavigation(): void {
+    const board = options.board();
+    if (board === null || !options.enabled()) {
+      return;
+    }
+
+    const radius = selectedActor.value?.radius ?? Math.max(1, options.resolution() * SCENE_ACTOR.radiusIpari);
+    navigation.build(board, options.elements(), options.resolution(), { agentRadius: radius });
+  }
 
   /** Пересобирает акторов из маркеров поля и позиций, перенесённых с других полей. */
   function syncFromScene(): void {
@@ -96,6 +122,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       selectedId.value = null;
       markerAnchors.clear();
       placements.clear();
+      actorBoards.clear();
 
       return;
     }
@@ -120,7 +147,17 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           element.shape.type === 'point' &&
           (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
       );
-    const next: ScenePreviewActor[] = markers.map((element) => {
+    const next: ScenePreviewActor[] = [];
+    for (const element of markers) {
+      // Маркер — точка появления, а не второй экземпляр актора. Если актор
+      // уже ушёл на другой этаж, его маркер здесь молчит.
+      const currentBoard = actorBoards.get(element.id);
+      if (currentBoard === undefined) {
+        actorBoards.set(element.id, board.id);
+      } else if (currentBoard !== board.id) {
+        continue;
+      }
+
       const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
       const role = element.props.role ?? 'player_start';
       const old = previous.get(element.id);
@@ -135,7 +172,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       }
       const placed = markerMoved ? undefined : placements.get(element.id)?.get(board.id);
 
-      return {
+      next.push({
         id: element.id,
         x: placed?.x ?? (markerMoved ? point.x : (old?.x ?? point.x)),
         y: placed?.y ?? (markerMoved ? point.y : (old?.y ?? point.y)),
@@ -152,12 +189,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           old?.sightRadius ??
           resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
         role,
-      };
-    });
+      });
+    }
 
     const markerIds = new Set(markers.map((element) => element.id));
     for (const [actorId, byBoard] of placements) {
-      if (markerIds.has(actorId)) {
+      if (markerIds.has(actorId) || actorBoards.get(actorId) !== board.id) {
         continue;
       }
 
@@ -273,20 +310,21 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    // Проём с целевым полем — дверь на другой этаж. Клик по ней ведёт к
-    // проёму, а по прибытии актор переходит на парный проём. Стоящего на
-    // пороге актора портал забирает сразу: иначе клик по нему выбирал бы
+    // Площадка лестницы — дверь на другой этаж. Клик по ней ведёт к
+    // площадке, а по прибытии актор переходит на парную площадку. Стоящего
+    // на площадке актора портал забирает сразу: иначе клик по нему выбирал бы
     // манекен и обратный переход был бы недоступен.
     if (selected !== null && board !== null) {
-      const portal = portals.portalAt(options.elements(), board.id, point, Math.max(1, options.resolution() * 0.75));
+      const tolerance = Math.max(1, options.resolution() * 0.1);
+      const portal = portals.portalAt(options.elements(), board.id, point, tolerance);
       if (portal !== null && (actor === null || actor.id === selected.id)) {
-        const center = portal.center;
-        if (Math.hypot(selected.x - center[0], selected.y - center[1]) <= options.resolution() * 0.5) {
+        const standing = portals.portalAt(options.elements(), board.id, [selected.x, selected.y], tolerance);
+        if (standing !== null && standing.opening.id === portal.opening.id) {
           cross(portal);
 
           return;
         }
-        if (moveTo(center)) {
+        if (moveTo(portal.center)) {
           pendingPortal = portal;
 
           return;
@@ -424,6 +462,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     pendingPortal = null;
     stopMotion();
+    actorBoards.set(actor.id, target.id);
     setPlacement({ ...actor, x: destination[0], y: destination[1], level }, target.id);
     options.switchBoard(target.id);
   }

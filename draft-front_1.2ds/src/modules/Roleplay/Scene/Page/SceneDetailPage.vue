@@ -272,6 +272,7 @@ function zoomLabel(): string {
             :board="board"
             :overlay="overlay"
             :roofs-hidden="roofsHidden"
+            :preview="true"
             :actors="previewActorList"
             :selected-actor-id="previewSelectedId"
             :route="previewRoute"
