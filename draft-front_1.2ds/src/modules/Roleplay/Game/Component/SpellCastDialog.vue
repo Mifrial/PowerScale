@@ -143,7 +143,8 @@ const appliedUpgradeValues = ref<Record<string, number>>({});
 const activeSpells = ref<ActiveSpell[]>([]);
 const hopOpen = ref(false);
 const hopLastKey = ref<CombatEntityKey | null>(null);
-let hopWait: ((value: { key: CombatEntityKey; distanceIpari: number } | null) => void) | null = null;
+const hopChain = ref<GamePhpSpellChain | null>(null);
+let hopWait: ((value: { key: CombatEntityKey; distance: DimensionalNumberValue } | null) => void) | null = null;
 const burstOpen = ref(false);
 let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 const usedPower = ref<DimensionalNumberValue | null>(null);
@@ -215,6 +216,15 @@ const resolvedCasterKey = computed<CombatEntityKey | null>(() => {
   const key = props.activeSpeakerKey;
 
   return key && key !== 'gm' ? (key as CombatEntityKey) : null;
+});
+
+/** Кастер и последняя поражённая цель не предлагаются: бить в неё подряд нельзя. */
+const excludedHopKeys = computed<string[]>(() => {
+  const keys: string[] = [];
+  if (resolvedCasterKey.value) keys.push(resolvedCasterKey.value);
+  if (hopLastKey.value) keys.push(hopLastKey.value);
+
+  return keys;
 });
 
 function runtimeProjectionOf(key: CombatEntityKey): GameRuntimeEntityProjection | null {
@@ -2075,7 +2085,7 @@ async function applyArcaneBurst(
   );
 }
 
-function waitHopChoice(): Promise<{ key: CombatEntityKey; distanceIpari: number } | null> {
+function waitHopChoice(): Promise<{ key: CombatEntityKey; distance: DimensionalNumberValue } | null> {
   hopOpen.value = true;
 
   return new Promise((resolve) => {
@@ -2083,9 +2093,9 @@ function waitHopChoice(): Promise<{ key: CombatEntityKey; distanceIpari: number 
   });
 }
 
-function resolveHop(key: CombatEntityKey, distanceIpari: number): void {
+function resolveHop(key: CombatEntityKey, distance: DimensionalNumberValue): void {
   hopOpen.value = false;
-  hopWait?.({ key, distanceIpari });
+  hopWait?.({ key, distance });
   hopWait = null;
 }
 
@@ -2102,11 +2112,13 @@ async function runPhpChain(
 ): Promise<void> {
   let current = chain ?? null;
   let currentVersion = version;
+  hopChain.value = current;
   while (current) {
     hopLastKey.value = current.lastKey as CombatEntityKey;
     const choice = await waitHopChoice();
     if (!choice) {
       await stopPhpChain(castId, currentVersion);
+      hopChain.value = null;
 
       return;
     }
@@ -2117,16 +2129,21 @@ async function runPhpChain(
         battleId: gamePhpBattleContext.battleId ?? 0,
         expectedVersion: currentVersion,
         castId,
-        target: { ...target, distanceIpari: choice.distanceIpari },
+        target: {
+          ...target,
+          distance: { type: 'ipari', value: { type: 'literal', value: choice.distance } },
+        },
       });
       currentVersion = result.version;
       emit('overlay-changed');
       emit('settled');
       current = result.broke ? null : (result.chain ?? null);
+      hopChain.value = current;
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Цель цепи недоступна';
     }
   }
+  hopChain.value = null;
 }
 
 async function stopPhpChain(castId: string, version: number): Promise<void> {
@@ -2491,7 +2508,8 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
     :npcs="npcs"
     :initiative-keys="initiativeKeys"
     :last-key="hopLastKey"
-    :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
+    :chain="hopChain"
+    :exclude="excludedHopKeys"
     @update:open="hopOpen = $event"
     @hop="resolveHop"
     @stop="stopHop"

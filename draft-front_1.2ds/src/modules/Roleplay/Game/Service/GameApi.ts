@@ -78,7 +78,10 @@ import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePh
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
-import type { GamePhpSpellChainResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
+import type {
+  GamePhpSpellChainDistance,
+  GamePhpSpellChainResult,
+} from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
@@ -1391,7 +1394,7 @@ export class GameApi implements IGameApi {
       battleId: number;
       expectedVersion: number;
       castId: string;
-      target: { type: 'character' | 'npc'; id: number; distanceIpari: number };
+      target: { type: 'character' | 'npc'; id: number; distance: GamePhpSpellChainDistance };
     },
     signal?: AbortSignal,
   ): Promise<GamePhpSpellChainResult> {

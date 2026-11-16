@@ -192,7 +192,11 @@ describe('GameApi spell phases', () => {
       battleId: 9,
       expectedVersion: 8,
       castId: 'cast-1',
-      target: { type: 'npc', id: 2, distanceIpari: 1 },
+      target: {
+        type: 'npc',
+        id: 2,
+        distance: { type: 'ipari', value: { type: 'literal', value: { base: 1, size: 0 } } },
+      },
     });
 
     expect(runAction.mock.calls[0]?.[1]).toMatchObject({
@@ -201,7 +205,11 @@ describe('GameApi spell phases', () => {
         kind: 'spell',
         context: {
           castId: 'cast-1',
-          chainTarget: { type: 'npc', id: 2, distanceIpari: 1 },
+          chainTarget: {
+            type: 'npc',
+            id: 2,
+            distance: { type: 'ipari', value: { type: 'literal', value: { base: 1, size: 0 } } },
+          },
         },
       },
     });
