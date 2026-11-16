@@ -1,6 +1,6 @@
 # План Roleplay/Lore — кодекс мира
 
-**Статус:** ~ЧАСТИЧНО~, 2026-11-15. M0–M6 реализованы; ждут ручной проверки и полного прогона.
+**Статус:** ~СДЕЛАНО~, 2026-11-16. M0–M6 реализованы; ручная проверка пользователем и полный прогон пройдены.
 **Реализация:** ~PHP~, ~VUE~, ~МОК~.
 **Опираться на:** ~PHP~ (`Core/SmartTable`, `Core/User`, `Messages/Notes` как образец); Vue-образцы (`RuleDescriptionEditor`, `RichTextEditor`, `DescriptionHtml`) — вспомогательные, не контракт.
 **Канон после реализации:** `docs/tr/lore-system.md` (создать), этот план — `docs/tr/lore-plan-01.md`.
@@ -820,7 +820,7 @@ importWorld(payload, options, signal)
   `architecture.md` (бэкенд Lore → Core/Keyword; фронт Lore → Rule/RuleSpace
   для выбора правил), `contract-status.md`.
 - [x] `composer maps`, `composer maps-check`, `composer docs-check`.
-- [ ] Ручная проверка пользователем, затем полный `bash tools/test-full.sh`
+- [x] Ручная проверка пользователем, затем полный `bash tools/test-full.sh`
   после подтверждения.
 - Гейт: полный прогон.
 
@@ -928,3 +928,4 @@ importWorld(payload, options, signal)
 |---|---|
 | 2026-11-15 | План создан: Lore-миры, draft/public/secret + readers на статье, без картинок, version+конфликт, экспорт только кодекса, серверный импорт/экспорт. |
 | 2026-11-15 | M0–M6 реализованы: канон `lore-system.md`, модуль `Roleplay/Lore` (4 таблицы, 12 действий), файл `powerscale.lore`, Vue-модуль с читалкой, редактором и диалогами импорта/экспорта, mock, PHP/Vitest. Осталось: ручная проверка и полный прогон. |
+| 2026-11-16 | Ручная проверка пользователем и полный прогон пройдены; все пункты M0–M6 закрыты, статус — `~СДЕЛАНО~`. |

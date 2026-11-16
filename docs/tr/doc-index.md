@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 267 | 10 | 22 | 37 | 158 | 4 | 1 | 8 | 27 |
+| `tr` | 267 | 10 | 22 | 36 | 159 | 4 | 1 | 8 | 27 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -69,7 +69,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Roleplay/Scene](module-map/Roleplay/Scene.md) | 9 | 0 | 5 | 0 | 4 | 0 | 8 | 9 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
-| — | 138 | 6 | 4 | 7 | 11 | 47 | 8 | 14 | 2 |
+| — | 138 | 6 | 4 | 6 | 12 | 47 | 8 | 14 | 2 |
 
 ## Реализация: где есть PHP и где только мок
 
