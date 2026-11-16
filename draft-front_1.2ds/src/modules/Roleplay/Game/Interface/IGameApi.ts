@@ -66,6 +66,7 @@ import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePh
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
+import type { GamePhpSpellChainResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
@@ -363,6 +364,25 @@ export interface IGameApi {
     },
     signal?: AbortSignal,
   ): Promise<GamePhpRunActionResult>;
+  chainSpellHop(
+    body: {
+      gameId: number;
+      battleId: number;
+      expectedVersion: number;
+      castId: string;
+      target: { type: 'character' | 'npc'; id: number; distanceIpari: number };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellChainResult>;
+  stopSpellChain(
+    body: {
+      gameId: number;
+      battleId: number;
+      expectedVersion: number;
+      castId: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpSpellChainResult>;
   resolveStrikeWindow(
     body: {
       gameId: number;
