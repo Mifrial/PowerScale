@@ -12,6 +12,7 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { isSceneRoof } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { SCENE_ROOF } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ROOF';
 
 /**
  * CPU-hit-test по геометрии активного поля.
@@ -46,12 +47,14 @@ export class SceneHitTestService {
     const elements = model.elements
       .filter((element) => element.boardId === model.activeBoardId)
       .sort((left, right) => right.sortOrder - left.sortOrder || right.id - left.id);
-    // Крыша накрывает дом целиком, поэтому в очереди она последняя: иначе
-    // клик внутри дома доставал бы накрытие, а не пол и стены под ним.
-    // Достаётся крыша по свесу за стеной или из списка объектов.
+    // Крыша накрывает дом целиком, поэтому в очереди она идёт после всего,
+    // что под ней, но до террейна: свес лежит над землёй, и без этого клик по
+    // свесу доставал бы луг, а не накрытие. Середина крыши кликом не берётся —
+    // её видно, но выделяется она за край.
     const ordered = [
-      ...elements.filter((element) => !isSceneRoof(element)),
+      ...elements.filter((element) => !isSceneRoof(element) && element.kind !== 'terrain'),
       ...elements.filter((element) => isSceneRoof(element)),
+      ...elements.filter((element) => element.kind === 'terrain' && !isSceneRoof(element)),
     ];
 
     return ordered.filter((element) =>
@@ -67,6 +70,12 @@ export class SceneHitTestService {
     resolution = 64,
     aspect: number | null = null,
   ): boolean {
+    // Крыша выделяется за свес: середина накрытия принадлежит тому, что под
+    // ней. Иначе после первой крыши дом перестал бы выделяться изнутри.
+    if (isSceneRoof(element)) {
+      return this.roofEdgeContains(element, point, tolerance, resolution);
+    }
+
     // Декор выделяется по своей видимой зоне, а не по точке якоря: иначе
     // дерево приходится искать под стволом. Спрайт рисуется выше якоря,
     // поэтому его видимая коробка — тоже цель; основание и силуэт — та же
@@ -90,6 +99,30 @@ export class SceneHitTestService {
     }
 
     return this.geometryService.contains(element.shape, point, tolerance, sceneRotation(element));
+  }
+
+  /**
+   * Крыша под точкой: только её край.
+   *
+   * Свес — единственная часть накрытия, которая никому не принадлежит: под ним
+   * луг или двор. Поэтому крыша выделяется полосой у края, а середина остаётся
+   * полу, стенам и декору под ней.
+   */
+  private roofEdgeContains(element: SceneElement, point: ScenePoint, tolerance: number, resolution: number): boolean {
+    const band = Math.max(tolerance, resolution * SCENE_ROOF.grabBandIpari);
+    const shape = element.shape;
+    if (shape.type === 'circle') {
+      const distance = Math.hypot(point[0] - shape.cx, point[1] - shape.cy);
+
+      return Math.abs(distance - shape.r) <= band;
+    }
+
+    const outline = this.geometryService.points(shape, sceneRotation(element));
+    if (outline.length < 2) {
+      return false;
+    }
+
+    return this.geometryService.distanceToPolyline(point, outline, shape.type !== 'wall') <= band;
   }
 
   /** Точка в видимой коробке спрайта: ширина — `scale`, высота — по аспекту. */

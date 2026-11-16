@@ -74,7 +74,14 @@ describe('SceneHitTestService', () => {
     expect(service.hits(model(elements), viewport, { x: 500, y: 500 }).map((item) => item.id)).toEqual([3, 2, 1]);
   });
 
-  it('ставит крышу в конец очереди: под накрытием достаётся пол', () => {
+  it('крыша берётся за свес, а середина накрытия принадлежит полу', () => {
+    const grass = element({
+      id: 3,
+      kind: 'terrain',
+      sortOrder: -1,
+      shape: { type: 'rect', x: -200, y: -200, w: 2000, h: 2000 },
+      props: { kind: 'grass' },
+    });
     const floor = element({
       id: 1,
       kind: 'terrain',
@@ -89,13 +96,13 @@ describe('SceneHitTestService', () => {
       shape: { type: 'rect', x: -20, y: -20, w: 140, h: 140 },
       props: { kind: 'roof', elevation: 128 },
     });
+    const elements = [grass, floor, roof];
 
-    const ids = service.hits(model([floor, roof]), viewport, { x: 500, y: 500 }).map((item) => item.id);
-
-    expect(ids).toEqual([1, 2]);
-    // Свес за стеной — единственное место, где крыша достаётся кликом:
-    // экранная точка (440,440) — это сцена (-10,-10), уже вне пола.
-    expect(service.hit(model([floor, roof]), viewport, { x: 440, y: 440 })?.id).toBe(2);
+    // Центр накрытия: пол, крыша клик не перехватывает.
+    expect(service.hits(model(elements), viewport, { x: 500, y: 500 }).map((item) => item.id)).toEqual([1, 3]);
+    // Свес за стеной: экранная точка (440,440) — это сцена (-10,-10), уже вне
+    // пола. Крыша достаётся кликом, хотя под свесом луг.
+    expect(service.hits(model(elements), viewport, { x: 440, y: 440 }).map((item) => item.id)).toEqual([2, 3]);
   });
 
   it('selects decor by its footprint and silhouette, not only by the anchor', () => {
