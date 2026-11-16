@@ -140,7 +140,6 @@ const {
   setSightRadius: setPreviewSightRadius,
   onMapClick: onPreviewClick,
   chooseLevel: previewChooseLevel,
-  pendingPortalId: previewPendingPortalId,
 } = useScenePreviewActors({
   enabled: () => preview.value,
   board: () => activeViewBoard.value,
