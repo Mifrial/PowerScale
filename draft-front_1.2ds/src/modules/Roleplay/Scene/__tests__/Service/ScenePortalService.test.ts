@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'vitest';
+import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import { ScenePortalService } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
+
+const service = new ScenePortalService();
+
+function board(id: number, width = 100, height = 100): SceneBoard {
+  return {
+    id,
+    name: `Поле ${id}`,
+    sortOrder: 0,
+    baseFile: null,
+    boundWidth: width,
+    boundHeight: height,
+    occupancyCell: 16,
+    zQuantum: 16,
+    gridStep: 0,
+  };
+}
+
+function opening(
+  id: number,
+  boardId: number,
+  targetBoardId: number | null,
+  from: [number, number] = [40, 50],
+  to: [number, number] = [60, 50],
+): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'opening',
+    shape: { type: 'wall', points: [from, to], width: 8 },
+    props: { kind: 'door', state: 'open' },
+    sortOrder: 0,
+    targetBoardId,
+    asset: null,
+  };
+}
+
+describe('ScenePortalService', () => {
+  it('находит проём с целевым полем под точкой', () => {
+    const elements = [opening(1, 10, 20), opening(2, 10, null, [10, 10], [20, 10])];
+
+    expect(service.portalAt(elements, 10, [50, 50], 4)?.opening.id).toBe(1);
+    expect(service.portalAt(elements, 10, [15, 10], 4)).toBeNull();
+  });
+
+  it('выбирает ближайший парный проём обратно', () => {
+    const elements = [opening(1, 20, 10, [10, 10], [20, 10]), opening(2, 20, 10, [80, 80], [90, 80])];
+
+    expect(service.paired(elements, 20, 10, [85, 80])?.id).toBe(2);
+  });
+
+  it('переносит точку между полями через пятно вложения', () => {
+    const footprint = { x: 100, y: 200, w: 400, h: 200 };
+    const child = board(20, 200, 100);
+
+    const local = service.toChild([300, 300], footprint, child);
+    expect(local).toEqual([100, 50]);
+    expect(service.toParent(local, footprint, child)).toEqual([300, 300]);
+  });
+
+  it('берёт габарит полигона как пятно вложения', () => {
+    expect(
+      service.footprint({
+        type: 'polygon',
+        points: [
+          [10, 20],
+          [50, 20],
+          [50, 80],
+          [10, 80],
+        ],
+      }),
+    ).toEqual({ x: 10, y: 20, w: 40, h: 60 });
+  });
+});

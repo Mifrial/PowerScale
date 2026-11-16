@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
@@ -12,6 +13,7 @@ import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
+import { ScenePortalService, type ScenePortal } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
 import {
   SceneSurfaceService,
   surfaceIndex,
@@ -26,6 +28,12 @@ export interface ScenePreviewActorOptions {
   board: () => SceneBoard | null;
   elements: () => SceneElement[];
   resolution: () => number;
+  /** Все поля локации: переходу нужно целевое поле. */
+  boards: () => SceneBoard[];
+  /** Вложения полей: по ним точка переносится между полями. */
+  enclosures: () => SceneEnclosure[];
+  /** Переключить активное поле. */
+  switchBoard: (boardId: number) => void;
 }
 
 /** Состояние движения по полилинии. */
@@ -58,6 +66,11 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const navigation = new SceneNavigationService();
   const surfaces = new SceneSurfaceService();
   const visibility = new SceneVisibilityService();
+  const portals = new ScenePortalService();
+  // Позиции актора по полям: перешедший на этаж манекен не должен пропадать
+  // при смене поля и не должен прыгать к маркеру при возврате.
+  const placements = new Map<number, Map<number, ScenePreviewActor>>();
+  let pendingPortal: ScenePortal | null = null;
   let gridKey = '';
   let grid: SceneSurfaceGrid | null = null;
   let motion: Motion | null = null;
@@ -73,14 +86,16 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   onBeforeUnmount(() => stopMotion());
 
-  /** Пересобирает акторов из маркеров поля. */
+  /** Пересобирает акторов из маркеров поля и позиций, перенесённых с других полей. */
   function syncFromScene(): void {
     stopMotion();
     route.value = null;
+    pendingPortal = null;
     if (!options.enabled()) {
       actors.value = [];
       selectedId.value = null;
       markerAnchors.clear();
+      placements.clear();
 
       return;
     }
@@ -105,7 +120,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           element.shape.type === 'point' &&
           (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
       );
-    actors.value = markers.map((element) => {
+    const next: ScenePreviewActor[] = markers.map((element) => {
       const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
       const role = element.props.role ?? 'player_start';
       const old = previous.get(element.id);
@@ -115,19 +130,23 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       const anchor = markerAnchors.get(element.id);
       const markerMoved = anchor === undefined || anchor[0] !== point.x || anchor[1] !== point.y;
       markerAnchors.set(element.id, [point.x, point.y]);
+      if (markerMoved) {
+        placements.get(element.id)?.delete(board.id);
+      }
+      const placed = markerMoved ? undefined : placements.get(element.id)?.get(board.id);
 
       return {
         id: element.id,
-        x: markerMoved ? point.x : (old?.x ?? point.x),
-        y: markerMoved ? point.y : (old?.y ?? point.y),
-        facing: old?.facing ?? 0,
+        x: placed?.x ?? (markerMoved ? point.x : (old?.x ?? point.x)),
+        y: placed?.y ?? (markerMoved ? point.y : (old?.y ?? point.y)),
+        facing: placed?.facing ?? old?.facing ?? 0,
         radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
         height: sceneBodyHeight(resolution),
         tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
         label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
         selected: element.id === selectedId.value,
         ghost: old?.ghost ?? false,
-        level: markerMoved ? markerLevel(point) : (old?.level ?? 0),
+        level: placed?.level ?? (markerMoved ? markerLevel(point) : (old?.level ?? 0)),
         underDeck: old?.underDeck ?? false,
         sightRadius:
           old?.sightRadius ??
@@ -136,6 +155,21 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       };
     });
 
+    const markerIds = new Set(markers.map((element) => element.id));
+    for (const [actorId, byBoard] of placements) {
+      if (markerIds.has(actorId)) {
+        continue;
+      }
+
+      const placed = byBoard.get(board.id);
+      if (placed === undefined) {
+        continue;
+      }
+
+      next.push({ ...placed, selected: actorId === selectedId.value });
+    }
+
+    actors.value = next;
     if (!actors.value.some((actor) => actor.id === selectedId.value)) {
       selectedId.value = actors.value[0]?.id ?? null;
     }
@@ -170,6 +204,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     selectedId.value = id;
     stopMotion();
     route.value = null;
+    pendingPortal = null;
     actors.value = actors.value.map((actor) => ({
       ...actor,
       selected: actor.id === id,
@@ -185,7 +220,18 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const max = board === null ? resolution * 40 : Math.hypot(board.boundWidth, board.boundHeight);
     const sightRadius = Math.min(max, Math.max(resolution, radius));
     actors.value = actors.value.map((actor) => (actor.id === id ? { ...actor, sightRadius } : actor));
+    const updated = actors.value.find((actor) => actor.id === id);
+    if (updated !== undefined && board !== null) {
+      setPlacement(updated, board.id);
+    }
     updateGhosts();
+  }
+
+  /** Запоминает позицию актора на поле: она переживает смену поля. */
+  function setPlacement(actor: ScenePreviewActor, boardId: number): void {
+    const byBoard = placements.get(actor.id) ?? new Map<number, ScenePreviewActor>();
+    byBoard.set(boardId, { ...actor });
+    placements.set(actor.id, byBoard);
   }
 
   /** Актор под точкой; призраки тоже кликабельны. */
@@ -221,10 +267,29 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
+    // Alt — всегда по земле, мимо порталов: дверь на этаж не должна
+    // перехватывать обычный проход под ней.
     if (under) {
       moveTo(point, 0);
 
       return;
+    }
+
+    // Проём с целевым полем — дверь на другой этаж. Клик ведёт к нему, а по
+    // прибытии актор переходит на парный проём целевого поля.
+    const portal = portals.portalAt(options.elements(), board.id, point, Math.max(1, options.resolution() * 0.75));
+    if (portal !== null) {
+      const center = portal.center;
+      if (Math.hypot(selected.x - center[0], selected.y - center[1]) <= options.resolution()) {
+        cross(portal);
+
+        return;
+      }
+      if (moveTo(center)) {
+        pendingPortal = portal;
+
+        return;
+      }
     }
 
     const mesh = navigation.build(board, options.elements(), options.resolution(), { agentRadius: selected.radius });
@@ -287,6 +352,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return false;
     }
 
+    pendingPortal = null;
+
     const result = navigation.route(board, options.elements(), options.resolution(), [actor.x, actor.y], point, {
       agentRadius: actor.radius,
       fromLevel: actor.level ?? 0,
@@ -299,6 +366,54 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     applyRoute(actor.id, result);
 
     return true;
+  }
+
+  /**
+   * Переход на другое поле через проём.
+   *
+   * Точка проёма переносится пятном вложения в координаты целевого поля; на
+   * нём ищется парный проём, ведущий назад. Манекен встаёт у парного проёма,
+   * чтобы сразу было видно, где он оказался.
+   */
+  function cross(portal: ScenePortal): void {
+    const actor = selectedActor.value;
+    const source = options.board();
+    if (actor === null || source === null) {
+      return;
+    }
+
+    const target = options.boards().find((board) => board.id === portal.targetBoardId);
+    if (target === undefined) {
+      return;
+    }
+
+    const enclosures = options.enclosures();
+    const enclosure =
+      enclosures.find((item) => item.parentBoardId === source.id && item.childBoardId === target.id) ??
+      enclosures.find((item) => item.parentBoardId === target.id && item.childBoardId === source.id);
+    let mapped = portal.center;
+    if (enclosure !== undefined) {
+      const footprint = portals.footprint(enclosure.footprint);
+      if (footprint !== null) {
+        mapped =
+          enclosure.childBoardId === target.id
+            ? portals.toChild(portal.center, footprint, target)
+            : portals.toParent(portal.center, footprint, source);
+      }
+    }
+
+    const pair = portals.paired(options.elements(), target.id, source.id, mapped);
+    const destination = pair === null ? mapped : portals.center(pair);
+    const mesh = navigation.build(target, options.elements(), options.resolution(), {
+      agentRadius: actor.radius,
+    });
+    const levels = mesh === null ? [] : navigation.levelsAt(mesh, destination);
+    const level = levels[0]?.level ?? 0;
+
+    pendingPortal = null;
+    stopMotion();
+    setPlacement({ ...actor, x: destination[0], y: destination[1], level }, target.id);
+    options.switchBoard(target.id);
   }
 
   /** Выбор уровня из меню. */
@@ -402,6 +517,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       }
 
       const moved: ScenePreviewActor = { ...actor, x: point[0], y: point[1], facing, level };
+      if (board !== null) {
+        setPlacement(moved, board.id);
+      }
 
       return { ...moved, underDeck: surface === null ? false : isUnderDeck(surface, moved) };
     });
@@ -412,7 +530,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     if (motion.traveled >= motion.total) {
+      const portal = pendingPortal;
+      pendingPortal = null;
       stopMotion();
+      if (portal !== null) {
+        cross(portal);
+      }
 
       return;
     }

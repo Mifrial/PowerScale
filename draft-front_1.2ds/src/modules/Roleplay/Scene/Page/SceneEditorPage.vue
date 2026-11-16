@@ -144,6 +144,9 @@ const {
   board: () => activeViewBoard.value,
   elements: () => viewElements.value,
   resolution: () => draft.value.resolution,
+  boards: () => viewBoards.value,
+  enclosures: () => viewEnclosures.value,
+  switchBoard: (boardId) => state.setActiveBoard(boardId),
 });
 const boardTerrainKind = computed<string | null>(() => {
   const board = activeBoard.value;
