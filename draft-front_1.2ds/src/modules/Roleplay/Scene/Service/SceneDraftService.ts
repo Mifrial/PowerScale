@@ -4,6 +4,7 @@ import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoa
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
@@ -12,8 +13,10 @@ import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTar
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { scaleSceneFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 
 /**
@@ -658,6 +661,40 @@ export class SceneDraftService {
       max < min ? 0 : Math.min(max, Math.max(min, Math.round(value)));
 
     return [clamp(deltaX, minX, maxX), clamp(deltaY, minY, maxY)];
+  }
+
+  /** Меняет размер прямоугольника от ручки; противоположный угол стоит. */
+  resizeRect(draft: SceneDraft, elementId: number, handle: SceneRectHandle, point: ScenePoint): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.shape.type !== 'rect') {
+      return;
+    }
+
+    const bounds = this.boardBounds(draft, element.boardId);
+    if (bounds === null) {
+      return;
+    }
+
+    element.shape = {
+      ...element.shape,
+      ...sceneGeometryService.resizeRect(element.shape, sceneRotation(element), handle, point, {
+        width: bounds.width,
+        height: bounds.height,
+      }),
+    };
+  }
+
+  /** Поворот прямоугольной опоры; угол нормализуется в 0–359. */
+  setRotation(draft: SceneDraft, elementId: number, angle: number): void {
+    const element = draft.elements.find((item) => item.id === elementId);
+    if (element === undefined || element.kind !== 'support' || element.shape.type !== 'rect') {
+      return;
+    }
+
+    element.props = {
+      ...element.props,
+      rotation: ((Math.round(angle) % 360) + 360) % 360,
+    };
   }
 
   /** Сдвигает вершину стены вместе со всеми совпавшими вершинами её сети. */

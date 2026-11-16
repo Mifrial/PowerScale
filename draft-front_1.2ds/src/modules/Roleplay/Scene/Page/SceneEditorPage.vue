@@ -20,6 +20,7 @@ import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElemen
 import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
@@ -617,6 +618,16 @@ function onHandle(
 /** Перетаскивание ручки ширины ленты. */
 function onWidth(elementId: number, index: number, width: number): void {
   state.setPathWidth(elementId, index, width);
+}
+
+/** Перетаскивание ручки размера прямоугольника. */
+function onResize(elementId: number, handle: SceneRectHandle, point: ScenePoint): void {
+  state.resizeRect(elementId, handle, point);
+}
+
+/** Поворот прямоугольной опоры ручкой на карте. */
+function onRotate(elementId: number, angle: number): void {
+  state.setRotation(elementId, angle);
 }
 
 /** Двойной клик по контуру вставляет вершину. */
@@ -1318,6 +1329,8 @@ function messageOf(exception: unknown): string {
           @vertex="onVertex"
           @handle="onHandle"
           @width="onWidth"
+          @resize="onResize"
+          @rotate="onRotate"
           @insert-vertex="onInsertVertex"
           @remove-vertex="onRemoveVertex"
           @edit-start="beginEdit"

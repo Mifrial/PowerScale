@@ -6,6 +6,7 @@ import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoa
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSnapshot';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
@@ -475,6 +476,20 @@ export function useSceneDraft(initial: SceneDetail) {
   }
 
   /** Двигает вершину полигона или ленты в пределах поля. */
+  /** Меняет размер прямоугольника от ручки; противоположный угол стоит. */
+  function resizeRect(elementId: number, handle: SceneRectHandle, point: ScenePoint): void {
+    service.resizeRect(draft.value, elementId, handle, point);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
+  /** Поворот прямоугольной опоры. */
+  function setRotation(elementId: number, angle: number): void {
+    service.setRotation(draft.value, elementId, angle);
+    draft.value.elements = [...draft.value.elements];
+    markDirty();
+  }
+
   function moveVertex(elementId: number, index: number, point: ScenePoint): void {
     const element = draft.value.elements.find((item) => item.id === elementId);
     if (
@@ -912,6 +927,8 @@ export function useSceneDraft(initial: SceneDetail) {
     stretchTerrain,
     setSortOrder,
     setRectSize,
+    resizeRect,
+    setRotation,
     createElement,
     createFromDrag,
     createPath,

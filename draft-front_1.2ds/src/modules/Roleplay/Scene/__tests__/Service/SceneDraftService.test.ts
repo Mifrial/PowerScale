@@ -580,4 +580,36 @@ describe('SceneDraftService', () => {
     expect(ring.shape.points[0]).toEqual([50, 50]);
     expect(ring.shape.points[ring.shape.points.length - 1]).toEqual([50, 50]);
   });
+
+  it('меняет размер прямоугольника от ручки', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const bridge = service.addElement(
+      state,
+      10,
+      'support',
+      { type: 'rect', x: 100, y: 100, w: 100, h: 50 },
+      { kind: 'bridge', rotation: 0 },
+    );
+
+    service.resizeRect(state, bridge.id, 'se', [300, 300]);
+
+    expect(bridge.shape).toEqual({ type: 'rect', x: 100, y: 100, w: 200, h: 200 });
+  });
+
+  it('поворачивает прямоугольную опору и нормализует угол', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const bridge = service.addElement(
+      state,
+      10,
+      'support',
+      { type: 'rect', x: 100, y: 100, w: 100, h: 50 },
+      { kind: 'bridge', rotation: 0 },
+    );
+
+    service.setRotation(state, bridge.id, 370);
+
+    expect(bridge.props.rotation).toBe(10);
+  });
 });

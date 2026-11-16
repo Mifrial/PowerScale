@@ -1,5 +1,6 @@
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
+import type { SceneRectHandle, SceneRectHandlePoint } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
 import { SceneRibbonService } from '@/modules/Roleplay/Scene/Service/SceneRibbonService';
@@ -445,6 +446,79 @@ export class SceneGeometryService {
     }
 
     return this.ribbons.outline(shape.points, shape.handles ?? [], shape.widths, 1, pad);
+  }
+
+  /** Восемь ручек прямоугольника в мировых координатах. */
+  rectHandles(shape: { x: number; y: number; w: number; h: number }, rotation: number): SceneRectHandlePoint[] {
+    const center = this.rectCenter(shape);
+    const right = shape.x + shape.w;
+    const bottom = shape.y + shape.h;
+    const middleX = center[0];
+    const middleY = center[1];
+    const local: SceneRectHandlePoint[] = [
+      { handle: 'nw', point: [shape.x, shape.y] },
+      { handle: 'n', point: [middleX, shape.y] },
+      { handle: 'ne', point: [right, shape.y] },
+      { handle: 'e', point: [right, middleY] },
+      { handle: 'se', point: [right, bottom] },
+      { handle: 's', point: [middleX, bottom] },
+      { handle: 'sw', point: [shape.x, bottom] },
+      { handle: 'w', point: [shape.x, middleY] },
+    ];
+
+    if (this.normalizeRotation(rotation) === 0) {
+      return local;
+    }
+
+    return local.map((handle) => ({ handle: handle.handle, point: this.rotatePoint(handle.point, center, rotation) }));
+  }
+
+  /**
+   * Новый прямоугольник при перетаскивании ручки.
+   *
+   * Противоположный угол или край остаётся на месте, поэтому размер меняется
+   * от ручки, а не от центра. Поворот учитывается: точка указателя
+   * переводится в локальные оси прямоугольника.
+   */
+  resizeRect(
+    shape: { x: number; y: number; w: number; h: number },
+    rotation: number,
+    handle: SceneRectHandle,
+    point: ScenePoint,
+    bounds: { width: number; height: number },
+  ): { x: number; y: number; w: number; h: number } {
+    const center = this.rectCenter(shape);
+    const local = this.normalizeRotation(rotation) === 0 ? point : this.rotatePoint(point, center, -rotation);
+    let left = shape.x;
+    let top = shape.y;
+    let right = shape.x + shape.w;
+    let bottom = shape.y + shape.h;
+
+    if (handle.includes('w')) {
+      left = Math.min(local[0], right - 1);
+    }
+    if (handle.includes('e')) {
+      right = Math.max(local[0], left + 1);
+    }
+    if (handle.includes('n')) {
+      top = Math.min(local[1], bottom - 1);
+    }
+    if (handle.includes('s')) {
+      bottom = Math.max(local[1], top + 1);
+    }
+
+    const width = Math.max(1, Math.min(bounds.width, Math.round(right - left)));
+    const height = Math.max(1, Math.min(bounds.height, Math.round(bottom - top)));
+    const localCenter: ScenePoint = [left + (right - left) / 2, top + (bottom - top) / 2];
+    const worldCenter =
+      this.normalizeRotation(rotation) === 0 ? localCenter : this.rotatePoint(localCenter, center, rotation);
+
+    return {
+      x: Math.max(0, Math.min(bounds.width - width, Math.round(worldCenter[0] - width / 2))),
+      y: Math.max(0, Math.min(bounds.height - height, Math.round(worldCenter[1] - height / 2))),
+      w: width,
+      h: height,
+    };
   }
 
   /** Углы прямоугольника с поворотом вокруг центра. */

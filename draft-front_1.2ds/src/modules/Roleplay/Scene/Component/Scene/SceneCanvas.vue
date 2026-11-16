@@ -9,6 +9,7 @@ import type { SceneOverlay } from '@/modules/Roleplay/Scene/Dto/SceneOverlay';
 import type { SceneOverlayPaint } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneRoom } from '@/modules/Roleplay/Scene/Dto/SceneRoom';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVertexPart, SceneVertexTarget } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -24,7 +25,9 @@ import { sceneFootprintShape, sceneSilhouetteShape } from '@/modules/Roleplay/Sc
 import { SceneToolShape } from '@/modules/Roleplay/Scene/Service/SceneToolShape';
 import { createPixiSceneRenderer } from '@/modules/Roleplay/Scene/Service/Instance/pixiSceneRenderer';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneHitTestService } from '@/modules/Roleplay/Scene/Service/Instance/sceneHitTestService';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
 
@@ -88,6 +91,8 @@ const emit = defineEmits<{
     part: SceneVertexPart,
   ];
   width: [elementId: number, index: number, width: number];
+  resize: [elementId: number, handle: SceneRectHandle, point: ScenePoint];
+  rotate: [elementId: number, angle: number];
   insertVertex: [elementId: number, point: ScenePoint, tolerance: number, part: SceneVertexPart];
   removeVertex: [elementId: number, index: number, part: SceneVertexPart];
   editStart: [];
@@ -106,7 +111,7 @@ const shapeBuilder = new SceneToolShape();
 let renderer: ISceneRenderer | null = null;
 let viewport: SceneViewport | null = null;
 let observer: ResizeObserver | null = null;
-let gesture: 'none' | 'pan' | 'draw' | 'move' | 'vertex' | 'handle' | 'width' = 'none';
+let gesture: 'none' | 'pan' | 'draw' | 'move' | 'vertex' | 'handle' | 'width' | 'resize' | 'rotate' = 'none';
 let lastX = 0;
 let lastY = 0;
 let drawStart: ScenePoint | null = null;
@@ -118,6 +123,8 @@ let clickClosed = false;
 let vertexTarget: SceneVertexTarget | null = null;
 let handleTarget: SceneHandleTarget | null = null;
 let widthTarget: SceneVertexTarget | null = null;
+let rectTarget: { elementId: number; handle: SceneRectHandle } | null = null;
+let rotateTarget: { elementId: number } | null = null;
 
 const overlays = new SceneOverlayService();
 const fogRefresh = new SceneFogRefreshService();
@@ -718,6 +725,56 @@ function contourShape(elementId: number, part: SceneVertexPart): SceneShape | nu
     : null;
 }
 
+/** Ручка прямоугольника или поворота под точкой у выделенной фигуры. */
+function rectHandleAt(
+  point: ScenePoint,
+  tolerance: number,
+): { elementId: number; handle: SceneRectHandle | 'rotate' } | null {
+  if (viewport === null) {
+    return null;
+  }
+
+  for (const element of props.model.elements) {
+    if (
+      element.boardId !== props.model.activeBoardId ||
+      !props.model.selection.includes(element.id) ||
+      element.shape.type !== 'rect'
+    ) {
+      continue;
+    }
+
+    const rotation = sceneRotation(element);
+    for (const handle of sceneGeometryService.rectHandles(element.shape, rotation)) {
+      if (Math.hypot(handle.point[0] - point[0], handle.point[1] - point[1]) <= tolerance) {
+        return { elementId: element.id, handle: handle.handle };
+      }
+    }
+
+    if (element.kind !== 'support') {
+      continue;
+    }
+
+    const center: ScenePoint = [element.shape.x + element.shape.w / 2, element.shape.y + element.shape.h / 2];
+    const grip = rotatePoint([center[0], element.shape.y - 24 / viewport.zoom], center, rotation);
+    if (Math.hypot(grip[0] - point[0], grip[1] - point[1]) <= tolerance) {
+      return { elementId: element.id, handle: 'rotate' };
+    }
+  }
+
+  return null;
+}
+
+/** Поворот точки вокруг центра на угол в градусах. */
+function rotatePoint(point: ScenePoint, center: ScenePoint, degrees: number): ScenePoint {
+  const radians = (degrees * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const dx = point[0] - center[0];
+  const dy = point[1] - center[1];
+
+  return [center[0] + dx * cosine - dy * sine, center[1] + dx * sine + dy * cosine];
+}
+
 /** Ручка Безье под точкой у активной вершины. */
 function handleTargetAt(point: ScenePoint, tolerance: number, stub: number): SceneHandleTarget | null {
   if (vertexTarget === null) {
@@ -858,6 +915,23 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   const tolerance = 10 / viewport.zoom;
   const stub = 16 / viewport.zoom;
 
+  const rect = rectHandleAt(scenePoint, tolerance);
+  if (rect !== null) {
+    setFocus(null);
+    if (rect.handle === 'rotate') {
+      rotateTarget = { elementId: rect.elementId };
+      gesture = 'rotate';
+    } else {
+      rectTarget = { elementId: rect.elementId, handle: rect.handle };
+      gesture = 'resize';
+    }
+
+    startEditing();
+    capture(event);
+
+    return;
+  }
+
   const width = widthTargetAt(scenePoint, tolerance, 10 / viewport.zoom);
   if (width !== null) {
     widthTarget = width;
@@ -966,6 +1040,23 @@ function onPointerMove(event: PointerEvent): void {
   const scenePoint = scenePointOf(event);
   if (scenePoint === null) return;
 
+  if (gesture === 'resize' && rectTarget !== null) {
+    emit('resize', rectTarget.elementId, rectTarget.handle, clampPoint(scenePoint));
+
+    return;
+  }
+
+  if (gesture === 'rotate' && rotateTarget !== null) {
+    const element = props.model.elements.find((item) => item.id === rotateTarget?.elementId);
+    if (element !== undefined && element.shape.type === 'rect') {
+      const center: ScenePoint = [element.shape.x + element.shape.w / 2, element.shape.y + element.shape.h / 2];
+      const angle = (Math.atan2(scenePoint[1] - center[1], scenePoint[0] - center[0]) * 180) / Math.PI + 90;
+      emit('rotate', rotateTarget.elementId, angle);
+    }
+
+    return;
+  }
+
   if (gesture === 'vertex' && vertexTarget !== null) {
     emit('vertex', vertexTarget.elementId, vertexTarget.index, clampPoint(scenePoint), vertexTarget.part ?? 'shape');
 
@@ -1036,7 +1127,13 @@ function panBy(event: PointerEvent): void {
 }
 
 function onPointerUp(event: PointerEvent): void {
-  const editing = gesture === 'vertex' || gesture === 'handle' || gesture === 'width' || gesture === 'move';
+  const editing =
+    gesture === 'vertex' ||
+    gesture === 'handle' ||
+    gesture === 'width' ||
+    gesture === 'move' ||
+    gesture === 'resize' ||
+    gesture === 'rotate';
 
   if (gesture === 'draw' && drawStart !== null) {
     const end = scenePointOf(event);
@@ -1071,16 +1168,26 @@ function onPointerUp(event: PointerEvent): void {
   moveLast = null;
   handleTarget = null;
   widthTarget = null;
+  rectTarget = null;
+  rotateTarget = null;
   panMoved = false;
 }
 
 function cancelPointer(): void {
-  const editing = gesture === 'vertex' || gesture === 'handle' || gesture === 'width' || gesture === 'move';
+  const editing =
+    gesture === 'vertex' ||
+    gesture === 'handle' ||
+    gesture === 'width' ||
+    gesture === 'move' ||
+    gesture === 'resize' ||
+    gesture === 'rotate';
   gesture = 'none';
   drawStart = null;
   moveLast = null;
   handleTarget = null;
   widthTarget = null;
+  rectTarget = null;
+  rotateTarget = null;
   panMoved = false;
   renderer?.setDraft(null);
   if (editing) {

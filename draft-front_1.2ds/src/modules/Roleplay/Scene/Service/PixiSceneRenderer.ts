@@ -1649,7 +1649,55 @@ export class PixiSceneRenderer implements ISceneRenderer {
       if (element.shape.type === 'polygon' || element.shape.type === 'path' || element.shape.type === 'wall') {
         this.drawVertices(layer, element.shape, element.id, 'shape');
       }
+
+      if (element.shape.type === 'rect') {
+        this.drawRectHandles(layer, element);
+      }
     }
+  }
+
+  /** Восемь ручек размера и ручка поворота у выделенного прямоугольника. */
+  private drawRectHandles(layer: Container, element: SceneElement): void {
+    if (element.shape.type !== 'rect') {
+      return;
+    }
+
+    const zoom = this.zoom();
+    const size = 8 / zoom;
+    const rotation = sceneRotation(element);
+    const graphics = new Graphics();
+    for (const handle of sceneGeometryService.rectHandles(element.shape, rotation)) {
+      graphics
+        .rect(handle.point[0] - size / 2, handle.point[1] - size / 2, size, size)
+        .fill({ color: 0xfacc15, alpha: 1 })
+        .stroke({ color: 0x1f2937, width: 1.5 / zoom, alpha: 1 });
+    }
+
+    if (element.kind === 'support') {
+      const center: ScenePoint = [element.shape.x + element.shape.w / 2, element.shape.y + element.shape.h / 2];
+      const top = this.rotateAround([center[0], element.shape.y], center, rotation);
+      const grip = this.rotateAround([center[0], element.shape.y - 24 / zoom], center, rotation);
+      graphics
+        .moveTo(top[0], top[1])
+        .lineTo(grip[0], grip[1])
+        .stroke({ color: 0x8e24aa, width: 1.5 / zoom, alpha: 0.9 })
+        .circle(grip[0], grip[1], 5 / zoom)
+        .fill({ color: 0x8e24aa, alpha: 1 })
+        .stroke({ color: 0x1f2937, width: 1.5 / zoom, alpha: 1 });
+    }
+
+    layer.addChild(graphics);
+  }
+
+  /** Поворот точки вокруг центра на угол в градусах. */
+  private rotateAround(point: ScenePoint, center: ScenePoint, degrees: number): ScenePoint {
+    const radians = (degrees * Math.PI) / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const dx = point[0] - center[0];
+    const dy = point[1] - center[1];
+
+    return [center[0] + dx * cosine - dy * sine, center[1] + dx * sine + dy * cosine];
   }
 
   /**

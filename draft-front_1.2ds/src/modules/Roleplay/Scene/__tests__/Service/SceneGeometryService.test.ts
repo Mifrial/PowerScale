@@ -297,4 +297,29 @@ describe('SceneGeometryService', () => {
     expect(service.openEndPads(river, null, 64)).toEqual([0, 0]);
     expect(service.openEndPads({ type: 'circle', cx: 500, cy: 500, r: 50 }, board, 64)).toEqual([0, 0]);
   });
+
+  it('resizes a rect from a corner and keeps the opposite corner', () => {
+    const resized = service.resizeRect({ x: 100, y: 100, w: 200, h: 100 }, 0, 'se', [400, 300], {
+      width: 1000,
+      height: 1000,
+    });
+
+    expect(resized).toEqual({ x: 100, y: 100, w: 300, h: 200 });
+  });
+
+  it('resizes a rotated rect in its own axes', () => {
+    const shape = { x: 100, y: 100, w: 200, h: 100 };
+    const center: ScenePoint = [200, 150];
+    const local: ScenePoint = [350, 150];
+    const radians = Math.PI / 2;
+    const point: ScenePoint = [
+      center[0] + (local[0] - center[0]) * Math.cos(radians) - (local[1] - center[1]) * Math.sin(radians),
+      center[1] + (local[0] - center[0]) * Math.sin(radians) + (local[1] - center[1]) * Math.cos(radians),
+    ];
+
+    const resized = service.resizeRect(shape, 90, 'e', point, { width: 1000, height: 1000 });
+
+    expect(resized.w).toBe(250);
+    expect(resized.h).toBe(100);
+  });
 });
