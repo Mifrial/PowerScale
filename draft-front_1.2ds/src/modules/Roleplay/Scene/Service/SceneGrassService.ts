@@ -119,16 +119,57 @@ export class SceneGrassService {
     // Раскладка не зависит от зума: иначе трава появляется только после
     // пересборки сцены и пропадает при отдалении. Плотность задаёт шаг в
     // мировых единицах, а масштаб делает камера.
-    const key = this.cacheKey(elements, board, base, layer);
+    const spacing = this.spacingFor(elements, board, base, layer);
+    const key = this.cacheKey(elements, board, base, layer, spacing);
     const cached = this.cache.get(key);
     if (cached !== undefined) {
       return cached;
     }
 
-    const tufts = this.scatterNow(elements, board, base, layer);
+    const tufts = this.scatterNow(elements, board, base, layer, spacing);
     this.remember(key, tufts);
 
     return tufts;
+  }
+
+  /**
+   * Шаг раскладки с учётом потолка числа пучков.
+   *
+   * Потолок режет плотность, а не площадь. Если просто оборвать проход по
+   * достижении предела, на большом поле трава кончается на середине и луг
+   * распадается на полосы: ковёр до предела, пустой материал дальше. Поэтому
+   * при превышении шаг растёт как корень из превышения — точек меньше, но они
+   * остаются равномерными по всему полю.
+   */
+  private spacingFor(elements: readonly SceneElement[], board: SceneBounds, base: number, layer: TuftLayer): number {
+    const spacing = base * layer.spacingIpari;
+    const expected = this.grassArea(elements, board) / (spacing * spacing);
+    if (expected <= layer.limit) {
+      return spacing;
+    }
+
+    return spacing * Math.sqrt(expected / layer.limit);
+  }
+
+  /** Площадь травяных фигур в границах поля, единицы сцены. */
+  private grassArea(elements: readonly SceneElement[], board: SceneBounds): number {
+    let area = 0;
+    for (const element of elements) {
+      if (element.props.kind !== 'grass') {
+        continue;
+      }
+
+      const bounds = this.geometry.probe(element.shape, sceneRotation(element)).bounds;
+      const minX = Math.max(board.x, bounds.x);
+      const maxX = Math.min(board.x + board.width, bounds.x + bounds.width);
+      const minY = Math.max(board.y, bounds.y);
+      const maxY = Math.min(board.y + board.height, bounds.y + bounds.height);
+      if (maxX > minX && maxY > minY) {
+        area += (maxX - minX) * (maxY - minY);
+      }
+    }
+
+    return area;
   }
 
   /** Раскладка без кэша: общий проход по травяным фигурам. */
@@ -137,8 +178,8 @@ export class SceneGrassService {
     board: SceneBounds,
     base: number,
     layer: TuftLayer,
+    spacing: number,
   ): SceneGrassTuft[] {
-    const spacing = base * layer.spacingIpari;
     const spill = base * SCENE_TERRAIN_BLEND.spillIpari;
     const tufts: SceneGrassTuft[] = [];
     for (let order = 0; order < elements.length; order += 1) {
@@ -222,13 +263,19 @@ export class SceneGrassService {
   }
 
   /** Ключ кэша: поле, разрешение, полоса плотности и форма элементов. */
-  private cacheKey(elements: readonly SceneElement[], board: SceneBounds, base: number, layer: TuftLayer): string {
+  private cacheKey(
+    elements: readonly SceneElement[],
+    board: SceneBounds,
+    base: number,
+    layer: TuftLayer,
+    spacing: number,
+  ): string {
     const shapes = elements.map(
       (element) =>
         `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${element.props.overWater === true ? 1 : 0}:${JSON.stringify(element.shape)}`,
     );
 
-    return `${layer.spacingIpari}|${layer.heightIpari}|${base}|${board.x},${board.y},${board.width},${board.height}|${shapes.join(';')}`;
+    return `${spacing}|${layer.heightIpari}|${base}|${board.x},${board.y},${board.width},${board.height}|${shapes.join(';')}`;
   }
 
   /** Запоминает раскладку, вытесняя самую старую. */

@@ -177,6 +177,27 @@ describe('SceneGrassService', () => {
     const field = element(1, { type: 'rect', x: 0, y: 0, w: 6000, h: 6000 }, { kind: 'grass' });
     const tufts = service.placeClumps([field], big, 64);
 
-    expect(tufts.length).toBe(SCENE_GRASS.clumpLimit);
+    expect(tufts.length).toBeLessThanOrEqual(SCENE_GRASS.clumpLimit);
+  });
+
+  it('на большом поле потолок режет плотность, а не площадь', () => {
+    // Поле 80×80 ипари: без пересчёта шага ковёр кончался бы на четверти
+    // ширины, и луг распадался бы на полосы.
+    const big: SceneBounds = { x: 0, y: 0, width: 5120, height: 5120 };
+    const field = element(1, { type: 'rect', x: 0, y: 0, w: 5120, h: 5120 }, { kind: 'grass' });
+    const carpet = service.placeCarpet([field], big, 64);
+    const clumps = service.placeClumps([field], big, 64);
+
+    expect(carpet.length).toBeLessThanOrEqual(SCENE_GRASS.carpetLimit);
+    expect(clumps.length).toBeLessThanOrEqual(SCENE_GRASS.clumpLimit);
+
+    // Пучки доходят до правого края: полосы пустого материала нет.
+    const carpetRight = carpet.filter((tuft) => tuft.x > 5120 * 0.9);
+    const clumpRight = clumps.filter((tuft) => tuft.x > 5120 * 0.9);
+    expect(carpetRight.length).toBeGreaterThan(0);
+    expect(clumpRight.length).toBeGreaterThan(0);
+
+    // И до левого: раскладка не сдвинута к одной стороне.
+    expect(carpet.filter((tuft) => tuft.x < 5120 * 0.1).length).toBeGreaterThan(0);
   });
 });
