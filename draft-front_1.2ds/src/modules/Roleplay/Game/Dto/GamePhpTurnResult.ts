@@ -1,6 +1,7 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { GamePhpSustainPrompt } from '@/modules/Roleplay/Game/Dto/GamePhpSustainPrompt';
+import type { GamePhpSpellChain } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 
 /** Ответ конца хода / continue / abort / раны. */
 export interface GamePhpTurnResult {
@@ -18,6 +19,10 @@ export interface GamePhpTurnResult {
   remaining?: number;
   /** Вопросы поддержания на входе хода нового текущего. */
   sustain?: GamePhpSustainPrompt[];
+  /** Ключ каста, если долг завершился кастом. */
+  castId?: string | null;
+  /** Незавершённая цепь после завершения каста. */
+  chain?: GamePhpSpellChain | null;
   /** Долг ОД нового текущего. */
   debt?: {
     kind: string;

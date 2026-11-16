@@ -5,6 +5,7 @@ import type { GamePhpBattleMark } from '@/modules/Roleplay/Game/Dto/GamePhpBattl
 import type { GamePhpOpenWideStrike } from '@/modules/Roleplay/Game/Dto/GamePhpOpenWideStrike';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { GamePhpPendingSpellCast } from '@/modules/Roleplay/Game/Dto/GamePhpPendingSpellCast';
+import type { GamePhpSpellChain } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import { ref, type Ref } from 'vue';
 
 /** Числовой бой PHP для команд P4. */
@@ -19,6 +20,8 @@ export class GamePhpBattleContext {
   openWideStrike: GamePhpOpenWideStrike | null = null;
   pendingActionEffects: Record<string, PendingActionEffect[]> = {};
   pendingSpellCast: Ref<GamePhpPendingSpellCast | null> = ref(null);
+  /** Незавершённая цепь после каста или доплаты долга. */
+  pendingChain: Ref<{ chain: GamePhpSpellChain; castId: string; version: number } | null> = ref(null);
   battleMarks: GamePhpBattleMark[] = [];
 
   rememberBattle(battleId: number, version: number): void {
@@ -48,6 +51,10 @@ export class GamePhpBattleContext {
 
   rememberPendingSpellCast(pending: GamePhpPendingSpellCast | null): void {
     this.pendingSpellCast.value = pending;
+  }
+
+  rememberPendingChain(value: { chain: GamePhpSpellChain; castId: string; version: number } | null): void {
+    this.pendingChain.value = value;
   }
 
   rememberBattleMarks(marks: GamePhpBattleMark[]): void {
@@ -85,6 +92,7 @@ export class GamePhpBattleContext {
     this.openWideStrike = null;
     this.pendingActionEffects = {};
     this.pendingSpellCast.value = null;
+    this.pendingChain.value = null;
     this.battleMarks = [];
   }
 }

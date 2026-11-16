@@ -2184,6 +2184,17 @@ async function runPhpChain(
   hopChain.value = null;
 }
 
+// Цепь, открытая завершением долга, продолжается тем же диалогом.
+watch(
+  () => gamePhpBattleContext.pendingChain.value,
+  (pending) => {
+    if (!pending) return;
+    gamePhpBattleContext.rememberPendingChain(null);
+    void runPhpChain(pending.chain, pending.castId, pending.version);
+  },
+  { immediate: true },
+);
+
 async function stopPhpChain(castId: string, version: number): Promise<void> {
   const battleId = gamePhpBattleContext.battleId;
   if (battleId === null) {

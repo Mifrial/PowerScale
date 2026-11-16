@@ -1612,6 +1612,13 @@ export class GameApi implements IGameApi {
     const result = await this.requireData<GamePhpTurnResult>(action, body, signal);
     gamePhpBattleContext.rememberBattle(body.battleId, result.version);
     gamePhpBattleContext.rememberDebt(false, result.version);
+    if (result.chain && typeof result.castId === 'string') {
+      gamePhpBattleContext.rememberPendingChain({
+        chain: result.chain,
+        castId: result.castId,
+        version: typeof result.version === 'number' ? result.version : gamePhpBattleContext.battleVersion,
+      });
+    }
     const scale = gamePhpBattleContext.getScale();
     if (scale !== null && typeof result.activeIndex === 'number') {
       gamePhpBattleContext.rememberScale({
