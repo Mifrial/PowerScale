@@ -9,4 +9,7 @@
 export const SCENE_FLOOR = {
   /** Поля обзора вокруг плана этажа, ипари. */
   contextMarginIpari: 4,
+
+  /** Поляна вокруг плана в кадре этажа, ипари. */
+  fitMarginIpari: 2,
 } as const;

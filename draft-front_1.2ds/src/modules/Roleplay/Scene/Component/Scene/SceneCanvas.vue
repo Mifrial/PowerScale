@@ -17,6 +17,7 @@ import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleS
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
 import { SceneFogRefreshService } from '@/modules/Roleplay/Scene/Service/SceneFogRefreshService';
@@ -48,6 +49,8 @@ const props = withDefaults(
     preview?: boolean;
     /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
     actors?: SceneActor[];
+    /** Акторы соседнего поля: рисуются в контексте этажа. */
+    contextActors?: SceneActor[];
     /** Выбранный актор; от него считается туман и радиус обзора. */
     selectedActorId?: number | null;
     /** Маршрут выбранного актора. */
@@ -68,6 +71,7 @@ const props = withDefaults(
     roofsHidden: false,
     preview: false,
     actors: () => [],
+    contextActors: () => [],
     selectedActorId: null,
     route: null,
     overlay: null,
@@ -293,6 +297,7 @@ onMounted(async () => {
   sceneRenderer.setRoofsHidden(props.roofsHidden);
   sceneRenderer.setSelection(props.model.selection);
   sceneRenderer.setActors(props.actors ?? []);
+  sceneRenderer.setContextActors(props.contextActors ?? []);
   sceneRenderer.setRoute(props.route ?? null);
   refreshOverlay();
   observer = new ResizeObserver(() => handleResize());
@@ -341,6 +346,11 @@ watch(
     renderer?.setActors(props.actors ?? []);
     refreshFog();
   },
+);
+
+watch(
+  () => props.contextActors,
+  () => renderer?.setContextActors(props.contextActors ?? []),
 );
 
 watch(
@@ -848,7 +858,16 @@ function contentBounds(boardId: number): { x: number; y: number; width: number; 
     return null;
   }
 
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  // Немного поляны вокруг дома: из окна этажа должен быть виден двор, а не
+  // только стена вплотную.
+  const margin = Math.max(0, props.model.resolution * SCENE_FLOOR.fitMarginIpari);
+
+  return {
+    x: minX - margin,
+    y: minY - margin,
+    width: maxX - minX + margin * 2,
+    height: maxY - minY + margin * 2,
+  };
 }
 
 function fit(): void {

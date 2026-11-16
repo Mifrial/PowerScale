@@ -142,6 +142,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly actorNodes = new Map<number, SceneActorPaint>();
 
+  /** Акторы родительского поля: видны вокруг этажа, но не кликаются. */
+  private contextActors: SceneActor[] = [];
+
+  /** Нарисованные контекстные акторы: снимаются при пересборке контекста. */
+  private contextActorNodes: SceneActorPaint[] = [];
+
   private readonly propY = new Map<Container, number>();
 
   /** Готовые полосы оверлеев; их считает сервис, рендерер только рисует. */
@@ -404,6 +410,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.syncTrailTicker();
     }
 
+    this.requestFrame();
+  }
+
+  /** Акторы соседнего поля: контекст этажа, не кликаются. */
+  setContextActors(actors: SceneActor[]): void {
+    this.contextActors = actors;
+    this.paintContextActors();
     this.requestFrame();
   }
 
@@ -1260,6 +1273,32 @@ export class PixiSceneRenderer implements ISceneRenderer {
     return actor.y + actor.radius;
   }
 
+  /** Акторы родителя в контексте этажа: приглушённые, без клика. */
+  private paintContextActors(): void {
+    for (const painted of this.contextActorNodes) {
+      painted.node.removeFromParent();
+      painted.node.destroy({ children: true });
+    }
+    this.contextActorNodes = [];
+
+    if (this.model === null || this.context === null || !this.context.visible) {
+      return;
+    }
+
+    const layer = this.contextLayers.decor;
+    if (layer === undefined) {
+      return;
+    }
+
+    const resolution = this.model.resolution;
+    const zoom = this.zoom();
+    for (const actor of this.contextActors) {
+      const painted = this.actorService.paint(actor, resolution, zoom);
+      layer.addChild(painted.node);
+      this.contextActorNodes.push(painted);
+    }
+  }
+
   /**
    * Ставит актора на его `y` среди статичных детей слоя.
    *
@@ -1306,6 +1345,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private clearAll(): void {
     this.carpet = null;
+    this.contextActorNodes = [];
     for (const name of Object.keys(this.layers) as SceneLayerName[]) {
       this.clearLayer(name);
     }
@@ -1760,6 +1800,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
         this.contextLayers.decor?.addChild(group);
       }
     }
+
+    this.paintContextActors();
 
     this.applyContentClip(context.parent);
     this.layers = savedLayers;

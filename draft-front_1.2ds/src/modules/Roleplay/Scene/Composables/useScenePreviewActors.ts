@@ -59,6 +59,8 @@ interface Motion {
  */
 export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const actors = ref<ScenePreviewActor[]>([]);
+  /** Акторы соседнего (родительского) поля: видны в контексте этажа. */
+  const contextActors = ref<ScenePreviewActor[]>([]);
   const selectedId = ref<number | null>(null);
   const route = ref<SceneNavRoute | null>(null);
   const levelMenu = ref<SceneLevelMenu | null>(null);
@@ -119,6 +121,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     pendingPortal = null;
     if (!options.enabled()) {
       actors.value = [];
+      contextActors.value = [];
       selectedId.value = null;
       markerAnchors.clear();
       placements.clear();
@@ -130,6 +133,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const board = options.board();
     if (board === null) {
       actors.value = [];
+      contextActors.value = [];
       selectedId.value = null;
       markerAnchors.clear();
 
@@ -207,10 +211,64 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     actors.value = next;
+    contextActors.value = buildContextActors(board, resolution);
     if (!actors.value.some((actor) => actor.id === selectedId.value)) {
       selectedId.value = actors.value[0]?.id ?? null;
     }
     select(selectedId.value);
+  }
+
+  /**
+   * Акторы родительского поля для контекста этажа.
+   *
+   * С этажа видно не только поляну, но и тех, кто на ней стоит: маркеры
+   * родителя рисуются приглушённо. Актор, ушедший на этаж, в контексте не
+   * дублируется — он уже среди активных.
+   */
+  function buildContextActors(board: SceneBoard, resolution: number): ScenePreviewActor[] {
+    const enclosure = options.enclosures().find((item) => item.childBoardId === board.id);
+    if (enclosure === undefined) {
+      return [];
+    }
+
+    const parentId = enclosure.parentBoardId;
+    const result: ScenePreviewActor[] = [];
+    for (const element of options.elements()) {
+      if (element.boardId !== parentId || element.kind !== 'marker' || element.shape.type !== 'point') {
+        continue;
+      }
+
+      const role = element.props.role ?? 'player_start';
+      if (role !== 'player_start' && role !== 'npc_spawn') {
+        continue;
+      }
+      // Маркер ещё не встречался: считаем, что актор стоит на родителе.
+      if ((actorBoards.get(element.id) ?? parentId) !== parentId) {
+        continue;
+      }
+
+      const point = element.shape;
+      const placed = placements.get(element.id)?.get(parentId);
+      result.push({
+        id: element.id,
+        x: placed?.x ?? point.x,
+        y: placed?.y ?? point.y,
+        facing: placed?.facing ?? 0,
+        radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
+        height: sceneBodyHeight(resolution),
+        tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
+        label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
+        selected: false,
+        ghost: false,
+        level: placed?.level ?? 0,
+        underDeck: false,
+        sightRadius: resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
+        role,
+        context: true,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -721,6 +779,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   return {
     actors,
+    contextActors,
     selectedId,
     selectedActor,
     route,

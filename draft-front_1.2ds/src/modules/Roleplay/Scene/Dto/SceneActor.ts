@@ -29,4 +29,6 @@ export interface SceneActor {
   level?: number;
   /** Стоит под более высокой поверхностью: рисуется приглушённо. */
   underDeck?: boolean;
+  /** Актор соседнего поля: виден в контексте, но не кликается. */
+  context?: boolean;
 }

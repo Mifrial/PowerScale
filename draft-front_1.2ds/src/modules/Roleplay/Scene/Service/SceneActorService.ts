@@ -85,7 +85,14 @@ export class SceneActorService {
     }
 
     const underDeck = actor.underDeck === true;
-    const alpha = ghost ? SCENE_ACTOR.ghostAlpha : underDeck ? SCENE_ACTOR.underDeckAlpha : 1;
+    const alpha =
+      actor.context === true
+        ? SCENE_ACTOR.contextAlpha
+        : ghost
+          ? SCENE_ACTOR.ghostAlpha
+          : underDeck
+            ? SCENE_ACTOR.underDeckAlpha
+            : 1;
     painted.sprite.alpha = alpha;
     painted.arrow.alpha = alpha;
   }

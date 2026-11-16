@@ -17,6 +17,8 @@ export interface ISceneRenderer {
   setSelection(ids: number[]): void;
   /** Акторы на поле: позиции и facing приходят снаружи. */
   setActors(actors: SceneActor[]): void;
+  /** Акторы соседнего поля: рисуются в контексте этажа. */
+  setContextActors(actors: SceneActor[]): void;
   /** Режим жеста: на время перетаскивания трава не пересобирается. */
   setEditing(editing: boolean): void;
   /** Полосы оверлеев предпросмотра; null — выключить. */
