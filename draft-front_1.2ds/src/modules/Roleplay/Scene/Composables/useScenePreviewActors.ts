@@ -255,41 +255,53 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     menuPoint = null;
 
     const actor = actorAt(point);
+    const selected = selectedActor.value;
+    const board = options.board();
+
+    // Alt — всегда по земле, мимо порталов: дверь на этаж не должна
+    // перехватывать обычный проход под ней.
+    if (under) {
+      if (actor !== null) {
+        select(actor.id);
+
+        return;
+      }
+      if (selected !== null && board !== null) {
+        moveTo(point, 0);
+      }
+
+      return;
+    }
+
+    // Проём с целевым полем — дверь на другой этаж. Клик по ней ведёт к
+    // проёму, а по прибытии актор переходит на парный проём. Стоящего на
+    // пороге актора портал забирает сразу: иначе клик по нему выбирал бы
+    // манекен и обратный переход был бы недоступен.
+    if (selected !== null && board !== null) {
+      const portal = portals.portalAt(options.elements(), board.id, point, Math.max(1, options.resolution() * 0.75));
+      if (portal !== null && (actor === null || actor.id === selected.id)) {
+        const center = portal.center;
+        if (Math.hypot(selected.x - center[0], selected.y - center[1]) <= options.resolution() * 0.5) {
+          cross(portal);
+
+          return;
+        }
+        if (moveTo(center)) {
+          pendingPortal = portal;
+
+          return;
+        }
+      }
+    }
+
     if (actor !== null) {
       select(actor.id);
 
       return;
     }
 
-    const selected = selectedActor.value;
-    const board = options.board();
     if (selected === null || board === null) {
       return;
-    }
-
-    // Alt — всегда по земле, мимо порталов: дверь на этаж не должна
-    // перехватывать обычный проход под ней.
-    if (under) {
-      moveTo(point, 0);
-
-      return;
-    }
-
-    // Проём с целевым полем — дверь на другой этаж. Клик ведёт к нему, а по
-    // прибытии актор переходит на парный проём целевого поля.
-    const portal = portals.portalAt(options.elements(), board.id, point, Math.max(1, options.resolution() * 0.75));
-    if (portal !== null) {
-      const center = portal.center;
-      if (Math.hypot(selected.x - center[0], selected.y - center[1]) <= options.resolution()) {
-        cross(portal);
-
-        return;
-      }
-      if (moveTo(center)) {
-        pendingPortal = portal;
-
-        return;
-      }
     }
 
     const mesh = navigation.build(board, options.elements(), options.resolution(), { agentRadius: selected.radius });
