@@ -63,7 +63,6 @@
 | [spell-real-plan-01-action-components.md](../../spell-real-plan-01-action-components.md) | план | `~ЧАСТИЧНО~` | 2026-11-09 |
 | [spell-real-plan-02-spell-upgrades.md](../../spell-real-plan-02-spell-upgrades.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
 | [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
-| [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-07 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ОТЛОЖЕН~` | — |
@@ -95,6 +94,7 @@
 | [spell-real-plan-08-charges.md](../../spell-real-plan-08-charges.md) | план | `~СДЕЛАНО~` | 2026-11-14 |
 | [spell-real-plan-09-core.md](../../spell-real-plan-09-core.md) | план | `~СДЕЛАНО~` | 2026-11-14 |
 | [spell-real-plan-11-psionic-shaman.md](../../spell-real-plan-11-psionic-shaman.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
+| [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [rule-content-queue.md](../../rule-content-queue.md) | канон | ? | 2026-09-16 |
 | [rule-system.md](../../rule-system.md) | канон | ? | 2026-08-30 |
 

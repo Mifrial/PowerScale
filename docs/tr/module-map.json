@@ -1540,8 +1540,8 @@
                     "path": "docs/tr/notes-roadmap.md",
                     "title": "Нарезка Messages/Notes",
                     "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-15",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 },
                 {
@@ -3478,14 +3478,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-13-chain.md",
-                    "title": "План M13 — Цепная молния",
-                    "kind": "plan",
-                    "state": "ЧАСТИЧНО",
-                    "date": "2026-11-16",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/spell-roadmap.md",
                     "title": "Нарезка магии и заклинаний",
                     "kind": "plan",
@@ -3728,6 +3720,14 @@
                 {
                     "path": "docs/tr/spell-real-plan-11-psionic-shaman.md",
                     "title": "План M11–M12 — Псионик и Шаман",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-13-chain.md",
+                    "title": "План M13 — Цепная молния",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-16",

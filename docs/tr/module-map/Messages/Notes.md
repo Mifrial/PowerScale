@@ -56,7 +56,7 @@
 
 | Документ | Тип | Состояние | Дата |
 |---|---|---|---|
-| [notes-roadmap.md](../../notes-roadmap.md) | план | `~В РАБОТЕ~` | 2026-11-15 |
+| [notes-roadmap.md](../../notes-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
 | [notes-plan-01-inline-extract.md](../../notes-plan-01-inline-extract.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
 | [notes-plan-02-storage-http.md](../../notes-plan-02-storage-http.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
 | [notes-plan-03-vue.md](../../notes-plan-03-vue.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
