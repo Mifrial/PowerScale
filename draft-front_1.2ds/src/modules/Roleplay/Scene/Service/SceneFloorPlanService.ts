@@ -26,6 +26,13 @@ export interface SceneFloor {
   active: boolean;
   /** Ближайший этаж ниже выбранного: нужен для разреза. */
   below: boolean;
+  /**
+   * Этаж под плитой фокуса в той же стопке.
+   *
+   * Стены и потолок такого этажа срезаны плоскостью плиты: сквозь
+   * полупрозрачный пол виден план, а не торчащие сквозь него стены.
+   */
+  underCut: boolean;
 }
 
 /** Что и в каком порядке рисует композит этажей. */
@@ -225,6 +232,14 @@ export class SceneFloorPlanService {
     const activeStack = stacks.find((stack) => stack.some((board) => board.id === activeBoardId)) ?? null;
     const root = model.boards.find((board) => board.id === rootBoardId);
 
+    // Предки фокуса — его стопка: только у них стены срезаны плитой. Чужие
+    // строения на той же отметке стоят рядом, а не под полом.
+    const ancestors = new Set<number>();
+    for (let current: number | undefined = activeBoardId; current !== undefined && !ancestors.has(current);) {
+      ancestors.add(current);
+      current = parents.get(current);
+    }
+
     const floorOf = (board: SceneBoard, active: boolean, below: boolean): SceneFloor => ({
       boardId: board.id,
       board,
@@ -233,6 +248,7 @@ export class SceneFloorPlanService {
       root: board.id === rootBoardId,
       active,
       below,
+      underCut: board.id !== activeBoardId && ancestors.has(board.id) && (elevations.get(board.id) ?? 0) < focus,
     });
 
     const base: SceneFloor[] = root === undefined ? [] : [floorOf(root, activeBoardId === root.id, false)];

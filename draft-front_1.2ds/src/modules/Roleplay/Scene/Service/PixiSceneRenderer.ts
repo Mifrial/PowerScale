@@ -973,6 +973,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     const bridgeElements = elements.filter((element) => this.isGroundDeck(element));
     const openings = elements.filter((element) => element.kind === 'opening');
+    const cut = this.cutRect(floor);
     const decorElements = elements
       .filter((element) => element.kind === 'decor')
       .sort(
@@ -990,12 +991,19 @@ export class PixiSceneRenderer implements ISceneRenderer {
       ) {
         continue;
       }
+
+      // Дверь и окно — часть срезанной стены: отдельной полосой они торчали бы
+      // из-под полупрозрачной плиты.
+      if (cut !== null && element.kind === 'opening' && element.shape.type === 'wall') {
+        continue;
+      }
+
       this.drawElement(element, openings);
     }
 
     this.drawWallJoints(elements, board.id);
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution);
-    this.applyContentClip(board, this.slabHoles(floor));
+    this.applyContentClip(board, this.slabHoles(floor), cut);
 
     // Плита выбранного этажа полупрозрачна: сквозь неё виден этаж ниже. Стены,
     // декор и акторы остаются непрозрачными — прозрачность только у пола.
@@ -1090,6 +1098,48 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     return this.floorPlan?.slabBoardId ?? null;
+  }
+
+  /**
+   * Пятно плиты фокуса в координатах этажа под разрезом.
+   *
+   * Стены и потолок нижнего этажа срезаны там, где над ними лежит пол
+   * выбранного этажа: сквозь полупрозрачную плиту виден план. За пятном
+   * стены остаются — там над ними неба нет только у соседних строений.
+   *
+   * @param floor Этаж.
+   *
+   * @returns Прямоугольник реза или null, если резать нечего.
+   */
+  private cutRect(floor: SceneFloor): SceneBounds | null {
+    if (this.model === null || !this.slabCutaway || !floor.underCut) {
+      return null;
+    }
+
+    const active = this.model.boards.find((board) => board.id === this.model?.activeBoardId);
+    if (active === undefined) {
+      return null;
+    }
+
+    const transform = sceneFloorPlanService.transform(this.model, active.id);
+    const margin = Math.max(0, this.model.resolution * SCENE_FLOOR.cutMarginIpari);
+    const left = transform.x - margin;
+    const top = transform.y - margin;
+    const right = transform.x + active.boundWidth * transform.scaleX + margin;
+    const bottom = transform.y + active.boundHeight * transform.scaleY + margin;
+    const start = sceneFloorPlanService.toLocal(floor.transform, [left, top]);
+    const end = sceneFloorPlanService.toLocal(floor.transform, [right, bottom]);
+    // Вырез обязан лежать внутри поля: иначе маска не режет вовсе. Пятно
+    // вложения и так внутри родителя, но запас реза может выйти за край.
+    const x = Math.max(0, Math.min(start[0], end[0]));
+    const y = Math.max(0, Math.min(start[1], end[1]));
+    const width = Math.min(floor.board.boundWidth, Math.max(start[0], end[0])) - x;
+    const height = Math.min(floor.board.boundHeight, Math.max(start[1], end[1])) - y;
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+
+    return { x, y, width, height };
   }
 
   /**
@@ -1566,7 +1616,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * @param board Поле.
    * @param holes Прямоугольники вырезов в координатах поля.
    */
-  private applyContentClip(board: SceneBoard, holes: readonly SceneBounds[] = []): void {
+  private applyContentClip(
+    board: SceneBoard,
+    holes: readonly SceneBounds[] = [],
+    cut: SceneBounds | null = null,
+  ): void {
     const names: SceneLayerName[] = [
       'backdrop',
       'terrain',
@@ -1596,6 +1650,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
         for (const hole of holes) {
           mask.rect(hole.x, hole.y, hole.width, hole.height).cut();
         }
+      }
+
+      // Стены и потолок этажа под плитой срезаны её пятном: сквозь
+      // полупрозрачный пол виден план, а не стены первого этажа.
+      if (cut !== null && (name === 'obstacles' || name === 'roofs')) {
+        mask.rect(cut.x, cut.y, cut.width, cut.height).cut();
       }
 
       layer.addChild(mask);

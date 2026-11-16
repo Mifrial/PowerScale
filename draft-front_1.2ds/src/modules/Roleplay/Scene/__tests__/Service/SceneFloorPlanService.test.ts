@@ -142,4 +142,32 @@ describe('SceneFloorPlanService', () => {
     expect(plan.floors.map((item) => item.boardId)).toEqual([3, 6, 4, 5]);
     expect(plan.floors.find((item) => item.boardId === 5)?.elevation).toBe(256);
   });
+
+  it('режет стены только у своей стопки', () => {
+    const root = board(3, 5000, 5000);
+    const first = board(4);
+    const firstTop = board(5);
+    const second = board(6);
+    const enclosures = [
+      enclosure(3, 4, 128, { x: 100, y: 100, w: 500, h: 400 }),
+      enclosure(4, 5, 128, { x: 20, y: 20, w: 300, h: 200 }),
+      enclosure(3, 6, 128, { x: 2000, y: 2000, w: 600, h: 400 }),
+    ];
+    const plan = service.plan(model([root, first, firstTop, second], enclosures, 5));
+
+    // Корень под плитой своего строения — режется; второй дом на земле стоит
+    // рядом, его стены не срезаны.
+    expect(plan.floors.find((item) => item.boardId === 3)?.underCut).toBe(true);
+    expect(plan.floors.find((item) => item.boardId === 4)?.underCut).toBe(true);
+    expect(plan.floors.find((item) => item.boardId === 6)?.underCut).toBe(false);
+    expect(plan.floors.find((item) => item.boardId === 5)?.underCut).toBe(false);
+  });
+
+  it('на корне ничего не режет', () => {
+    const root = board(3);
+    const second = board(4);
+    const plan = service.plan(model([root, second], [enclosure(3, 4, 128)], 3));
+
+    expect(plan.floors.every((item) => !item.underCut)).toBe(true);
+  });
 });
