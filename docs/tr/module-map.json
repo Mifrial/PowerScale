@@ -3358,14 +3358,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-17-multi-turn-cast.md",
-                    "title": "План M17 — многоходовое сотворение",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-16",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",
@@ -3736,6 +3728,14 @@
                 {
                     "path": "docs/tr/spell-real-plan-16-spell-effects.md",
                     "title": "План M16 — эффекты заклинаний и «Восприятие магии»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-17-multi-turn-cast.md",
+                    "title": "План M17 — многоходовое сотворение",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-16",
