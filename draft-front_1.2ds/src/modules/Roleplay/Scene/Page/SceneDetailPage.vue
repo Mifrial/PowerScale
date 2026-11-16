@@ -51,7 +51,6 @@ const board = computed<SceneBoard | null>(
 );
 const {
   actors: previewActorList,
-  contextActors: previewContextActors,
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
   route: previewRoute,
@@ -275,7 +274,7 @@ function zoomLabel(): string {
             :roofs-hidden="roofsHidden"
             :preview="true"
             :actors="previewActorList"
-            :context-actors="previewContextActors"
+            :slab-cutaway="true"
             :selected-actor-id="previewSelectedId"
             :route="previewRoute"
             :level-menu="previewLevelMenu"

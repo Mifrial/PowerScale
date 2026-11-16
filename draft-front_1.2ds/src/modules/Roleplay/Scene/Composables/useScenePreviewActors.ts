@@ -12,6 +12,7 @@ import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
+import { sceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/Instance/sceneFloorPlanService';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 import { ScenePortalService, type ScenePortal } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
 import {
@@ -59,8 +60,6 @@ interface Motion {
  */
 export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const actors = ref<ScenePreviewActor[]>([]);
-  /** Акторы соседнего (родительского) поля: видны в контексте этажа. */
-  const contextActors = ref<ScenePreviewActor[]>([]);
   const selectedId = ref<number | null>(null);
   const route = ref<SceneNavRoute | null>(null);
   const levelMenu = ref<SceneLevelMenu | null>(null);
@@ -87,10 +86,13 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   const selectedActor = computed(() => actors.value.find((actor) => actor.id === selectedId.value) ?? null);
 
-  watch([options.enabled, options.board, options.elements, options.resolution], () => {
-    syncFromScene();
-    prepareNavigation();
-  });
+  watch(
+    [options.enabled, options.board, options.elements, options.resolution, options.boards, options.enclosures],
+    () => {
+      syncFromScene();
+      prepareNavigation();
+    },
+  );
   syncFromScene();
   prepareNavigation();
 
@@ -114,14 +116,19 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     navigation.build(board, options.elements(), options.resolution(), { agentRadius: radius });
   }
 
-  /** Пересобирает акторов из маркеров поля и позиций, перенесённых с других полей. */
+  /**
+   * Пересобирает акторов из маркеров видимых этажей.
+   *
+   * Актор принадлежит своему полю: с фокуса на втором этаже видны и манекены
+   * двора. Позиция и уровень маркера читаются по поверхности его поля, а не
+   * активного.
+   */
   function syncFromScene(): void {
     stopMotion();
     route.value = null;
     pendingPortal = null;
     if (!options.enabled()) {
       actors.value = [];
-      contextActors.value = [];
       selectedId.value = null;
       markerAnchors.clear();
       placements.clear();
@@ -133,7 +140,6 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const board = options.board();
     if (board === null) {
       actors.value = [];
-      contextActors.value = [];
       selectedId.value = null;
       markerAnchors.clear();
 
@@ -142,130 +148,113 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     const resolution = Math.max(1, options.resolution());
     const previous = new Map(actors.value.map((actor) => [actor.id, actor]));
-    const markers = options
-      .elements()
-      .filter(
-        (element) =>
-          element.boardId === board.id &&
-          element.kind === 'marker' &&
-          element.shape.type === 'point' &&
-          (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
-      );
+    const visible = visibleBoards(board, resolution);
     const next: ScenePreviewActor[] = [];
-    for (const element of markers) {
-      // Маркер — точка появления, а не второй экземпляр актора. Если актор
-      // уже ушёл на другой этаж, его маркер здесь молчит.
-      const currentBoard = actorBoards.get(element.id);
-      if (currentBoard === undefined) {
-        actorBoards.set(element.id, board.id);
-      } else if (currentBoard !== board.id) {
-        continue;
-      }
+    const markerIds = new Set<number>();
+    for (const visibleBoard of visible) {
+      const markers = options
+        .elements()
+        .filter(
+          (element) =>
+            element.boardId === visibleBoard.id &&
+            element.kind === 'marker' &&
+            element.shape.type === 'point' &&
+            (element.props.role === 'player_start' || element.props.role === 'npc_spawn'),
+        );
+      for (const element of markers) {
+        // Маркер — точка появления, а не второй экземпляр актора. Если актор
+        // уже ушёл на другой этаж, его маркер здесь молчит.
+        const currentBoard = actorBoards.get(element.id);
+        if (currentBoard === undefined) {
+          actorBoards.set(element.id, visibleBoard.id);
+        } else if (currentBoard !== visibleBoard.id) {
+          continue;
+        }
 
-      const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
-      const role = element.props.role ?? 'player_start';
-      const old = previous.get(element.id);
-      // Маркер переставили — актор идёт за ним и берёт уровень по новому
-      // месту: на настиле он стоит на настиле, а не под ним. Если двигали
-      // самого актора, его позиция и уровень остаются прежними.
-      const anchor = markerAnchors.get(element.id);
-      const markerMoved = anchor === undefined || anchor[0] !== point.x || anchor[1] !== point.y;
-      markerAnchors.set(element.id, [point.x, point.y]);
-      if (markerMoved) {
-        placements.get(element.id)?.delete(board.id);
-      }
-      const placed = markerMoved ? undefined : placements.get(element.id)?.get(board.id);
+        markerIds.add(element.id);
+        const point = element.shape.type === 'point' ? element.shape : { x: 0, y: 0 };
+        const role = element.props.role ?? 'player_start';
+        const old = previous.get(element.id);
+        // Маркер переставили — актор идёт за ним и берёт уровень по новому
+        // месту: на настиле он стоит на настиле, а не под ним. Если двигали
+        // самого актора, его позиция и уровень остаются прежними.
+        const anchor = markerAnchors.get(element.id);
+        const markerMoved = anchor === undefined || anchor[0] !== point.x || anchor[1] !== point.y;
+        markerAnchors.set(element.id, [point.x, point.y]);
+        if (markerMoved) {
+          placements.get(element.id)?.delete(visibleBoard.id);
+        }
+        const placed = markerMoved ? undefined : placements.get(element.id)?.get(visibleBoard.id);
 
-      next.push({
-        id: element.id,
-        x: placed?.x ?? (markerMoved ? point.x : (old?.x ?? point.x)),
-        y: placed?.y ?? (markerMoved ? point.y : (old?.y ?? point.y)),
-        facing: placed?.facing ?? old?.facing ?? 0,
-        radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
-        height: sceneBodyHeight(resolution),
-        tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
-        label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
-        selected: element.id === selectedId.value,
-        ghost: old?.ghost ?? false,
-        level: placed?.level ?? (markerMoved ? markerLevel(point) : (old?.level ?? 0)),
-        underDeck: old?.underDeck ?? false,
-        sightRadius:
-          old?.sightRadius ??
-          resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
-        role,
-      });
+        next.push({
+          id: element.id,
+          boardId: visibleBoard.id,
+          x: placed?.x ?? (markerMoved ? point.x : (old?.x ?? point.x)),
+          y: placed?.y ?? (markerMoved ? point.y : (old?.y ?? point.y)),
+          facing: placed?.facing ?? old?.facing ?? 0,
+          radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
+          height: sceneBodyHeight(resolution),
+          tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
+          label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
+          selected: element.id === selectedId.value,
+          ghost: old?.ghost ?? false,
+          level: placed?.level ?? (markerMoved ? markerLevel(visibleBoard, point) : (old?.level ?? 0)),
+          underDeck: old?.underDeck ?? false,
+          sightRadius:
+            old?.sightRadius ??
+            resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
+          role,
+        });
+      }
     }
 
-    const markerIds = new Set(markers.map((element) => element.id));
     for (const [actorId, byBoard] of placements) {
-      if (markerIds.has(actorId) || actorBoards.get(actorId) !== board.id) {
+      const home = actorBoards.get(actorId);
+      if (markerIds.has(actorId) || home === undefined) {
         continue;
       }
 
-      const placed = byBoard.get(board.id);
-      if (placed === undefined) {
+      const placed = byBoard.get(home);
+      if (placed === undefined || !visible.some((item) => item.id === home)) {
         continue;
       }
 
-      next.push({ ...placed, selected: actorId === selectedId.value });
+      next.push({ ...placed, boardId: home, selected: actorId === selectedId.value });
     }
 
     actors.value = next;
-    contextActors.value = buildContextActors(board, resolution);
-    if (!actors.value.some((actor) => actor.id === selectedId.value)) {
-      selectedId.value = actors.value[0]?.id ?? null;
+    const onActive = next.find((actor) => actor.boardId === board.id);
+    if (!next.some((actor) => actor.id === selectedId.value)) {
+      selectedId.value = onActive?.id ?? next[0]?.id ?? null;
     }
     select(selectedId.value);
   }
 
   /**
-   * Акторы родительского поля для контекста этажа.
+   * Поля, видимые при текущем фокусе.
    *
-   * С этажа видно не только поляну, но и тех, кто на ней стоит: маркеры
-   * родителя рисуются приглушённо. Актор, ушедший на этаж, в контексте не
-   * дублируется — он уже среди активных.
+   * @param board Активное поле.
+   * @param resolution Разрешение локации.
+   *
+   * @returns Поля в порядке плана.
    */
-  function buildContextActors(board: SceneBoard, resolution: number): ScenePreviewActor[] {
-    const enclosure = options.enclosures().find((item) => item.childBoardId === board.id);
-    if (enclosure === undefined) {
-      return [];
-    }
-
-    const parentId = enclosure.parentBoardId;
-    const result: ScenePreviewActor[] = [];
-    for (const element of options.elements()) {
-      if (element.boardId !== parentId || element.kind !== 'marker' || element.shape.type !== 'point') {
-        continue;
+  function visibleBoards(board: SceneBoard, resolution: number): SceneBoard[] {
+    const plan = sceneFloorPlanService.plan({
+      activeBoardId: board.id,
+      resolution,
+      boards: options.boards(),
+      elements: options.elements(),
+      enclosures: options.enclosures(),
+      selection: [],
+      mode: 'preview',
+    });
+    const byId = new Map(options.boards().map((item) => [item.id, item]));
+    const result: SceneBoard[] = [];
+    for (const id of plan.visibleBoardIds) {
+      const found = byId.get(id);
+      if (found !== undefined) {
+        result.push(found);
       }
-
-      const role = element.props.role ?? 'player_start';
-      if (role !== 'player_start' && role !== 'npc_spawn') {
-        continue;
-      }
-      // Маркер ещё не встречался: считаем, что актор стоит на родителе.
-      if ((actorBoards.get(element.id) ?? parentId) !== parentId) {
-        continue;
-      }
-
-      const point = element.shape;
-      const placed = placements.get(element.id)?.get(parentId);
-      result.push({
-        id: element.id,
-        x: placed?.x ?? point.x,
-        y: placed?.y ?? point.y,
-        facing: placed?.facing ?? 0,
-        radius: Math.max(1, resolution * SCENE_ACTOR.radiusIpari),
-        height: sceneBodyHeight(resolution),
-        tint: role === 'player_start' ? 0x8fb4ff : 0xffb38f,
-        label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
-        selected: false,
-        ghost: false,
-        level: placed?.level ?? 0,
-        underDeck: false,
-        sightRadius: resolution * (role === 'player_start' ? SCENE_PREVIEW.sightIpari : SCENE_PREVIEW.tokenSightIpari),
-        role,
-        context: true,
-      });
     }
 
     return result;
@@ -278,12 +267,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
    * Под настил актор попадает только выбором в меню уровня, иначе признак
    * «под настилом» затемнял бы того, кто стоит на досках.
    */
-  function markerLevel(point: { x: number; y: number }): number {
-    const board = options.board();
-    if (board === null) {
-      return 0;
-    }
-
+  function markerLevel(board: SceneBoard, point: { x: number; y: number }): number {
     const surface = surfaceGrid(board);
     const cell = surfaceIndex(surface, point.x, point.y);
 
@@ -329,11 +313,21 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     placements.set(actor.id, byBoard);
   }
 
-  /** Актор под точкой; призраки тоже кликабельны. */
+  /**
+   * Актор под точкой; призраки тоже кликабельны.
+   *
+   * Точка — в координатах активного поля, поэтому чужие этажи не участвуют:
+   * клик по видимому соседнему этажу — задача маршрутов через этажи (F2).
+   */
   function actorAt(point: ScenePoint): ScenePreviewActor | null {
     let best: ScenePreviewActor | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    const activeBoardId = options.board()?.id;
     for (const actor of actors.value) {
+      if (actor.boardId !== activeBoardId) {
+        continue;
+      }
+
       const distance = Math.hypot(actor.x - point[0], actor.y - point[1]);
       if (distance <= Math.max(actor.radius * 1.3, options.resolution() * 0.9) && distance < bestDistance) {
         best = actor;
@@ -372,11 +366,13 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     // площадке, а по прибытии актор переходит на парную площадку. Стоящего
     // на площадке актора портал забирает сразу: иначе клик по нему выбирал бы
     // манекен и обратный переход был бы недоступен.
-    if (selected !== null && board !== null) {
+    const selectedHere =
+      selected !== null && board !== null && (selected.boardId ?? board.id) === board.id ? selected : null;
+    if (selectedHere !== null && board !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
       const portal = portals.portalAt(options.elements(), board.id, point, tolerance);
-      if (portal !== null && (actor === null || actor.id === selected.id)) {
-        const standing = portals.portalAt(options.elements(), board.id, [selected.x, selected.y], tolerance);
+      if (portal !== null && (actor === null || actor.id === selectedHere.id)) {
+        const standing = portals.portalAt(options.elements(), board.id, [selectedHere.x, selectedHere.y], tolerance);
         if (standing !== null && standing.opening.id === portal.opening.id) {
           cross(portal);
 
@@ -456,7 +452,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   function moveTo(point: ScenePoint, level?: number): boolean {
     const actor = selectedActor.value;
     const board = options.board();
-    if (actor === null || board === null) {
+    // Маршрут строится по активному полю: актор с другого этажа им не ходит.
+    if (actor === null || board === null || (actor.boardId ?? board.id) !== board.id) {
       return false;
     }
 
@@ -627,7 +624,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
       const moved: ScenePreviewActor = { ...actor, x: point[0], y: point[1], facing, level };
       if (board !== null) {
-        setPlacement(moved, board.id);
+        setPlacement(moved, moved.boardId ?? board.id);
       }
 
       return { ...moved, underDeck: surface === null ? false : isUnderDeck(surface, moved) };
@@ -684,6 +681,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const resolution = Math.max(1, options.resolution());
     const body = sceneBodyHeight(resolution);
     actors.value = actors.value.map((actor) => {
+      // Призраки и «под настилом» считаются только на этаже наблюдателя:
+      // чужие этажи видны как есть, без взаимного невидения.
+      if (observer !== null && actor.boardId !== observer.boardId) {
+        return { ...actor, ghost: false, underDeck: false };
+      }
+
       const under = surface === null ? false : isUnderDeck(surface, actor);
       if (observer === null || observerPoint === null || surface === null || actor.id === observer.id) {
         return { ...actor, ghost: false, underDeck: under };
@@ -779,7 +782,6 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
   return {
     actors,
-    contextActors,
     selectedId,
     selectedActor,
     route,

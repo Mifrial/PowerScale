@@ -15,15 +15,14 @@ export interface ISceneRenderer {
   setViewport(viewport: SceneViewport): void;
   setScene(model: SceneRenderModel): Promise<void>;
   setSelection(ids: number[]): void;
-  /** Акторы на поле: позиции и facing приходят снаружи. */
+  /** Акторы видимых этажей: позиции и facing приходят снаружи. */
   setActors(actors: SceneActor[]): void;
-  /** Акторы соседнего поля: рисуются в контексте этажа. */
-  setContextActors(actors: SceneActor[]): void;
+  /** Плита активного этажа полупрозрачна: сквозь неё виден этаж ниже. */
+  setSlabCutaway(enabled: boolean): void;
   /** Режим жеста: на время перетаскивания трава не пересобирается. */
   setEditing(editing: boolean): void;
   /** Полосы оверлеев предпросмотра; null — выключить. */
   setOverlayPaint(paint: SceneOverlayPaint | null): void;
-  /** Маршрут выбранного актора; null — линия скрыта. */
   /** Маршрут актора с участками по уровням; null — линия скрыта. */
   setRoute(route: SceneNavRoute | null): void;
   /** Вершина, у которой видны ручки Безье; null — ручки скрыты. */

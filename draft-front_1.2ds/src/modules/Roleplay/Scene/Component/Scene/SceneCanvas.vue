@@ -17,7 +17,6 @@ import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleS
 import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import type { ISceneRenderer } from '@/modules/Roleplay/Scene/Interface/ISceneRenderer';
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
-import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
 import { SceneFogRefreshService } from '@/modules/Roleplay/Scene/Service/SceneFogRefreshService';
@@ -30,6 +29,8 @@ import { sceneHitTestService } from '@/modules/Roleplay/Scene/Service/Instance/s
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
+import { sceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/Instance/sceneFloorPlanService';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 
 const props = withDefaults(
   defineProps<{
@@ -47,10 +48,10 @@ const props = withDefaults(
     roofsHidden?: boolean;
     /** Предпросмотр: наведение подсвечивает площадки перехода. */
     preview?: boolean;
-    /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
+    /** Акторы видимых этажей: позиции и выделение приходят снаружи. */
     actors?: SceneActor[];
-    /** Акторы соседнего поля: рисуются в контексте этажа. */
-    contextActors?: SceneActor[];
+    /** Плита активного этажа полупрозрачна: сквозь неё виден этаж ниже. */
+    slabCutaway?: boolean;
     /** Выбранный актор; от него считается туман и радиус обзора. */
     selectedActorId?: number | null;
     /** Маршрут выбранного актора. */
@@ -71,7 +72,7 @@ const props = withDefaults(
     roofsHidden: false,
     preview: false,
     actors: () => [],
-    contextActors: () => [],
+    slabCutaway: true,
     selectedActorId: null,
     route: null,
     overlay: null,
@@ -180,9 +181,15 @@ function cssColor(color: number): string {
 
 const selectedActor = computed(() => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null);
 
-/** Актор, с которого строится обзор: выбранный, иначе первый. */
+/** Актор, с которого строится обзор: выбранный, иначе первый на активном поле. */
 function observerActor(): SceneActor | null {
-  return selectedActor.value ?? props.actors?.[0] ?? null;
+  const activeBoardId = props.model.activeBoardId;
+
+  return (
+    selectedActor.value ??
+    (props.actors ?? []).find((actor) => (actor.boardId ?? activeBoardId) === activeBoardId) ??
+    null
+  );
 }
 
 /** Готовые полосы оверлеев; расчёт остаётся вне Pixi. */
@@ -297,7 +304,7 @@ onMounted(async () => {
   sceneRenderer.setRoofsHidden(props.roofsHidden);
   sceneRenderer.setSelection(props.model.selection);
   sceneRenderer.setActors(props.actors ?? []);
-  sceneRenderer.setContextActors(props.contextActors ?? []);
+  sceneRenderer.setSlabCutaway(props.slabCutaway);
   sceneRenderer.setRoute(props.route ?? null);
   refreshOverlay();
   observer = new ResizeObserver(() => handleResize());
@@ -349,8 +356,8 @@ watch(
 );
 
 watch(
-  () => props.contextActors,
-  () => renderer?.setContextActors(props.contextActors ?? []),
+  () => props.slabCutaway,
+  (enabled) => renderer?.setSlabCutaway(enabled),
 );
 
 watch(
@@ -423,12 +430,10 @@ watch(
 watch(
   () => props.board?.id,
   () => {
+    // Смена этажа — смена фокуса, а не мира: камера остаётся на месте.
+    // Вписать заново можно кнопкой «Вписать».
     cancelClickDraft();
     setFocus(null);
-    if (renderer === null || host.value === null) return;
-    viewport = fitViewport(sizeOf(host.value));
-    renderer.setViewport(viewport);
-    emit('viewport', viewport);
   },
 );
 
@@ -560,7 +565,7 @@ function addClickPoint(point: ScenePoint): void {
   const minimum = shape === 'polygon' ? 3 : 2;
   if (clickPoints.length >= minimum && viewport !== null) {
     const first = clickPoints[0];
-    const tolerance = 10 / viewport.zoom;
+    const tolerance = 10 / localZoom();
     if (Math.hypot(first[0] - next[0], first[1] - next[1]) <= tolerance) {
       clickClosed = shape === 'wall';
       finishClickShape();
@@ -608,9 +613,9 @@ function onDoubleClick(event: MouseEvent): void {
     return;
   }
 
-  const insertion = selectionInsertion(scenePoint, 10 / viewport.zoom);
+  const insertion = selectionInsertion(scenePoint, 10 / localZoom());
   if (insertion !== null) {
-    emit('insertVertex', insertion.elementId, scenePoint, 10 / viewport.zoom, insertion.part);
+    emit('insertVertex', insertion.elementId, scenePoint, 10 / localZoom(), insertion.part);
   }
 }
 
@@ -737,7 +742,7 @@ function rectHandleAt(
     }
 
     const center: ScenePoint = [element.shape.x + element.shape.w / 2, element.shape.y + element.shape.h / 2];
-    const grip = rotatePoint([center[0], element.shape.y - 24 / viewport.zoom], center, rotation);
+    const grip = rotatePoint([center[0], element.shape.y - 24 / localZoom()], center, rotation);
     if (Math.hypot(grip[0] - point[0], grip[1] - point[1]) <= tolerance) {
       return { elementId: element.id, handle: 'rotate' };
     }
@@ -816,27 +821,34 @@ function sizeOf(element: HTMLElement): { width: number; height: number } {
   return { width: Math.max(element.clientWidth, 1), height: Math.max(element.clientHeight, 1) };
 }
 
+/**
+ * Кадр активного этажа в мире корня.
+ *
+ * Камера живёт в координатах корня: этаж вписывается по своему плану, а
+ * результат переводится преобразованием вложения. Смена этажа сама камеру не
+ * трогает — вписывание остаётся кнопкой.
+ */
 function fitViewport(size: { width: number; height: number }): SceneViewport {
   const board = props.board;
   if (board === null) {
     return { x: 0, y: 0, zoom: 1, ...size };
   }
 
-  // Поле-этаж шире своего плана на поля обзора. Кадр по всему полю показал бы
-  // дом крошкой посреди поляны; поэтому дочернее поле вписывается по плану, а
-  // поляна остаётся вокруг при отдалении.
-  const child = props.model.enclosures.some((enclosure) => enclosure.childBoardId === board.id);
-  const bounds = (child ? contentBounds(board.id) : null) ?? {
-    x: 0,
-    y: 0,
-    width: board.boundWidth,
-    height: board.boundHeight,
-  };
+  const bounds = contentBounds(board.id) ?? { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
+  const local = sceneViewportService.fit(bounds, size);
+  const transform = sceneFloorPlanService.transform(props.model, board.id);
+  const scale = transform.scaleX === 0 ? 1 : transform.scaleX;
 
-  return sceneViewportService.fit(bounds, size);
+  return {
+    x: transform.x + local.x * scale,
+    y: transform.y + local.y * transform.scaleY,
+    zoom: local.zoom * scale,
+    width: size.width,
+    height: size.height,
+  };
 }
 
-/** Габарит террейна поля: по нему вписывается план этажа. */
+/** Габарит террейна поля с полями обзора: по нему вписывается план этажа. */
 function contentBounds(boardId: number): { x: number; y: number; width: number; height: number } | null {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -858,8 +870,6 @@ function contentBounds(boardId: number): { x: number; y: number; width: number; 
     return null;
   }
 
-  // Немного поляны вокруг дома: из окна этажа должен быть виден двор, а не
-  // только стена вплотную.
   const margin = Math.max(0, props.model.resolution * SCENE_FLOOR.fitMarginIpari);
 
   return {
@@ -977,8 +987,8 @@ function insideSelection(point: ScenePoint): boolean {
 
 function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   if (viewport === null) return;
-  const tolerance = 10 / viewport.zoom;
-  const stub = 16 / viewport.zoom;
+  const tolerance = 10 / localZoom();
+  const stub = 16 / localZoom();
 
   const rect = rectHandleAt(scenePoint, tolerance);
   if (rect !== null) {
@@ -997,7 +1007,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
     return;
   }
 
-  const width = widthTargetAt(scenePoint, tolerance, 10 / viewport.zoom);
+  const width = widthTargetAt(scenePoint, tolerance, 10 / localZoom());
   if (width !== null) {
     widthTarget = width;
     setFocus({ elementId: width.elementId, part: 'shape', index: width.index });
@@ -1051,7 +1061,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   setFocus(null);
   const hit = sceneHitTestService.hit(
     props.model,
-    viewport,
+    localViewport() ?? viewport,
     screenPointOf(event),
     8,
     (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
@@ -1229,7 +1239,7 @@ function onPointerUp(event: PointerEvent): void {
   if (gesture === 'pan' && !props.interactive && !panMoved && viewport !== null) {
     const hit = sceneHitTestService.hit(
       props.model,
-      viewport,
+      localViewport() ?? viewport,
       screenPointOf(event),
       8,
       (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
@@ -1307,10 +1317,42 @@ function screenPointOf(event: PointerEvent | WheelEvent | MouseEvent): { x: numb
   return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
 }
 
+/**
+ * Точка события в координатах активного поля.
+ *
+ * Мир — корень локации, а инструменты и навигация работают в координатах
+ * своего поля. Пока фокус на корне, преобразование единичное.
+ */
 function scenePointOf(event: PointerEvent | MouseEvent): ScenePoint | null {
   if (viewport === null) return null;
 
-  return sceneViewportService.screenToScene(viewport, screenPointOf(event));
+  const world = sceneViewportService.screenToScene(viewport, screenPointOf(event));
+  const transform = sceneFloorPlanService.transform(props.model, props.model.activeBoardId);
+
+  return sceneFloorPlanService.toLocal(transform, world);
+}
+
+/** Масштаб активного поля: экранный пиксель в координатах поля. */
+function localZoom(): number {
+  if (viewport === null) return 1;
+  const transform = sceneFloorPlanService.transform(props.model, props.model.activeBoardId);
+  const scale = transform.scaleX === 0 ? 1 : transform.scaleX;
+
+  return viewport.zoom * scale;
+}
+
+/** Вид, в котором координаты сцены — координаты активного поля. */
+function localViewport(): SceneViewport | null {
+  if (viewport === null) return null;
+  const transform = sceneFloorPlanService.transform(props.model, props.model.activeBoardId);
+  const scale = transform.scaleX === 0 ? 1 : transform.scaleX;
+
+  return {
+    ...viewport,
+    x: (viewport.x - transform.x) / scale,
+    y: (viewport.y - transform.y) / scale,
+    zoom: viewport.zoom * scale,
+  };
 }
 
 defineExpose({ fit, zoomBy });

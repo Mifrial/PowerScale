@@ -131,7 +131,6 @@ const selectedElement = computed(() =>
 );
 const {
   actors: previewActorList,
-  contextActors: previewContextActors,
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
   route: previewRoute,
@@ -1476,7 +1475,7 @@ function messageOf(exception: unknown): string {
           :preview="preview"
           :overlay="overlay"
           :actors="previewActorList"
-          :context-actors="previewContextActors"
+          :slab-cutaway="!preview"
           :selected-actor-id="previewSelectedId"
           :route="previewRoute"
           :level-menu="previewLevelMenu"
