@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\TurnAmount;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -40,7 +41,6 @@ final class GameActiveSpellSustain
      * @param GameSpellCharge $charge Расчёт заряда.
      * @param GameStrikeSheetWrites $writes Запись листа.
      * @param GameActiveSpellCharge $activeCharge Снятие заряда.
-     * @param GameActionResourceResolver $resolver Создание в ОД карточки.
      * @param GameSpellMana $mana Цена продолжения в мане.
      * @param GameSpellStability $stability Стабильность эффекта.
      *
@@ -58,7 +58,6 @@ final class GameActiveSpellSustain
         private readonly GameSpellCharge $charge,
         private readonly GameStrikeSheetWrites $writes,
         private readonly GameActiveSpellCharge $activeCharge,
-        private readonly GameActionResourceResolver $resolver,
         private readonly GameSpellMana $mana,
         private readonly GameSpellStability $stability,
     ) {
@@ -219,20 +218,23 @@ final class GameActiveSpellSustain
      */
     private function creationSpent(GameActiveSpellPrepared $prepared, string $turnCode): int
     {
-        $spends = $this->resolver->resolve(
-            $prepared->slice,
-            $prepared->record->getSpellCode(),
-            0,
-            '',
-            $prepared->choices,
-            $prepared->sheet,
-        );
         $sum = 0;
-        foreach ($spends as $spend) {
-            $amount = $spend->getAmount()->toNative();
-            if ($spend->getResourceCode() === $turnCode && is_int($amount)) {
-                $sum += $amount;
+        foreach ((new GameActionResourceComponents())->of($prepared->card) as $component) {
+            if ($component->getResourceCode() !== $turnCode) {
+                continue;
             }
+
+            $amount = $component->getAmount();
+            $sum += match (true) {
+                $amount instanceof TurnAmount => $amount->getCount() * $this->charge->turnLimit(
+                    $prepared->sheet,
+                    $prepared->slice,
+                    $turnCode,
+                ),
+                $amount instanceof DimensionalNumber => $amount->toInteger(),
+                is_int($amount) => $amount,
+                default => throw new GameInvalidException('Game spell creation cost is unsupported'),
+            };
         }
 
         return $sum;

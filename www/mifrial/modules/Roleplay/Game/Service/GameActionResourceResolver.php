@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityActionSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithComponents;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ChosenAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\TurnAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\ResourceSpec;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
@@ -35,6 +36,8 @@ final class GameActionResourceResolver
 
     private readonly GameActionResourceMinimums $minimums;
 
+    private readonly GameResourceLimit $limits;
+
     /**
      * Создаёт resolver.
      *
@@ -47,6 +50,7 @@ final class GameActionResourceResolver
         $this->range = new GameActionChosenRange();
         $this->components = new GameActionResourceComponents();
         $this->minimums = new GameActionResourceMinimums($this->arithmetic);
+        $this->limits = new GameResourceLimit();
     }
 
     /**
@@ -283,6 +287,8 @@ final class GameActionResourceResolver
             $resourceSpec,
             $this->currentScalar($sheet, $component->getResourceCode(), $slice, $component),
             $allowZeroChosen,
+            $slice,
+            $sheet,
         );
         $minimum = $minimums[$component->getResourceCode()] ?? null;
         if ($minimum instanceof ResourceValue) {
@@ -300,6 +306,8 @@ final class GameActionResourceResolver
      * @param ResourceSpec $spec Live resource spec.
      * @param ScalarResourceValue|null $current Current scalar value.
      * @param bool $allowZeroChosen Разрешить chosen 0.
+     * @param CharacterRuleSlice $slice Live revision slice.
+     * @param array<string, mixed> $sheet Authoritative sheet.
      *
      * @return ResourceValue Typed native amount.
      *
@@ -311,10 +319,14 @@ final class GameActionResourceResolver
         ResourceSpec $spec,
         ?ScalarResourceValue $current,
         bool $allowZeroChosen,
+        CharacterRuleSlice $slice,
+        array $sheet,
     ): ResourceValue {
         $amount = $component->getAmount();
         if ($amount instanceof ChosenAmount) {
             $amount = $chosenAmounts[$component->getResourceCode()] ?? null;
+        } elseif ($amount instanceof TurnAmount) {
+            $amount = $amount->getCount() * $this->limits->of($slice, $sheet, $component->getResourceCode());
         }
 
         try {

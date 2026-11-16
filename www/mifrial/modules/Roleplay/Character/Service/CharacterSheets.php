@@ -119,12 +119,17 @@ final class CharacterSheets implements ICharacterSheets
      * @param CharacterRuleSlice $slice Уже загруженный срез.
      * @param array<string, mixed> $choices Документ choices.
      * @param array<string, mixed> $sheet Документ sheet.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<string, mixed> Sheet после compute.
      */
-    public function compute(CharacterRuleSlice $slice, array $choices, array $sheet): array
-    {
-        return (new CharacterSheetLive($this))->compute($slice, $choices, $sheet);
+    public function compute(
+        CharacterRuleSlice $slice,
+        array $choices,
+        array $sheet,
+        array $runtimeSenses = [],
+    ): array {
+        return (new CharacterSheetLive($this))->compute($slice, $choices, $sheet, $runtimeSenses);
     }
 
     /**

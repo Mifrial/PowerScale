@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ChosenAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\MaterialComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\ResourceComponent;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\SomaticComponent;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\TurnAmount;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Component\VerbalComponent;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -83,11 +84,11 @@ final class ActionComponents
      *
      * @param array<string, mixed> $row Строка.
      *
-     * @return int|DimensionalNumber|ChosenAmount Количество.
+     * @return int|DimensionalNumber|ChosenAmount|TurnAmount Количество.
      *
      * @throws RuleSpecShapeException Если форма чужая.
      */
-    private static function amount(array $row): int|DimensionalNumber|ChosenAmount
+    private static function amount(array $row): int|DimensionalNumber|ChosenAmount|TurnAmount
     {
         $amount = $row['amount'] ?? 0;
         if (is_int($amount)) {
@@ -98,6 +99,15 @@ final class ActionComponents
 
         if (($amount['type'] ?? null) === 'chosen') {
             return new ChosenAmount();
+        }
+
+        if (($amount['type'] ?? null) === 'turn') {
+            $count = SpecShape::int($amount, 'count');
+            if ($count < 1) {
+                throw new RuleSpecShapeException('amount');
+            }
+
+            return new TurnAmount($count);
         }
 
         return DimensionalNumbers::pair($amount, 'amount');

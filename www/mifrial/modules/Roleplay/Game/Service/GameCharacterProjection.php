@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameCharacterRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 
 /**
  * Лист персонажа игры: actual, маска секций и краткая запись.
@@ -26,6 +27,8 @@ final class GameCharacterProjection
      * @param ICharacterSheets $sheets Пересчёт листа.
      * @param GameCharacterProjectionMask $mask Секции строки.
      * @param GameProjectionAccess $access Доступ читателя.
+     * @param GameActiveSpellRepository $spells Поддерживаемые заклинания.
+     * @param GameSpellEffect $effects Временные эффекты заклинаний.
      *
      * @return void
      */
@@ -35,6 +38,8 @@ final class GameCharacterProjection
         private readonly ICharacterSheets $sheets,
         private readonly GameCharacterProjectionMask $mask,
         private readonly GameProjectionAccess $access,
+        private readonly GameActiveSpellRepository $spells,
+        private readonly GameSpellEffect $effects,
     ) {
     }
 
@@ -92,11 +97,17 @@ final class GameCharacterProjection
     public function sheet(GameRecord $game, GameCharacterRecord $row, int $actorUserId): array
     {
         $actual = $this->actual($row->getCharacterId());
-        $sheet = $this->sheets->compute(
-            $this->ruleSlices->get($actual->getSpaceId(), $actual->getRulesRevision()),
-            $actual->getChoices(),
-            $actual->getSheet(),
+        $slice = $this->ruleSlices->get($actual->getSpaceId(), $actual->getRulesRevision());
+        $sheet = $this->sheets->compute($slice, $actual->getChoices(), $actual->getSheet());
+        $runtimeSenses = $this->effects->runtimeSenses(
+            $slice,
+            $this->spells->findForGameCaster($game->getId(), 'character', $row->getCharacterId()),
+            $sheet,
         );
+        if ($runtimeSenses !== []) {
+            $sheet = $this->sheets->compute($slice, $actual->getChoices(), $actual->getSheet(), $runtimeSenses);
+        }
+
         $masked = $this->mask->apply(
             $actual->getChoices(),
             $sheet,

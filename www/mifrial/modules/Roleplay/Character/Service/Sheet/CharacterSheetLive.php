@@ -98,11 +98,16 @@ final class CharacterSheetLive
      * @param CharacterRuleSlice $slice Срез.
      * @param array<string, mixed> $choices Документ choices.
      * @param array<string, mixed> $sheet Документ sheet.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<string, mixed> Sheet.
      */
-    public function compute(CharacterRuleSlice $slice, array $choices, array $sheet): array
-    {
+    public function compute(
+        CharacterRuleSlice $slice,
+        array $choices,
+        array $sheet,
+        array $runtimeSenses = [],
+    ): array {
         $model = $this->model($choices);
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
@@ -114,11 +119,18 @@ final class CharacterSheetLive
             $sheet,
             $chosen,
             $requirementLevels,
+            $runtimeSenses,
         );
         $sheet = $this->sourcePowers->apply($slice, $model, $sheet, $choices);
         $sheet = $this->items->apply($slice, $sheet, $choices);
 
-        $sheet['senses'] = $this->characteristics->activeSenses($slice, $model, $validation, $levels);
+        $sheet['senses'] = $this->characteristics->activeSenses(
+            $slice,
+            $model,
+            $validation,
+            $levels,
+            $runtimeSenses,
+        );
         $sheet['weaponFamilyMastery'] = $this->weaponFamilies->compute($slice, $model, $live);
         $sheet['racialAbilityCodes'] = $validation->getRacialAbilityCodes();
         $sheet['osSurchargeTotal'] = $validation->getOsSurchargeTotal();
@@ -163,6 +175,7 @@ final class CharacterSheetLive
      * @param array<string, mixed> $sheet Документ sheet.
      * @param array<string, int> $chosen Купленные уровни.
      * @param array<string, int> $requirementLevels Уровни с производными.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array{0: array<string, mixed>, 1: array<string, int>, 2: array<string, CharacteristicNumber>}
      *         Sheet, уровни и живые характеристики.
@@ -174,12 +187,13 @@ final class CharacterSheetLive
         array $sheet,
         array $chosen,
         array $requirementLevels,
+        array $runtimeSenses = [],
     ): array {
         $levels = $requirementLevels;
         $live = [];
         $resourceLimits = [];
         for ($pass = 0; $pass < 3; $pass++) {
-            $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels);
+            $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels, $runtimeSenses);
             $live = $this->indexCharacteristics($rows);
             $levels = $this->withDerived(
                 $slice,

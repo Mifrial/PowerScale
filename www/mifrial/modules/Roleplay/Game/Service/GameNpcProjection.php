@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Dto\GameNpcRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 
 /**
@@ -19,6 +22,11 @@ final class GameNpcProjection
      * @param GameNpcRepository $npcs Строки NPC.
      * @param GameNpcVisibility $visibility Маска секций.
      * @param GameProjectionAccess $access Доступ читателя.
+     * @param GameNpcSheetRefresh $refresh Пересчёт листа.
+     * @param ICharacterRuleSlices $ruleSlices Срезы ревизии.
+     * @param ICharacterSheets $sheets Пересчёт с временными чувствами.
+     * @param GameActiveSpellRepository $spells Поддерживаемые заклинания.
+     * @param GameSpellEffect $effects Временные эффекты заклинаний.
      *
      * @return void
      */
@@ -27,6 +35,10 @@ final class GameNpcProjection
         private readonly GameNpcVisibility $visibility,
         private readonly GameProjectionAccess $access,
         private readonly GameNpcSheetRefresh $refresh,
+        private readonly ICharacterRuleSlices $ruleSlices,
+        private readonly ICharacterSheets $sheets,
+        private readonly GameActiveSpellRepository $spells,
+        private readonly GameSpellEffect $effects,
     ) {
     }
 
@@ -115,13 +127,49 @@ final class GameNpcProjection
             return null;
         }
 
+        $version = $this->refresh->apply($record->getVersion());
+        $version = $this->withRuntimeSenses($game, $record, $version);
         $version = $this->visibility->mask(
-            $this->refresh->apply($record->getVersion()),
+            $version,
             $record->getVisibility(),
             $this->access->leading($game, $actorUserId),
         );
 
         return $this->document($record, $version);
+    }
+
+    /**
+     * Добавляет временные чувства от поддерживаемых заклинаний NPC.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameNpcRecord $record Строка NPC.
+     * @param array<string, mixed> $version Версия после пересчёта.
+     *
+     * @return array<string, mixed> Версия.
+     */
+    private function withRuntimeSenses(GameRecord $game, GameNpcRecord $record, array $version): array
+    {
+        $choices = $version['choices'] ?? null;
+        $sheet = $version['sheet'] ?? null;
+        $spaceId = $version['spaceId'] ?? null;
+        $revision = $version['rulesRevision'] ?? null;
+        if (!is_array($choices) || !is_array($sheet) || !is_int($spaceId) || !is_int($revision)) {
+            return $version;
+        }
+
+        $slice = $this->ruleSlices->get($spaceId, $revision);
+        $runtimeSenses = $this->effects->runtimeSenses(
+            $slice,
+            $this->spells->findForGameCaster($game->getId(), 'npc', $record->getId()),
+            $sheet,
+        );
+        if ($runtimeSenses === []) {
+            return $version;
+        }
+
+        $version['sheet'] = $this->sheets->compute($slice, $choices, $sheet, $runtimeSenses);
+
+        return $version;
     }
 
     /**

@@ -18,6 +18,7 @@ final class SpellSpec
      * @param string|null $targeting Выбор цели.
      * @param SpellDamage|null $damage Урон.
      * @param SpellCharge|null $charge Заряд.
+     * @param array<int, SpellEffect> $effects Эффекты.
      *
      * @return void
      */
@@ -28,6 +29,7 @@ final class SpellSpec
         private readonly ?string $targeting,
         private readonly ?SpellDamage $damage,
         private readonly ?SpellCharge $charge,
+        private readonly array $effects = [],
     ) {
     }
 
@@ -99,5 +101,15 @@ final class SpellSpec
     public function getCharge(): ?SpellCharge
     {
         return $this->charge;
+    }
+
+    /**
+     * Эффекты.
+     *
+     * @return array<int, SpellEffect> Список.
+     */
+    public function getEffects(): array
+    {
+        return $this->effects;
     }
 }

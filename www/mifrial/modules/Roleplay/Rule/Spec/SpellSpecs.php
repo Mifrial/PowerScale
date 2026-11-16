@@ -8,6 +8,9 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellCharge;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellDamage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellDamageStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellDuration;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellEffectSource;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSenseEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellValue;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
@@ -38,6 +41,7 @@ final class SpellSpecs
             SpecShape::optionalString($spell, 'targeting'),
             self::damage($spell),
             self::charge($spell),
+            self::effects($spell),
         );
     }
 
@@ -177,6 +181,92 @@ final class SpellSpecs
             SpecShape::string($spend, 'keyword_code'),
             $durations,
             $creationMax,
+        );
+    }
+
+    /**
+     * Эффекты заклинания.
+     *
+     * @param array<string, mixed> $spell Тело.
+     *
+     * @return array<int, SpellEffect> Эффекты.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function effects(array $spell): array
+    {
+        $effects = [];
+        foreach (SpecShape::list($spell, 'effects') as $row) {
+            $row = SpecShape::requireMap($row, 'effects');
+            $type = SpecShape::string($row, 'type');
+            $effects[] = match ($type) {
+                'sense' => self::senseEffect($row),
+                default => throw new RuleSpecShapeException('type'),
+            };
+        }
+
+        return $effects;
+    }
+
+    /**
+     * Эффект чувства.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return SpellSenseEffect Эффект.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function senseEffect(array $row): SpellSenseEffect
+    {
+        $senseCode = SpecShape::string($row, 'sense_code');
+        if ($senseCode === '') {
+            throw new RuleSpecShapeException('sense_code');
+        }
+
+        return new SpellSenseEffect(
+            $senseCode,
+            SpecShape::optionalString($row, 'status'),
+            self::effectSource($row, 'radius'),
+            self::effectSource($row, 'value'),
+        );
+    }
+
+    /**
+     * Источник величины эффекта. Нет ключа — null.
+     *
+     * @param array<string, mixed> $row Строка эффекта.
+     * @param string $key Ключ.
+     *
+     * @return SpellEffectSource|null Источник или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function effectSource(array $row, string $key): ?SpellEffectSource
+    {
+        $source = SpecShape::object($row, $key);
+        if ($source === null) {
+            return null;
+        }
+
+        $from = SpecShape::string($source, 'from');
+        if (!in_array($from, ['power', 'sustain_power', 'control', 'parameter'], true)) {
+            throw new RuleSpecShapeException($key . '.from');
+        }
+
+        $parameterCode = SpecShape::optionalString($source, 'parameter_code');
+        if ($from === 'parameter' && ($parameterCode === null || $parameterCode === '')) {
+            throw new RuleSpecShapeException($key . '.parameter_code');
+        }
+
+        if ($from !== 'parameter' && $parameterCode !== null) {
+            throw new RuleSpecShapeException($key . '.parameter_code');
+        }
+
+        return new SpellEffectSource(
+            $from,
+            $parameterCode,
+            DimensionalNumbers::optional($source, 'reference'),
         );
     }
 

@@ -135,6 +135,26 @@ final class GameActiveSpellRepository
     }
 
     /**
+     * Строки кастера в игре.
+     *
+     * @param int $gameId Игра.
+     * @param string $casterKind character или npc.
+     * @param int $casterId Id кастера.
+     *
+     * @return array<int, GameActiveSpellRecord> Строки.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function findForGameCaster(int $gameId, string $casterKind, int $casterId): array
+    {
+        return $this->rows(new FilterGroup('AND', [
+            new FilterCondition('game_id', '=', $gameId),
+            new FilterCondition('caster_kind', '=', $casterKind),
+            new FilterCondition('caster_id', '=', $casterId),
+        ]));
+    }
+
+    /**
      * Строка того же кастера и источника в бою.
      *
      * @param int $battleId Бой.

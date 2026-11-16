@@ -80,6 +80,7 @@ export function resourceCosts(
   components: ActionComponent[] | undefined,
   chosenAmount = 0,
   resourceCode = '',
+  resourceLimit = 0,
 ): ResourceCost[] {
   if (!components) return [];
   const totals = new Map<string, number>();
@@ -89,6 +90,8 @@ export function resourceCosts(
     if (typeof component.amount === 'object' && 'type' in component.amount) {
       if (component.amount.type === 'chosen' && resourceCode && component.resource_code === resourceCode) {
         amount = chosenAmount;
+      } else if (component.amount.type === 'turn' && component.resource_code === resourceCode) {
+        amount = component.amount.count * resourceLimit;
       }
     } else {
       amount = typeof component.amount === 'number' ? component.amount : component.amount.base;
@@ -99,12 +102,18 @@ export function resourceCosts(
   return [...totals.entries()].map(([code, amount]) => ({ resourceCode: code, amount }));
 }
 
-export function actionOdCost(components: ActionComponent[] | undefined, chosenAmount = 0, resourceCode = ''): number {
+export function actionOdCost(
+  components: ActionComponent[] | undefined,
+  chosenAmount = 0,
+  resourceCode = '',
+  resourceLimit = 0,
+): number {
   if (!resourceCode) return 0;
 
   return (
-    resourceCosts(components, chosenAmount, resourceCode).find((cost) => cost.resourceCode === resourceCode)?.amount ??
-    0
+    resourceCosts(components, chosenAmount, resourceCode, resourceLimit).find(
+      (cost) => cost.resourceCode === resourceCode,
+    )?.amount ?? 0
   );
 }
 

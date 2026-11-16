@@ -80,6 +80,25 @@ function isChosenAmount(component: ActionComponent): boolean {
   );
 }
 
+function isTurnAmount(component: ActionComponent): boolean {
+  return (
+    component.type === 'resource' &&
+    typeof component.amount === 'object' &&
+    'type' in component.amount &&
+    component.amount.type === 'turn'
+  );
+}
+
+function turnAmountLabel(component: ActionComponent): string {
+  if (component.type !== 'resource' || typeof component.amount !== 'object' || !('count' in component.amount)) {
+    return '';
+  }
+
+  const count = Number(component.amount.count);
+
+  return count === 1 ? 'Весь лимит (1 ход)' : `${count} ходов (лимит × ${count})`;
+}
+
 function updateResource(index: number, key: 'resource_code' | 'amount', value: unknown) {
   let comp = { ...inner.value[index], [key]: value } as ActionComponent;
   if (key === 'resource_code' && comp.type === 'resource') {
@@ -191,6 +210,15 @@ function patchMaterialTags(index: number, codes: string[]) {
             <v-text-field
               v-if="isChosenAmount(component)"
               model-value="Выбирается игроком"
+              label="Стоимость"
+              density="compact"
+              hide-details
+              disabled
+              style="min-width: 120px"
+            />
+            <v-text-field
+              v-else-if="isTurnAmount(component)"
+              :model-value="turnAmountLabel(component)"
               label="Стоимость"
               density="compact"
               hide-details

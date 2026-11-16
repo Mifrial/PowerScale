@@ -1643,7 +1643,10 @@ export class RuleValidationService {
 
       return typeof a.base === 'number' ? a.base : null;
     }
-    if (amount && typeof amount === 'object' && 'type' in amount && amount.type === 'chosen') return 1;
+    if (amount && typeof amount === 'object' && 'type' in amount) {
+      if (amount.type === 'chosen') return 1;
+      if (amount.type === 'turn' && 'count' in amount && typeof amount.count === 'number') return amount.count;
+    }
 
     return null;
   }

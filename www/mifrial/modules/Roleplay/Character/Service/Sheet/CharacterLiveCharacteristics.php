@@ -48,6 +48,7 @@ final class CharacterLiveCharacteristics
      * @param CharacterValidation $validation Снимок C4.
      * @param array<string, mixed> $sheet Документ sheet.
      * @param array<string, int> $abilityLevels Эффективные уровни.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<int, array<string, mixed>> Строки characteristics.
      */
@@ -57,10 +58,11 @@ final class CharacterLiveCharacteristics
         CharacterValidation $validation,
         array $sheet,
         array $abilityLevels,
+        array $runtimeSenses = [],
     ): array {
         $bases = $this->bases->compute($slice, $choices, $validation, $abilityLevels);
         $senseDelta = $this->senses->bestDelta(
-            $this->senses->rows($slice, $choices, $abilityLevels, $bases),
+            $this->senses->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses),
         );
         $deltas = $this->deltas->compute($slice, $choices, $sheet, $abilityLevels, $bases, $senseDelta);
         $bases = $this->baseFrom($slice, $bases, $deltas);
@@ -79,6 +81,7 @@ final class CharacterLiveCharacteristics
      * @param CharacterChoices $choices Выборы.
      * @param CharacterValidation $validation Снимок.
      * @param array<string, int> $abilityLevels Уровни.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -87,12 +90,14 @@ final class CharacterLiveCharacteristics
         CharacterChoices $choices,
         CharacterValidation $validation,
         array $abilityLevels,
+        array $runtimeSenses = [],
     ): array {
         return $this->senses->active(
             $slice,
             $choices,
             $abilityLevels,
             $this->bases->compute($slice, $choices, $validation, $abilityLevels),
+            $runtimeSenses,
         );
     }
 

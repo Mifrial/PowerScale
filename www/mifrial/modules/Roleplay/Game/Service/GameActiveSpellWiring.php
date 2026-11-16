@@ -95,7 +95,6 @@ final class GameActiveSpellWiring
             $charge,
             $shared->sheetWrites,
             $activeCharge,
-            new GameActionResourceResolver(),
             new GameSpellMana(),
             $stability,
         );

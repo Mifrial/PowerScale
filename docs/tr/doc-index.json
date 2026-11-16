@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 364,
-        "plans": 242,
+        "documents": 365,
+        "plans": 243,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 267,
+            "tr": 268,
             "tz": 2
         },
         "byZoneState": {
@@ -76,7 +76,7 @@
                 "ПЛАН": 10,
                 "СНИМОК": 9,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 8
+                "В РАБОТЕ": 9
             },
             "tz": {
                 "нет": 1,
@@ -91,7 +91,7 @@
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 40,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 8
+            "В РАБОТЕ": 9
         }
     },
     "modules": {
@@ -288,7 +288,7 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 56,
+            "docs": 57,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 30,
@@ -296,12 +296,12 @@
                 "ОТЛОЖЕН": 3,
                 "ПЛАН": 5,
                 "СНИМОК": 1,
-                "В РАБОТЕ": 1
+                "В РАБОТЕ": 2
             },
             "layer": {
                 "VUE": 24,
                 "МОК": 2,
-                "PHP": 20
+                "PHP": 21
             }
         },
         "Roleplay/RuleSpace": {
@@ -5543,8 +5543,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-25",
-            "bytes": 26561,
-            "lines": 444,
+            "bytes": 26541,
+            "lines": 449,
             "modules": [],
             "linksCount": 2,
             "brokenLinks": [],
@@ -7967,8 +7967,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-12",
-            "bytes": 58524,
-            "lines": 642,
+            "bytes": 59288,
+            "lines": 649,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8000,8 +8000,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-10",
-            "bytes": 46323,
-            "lines": 560,
+            "bytes": 48727,
+            "lines": 580,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -9265,6 +9265,30 @@
             ]
         },
         {
+            "path": "docs/tr/spell-real-plan-16-spell-effects.md",
+            "title": "План M16 — эффекты заклинаний и «Восприятие магии»",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-16. Срезы 16.1–16.4 готовы: `spell.effects`",
+            "layers": [
+                "PHP"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-16",
+            "bytes": 12358,
+            "lines": 150,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 1,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/spell-real-roadmap.md",
             "title": "Роудмап магии: реальный runtime",
             "zone": "tr",
@@ -9278,12 +9302,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 28175,
-            "lines": 328,
+            "bytes": 31728,
+            "lines": 354,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 12,
+            "linksCount": 13,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
@@ -9301,6 +9325,7 @@
                 "docs/tr/spell-real-plan-10-crystal.md",
                 "docs/tr/spell-real-plan-11-psionic-shaman.md",
                 "docs/tr/spell-real-plan-13-chain.md",
+                "docs/tr/spell-real-plan-16-spell-effects.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },

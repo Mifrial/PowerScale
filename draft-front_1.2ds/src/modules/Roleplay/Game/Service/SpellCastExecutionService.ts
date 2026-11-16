@@ -45,8 +45,9 @@ export class SpellCastExecutionService {
       input.casterOverview?.resources.find((resource) => resource.ruleCode === pool)?.max.base ?? 0;
     const spellOd = actionOdCost(
       this.spellSpec(input.spellCode, input.rules)?.action_components,
-      actionPointLimit,
+      0,
       pool,
+      actionPointLimit,
     );
     const touchRule = input.touchActionCode
       ? input.rules.find((rule) => rule.code === input.touchActionCode)

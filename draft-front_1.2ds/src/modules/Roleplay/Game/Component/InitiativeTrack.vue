@@ -220,8 +220,8 @@ const sustainManaTurns = computed(() => {
   const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
   const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
   if (!spec) return 0;
-  const creation = electrochargeService.creationCost(spec, turnResourceCode(props.rules));
   const limit = electrochargeService.turnApMax(overview, props.rules);
+  const creation = electrochargeService.creationCost(spec, turnResourceCode(props.rules), limit);
   if (creation <= 0 || limit <= 0) return 0;
 
   return Math.ceil(creation / limit);

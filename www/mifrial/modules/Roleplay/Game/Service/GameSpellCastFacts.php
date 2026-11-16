@@ -124,6 +124,7 @@ final class GameSpellCastFacts
         $spell = $this->spellSpec($slice, $spellCode);
         $path = $this->pathSpec($slice, $pathCode);
         $this->durations->assertSupported($spell->getSpell()->getDuration());
+        (new GameSpellEffect())->assertSupported($spell);
         $recorded = $path->castsRecorded();
 
         $actor = $this->side($body, 'actor');

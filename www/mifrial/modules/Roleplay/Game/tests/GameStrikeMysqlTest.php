@@ -1635,6 +1635,145 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * «Восприятие магии» даёт чувство на время поддержания и снимает при drop.
+     *
+     * @return void
+     */
+    public function testPerceptionGrantsSenseWhileSustained(): void
+    {
+        $scene = $this->perceptionScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $beforeAp = $this->resourceCurrent($scene['hero'], 'action-points');
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'magic-perception',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 5, 'size' => 1],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame($beforeAp - 10, $this->resourceCurrent($scene['hero'], 'action-points'));
+        $spell = $cast['data']['activeSpell'] ?? null;
+        self::assertIsArray($spell);
+
+        $sense = $this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation');
+        self::assertNotNull($sense, 'Чувство должно появиться на время поддержания');
+        self::assertSame(-4, $sense['value']);
+        self::assertSame('imprecise', $sense['status']);
+        self::assertSame(['base' => 5, 'size' => 1], $sense['radius']);
+
+        $end = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-end',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($end['success'], json_encode($end));
+        $prompt = $end['data']['sustain'][0] ?? null;
+        self::assertIsArray($prompt);
+        $sustain = $this->dispatch('game.sustainSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-sustain',
+            'expectedBattleVersion' => $end['data']['version'],
+            'expectedSheetVersion' => $end['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'sustainPower' => ['base' => 4, 'size' => 0],
+            'expectedSpellVersion' => $prompt['version'],
+        ]);
+        self::assertTrue($sustain['success'], json_encode($sustain));
+        $sustained = $this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation');
+        self::assertNotNull($sustained);
+        self::assertSame(['base' => 4, 'size' => 0], $sustained['radius']);
+        self::assertSame(-4, $sustained['value']);
+
+        $drop = $this->dispatch('game.dropSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'perception-drop',
+            'expectedBattleVersion' => $sustain['data']['version'],
+            'expectedSheetVersion' => $sustain['data']['sheetVersion'],
+            'spellId' => $spell['id'],
+            'expectedSpellVersion' => $sustain['data']['spell']['version'],
+        ]);
+        self::assertTrue($drop['success'], json_encode($drop));
+        self::assertNull($this->sheetSense($scene['gameId'], $scene['hero'], 'magic-sensation'));
+    }
+
+    /**
+     * Сцена «Восприятия магии»: путь, чувство и карточка.
+     *
+     * @return array<string, mixed> Сцена.
+     */
+    private function perceptionScene(): array
+    {
+        return $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'magic-perception', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['magic-perception' => $this->perceptionCard()],
+            extraRules: [
+                'magic-sensation' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'type' => 'sense',
+                        'status' => 'imprecise',
+                        'radius' => ['base' => 0, 'size' => 0],
+                    ],
+                ],
+                'arcanist' => [
+                    'type' => 'magic_path',
+                    'spec' => [
+                        'check_code' => 'cast-check',
+                        'cast_check_code' => 'cast-check',
+                        'power_characteristic_code' => 'magic-power',
+                        'control_characteristic_code' => 'magic-control',
+                        'no_control' => true,
+                        'includes_path_codes' => [],
+                    ],
+                ],
+            ],
+            withNpc: false,
+        );
+    }
+
+    /**
+     * Чувство из листа игры по коду.
+     *
+     * @param int $gameId Игра.
+     * @param int $heroId Персонаж.
+     * @param string $code Код чувства.
+     *
+     * @return array<string, mixed>|null Строка или null.
+     */
+    private function sheetSense(int $gameId, int $heroId, string $code): ?array
+    {
+        $read = $this->dispatch('game.getSheets', [
+            'gameId' => $gameId,
+            'keys' => [['type' => 'character', 'id' => $heroId]],
+        ]);
+        self::assertTrue($read['success'], json_encode($read));
+        $sheet = $read['data']['sheets'][0]['sheet'] ?? null;
+        $senses = is_array($sheet) && is_array($sheet['senses'] ?? null) ? $sheet['senses'] : [];
+        foreach ($senses as $sense) {
+            if (is_array($sense) && ($sense['ruleCode'] ?? null) === $code) {
+                return $sense;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Чужой игрок не поддерживает заклинание в ход NPC.
      *
      * @return void
@@ -2913,6 +3052,47 @@ final class GameStrikeMysqlTest extends TestCase
                     'type' => 'resource',
                     'resource_code' => 'action-points',
                     'amount' => 4,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка «Восприятия магии» с временным чувством.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function perceptionCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [2]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => 0],
+                    'targeting' => 'self',
+                    'duration' => ['type' => 'sustained', 'power' => ['base' => 4, 'size' => -1]],
+                    'effects' => [[
+                        'type' => 'sense',
+                        'sense_code' => 'magic-sensation',
+                        'status' => 'imprecise',
+                        'radius' => ['from' => 'sustain_power'],
+                        'value' => ['from' => 'control', 'reference' => ['base' => 4, 'size' => 1]],
+                    ]],
+                ],
+                'study' => ['paths' => 'any'],
+                'multiple' => true,
+                'domain_ref' => 'magic-path',
+                'requirements' => [],
+                'parent_ability_code' => null,
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => ['type' => 'turn', 'count' => 1],
+                    'label' => 'Сотворение',
                 ]],
             ],
         ];

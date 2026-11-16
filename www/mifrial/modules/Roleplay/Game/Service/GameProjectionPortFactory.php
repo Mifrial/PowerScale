@@ -20,6 +20,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
@@ -57,12 +58,16 @@ final class GameProjectionPortFactory
             new GameNpcVisibility(),
             $access,
             new GameNpcSheetRefresh((new CharacterPortFactory())->createSheetEngine($serviceLocator)),
+            $this->ruleSlices($serviceLocator),
+            $this->characterSheets($serviceLocator),
+            new GameActiveSpellRepository($gateway),
+            new GameSpellEffect(),
         );
 
         return new GameProjections(
             $this->memberships($serviceLocator),
             $access,
-            $this->characterProjection($serviceLocator, $access),
+            $this->characterProjection($serviceLocator, $access, $gateway),
             $npcs,
             $this->battleProjection($gateway, $strikes, $serviceLocator),
             $this->wideStrikeProjection($gateway, $cardAccess, $npcs),
@@ -88,19 +93,25 @@ final class GameProjectionPortFactory
      *
      * @param IServiceLocator $serviceLocator Каталог.
      * @param GameProjectionAccess $access Доступ читателя.
+     * @param ISmartTableGateway $gateway Шлюз.
      *
      * @return GameCharacterProjection Чтение.
      *
      * @throws KernelException Если порта нет.
      */
-    private function characterProjection(IServiceLocator $serviceLocator, GameProjectionAccess $access): GameCharacterProjection
-    {
+    private function characterProjection(
+        IServiceLocator $serviceLocator,
+        GameProjectionAccess $access,
+        ISmartTableGateway $gateway,
+    ): GameCharacterProjection {
         return new GameCharacterProjection(
             $this->characters($serviceLocator),
             $this->ruleSlices($serviceLocator),
             $this->characterSheets($serviceLocator),
             new GameCharacterProjectionMask(),
             $access,
+            new GameActiveSpellRepository($gateway),
+            new GameSpellEffect(),
         );
     }
 

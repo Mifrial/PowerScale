@@ -140,6 +140,19 @@ describe('combatActions', () => {
     expect(actionOdCost(components)).toBe(0);
   });
 
+  it('стоимость «N ходов» равна N лимитам ресурса', () => {
+    const components = [
+      {
+        type: 'resource' as const,
+        resource_code: 'action-points',
+        amount: { type: 'turn' as const, count: 2 },
+      },
+    ];
+
+    expect(actionOdCost(components, 0, 'action-points', 7)).toBe(14);
+    expect(actionOdCost(components, 0, 'action-points')).toBe(0);
+  });
+
   it('чужой ресурс не входит в ОД и входит в группы', () => {
     const components = [
       { type: 'resource' as const, resource_code: 'action-points', amount: 2 },

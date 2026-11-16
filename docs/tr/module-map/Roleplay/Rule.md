@@ -48,6 +48,7 @@
 | [spell-real-roadmap.md](../../spell-real-roadmap.md) | план | `~ПЛАН~` | 2026-11-09 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
 | [spell-real-plan-10-crystal.md](../../spell-real-plan-10-crystal.md) | план | `~В РАБОТЕ~` | 2026-11-14 |
+| [spell-real-plan-16-spell-effects.md](../../spell-real-plan-16-spell-effects.md) | план | `~В РАБОТЕ~` | 2026-11-16 |
 | [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
 | [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
 | [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |

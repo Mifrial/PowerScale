@@ -145,7 +145,7 @@ export class ElectrochargeService {
       if (spec.spend.exclude_duration_types.includes(duration)) {
         return false;
       }
-      if (spec.spend.creation_max === 'turn_ap' && this.creationCost(ability, turnResourceCode(rules)) > turnApMax) {
+      if (spec.spend.creation_max === 'turn_ap' && this.creationCost(ability, turnResourceCode(rules), turnApMax) > turnApMax) {
         return false;
       }
 
@@ -153,8 +153,12 @@ export class ElectrochargeService {
     });
   }
 
-  creationCost(spec: Extract<AbilitySpec, { type: 'spell' }>, resourceCode: string): number {
-    return actionOdCost(spec.action_components, 0, resourceCode);
+  creationCost(
+    spec: Extract<AbilitySpec, { type: 'spell' }>,
+    resourceCode: string,
+    resourceLimit = 0,
+  ): number {
+    return actionOdCost(spec.action_components, 0, resourceCode, resourceLimit);
   }
 
   turnApMax(overview: CharacterOverview | null, rules: Rule[]): number {

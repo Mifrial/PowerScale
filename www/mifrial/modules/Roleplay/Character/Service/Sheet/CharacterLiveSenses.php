@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterDonorGrant;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterAbilityGrantReader;
 use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterGrantParameters;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
@@ -48,6 +49,7 @@ final class CharacterLiveSenses
      * @param CharacterChoices $choices Выборы.
      * @param array<string, int> $abilityLevels Уровни.
      * @param array<string, CharacteristicNumber> $bases Базы.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -56,9 +58,10 @@ final class CharacterLiveSenses
         CharacterChoices $choices,
         array $abilityLevels,
         array $bases,
+        array $runtimeSenses = [],
     ): array {
         $active = [];
-        foreach ($this->rows($slice, $choices, $abilityLevels, $bases) as $row) {
+        foreach ($this->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses) as $row) {
             if ($row['status'] === 'absent') {
                 continue;
             }
@@ -76,6 +79,7 @@ final class CharacterLiveSenses
      * @param CharacterChoices $choices Выборы.
      * @param array<string, int> $abilityLevels Уровни.
      * @param array<string, CharacteristicNumber> $bases Базы.
+     * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -84,10 +88,15 @@ final class CharacterLiveSenses
         CharacterChoices $choices,
         array $abilityLevels,
         array $bases,
+        array $runtimeSenses = [],
     ): array {
         $rows = $this->autoRows($slice);
         foreach ($this->grantReader->grants($slice, $choices, $abilityLevels) as $grant) {
             $rows = $this->applyGrant($rows, $slice, $choices, $abilityLevels, $bases, $grant);
+        }
+
+        foreach ($runtimeSenses as $runtime) {
+            $rows = $this->applyRuntime($rows, $slice, $runtime);
         }
 
         return array_values($rows);
@@ -180,6 +189,66 @@ final class CharacterLiveSenses
         $delta = $this->senseAmount($slice, $choices, $abilityLevels, $bases, $grant, $body);
 
         return $delta === null ? $rows : $this->applySenseDelta($rows, $code, $body, $delta);
+    }
+
+    /**
+     * Накладывает временное чувство из игры.
+     *
+     * @param array<string, array<string, mixed>> $rows Код → строка.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param mixed $runtime Строка эффекта.
+     *
+     * @return array<string, array<string, mixed>> Код → строка.
+     *
+     * @throws CharacterInvalidException Если форма временного чувства битая.
+     */
+    private function applyRuntime(array $rows, CharacterRuleSlice $slice, mixed $runtime): array
+    {
+        if (!is_array($runtime) || array_is_list($runtime)) {
+            throw new CharacterInvalidException('Character runtime sense shape is invalid');
+        }
+
+        $code = $runtime['ruleCode'] ?? null;
+        $value = $runtime['value'] ?? 0;
+        $status = $runtime['status'] ?? null;
+        $source = $runtime['sourceRuleCode'] ?? null;
+        if (
+            !is_string($code)
+            || $code === ''
+            || !is_int($value)
+            || ($status !== null && !is_string($status))
+            || ($source !== null && !is_string($source))
+        ) {
+            throw new CharacterInvalidException('Character runtime sense shape is invalid');
+        }
+
+        $spec = $slice->findLive($code)?->getSpec();
+        if (!$spec instanceof SenseSpec) {
+            throw new CharacterInvalidException('Character runtime sense rule is invalid');
+        }
+
+        if (!isset($rows[$code])) {
+            $rows[$code] = $this->emptySense($code, $spec);
+        }
+
+        $rows[$code]['value'] += $value;
+        $rows[$code]['modifiers'][] = ['sourceRuleCode' => $source ?? $code, 'delta' => $value];
+        if ($status !== null) {
+            $rows[$code]['status'] = $this->raisedStatus($rows[$code]['status'], $status);
+        }
+
+        $radius = $runtime['radius'] ?? null;
+        if ($radius !== null) {
+            $base = is_array($radius) ? ($radius['base'] ?? null) : null;
+            $size = is_array($radius) ? ($radius['size'] ?? null) : null;
+            if (!is_int($base) || !is_int($size)) {
+                throw new CharacterInvalidException('Character runtime sense radius is invalid');
+            }
+
+            $rows[$code]['radius'] = ['base' => $base, 'size' => $size];
+        }
+
+        return $rows;
     }
 
     /**

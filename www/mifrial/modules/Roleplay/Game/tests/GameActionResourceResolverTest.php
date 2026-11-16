@@ -60,6 +60,31 @@ final class GameActionResourceResolverTest extends TestCase
     }
 
     /**
+     * Компонент «два хода» тратит два лимита ресурса, а не текущее значение.
+     *
+     * @return void
+     */
+    public function testResolvesTurnAmountAsResourceLimit(): void
+    {
+        $spends = (new GameActionResourceResolver())->resolve(
+            $this->limitSlice(),
+            'spell',
+            0,
+            '',
+            [],
+            ['resources' => [[
+                'ruleCode' => 'ap',
+                'current' => 3,
+                'base' => 9,
+                'bonuses' => [['sourceRuleCode' => 'source', 'delta' => 1]],
+            ]]],
+        );
+
+        self::assertCount(1, $spends);
+        self::assertSame(20, $spends[0]->getAmount()->toNative());
+    }
+
+    /**
      * Одна выбранная строка не читает modifiers другой строки того же кода.
      *
      * @return void
@@ -277,6 +302,68 @@ final class GameActionResourceResolverTest extends TestCase
                     'type' => 'resource',
                     'resource_code' => 'ap',
                     'amount' => ['type' => 'chosen', 'max' => 'available'],
+                ]],
+                'spell' => [],
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+        $resource = new RuleVersionRecord(
+            2,
+            2,
+            'ap',
+            true,
+            'resource',
+            'Action points',
+            '',
+            [
+                'is_dimensional' => false,
+                'auto_add' => false,
+                'check_token' => false,
+            ],
+            [],
+            [],
+            'needs_work',
+            '',
+            DateTime::now(),
+        );
+
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [
+                new CharacterResolvedRule($spell, []),
+                new CharacterResolvedRule($resource, []),
+            ],
+            [],
+        );
+    }
+
+    /**
+     * Строит live slice с заклинанием, чья цена — два хода ресурса.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function limitSlice(): CharacterRuleSlice
+    {
+        $spell = new RuleVersionRecord(
+            1,
+            1,
+            'spell',
+            true,
+            'ability',
+            'Spell',
+            '',
+            [
+                'type' => 'spell',
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => ['type' => 'turn', 'count' => 2],
                 ]],
                 'spell' => [],
             ],

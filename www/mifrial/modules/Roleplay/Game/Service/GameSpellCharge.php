@@ -6,15 +6,12 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
-use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterKeywordExperience;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellCharge;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellChargeCap;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Заряд заклинания: кап, строки состояния на источнике и операции листа.
@@ -26,7 +23,7 @@ final class GameSpellCharge
 {
     private readonly CharacterKeywordExperience $experience;
 
-    private readonly CharacterResourceStorage $resources;
+    private readonly GameResourceLimit $limit;
 
     /**
      * Создаёт расчёт заряда.
@@ -36,7 +33,7 @@ final class GameSpellCharge
     public function __construct()
     {
         $this->experience = new CharacterKeywordExperience();
-        $this->resources = new CharacterResourceStorage();
+        $this->limit = new GameResourceLimit();
     }
 
     /**
@@ -214,30 +211,7 @@ final class GameSpellCharge
      */
     public function turnLimit(array $sheet, CharacterRuleSlice $slice, string $resourceCode): int
     {
-        $rows = $sheet['resources'] ?? null;
-        if (!is_array($rows)) {
-            throw new GameInvalidException('Game spell charge resources are missing');
-        }
-
-        try {
-            foreach ($this->resources->parseRows($rows, $slice) as $row) {
-                if ($row->getRuleCode() !== $resourceCode) {
-                    continue;
-                }
-
-                $base = $row->getBase();
-                $limit = $base instanceof DimensionalNumber ? $base->toInteger() : (is_int($base) ? $base : 0);
-                foreach ($row->getBonuses() as $bonus) {
-                    $limit += $bonus->getDelta();
-                }
-
-                return max(0, $limit);
-            }
-        } catch (CharacterInvalidException $exception) {
-            throw new GameInvalidException('Game spell charge resources are invalid', $exception);
-        }
-
-        return 0;
+        return $this->limit->of($slice, $sheet, $resourceCode);
     }
 
     /**

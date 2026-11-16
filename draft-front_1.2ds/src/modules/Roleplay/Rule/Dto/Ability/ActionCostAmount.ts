@@ -6,4 +6,9 @@ export type ActionCostAmount =
   | {
       type: 'chosen';
       max: 'available';
+    }
+  | {
+      /** Стоимость — N ходов: N полных лимитов ресурса (для ОД — N ходов). */
+      type: 'turn';
+      count: number;
     };

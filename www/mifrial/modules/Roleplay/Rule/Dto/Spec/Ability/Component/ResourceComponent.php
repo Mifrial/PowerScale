@@ -15,14 +15,14 @@ final class ResourceComponent implements ActionComponent
      * Создаёт ветку.
      *
      * @param string $resourceCode Ресурс.
-     * @param int|DimensionalNumber|ChosenAmount $amount Количество.
+     * @param int|DimensionalNumber|ChosenAmount|TurnAmount $amount Количество.
      * @param ?string $label Подпись.
      *
      * @return void
      */
     public function __construct(
         private readonly string $resourceCode,
-        private readonly int|DimensionalNumber|ChosenAmount $amount,
+        private readonly int|DimensionalNumber|ChosenAmount|TurnAmount $amount,
         private readonly ?string $label,
     ) {
     }
@@ -50,9 +50,9 @@ final class ResourceComponent implements ActionComponent
     /**
      * Количество.
      *
-     * @return int|DimensionalNumber|ChosenAmount Значение.
+     * @return int|DimensionalNumber|ChosenAmount|TurnAmount Значение.
      */
-    public function getAmount(): int|DimensionalNumber|ChosenAmount
+    public function getAmount(): int|DimensionalNumber|ChosenAmount|TurnAmount
     {
         return $this->amount;
     }
