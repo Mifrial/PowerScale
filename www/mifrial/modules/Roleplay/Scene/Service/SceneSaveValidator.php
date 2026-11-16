@@ -215,6 +215,45 @@ final class SceneSaveValidator
     private function enclosureRow(array $row, int $index, array $boundsById, array $childParents): array
     {
         $path = 'enclosures[' . $index . ']';
+        [$parentBoardId, $childBoardId] = $this->enclosureBoards($row, $path, $boundsById, $childParents);
+
+        return [
+            'id' => $this->fields->identifier($row, 'id', $path . '.id'),
+            'parentBoardId' => $parentBoardId,
+            'childBoardId' => $childBoardId,
+            'footprint' => $this->elementValidator->validateShape(
+                $this->fields->arrayValue($row, 'footprint', $path . '.footprint'),
+                $boundsById[$parentBoardId],
+                $path . '.footprint',
+                ['rect', 'polygon', 'wall'],
+            ),
+            'elevation' => $this->fields->intOrDefault(
+                $row,
+                'elevation',
+                $path . '.elevation',
+                0,
+                -100000,
+                100000,
+            ),
+            'label' => $this->enclosureLabel($row, $path),
+            'sortOrder' => $this->fields->intOrDefault($row, 'sortOrder', $path . '.sortOrder', 0, 0, 1000000),
+        ];
+    }
+
+    /**
+     * Идентификаторы и проверка связей вложения.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     * @param array<int, array{width: int, height: int}> $boundsById Границы полей.
+     * @param array<int, int> $childParents Уже прочитанные связи.
+     *
+     * @return array{0: int, 1: int} Родитель и ребёнок.
+     *
+     * @throws SceneInvalidException Если ссылки недопустимы.
+     */
+    private function enclosureBoards(array $row, string $path, array $boundsById, array $childParents): array
+    {
         $parentBoardId = $this->fields->identifier($row, 'parentBoardId', $path . '.parentBoardId');
         $childBoardId = $this->fields->identifier($row, 'childBoardId', $path . '.childBoardId');
         if (!isset($boundsById[$parentBoardId]) || !isset($boundsById[$childBoardId])) {
@@ -229,18 +268,32 @@ final class SceneSaveValidator
             throw new SceneInvalidException($path . '.childBoardId has a second parent');
         }
 
-        return [
-            'id' => $this->fields->identifier($row, 'id', $path . '.id'),
-            'parentBoardId' => $parentBoardId,
-            'childBoardId' => $childBoardId,
-            'footprint' => $this->elementValidator->validateShape(
-                $this->fields->arrayValue($row, 'footprint', $path . '.footprint'),
-                $boundsById[$parentBoardId],
-                $path . '.footprint',
-                ['rect', 'polygon', 'wall'],
-            ),
-            'sortOrder' => $this->fields->intOrDefault($row, 'sortOrder', $path . '.sortOrder', 0, 0, 1000000),
-        ];
+        return [$parentBoardId, $childBoardId];
+    }
+
+    /**
+     * Имя строения или этажа у вложения.
+     *
+     * @param array<string|int, mixed> $row Строка.
+     * @param string $path Путь.
+     *
+     * @return string|null Подпись или null.
+     *
+     * @throws SceneInvalidException Если строка слишком длинная.
+     */
+    private function enclosureLabel(array $row, string $path): ?string
+    {
+        $label = $this->fields->optionalStringValue($row, 'label', $path . '.label');
+        if ($label === null) {
+            return null;
+        }
+
+        $label = trim($label);
+        if (mb_strlen($label) > 255) {
+            throw new SceneInvalidException($path . '.label is too long');
+        }
+
+        return $label === '' ? null : $label;
     }
 
     /**

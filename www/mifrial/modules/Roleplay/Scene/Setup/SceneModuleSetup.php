@@ -8,6 +8,9 @@ use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Library\Asset\Interface\Service\IAssetCollections;
+use Mifrial\Roleplay\Scene\Repository\SceneBoardRepository;
+use Mifrial\Roleplay\Scene\Repository\SceneEnclosureRepository;
+use Mifrial\Roleplay\Scene\Repository\SceneLocationRepository;
 use Mifrial\Roleplay\Scene\Schema\SceneSchema;
 
 /**
@@ -19,11 +22,17 @@ final class SceneModuleSetup implements IModuleSetup
      * Создаёт setup.
      *
      * @param IAssetCollections $assetCollections Порт коллекций.
+     * @param SceneLocationRepository $locations Локации.
+     * @param SceneBoardRepository $boards Поля.
+     * @param SceneEnclosureRepository $enclosures Вложения.
      *
      * @return void
      */
     public function __construct(
         private readonly IAssetCollections $assetCollections,
+        private readonly SceneLocationRepository $locations,
+        private readonly SceneBoardRepository $boards,
+        private readonly SceneEnclosureRepository $enclosures,
     ) {
     }
 
@@ -46,6 +55,7 @@ final class SceneModuleSetup implements IModuleSetup
     {
         return [
             new SeedSceneAssetCollectionsStep($this->assetCollections),
+            new BackfillSceneEnclosureElevationStep($this->locations, $this->boards, $this->enclosures),
         ];
     }
 }

@@ -371,6 +371,8 @@ final class SceneSaveWriter
                 $fields['parent_board_id'],
                 $fields['child_board_id'],
                 $fields['footprint'],
+                $fields['elevation'],
+                $fields['label'],
                 $fields['sort_order'],
             );
         }
@@ -390,6 +392,8 @@ final class SceneSaveWriter
             'parent_board_id' => $boardMap[$enclosure['parentBoardId']],
             'child_board_id' => $boardMap[$enclosure['childBoardId']],
             'footprint' => $enclosure['footprint'],
+            'elevation' => $enclosure['elevation'],
+            'label' => $enclosure['label'],
             'sort_order' => $enclosure['sortOrder'],
         ];
     }

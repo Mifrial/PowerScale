@@ -110,6 +110,8 @@ final class SceneHttpMysqlTest extends TestCase
         self::assertSame($boardIds[1], $created['data']['elements'][5]['targetBoardId']);
         self::assertSame($boardIds[0], $created['data']['enclosures'][0]['parentBoardId']);
         self::assertSame($boardIds[1], $created['data']['enclosures'][0]['childBoardId']);
+        self::assertSame(128, $created['data']['enclosures'][0]['elevation']);
+        self::assertSame('Второй этаж', $created['data']['enclosures'][0]['label']);
 
         $got = $this->dispatch('scene.get', ['id' => $sceneId]);
         self::assertTrue($got['success']);
@@ -208,6 +210,14 @@ final class SceneHttpMysqlTest extends TestCase
             'sortOrder' => 1,
         ];
         $this->assertInvalid($cycle);
+
+        $badElevation = $this->payload();
+        $badElevation['enclosures'][0]['elevation'] = 100001;
+        $this->assertInvalid($badElevation);
+
+        $longLabel = $this->payload();
+        $longLabel['enclosures'][0]['label'] = str_repeat('a', 256);
+        $this->assertInvalid($longLabel);
     }
 
     /**
@@ -322,6 +332,8 @@ final class SceneHttpMysqlTest extends TestCase
                     'parentBoardId' => -1,
                     'childBoardId' => -2,
                     'footprint' => ['type' => 'rect', 'x' => 1000, 'y' => 1000, 'w' => 600, 'h' => 400],
+                    'elevation' => 128,
+                    'label' => 'Второй этаж',
                     'sortOrder' => 0,
                 ],
             ],
@@ -374,6 +386,8 @@ final class SceneHttpMysqlTest extends TestCase
                 'parentBoardId' => $enclosure['parentBoardId'],
                 'childBoardId' => $enclosure['childBoardId'],
                 'footprint' => $enclosure['footprint'],
+                'elevation' => $enclosure['elevation'],
+                'label' => $enclosure['label'],
                 'sortOrder' => $enclosure['sortOrder'],
             ];
         }

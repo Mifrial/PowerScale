@@ -83,6 +83,7 @@ export class SceneDraftService {
     from: ScenePoint,
     to: ScenePoint,
     resolution: number,
+    elevation = Math.round(Math.max(1, resolution) * SCENE_FLOOR.storeyIpari),
   ): { board: SceneDraftBoard; enclosure: SceneSaveEnclosure; floor: SceneDraftElement } | null {
     const parent = draft.boards.find((board) => board.id === draft.activeBoardId);
     if (parent === undefined) {
@@ -116,6 +117,8 @@ export class SceneDraftService {
       parentBoardId: parent.id,
       childBoardId: board.id,
       footprint: { type: 'rect', x: fx, y: fy, w: fw, h: fh },
+      elevation,
+      label: null,
       sortOrder: draft.enclosures.length,
     };
     draft.enclosures.push(enclosure);
@@ -888,6 +891,7 @@ export class SceneDraftService {
     for (const enclosure of draft.enclosures) {
       const bounds = this.boardBounds(draft, enclosure.parentBoardId);
       enclosure.footprint = this.scaleShape(enclosure.footprint, factor, bounds);
+      enclosure.elevation = this.scaleElevation(enclosure.elevation, factor);
     }
 
     draft.resolution = nextResolution;
@@ -995,6 +999,11 @@ export class SceneDraftService {
   /** Масштабирует вертикальную длину; ноль допустим. */
   private scaleLength(value: number, factor: number): number {
     return Math.min(100000, Math.max(0, Math.round(value * factor)));
+  }
+
+  /** Масштабирует знаковую отметку этажа: подвал остаётся подвалом. */
+  private scaleElevation(value: number, factor: number): number {
+    return Math.min(100000, Math.max(-100000, Math.round(value * factor)));
   }
 
   /** Следующий порядок элемента на поле. */

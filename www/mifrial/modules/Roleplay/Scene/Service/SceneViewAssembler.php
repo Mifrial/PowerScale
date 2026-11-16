@@ -148,6 +148,8 @@ final class SceneViewAssembler
             'parentBoardId' => $enclosureRecord->getParentBoardId(),
             'childBoardId' => $enclosureRecord->getChildBoardId(),
             'footprint' => $this->object($enclosureRecord->getFootprint()),
+            'elevation' => $enclosureRecord->getElevation(),
+            'label' => $enclosureRecord->getLabel(),
             'sortOrder' => $enclosureRecord->getSortOrder(),
         ];
     }

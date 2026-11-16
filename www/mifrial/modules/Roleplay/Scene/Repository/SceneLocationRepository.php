@@ -113,6 +113,33 @@ final class SceneLocationRepository
     }
 
     /**
+     * Все локации, включая архивные.
+     *
+     * @return array<int, SceneRecord> Локации.
+     *
+     * @throws SceneInvalidException Если выборка недопустима.
+     */
+    public function findAll(): array
+    {
+        $listResult = $this->errors->list(
+            $this->locationRecords,
+            ListQuery::fromOptions([
+                'sort' => ['id' => 'asc'],
+                'limit' => ListQuery::MAX_LIMIT,
+                'offset' => 0,
+                'countTotal' => false,
+            ]),
+            'Scene list query is invalid',
+        );
+        $records = [];
+        foreach ($listResult->rows() as $row) {
+            $records[] = SceneRecord::fromNormalized($row);
+        }
+
+        return $records;
+    }
+
+    /**
      * Пишет поля локации.
      *
      * @param int $sceneId Id.

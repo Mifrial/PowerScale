@@ -64,6 +64,8 @@ describe('SceneDraftService', () => {
       parentBoardId: 10,
       childBoardId: board.id,
       footprint: { type: 'rect', x: 0, y: 0, w: 756, h: 656 },
+      elevation: 128,
+      label: null,
     });
     expect(floor).toMatchObject({
       boardId: board.id,
@@ -374,12 +376,34 @@ describe('SceneDraftService', () => {
       parentBoardId: 10,
       childBoardId: child.id,
       footprint: { type: 'rect', x: 100, y: 100, w: 200, h: 200 },
+      elevation: 128,
+      label: null,
       sortOrder: 0,
     });
 
     service.rescale(state, 128);
 
     expect(state.enclosures[0]?.footprint).toEqual({ type: 'rect', x: 200, y: 200, w: 400, h: 400 });
+    expect(state.enclosures[0]?.elevation).toBe(256);
+  });
+
+  it('keeps a basement elevation negative on rescale', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const child = service.addBoard(state, 'Подвал');
+    state.enclosures.push({
+      id: -6,
+      parentBoardId: 10,
+      childBoardId: child.id,
+      footprint: { type: 'rect', x: 100, y: 100, w: 200, h: 200 },
+      elevation: -128,
+      label: 'Подвал',
+      sortOrder: 0,
+    });
+
+    service.rescale(state, 128);
+
+    expect(state.enclosures[0]?.elevation).toBe(-256);
   });
 
   it('fills the board with terrain and reuses the full-board element', () => {

@@ -70,6 +70,8 @@ final class SceneEnclosureRepository
      * @param int $parentBoardId Родительское поле.
      * @param int $childBoardId Вложенное поле.
      * @param array<string|int, mixed> $footprint Контур.
+     * @param int $elevation Вертикальная отметка относительно родителя.
+     * @param string|null $label Имя строения или этажа.
      * @param int $sortOrder Порядок.
      *
      * @return int Id.
@@ -80,6 +82,8 @@ final class SceneEnclosureRepository
         int $parentBoardId,
         int $childBoardId,
         array $footprint,
+        int $elevation,
+        ?string $label,
         int $sortOrder,
     ): int {
         return $this->errors->insert(
@@ -88,6 +92,8 @@ final class SceneEnclosureRepository
                 'parent_board_id' => $parentBoardId,
                 'child_board_id' => $childBoardId,
                 'footprint' => $footprint,
+                'elevation' => $elevation,
+                'label' => $label,
                 'sort_order' => $sortOrder,
             ],
             'Scene enclosure is invalid',

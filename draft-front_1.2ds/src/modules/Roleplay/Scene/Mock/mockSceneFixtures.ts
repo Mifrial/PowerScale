@@ -104,6 +104,8 @@ export const sceneFixtures: SceneDetail[] = [
         parentBoardId: 11,
         childBoardId: 12,
         footprint: { type: 'rect', x: 1100, y: 900, w: 700, h: 500 },
+        elevation: 128,
+        label: 'Второй этаж',
         sortOrder: 0,
       },
     ],

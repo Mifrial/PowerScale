@@ -10,6 +10,7 @@ use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
+use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
 
@@ -52,6 +53,13 @@ final class SceneEnclosureTable extends SmartTableDefinition
                 'cascade',
             ),
             new JsonField('footprint', FieldSettings::fromOptions(['required' => true])),
+            new IntField(
+                'elevation',
+                FieldSettings::fromOptions(['required' => true, 'default' => 0]),
+                -100000,
+                100000,
+            ),
+            new StringField('label', FieldSettings::fromOptions([]), 255),
             new IntField('sort_order', FieldSettings::fromOptions(['required' => true, 'default' => 0]), 0, 1000000),
             new DateTimeField('created_at', $now),
         ];

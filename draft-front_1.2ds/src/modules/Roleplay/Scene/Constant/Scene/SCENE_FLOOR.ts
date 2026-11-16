@@ -12,4 +12,7 @@ export const SCENE_FLOOR = {
 
   /** Поляна вокруг плана в кадре этажа, ипари. */
   fitMarginIpari: 2,
+
+  /** Высота одного этажа по умолчанию, ипари. */
+  storeyIpari: 2,
 } as const;

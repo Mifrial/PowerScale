@@ -21,6 +21,8 @@ final class SceneEnclosureRecord
      * @param int $parentBoardId Родительское поле.
      * @param int $childBoardId Вложенное поле.
      * @param array<string|int, mixed> $footprint Контур на родителе.
+     * @param int $elevation Вертикальная отметка относительно родителя.
+     * @param string|null $label Имя строения или этажа.
      * @param int $sortOrder Порядок.
      * @param DateTime $createdAt Создано.
      *
@@ -31,6 +33,8 @@ final class SceneEnclosureRecord
         private readonly int $parentBoardId,
         private readonly int $childBoardId,
         private readonly array $footprint,
+        private readonly int $elevation,
+        private readonly ?string $label,
         private readonly int $sortOrder,
         private readonly DateTime $createdAt,
     ) {
@@ -50,6 +54,8 @@ final class SceneEnclosureRecord
             SceneValues::requireInt($fields, 'parent_board_id'),
             SceneValues::requireInt($fields, 'child_board_id'),
             SceneValues::requireArray($fields, 'footprint'),
+            SceneValues::requireInt($fields, 'elevation'),
+            SceneValues::optionalString($fields, 'label'),
             SceneValues::requireInt($fields, 'sort_order'),
             SceneValues::requireDateTime($fields, 'created_at'),
         );
@@ -93,6 +99,26 @@ final class SceneEnclosureRecord
     public function getFootprint(): array
     {
         return $this->footprint;
+    }
+
+    /**
+     * Вертикальная отметка относительно родителя.
+     *
+     * @return int Отметка, единицы сцены.
+     */
+    public function getElevation(): int
+    {
+        return $this->elevation;
+    }
+
+    /**
+     * Имя строения или этажа.
+     *
+     * @return string|null Подпись или null.
+     */
+    public function getLabel(): ?string
+    {
+        return $this->label;
     }
 
     /**

@@ -69,6 +69,8 @@ export const mockSceneApi: ISceneApi = {
       parentBoardId: boardIdMap.get(enclosure.parentBoardId) ?? enclosure.parentBoardId,
       childBoardId: boardIdMap.get(enclosure.childBoardId) ?? enclosure.childBoardId,
       footprint: enclosure.footprint,
+      elevation: enclosure.elevation,
+      label: enclosure.label,
       sortOrder: enclosure.sortOrder,
     }));
     const detail: SceneDetail = {

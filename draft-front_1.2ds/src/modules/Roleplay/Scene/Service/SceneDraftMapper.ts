@@ -68,6 +68,8 @@ export class SceneDraftMapper {
         parentBoardId: enclosure.parentBoardId,
         childBoardId: enclosure.childBoardId,
         footprint: enclosure.footprint,
+        elevation: enclosure.elevation,
+        label: enclosure.label,
         sortOrder: enclosure.sortOrder,
       })),
     };
@@ -159,6 +161,8 @@ export class SceneDraftMapper {
       parentBoardId: enclosure.parentBoardId,
       childBoardId: enclosure.childBoardId,
       footprint: enclosure.footprint,
+      elevation: enclosure.elevation,
+      label: enclosure.label,
       sortOrder: enclosure.sortOrder,
     }));
   }

@@ -41,7 +41,12 @@ final class ScenePortFactory
      */
     public function createSetup(IServiceLocator $serviceLocator): SceneModuleSetup
     {
-        return new SceneModuleSetup($this->assetCollections($serviceLocator));
+        return new SceneModuleSetup(
+            $this->assetCollections($serviceLocator),
+            $this->locationRepository($serviceLocator),
+            $this->boardRepository($serviceLocator),
+            $this->enclosureRepository($serviceLocator),
+        );
     }
 
     /**
