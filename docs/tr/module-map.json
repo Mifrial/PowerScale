@@ -1537,14 +1537,6 @@
             "dependedOnBy": [],
             "plans": [
                 {
-                    "path": "docs/tr/notes-plan-05-entity-links.md",
-                    "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-15",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/notes-roadmap.md",
                     "title": "Нарезка Messages/Notes",
                     "kind": "plan",
@@ -1582,6 +1574,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-08",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/notes-plan-05-entity-links.md",
+                    "title": "План 05 — inline-ссылки персонажа/НПС в Messages/Notes",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 }
             ]

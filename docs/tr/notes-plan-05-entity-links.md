@@ -1,6 +1,6 @@
 # План 05 — inline-ссылки персонажа/НПС в Messages/Notes
 
-**Статус:** ~В РАБОТЕ~ — 2026-11-15
+**Статус:** ~СДЕЛАНО~ — 2026-11-16
 **Реализация:** ~VUE~, ~PHP~ (`game.findNpc` — резолв НПС по одному id); схема `note` не меняется
 **Опираться на:** ~PHP~ (`note.*`, `character.get`, `game.get`, `game.getSheets`, `game.getNpc`, `game.findNpc`), ~МОК~ (`mockCharacterApi`, `mockGameApi`), ~НЕ ОСНОВА~ (реализация Notes как контракт бэкенда)
 
