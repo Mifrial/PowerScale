@@ -3987,14 +3987,6 @@
             "dependedOnBy": [],
             "plans": [
                 {
-                    "path": "docs/tr/scene-plan-07-floors.md",
-                    "title": "Этажи и строения: один мир и стопки уровней",
-                    "kind": "plan",
-                    "state": "ПЛАН",
-                    "date": "2026-11-16",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/scene-plan-01.md",
                     "title": "Локации сцен: authoring-срез",
                     "kind": "plan",
@@ -4016,6 +4008,14 @@
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": "2026-11-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/scene-plan-07-floors.md",
+                    "title": "Этажи и строения: один мир и стопки уровней",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 },
                 {
