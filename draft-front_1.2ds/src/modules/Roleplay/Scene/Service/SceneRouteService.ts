@@ -30,7 +30,14 @@ interface SceneLanding {
   world: ScenePoint;
   /** Парная площадка на целевом поле; без пары перехода нет. */
   pair: SceneLanding | null;
-  /** Точка прибытия на этом поле после перехода с парной площадки. */
+  /** Точка перехода в мире корня: кромка площадки у колодца, а не центр. */
+  crossing: ScenePoint | null;
+  /**
+   * Точка, где маршрут подходит к площадке и продолжается после перехода.
+   *
+   * Это кромка площадки у лестничного колодца: актор выходит из колодца на
+   * пол, а не идёт под настилом верхнего этажа до середины площадки.
+   */
   entry: ScenePoint;
 }
 
@@ -104,7 +111,7 @@ export class SceneRouteService {
           continue;
         }
 
-        const route = this.walk(model, landing.boardId, landing.entry, other.center, options, undefined);
+        const route = this.walk(model, landing.boardId, landing.entry, other.entry, options, undefined);
         if (route !== null) {
           add(index, { to: next, cost: route.cost, route });
         }
@@ -123,7 +130,7 @@ export class SceneRouteService {
         continue;
       }
 
-      const route = this.walk(model, from.boardId, from.point, landing.center, options, undefined);
+      const route = this.walk(model, from.boardId, from.point, landing.entry, options, undefined);
       if (route !== null) {
         add(start, { to: index, cost: route.cost, route });
       }
@@ -251,6 +258,7 @@ export class SceneRouteService {
         center,
         world: this.floors.toRoot(transform, center),
         pair: null,
+        crossing: null,
         entry: center,
       });
     }
@@ -274,15 +282,83 @@ export class SceneRouteService {
     }
 
     for (const landing of result) {
-      if (landing.pair === null) {
+      const hole = this.holeEdge(model, landing);
+      landing.crossing = hole === null ? null : this.floors.toRoot(this.floors.transform(model, landing.boardId), hole);
+    }
+
+    const elevations = this.floors.elevations(model);
+    for (const landing of result) {
+      const pair = landing.pair;
+      // Пару обрабатываем один раз: точка перехода у неё общая.
+      if (pair === null || pair.pair !== landing || landing.element.id > pair.element.id) {
         continue;
       }
 
-      const transform = this.floors.transform(model, landing.boardId);
-      landing.entry = this.floors.toLocal(transform, landing.pair.world);
+      // Колодец обычно у верхнего этажа: его кромка и есть точка перехода.
+      // Если колодца нет ни у одной площадки, остаётся центр пары.
+      const ownAbove = (elevations.get(landing.boardId) ?? 0) >= (elevations.get(pair.boardId) ?? 0);
+      const crossing = (ownAbove ? landing.crossing : pair.crossing) ?? landing.crossing ?? pair.crossing ?? pair.world;
+      landing.entry = this.floors.toLocal(this.floors.transform(model, landing.boardId), crossing);
+      pair.entry = this.floors.toLocal(this.floors.transform(model, pair.boardId), crossing);
     }
 
     return result;
+  }
+
+  /**
+   * Кромка площадки у лестничного колодца.
+   *
+   * Колодец — проём `stairs` без целевого поля, стоящий вплотную к площадке.
+   * Актор выходит из колодца на кромку, а не в центр площадки: иначе он шёл
+   * бы под настилом верхнего этажа и «выныривал» из него уже в середине.
+   *
+   * @param model Модель рендера.
+   * @param landing Площадка.
+   *
+   * @returns Середина общей кромки в координатах поля или null.
+   */
+  private holeEdge(model: SceneRenderModel, landing: SceneLanding): ScenePoint | null {
+    const shape = landing.element.shape;
+    if (shape.type !== 'rect') {
+      return null;
+    }
+
+    for (const element of model.elements) {
+      if (
+        element.boardId !== landing.boardId ||
+        element.kind !== 'opening' ||
+        element.shape.type !== 'rect' ||
+        element.targetBoardId !== null ||
+        element.props.kind !== 'stairs'
+      ) {
+        continue;
+      }
+
+      const hole = element.shape;
+      const xFrom = Math.max(shape.x, hole.x);
+      const xTo = Math.min(shape.x + shape.w, hole.x + hole.w);
+      const yFrom = Math.max(shape.y, hole.y);
+      const yTo = Math.min(shape.y + shape.h, hole.y + hole.h);
+      const touch = 0.5;
+
+      // Колодец под площадкой или над ней: общая кромка идёт поперёк x.
+      if (xTo - xFrom > 0 && Math.abs(shape.y + shape.h - hole.y) <= touch) {
+        return [(xFrom + xTo) / 2, shape.y + shape.h];
+      }
+      if (xTo - xFrom > 0 && Math.abs(shape.y - (hole.y + hole.h)) <= touch) {
+        return [(xFrom + xTo) / 2, shape.y];
+      }
+
+      // Колодец сбоку: общая кромка идёт поперёк y.
+      if (yTo - yFrom > 0 && Math.abs(shape.x + shape.w - hole.x) <= touch) {
+        return [shape.x + shape.w, (yFrom + yTo) / 2];
+      }
+      if (yTo - yFrom > 0 && Math.abs(shape.x - (hole.x + hole.w)) <= touch) {
+        return [shape.x, (yFrom + yTo) / 2];
+      }
+    }
+
+    return null;
   }
 
   /** Центр площадки: середина её полосы. */

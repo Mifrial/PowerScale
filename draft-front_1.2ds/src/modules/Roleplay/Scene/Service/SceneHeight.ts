@@ -105,10 +105,12 @@ export function sceneDeckThickness(element: SceneHeightElement, resolution: numb
  * Поверхность под точкой, единицы сцены.
  *
  * Слои выбираются по тому же порядку, что и в сетке поверхностей: опора
- * перекрывает террейн, вода — остальной террейн. Иначе река, врезанная в луг,
- * не видна расчёту высот: луг лежит на нуле, и зазор под мостом считался бы
- * от берега, а не от воды. Вода может быть ниже нуля поля, поэтому нулём
- * пользуемся только когда под точкой нет ни одной поверхности.
+ * перекрывает террейн, вода — остальной террейн, а остров или настил поверх
+ * воды — воду. Иначе река, врезанная в луг, не видна расчёту высот: луг лежит
+ * на нуле, и зазор под мостом считался бы от берега, а не от воды. Настил над
+ * водой, наоборот, лежит поверх неё: под ногами пол дома, а не вода под ним.
+ * Вода может быть ниже нуля поля, поэтому нулём пользуемся только когда под
+ * точкой нет ни одной поверхности.
  */
 export function sceneSurfaceUnder(
   point: ScenePoint,
@@ -118,6 +120,7 @@ export function sceneSurfaceUnder(
 ): number {
   let support = Number.NEGATIVE_INFINITY;
   let water = Number.NEGATIVE_INFINITY;
+  let deck = Number.NEGATIVE_INFINITY;
   let terrain = Number.NEGATIVE_INFINITY;
   for (const element of elements) {
     if (element.id === excludeId) {
@@ -139,6 +142,9 @@ export function sceneSurfaceUnder(
       support = Math.max(support, elevation);
     } else if (element.props.kind === 'water') {
       water = Math.max(water, elevation);
+    } else if (element.props.overWater === true) {
+      // Остров или настил лежит поверх воды: под ногами он, а не вода.
+      deck = Math.max(deck, elevation);
     } else {
       terrain = Math.max(terrain, elevation);
     }
@@ -146,6 +152,9 @@ export function sceneSurfaceUnder(
 
   if (support > Number.NEGATIVE_INFINITY) {
     return support;
+  }
+  if (deck > Number.NEGATIVE_INFINITY) {
+    return deck;
   }
   if (water > Number.NEGATIVE_INFINITY) {
     return water;

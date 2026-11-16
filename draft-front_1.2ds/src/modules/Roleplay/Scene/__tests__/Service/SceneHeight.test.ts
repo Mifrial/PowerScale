@@ -125,6 +125,30 @@ describe('SceneHeight', () => {
     expect(sceneDeckClearance(deck, [grass, water, deck], RESOLUTION)).toBe(80);
   });
 
+  it('настил над водой — поверхность под ногами, а не вода', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const water = element(
+      2,
+      'terrain',
+      { type: 'rect', x: 160, y: 0, w: 80, h: 2560 },
+      {
+        kind: 'water',
+        depth: 96,
+      },
+    );
+    // Пол дома лежит поверх воды: под ногами пол, а не вода под ним.
+    const floor = element(
+      3,
+      'terrain',
+      { type: 'rect', x: 100, y: 100, w: 400, h: 400 },
+      { kind: 'dirt', overWater: true },
+    );
+
+    expect(sceneSurfaceUnder([200, 150], [grass, water], RESOLUTION)).toBe(-96);
+    expect(sceneSurfaceUnder([200, 150], [grass, water, floor], RESOLUTION)).toBe(0);
+    expect(sceneSurfaceUnder([200, 150], [grass, floor], RESOLUTION)).toBe(0);
+  });
+
   it('крыша не становится поверхностью под ногами', () => {
     const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
     const floor = element(2, 'terrain', { type: 'rect', x: 100, y: 100, w: 400, h: 400 }, { kind: 'dirt' });

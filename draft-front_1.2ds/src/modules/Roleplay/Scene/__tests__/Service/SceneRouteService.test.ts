@@ -72,6 +72,19 @@ function landing(
   };
 }
 
+function hole(id: number, boardId: number, x: number, y: number, w = 60, h = 60): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'opening',
+    shape: { type: 'rect', x, y, w, h },
+    props: { kind: 'stairs', state: 'closed', blocksMovement: true },
+    sortOrder: id,
+    targetBoardId: null,
+    asset: null,
+  };
+}
+
 const boards = [board(1, 1000, 800), board(2, 400, 400), board(3, 300, 300)];
 const enclosures = [
   enclosure(1, 2, { x: 200, y: 200, w: 400, h: 400 }),
@@ -147,5 +160,36 @@ describe('SceneRouteService', () => {
 
     expect(route).not.toBeNull();
     expect(new Set(route!.segments.map((segment) => segment.boardId))).toEqual(new Set([1]));
+  });
+
+  it('переходит на кромке колодца, а не в центре площадки', () => {
+    // Колодец вплотную под верхней площадкой: актор выходит из него на пол,
+    // а не идёт под настилом до середины площадки.
+    const withHole: SceneRenderModel = {
+      ...model,
+      elements: [...elements, hole(20, 2, 100, 160)],
+    };
+    const route = service.route(
+      withHole,
+      { boardId: 1, point: [50, 50] },
+      { boardId: 2, point: [300, 300] },
+      { agentRadius: 16 },
+    );
+
+    expect(route).not.toBeNull();
+    const lower = route!.segments.filter((segment) => segment.boardId === 1).at(-1)!;
+    const upper = route!.segments.find((segment) => segment.boardId === 2)!;
+    const lowerWorld = sceneFloorPlanService.toRoot(
+      sceneFloorPlanService.transform(withHole, 1),
+      lower.points[lower.points.length - 1],
+    );
+    const upperWorld = sceneFloorPlanService.toRoot(sceneFloorPlanService.transform(withHole, 2), upper.points[0]);
+
+    // Общая кромка площадки 11 и колодца — y = 160 на поле 2, то есть
+    // (330, 360) в мире корня.
+    expect(lowerWorld[0]).toBeCloseTo(330, 3);
+    expect(lowerWorld[1]).toBeCloseTo(360, 3);
+    expect(upperWorld[0]).toBeCloseTo(330, 3);
+    expect(upperWorld[1]).toBeCloseTo(360, 3);
   });
 });
