@@ -55,7 +55,6 @@
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-real-plan-10-crystal.md](../../spell-real-plan-10-crystal.md) | план | `~В РАБОТЕ~` | 2026-11-14 |
-| [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~В РАБОТЕ~` | 2026-11-16 |
 | [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
 | [rule-plan-01.md](../../rule-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [rule-plan-03.md](../../rule-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
@@ -64,6 +63,7 @@
 | [spell-real-plan-01-action-components.md](../../spell-real-plan-01-action-components.md) | план | `~ЧАСТИЧНО~` | 2026-11-09 |
 | [spell-real-plan-02-spell-upgrades.md](../../spell-real-plan-02-spell-upgrades.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
 | [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
+| [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-07 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ОТЛОЖЕН~` | — |
