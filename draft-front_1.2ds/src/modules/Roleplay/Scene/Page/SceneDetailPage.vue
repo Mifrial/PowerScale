@@ -30,6 +30,7 @@ const archiving = ref(false);
 const canvas = ref<InstanceType<typeof SceneCanvas> | null>(null);
 const overlayCosts = ref(false);
 const overlayVisibility = ref(false);
+const roofsHidden = ref(readRoofsHidden());
 const overlay = computed<SceneOverlay | null>(() =>
   overlayCosts.value || overlayVisibility.value
     ? { costs: overlayCosts.value, visibility: overlayVisibility.value, observer: null, radius: null }
@@ -148,6 +149,22 @@ function onSelection(ids: number[]): void {
   selection.value = ids;
 }
 
+const ROOFS_HIDDEN_KEY = 'scene.roofsHidden';
+
+/** Крыши — настройка обзора, общая с редактором: по умолчанию видны. */
+function readRoofsHidden(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) === '1';
+}
+
+function setRoofsShown(value: boolean | null): void {
+  roofsHidden.value = value !== true;
+  window.localStorage.setItem(ROOFS_HIDDEN_KEY, roofsHidden.value ? '1' : '0');
+}
+
 function onViewport(next: SceneViewport): void {
   viewport.value = next;
 }
@@ -233,6 +250,7 @@ function zoomLabel(): string {
             :model="model"
             :board="board"
             :overlay="overlay"
+            :roofs-hidden="roofsHidden"
             :actors="previewActorList"
             :selected-actor-id="previewSelectedId"
             :route="previewRoute"
@@ -243,6 +261,15 @@ function zoomLabel(): string {
             @viewport="onViewport"
           />
           <SceneOverlayControls v-model:costs="overlayCosts" v-model:visibility="overlayVisibility" />
+          <v-switch
+            :model-value="!roofsHidden"
+            label="Крыши"
+            density="compact"
+            hide-details
+            color="primary"
+            class="scene-viewer__roofs"
+            @update:model-value="setRoofsShown"
+          />
           <ScenePreviewActorPanel
             :actors="previewActorList"
             :selected="previewSelectedActor"
@@ -377,6 +404,15 @@ function zoomLabel(): string {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.scene-viewer__roofs {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .scene-panel {

@@ -296,6 +296,9 @@ const isDeck = computed(
     props.element.kind === 'support' && (props.element.props.kind === 'bridge' || props.element.props.kind === 'ramp'),
 );
 
+/** Крыша: накрытие над стенами. По ней не ходят, скорость ей не нужна. */
+const isRoof = computed(() => props.element.kind === 'support' && props.element.props.kind === 'roof');
+
 /** Рост тела, под который проверяется зазор, единицы сцены. */
 const bodyHeight = computed(() => Math.max(1, props.resolution) * SCENE_NAVIGATION.bodyHeightIpari);
 
@@ -735,33 +738,41 @@ function onAssetCleared(publicId: string | null): void {
         hide-details
         @update:model-value="patchKind"
       />
-      <v-text-field
-        :model-value="currentSpeed"
-        type="number"
-        label="Скорость"
-        hint="100 — норма; 150 — дорога и мост; 20 — река; 0 — непроходимо."
-        persistent-hint
-        density="compact"
-        variant="outlined"
-        @update:model-value="patchSpeed"
-      />
-      <div class="scene-element-settings__speeds">
-        <v-chip
-          v-for="preset in SPEED_PRESETS"
-          :key="preset.value"
-          size="x-small"
-          :color="currentSpeed === preset.value ? 'primary' : undefined"
-          variant="tonal"
-          @click="patchSpeed(preset.value)"
-        >
-          {{ preset.label }}
-        </v-chip>
-      </div>
+      <template v-if="!isRoof">
+        <v-text-field
+          :model-value="currentSpeed"
+          type="number"
+          label="Скорость"
+          hint="100 — норма; 150 — дорога и мост; 20 — река; 0 — непроходимо."
+          persistent-hint
+          density="compact"
+          variant="outlined"
+          @update:model-value="patchSpeed"
+        />
+        <div class="scene-element-settings__speeds">
+          <v-chip
+            v-for="preset in SPEED_PRESETS"
+            :key="preset.value"
+            size="x-small"
+            :color="currentSpeed === preset.value ? 'primary' : undefined"
+            variant="tonal"
+            @click="patchSpeed(preset.value)"
+          >
+            {{ preset.label }}
+          </v-chip>
+        </div>
+      </template>
       <SceneDistanceField
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
-        :label="isDeck ? 'Толщина настила, ипари' : 'Высота, ипари'"
-        :hint="isDeck ? 'Толщина настила: вертикальный размер для зазора и рёбер доступа.' : undefined"
+        :label="isRoof ? 'Толщина накрытия, ипари' : isDeck ? 'Толщина настила, ипари' : 'Высота, ипари'"
+        :hint="
+          isRoof
+            ? 'Толщина накрытия: вертикальный размер для зазора под крышей.'
+            : isDeck
+              ? 'Толщина настила: вертикальный размер для зазора и рёбер доступа.'
+              : undefined
+        "
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ height: value })"
@@ -769,8 +780,8 @@ function onAssetCleared(publicId: string | null): void {
       <SceneDistanceField
         :model-value="props.element.props.elevation ?? 0"
         :resolution="props.resolution"
-        :label="isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
-        :hint="isDeck ? elevationHint : undefined"
+        :label="isRoof ? 'Высота крыши, ипари' : isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
+        :hint="isRoof ? 'Высота накрытия над землёй: у стен дома — два ипари.' : isDeck ? elevationHint : undefined"
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ elevation: value })"

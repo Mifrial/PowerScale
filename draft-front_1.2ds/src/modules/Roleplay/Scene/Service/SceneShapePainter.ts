@@ -8,6 +8,7 @@ import { Graphics } from 'pixi.js';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
+import { SCENE_ROOF } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ROOF';
 
 /** Цвета стены и проёмов. */
 const WALL_FILL = 0x475569;
@@ -110,10 +111,45 @@ export class SceneShapePainter {
       return graphics;
     }
 
+    if (element.kind === 'support' && element.props.kind === 'roof') {
+      this.paintRoof(graphics, element, zoom);
+
+      return graphics;
+    }
+
     const style = this.styleFor(element, zoom);
     this.paint(graphics, element.shape, style.fill, style.stroke, zoom, sceneRotation(element));
 
     return graphics;
+  }
+
+  /**
+   * Крыша: накрытие, край свеса и конёк вдоль длинной стороны.
+   *
+   * Плоская заливка на виде сверху читается как плита, поэтому объём
+   * возвращает конёк — одна линия по центру вдоль длинной стороны.
+   */
+  private paintRoof(graphics: Graphics, element: SceneElement, zoom: number): void {
+    this.paint(
+      graphics,
+      element.shape,
+      { color: SCENE_ROOF.color, alpha: 0.94 },
+      { color: SCENE_ROOF.edgeColor, width: 2 / zoom, alpha: 1 },
+      zoom,
+      sceneRotation(element),
+    );
+
+    const shape = element.shape;
+    if (shape.type !== 'rect') {
+      return;
+    }
+
+    const horizontal = shape.w >= shape.h;
+    const from: ScenePoint = horizontal ? [shape.x, shape.y + shape.h / 2] : [shape.x + shape.w / 2, shape.y];
+    const to: ScenePoint = horizontal
+      ? [shape.x + shape.w, shape.y + shape.h / 2]
+      : [shape.x + shape.w / 2, shape.y + shape.h];
+    this.paintLine(graphics, from, to, SCENE_ROOF.ridgeColor, 1.5 / zoom, SCENE_ROOF.ridgeAlpha);
   }
 
   /**

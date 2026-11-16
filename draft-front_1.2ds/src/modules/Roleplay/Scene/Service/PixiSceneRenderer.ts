@@ -40,7 +40,7 @@ import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassSha
 import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
 import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
-import { sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { isSceneRoof, sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
@@ -146,6 +146,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private waterNodes: WaterEntry[] = [];
 
   private waterAnimationEnabled = true;
+
+  /** Крыши скрыты: тумблер обзора, а не свойство локации. */
+  private roofsHidden = false;
 
   private waterElapsed = 0;
 
@@ -452,6 +455,21 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.syncWaterAnimation();
   }
 
+  /**
+   * Крыши скрыты: в редакторе это доступ к комнатам и полу, на карте — взгляд
+   * внутрь. Слой целиком, без пересборки: элементы остаются на месте.
+   */
+  setRoofsHidden(hidden: boolean): void {
+    this.roofsHidden = hidden;
+    const layer = this.layers.roofs;
+    if (layer === undefined) {
+      return;
+    }
+
+    layer.visible = !hidden;
+    this.requestFrame();
+  }
+
   /** Немедленный кадр. Сеттеры просят кадр через `requestFrame`, а не рисуют сами. */
   render(): void {
     if (this.app === null || this.contextLost) {
@@ -653,6 +671,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'openings',
       'ground',
       'decor',
+      'roofs',
       'overlay',
       'fog',
       'route',
@@ -662,6 +681,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
     for (const name of order) {
       const layer = new Container();
       layer.label = name;
+      if (name === 'roofs') {
+        layer.visible = !this.roofsHidden;
+      }
       this.world.addChild(layer);
       this.layers[name] = layer;
     }
@@ -1209,6 +1231,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'openings',
       'ground',
       'decor',
+      'roofs',
       'overlay',
       'fog',
       'route',
@@ -1597,6 +1620,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private layerFor(element: SceneElement): SceneLayerName {
     if (element.kind === 'terrain') return 'terrain';
+    // Крыша — накрытие: она лежит над стенами и декором, а не среди опор.
+    if (isSceneRoof(element)) return 'roofs';
     if (element.kind === 'support') return 'supports';
     if (element.kind === 'obstacle') return 'obstacles';
     if (element.kind === 'opening') return 'openings';

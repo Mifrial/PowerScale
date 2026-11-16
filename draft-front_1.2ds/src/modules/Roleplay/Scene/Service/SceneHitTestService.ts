@@ -11,6 +11,7 @@ import {
   type SceneWorldFootprint,
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
+import { isSceneRoof } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 
 /**
  * CPU-hit-test по геометрии активного поля.
@@ -45,8 +46,15 @@ export class SceneHitTestService {
     const elements = model.elements
       .filter((element) => element.boardId === model.activeBoardId)
       .sort((left, right) => right.sortOrder - left.sortOrder || right.id - left.id);
+    // Крыша накрывает дом целиком, поэтому в очереди она последняя: иначе
+    // клик внутри дома доставал бы накрытие, а не пол и стены под ним.
+    // Достаётся крыша по свесу за стеной или из списка объектов.
+    const ordered = [
+      ...elements.filter((element) => !isSceneRoof(element)),
+      ...elements.filter((element) => isSceneRoof(element)),
+    ];
 
-    return elements.filter((element) =>
+    return ordered.filter((element) =>
       this.contains(element, scenePoint, tolerance, model.resolution, aspectOf?.(element) ?? null),
     );
   }

@@ -29,6 +29,16 @@ export function isSceneDeck(element: SceneHeightElement): boolean {
 }
 
 /**
+ * Крыша — потолок, а не пол.
+ *
+ * Её нельзя считать поверхностью под ногами: иначе высота внутри дома стала бы
+ * высотой крыши, а по самому накрытию пролёг бы маршрут.
+ */
+export function isSceneRoof(element: SceneHeightElement): boolean {
+  return element.kind === 'support' && element.props.kind === 'roof';
+}
+
+/**
  * Глубина воды, единицы сцены.
  *
  * `0` — вода вровень с берегом: так выглядят старые сцены, у которых поля нет.
@@ -101,6 +111,10 @@ export function sceneSurfaceUnder(
       continue;
     }
     if (element.kind !== 'terrain' && element.kind !== 'support') {
+      continue;
+    }
+    // Крыша висит над полом: поверхностью под ногами она не становится.
+    if (isSceneRoof(element)) {
       continue;
     }
     if (!sceneGeometryService.contains(element.shape, point, 0, sceneRotation(element))) {

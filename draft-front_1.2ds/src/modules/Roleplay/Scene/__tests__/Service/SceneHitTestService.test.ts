@@ -74,6 +74,30 @@ describe('SceneHitTestService', () => {
     expect(service.hits(model(elements), viewport, { x: 500, y: 500 }).map((item) => item.id)).toEqual([3, 2, 1]);
   });
 
+  it('ставит крышу в конец очереди: под накрытием достаётся пол', () => {
+    const floor = element({
+      id: 1,
+      kind: 'terrain',
+      sortOrder: 0,
+      shape: { type: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      props: { kind: 'dirt' },
+    });
+    const roof = element({
+      id: 2,
+      kind: 'support',
+      sortOrder: 9,
+      shape: { type: 'rect', x: -20, y: -20, w: 140, h: 140 },
+      props: { kind: 'roof', elevation: 128 },
+    });
+
+    const ids = service.hits(model([floor, roof]), viewport, { x: 500, y: 500 }).map((item) => item.id);
+
+    expect(ids).toEqual([1, 2]);
+    // Свес за стеной — единственное место, где крыша достаётся кликом:
+    // экранная точка (440,440) — это сцена (-10,-10), уже вне пола.
+    expect(service.hit(model([floor, roof]), viewport, { x: 440, y: 440 })?.id).toBe(2);
+  });
+
   it('selects decor by its footprint and silhouette, not only by the anchor', () => {
     const tree = element({
       id: 7,

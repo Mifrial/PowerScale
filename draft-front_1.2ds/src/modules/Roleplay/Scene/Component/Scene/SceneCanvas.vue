@@ -42,6 +42,8 @@ const props = withDefaults(
     wallWidth?: number;
     /** Пользовательская настройка анимации воды. */
     waterAnimation?: boolean;
+    /** Крыши скрыты: тумблер обзора в редакторе и на карте. */
+    roofsHidden?: boolean;
     /** Акторы предпросмотра: позиции и выделение приходят снаружи. */
     actors?: SceneActor[];
     /** Выбранный актор; от него считается туман и радиус обзора. */
@@ -61,6 +63,7 @@ const props = withDefaults(
     pathWidth: 256,
     wallWidth: 16,
     waterAnimation: true,
+    roofsHidden: false,
     actors: () => [],
     selectedActorId: null,
     route: null,
@@ -284,6 +287,7 @@ onMounted(async () => {
   sceneRenderer.setViewport(viewport);
   await sceneRenderer.setScene(props.model);
   sceneRenderer.setWaterAnimation(props.waterAnimation);
+  sceneRenderer.setRoofsHidden(props.roofsHidden);
   sceneRenderer.setSelection(props.model.selection);
   sceneRenderer.setActors(props.actors ?? []);
   sceneRenderer.setRoute(props.route ?? null);
@@ -385,6 +389,13 @@ watch(
   () => props.waterAnimation,
   (enabled) => {
     renderer?.setWaterAnimation(enabled);
+  },
+);
+
+watch(
+  () => props.roofsHidden,
+  (hidden) => {
+    renderer?.setRoofsHidden(hidden);
   },
 );
 

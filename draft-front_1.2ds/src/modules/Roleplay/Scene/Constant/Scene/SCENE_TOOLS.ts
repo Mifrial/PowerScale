@@ -92,6 +92,16 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     props: { kind: 'ramp', height: 16, elevation: 48, speed: 150 },
   },
   {
+    id: 'roof',
+    label: 'Крыша',
+    icon: 'mdi-home-roof',
+    kind: 'support',
+    shapeType: 'rect',
+    // Единицы сцены при точности 64: накрытие на два ипари над землёй,
+    // толщиной в четверть ипари.
+    props: { kind: 'roof', height: 16, elevation: 128, speed: 100 },
+  },
+  {
     id: 'terrain',
     label: 'Террейн',
     icon: 'mdi-terrain',

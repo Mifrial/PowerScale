@@ -104,6 +104,7 @@ const overlay = computed<SceneOverlay | null>(() =>
     : null,
 );
 const waterAnimation = ref(readWaterAnimation());
+const roofsHidden = ref(readRoofsHidden());
 
 const draft = state.draft;
 const selection = state.selection;
@@ -1322,6 +1323,22 @@ function setWaterAnimation(value: boolean | null): void {
   window.localStorage.setItem(WATER_ANIMATION_KEY, waterAnimation.value ? '1' : '0');
 }
 
+const ROOFS_HIDDEN_KEY = 'scene.roofsHidden';
+
+/** Крыши — настройка обзора: по умолчанию видны. */
+function readRoofsHidden(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) === '1';
+}
+
+function setRoofsShown(value: boolean | null): void {
+  roofsHidden.value = value !== true;
+  window.localStorage.setItem(ROOFS_HIDDEN_KEY, roofsHidden.value ? '1' : '0');
+}
+
 function onBeforeUnload(event: BeforeUnloadEvent): void {
   if (!isDirty.value) return;
 
@@ -1432,6 +1449,7 @@ function messageOf(exception: unknown): string {
           :path-width="pathWidth"
           :wall-width="wallWidth"
           :water-animation="waterAnimation"
+          :roofs-hidden="roofsHidden"
           :interactive="!preview"
           :overlay="overlay"
           :actors="previewActorList"
@@ -1497,6 +1515,15 @@ function messageOf(exception: unknown): string {
               />
             </template>
           </v-tooltip>
+          <v-switch
+            :model-value="!roofsHidden"
+            label="Крыши"
+            density="compact"
+            hide-details
+            color="primary"
+            class="scene-editor__water-switch"
+            @update:model-value="setRoofsShown"
+          />
           <v-switch
             v-if="preview"
             :model-value="waterAnimation"

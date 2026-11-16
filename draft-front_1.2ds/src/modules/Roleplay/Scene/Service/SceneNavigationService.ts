@@ -32,6 +32,7 @@ import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeom
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import {
   isSceneDeck,
+  isSceneRoof,
   sceneDeckClearance,
   sceneRampSlope,
   sceneSlopeElevation,
@@ -466,6 +467,11 @@ export class SceneNavigationService {
       }
 
       if (element.kind === 'terrain' || element.kind === 'support') {
+        // Крыша — потолок, а не пол: по ней не ходят, поверхности она не даёт.
+        if (isSceneRoof(element)) {
+          continue;
+        }
+
         const speed = this.speedOf(element);
         const elevation = sceneSurfaceElevation(element);
         const deck = isSceneDeck(element);

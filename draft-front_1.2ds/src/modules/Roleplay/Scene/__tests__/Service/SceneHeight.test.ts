@@ -117,6 +117,25 @@ describe('SceneHeight', () => {
     expect(sceneDeckClearance(deck, [grass, water, deck], RESOLUTION)).toBe(80);
   });
 
+  it('крыша не становится поверхностью под ногами', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const floor = element(2, 'terrain', { type: 'rect', x: 100, y: 100, w: 400, h: 400 }, { kind: 'dirt' });
+    const roof = element(
+      3,
+      'support',
+      { type: 'rect', x: 80, y: 80, w: 440, h: 440 },
+      {
+        kind: 'roof',
+        elevation: 128,
+        height: 16,
+      },
+    );
+
+    // Накрытие висит над полом: высота под ним — пол, а не крыша.
+    expect(sceneSurfaceUnder([200, 200], [grass, floor, roof], RESOLUTION)).toBe(0);
+    expect(sceneSurfaceUnder([200, 200], [grass, floor], RESOLUTION)).toBe(0);
+  });
+
   it('считает наклон съезда вдоль длинной стороны', () => {
     const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
     const ramp = element(
