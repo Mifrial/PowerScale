@@ -104,7 +104,7 @@ const emit = defineEmits<{
   removeVertex: [elementId: number, index: number, part: SceneVertexPart];
   editStart: [];
   editEnd: [];
-  point: [point: ScenePoint, under: boolean, at: ScenePoint];
+  point: [point: ScenePoint, under: boolean, at: ScenePoint, boardId: number];
   level: [level: number];
   pick: [scope: 'room' | 'building', point: ScenePoint];
   building: [elementId: number];
@@ -1237,18 +1237,23 @@ function onPointerUp(event: PointerEvent): void {
   }
 
   if (gesture === 'pan' && !props.interactive && !panMoved && viewport !== null) {
-    const hit = sceneHitTestService.hit(
-      props.model,
-      localViewport() ?? viewport,
-      screenPointOf(event),
-      8,
-      (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
-    );
-    applySelection(hit === null ? [] : [hit.id]);
-    const point = scenePointOf(event);
-    if (point !== null) {
+    const target = previewTarget(event);
+    // Выделение элемента живёт на активном поле: клик по другому этажу не
+    // должен выбирать то, что на активном оказалось под той же точкой экрана.
+    if (target !== null && target.boardId === props.model.activeBoardId) {
+      const hit = sceneHitTestService.hit(
+        props.model,
+        localViewport() ?? viewport,
+        screenPointOf(event),
+        8,
+        (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
+      );
+      applySelection(hit === null ? [] : [hit.id]);
+    }
+
+    if (target !== null) {
       const at = screenPointOf(event);
-      emit('point', point, event.altKey, [at.x, at.y]);
+      emit('point', target.point, event.altKey, [at.x, at.y], target.boardId);
     }
   }
 
@@ -1315,6 +1320,33 @@ function screenPointOf(event: PointerEvent | WheelEvent | MouseEvent): { x: numb
   const rect = host.value?.getBoundingClientRect();
 
   return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
+}
+
+/**
+ * Поле и точка под курсором в предпросмотре.
+ *
+ * Клик может прийтись на видимый нижний или верхний этаж: берётся верхний
+ * нарисованный этаж, накрывающий точку. Инструменты редактора этим не
+ * пользуются — они работают в координатах активного поля.
+ */
+function previewTarget(event: PointerEvent | MouseEvent): { point: ScenePoint; boardId: number } | null {
+  if (viewport === null) return null;
+
+  const world = sceneViewportService.screenToScene(viewport, screenPointOf(event));
+  const plan = sceneFloorPlanService.plan(props.model);
+  for (let index = plan.floors.length - 1; index >= 0; index -= 1) {
+    const floor = plan.floors[index];
+    const local = sceneFloorPlanService.toLocal(floor.transform, world);
+    if (local[0] < 0 || local[1] < 0 || local[0] > floor.board.boundWidth || local[1] > floor.board.boundHeight) {
+      continue;
+    }
+
+    return { point: local, boardId: floor.boardId };
+  }
+
+  const fallback = scenePointOf(event);
+
+  return fallback === null ? null : { point: fallback, boardId: props.model.activeBoardId };
 }
 
 /**

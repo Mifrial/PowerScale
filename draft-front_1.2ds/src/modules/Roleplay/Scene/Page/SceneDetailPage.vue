@@ -66,9 +66,6 @@ const {
   resolution: () => scene.value?.resolution ?? 64,
   boards: () => scene.value?.boards ?? [],
   enclosures: () => scene.value?.enclosures ?? [],
-  switchBoard: (boardId) => {
-    activeBoardId.value = boardId;
-  },
 });
 const model = computed<SceneRenderModel>(() => ({
   activeBoardId: activeBoardId.value ?? 0,

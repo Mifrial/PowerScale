@@ -66,6 +66,8 @@ export interface SceneNavRegion {
 
 /** Навигационная сетка поля. */
 export interface SceneNavMesh {
+  /** Поле, по которому построена сетка. */
+  boardId: number;
   triangles: SceneNavTriangle[];
   regions: SceneNavRegion[];
   /** Радиус, под который построена сетка. */
@@ -79,6 +81,8 @@ export interface SceneNavMesh {
 
 /** Участок маршрута на одном уровне. */
 export interface SceneNavSegment {
+  /** Поле, в координатах которого заданы точки участка. */
+  boardId: number;
   level: number;
   /** Высота уровня над нулём поля, единицы сцены. */
   elevation: number;

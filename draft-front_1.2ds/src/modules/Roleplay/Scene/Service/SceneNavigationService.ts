@@ -165,9 +165,11 @@ class MinHeap {
  * у навигации своя геометрия и явные скорости элементов.
  */
 export class SceneNavigationService {
-  private cacheKey = '';
-
-  private cache: SceneNavMesh | null = null;
+  /**
+   * Сетки по полям: маршрут через этажи строится сразу по нескольким полям,
+   * поэтому кэш не может быть один.
+   */
+  private readonly caches = new Map<number, { key: string; mesh: SceneNavMesh | null }>();
 
   constructor(private readonly geometry: SceneGeometryService = new SceneGeometryService()) {}
 
@@ -180,14 +182,15 @@ export class SceneNavigationService {
   ): SceneNavMesh | null {
     const agentRadius = Math.max(1, options.agentRadius ?? resolution * SCENE_NAVIGATION.agentRadiusIpari);
     const key = this.cacheKeyOf(board, elements, resolution, agentRadius);
-    if (key === this.cacheKey) {
-      return this.cache;
+    const cached = this.caches.get(board.id);
+    if (cached !== undefined && cached.key === key) {
+      return cached.mesh;
     }
 
-    this.cacheKey = key;
-    this.cache = this.buildNow(board, elements, resolution, agentRadius);
+    const mesh = this.buildNow(board, elements, resolution, agentRadius);
+    this.caches.set(board.id, { key, mesh });
 
-    return this.cache;
+    return mesh;
   }
 
   /** Строит маршрут между точками активного поля. */
@@ -343,7 +346,14 @@ export class SceneNavigationService {
         const covered = mesh.regions.some((region) => region.level > level && this.regionContains(region, mid));
         if (current === null || current.covered !== covered) {
           const first = segments.length === 0;
-          current = { level, elevation, covered, transition: first ? transition : null, points: [a, b] };
+          current = {
+            boardId: mesh.boardId,
+            level,
+            elevation,
+            covered,
+            transition: first ? transition : null,
+            points: [a, b],
+          };
           segments.push(current);
         } else {
           current.points.push(b);
@@ -377,6 +387,7 @@ export class SceneNavigationService {
     const maxSpeed = Math.max(...regions.map((region) => region.speed));
 
     return {
+      boardId: board.id,
       triangles,
       regions,
       agentRadius,

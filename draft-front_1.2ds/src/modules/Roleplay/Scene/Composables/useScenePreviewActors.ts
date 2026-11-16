@@ -7,6 +7,7 @@ import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePreviewActor';
+import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
@@ -14,7 +15,8 @@ import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PRE
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { sceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/Instance/sceneFloorPlanService';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
-import { ScenePortalService, type ScenePortal } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
+import { ScenePortalService } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
+import { SceneRouteService } from '@/modules/Roleplay/Scene/Service/SceneRouteService';
 import {
   SceneSurfaceService,
   surfaceIndex,
@@ -29,12 +31,10 @@ export interface ScenePreviewActorOptions {
   board: () => SceneBoard | null;
   elements: () => SceneElement[];
   resolution: () => number;
-  /** Все поля локации: переходу нужно целевое поле. */
+  /** Все поля локации: маршрут через этажи идёт по нескольким полям. */
   boards: () => SceneBoard[];
   /** Вложения полей: по ним точка переносится между полями. */
   enclosures: () => SceneEnclosure[];
-  /** Переключить активное поле. */
-  switchBoard: (boardId: number) => void;
 }
 
 /** Состояние движения по полилинии. */
@@ -44,6 +44,8 @@ interface Motion {
   lengths: number[];
   /** Уровень каждого отрезка: 0 — земля, больше — настил. */
   levels: number[];
+  /** Поле каждого отрезка: на стыке этажей меняется. */
+  boardIds: number[];
   total: number;
   traveled: number;
   lastTime: number;
@@ -64,18 +66,19 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const route = ref<SceneNavRoute | null>(null);
   const levelMenu = ref<SceneLevelMenu | null>(null);
   let menuPoint: ScenePoint | null = null;
+  let menuBoardId: number | null = null;
   const navigation = new SceneNavigationService();
+  const routes = new SceneRouteService(navigation);
   const surfaces = new SceneSurfaceService();
   const visibility = new SceneVisibilityService();
   const portals = new ScenePortalService();
   // Позиции актора по полям: перешедший на этаж манекен не должен пропадать
   // при смене поля и не должен прыгать к маркеру при возврате.
   const placements = new Map<number, Map<number, ScenePreviewActor>>();
-  // Где актор сейчас: маркер задаёт стартовое поле, портал переносит его на
-  // другое. Актор рисуется только на своём поле, иначе на этаже оставалась бы
-  // его копия с прошлого визита.
+  // Где актор сейчас: маркер задаёт стартовое поле, маршрут через этажи
+  // переносит его на другое. Актор рисуется только на своём поле, иначе на
+  // этаже оставалась бы его копия с прошлого визита.
   const actorBoards = new Map<number, number>();
-  let pendingPortal: ScenePortal | null = null;
   let gridKey = '';
   let grid: SceneSurfaceGrid | null = null;
   let motion: Motion | null = null;
@@ -112,8 +115,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
+    // Сетки всех видимых полей: маршрут через этажи идёт с поля актора, а он
+    // может стоять на нижнем этаже, пока фокус на верхнем.
     const radius = selectedActor.value?.radius ?? Math.max(1, options.resolution() * SCENE_ACTOR.radiusIpari);
-    navigation.build(board, options.elements(), options.resolution(), { agentRadius: radius });
+    for (const visible of visibleBoards(board, options.resolution())) {
+      navigation.build(visible, options.elements(), options.resolution(), { agentRadius: radius });
+    }
   }
 
   /**
@@ -126,7 +133,6 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   function syncFromScene(): void {
     stopMotion();
     route.value = null;
-    pendingPortal = null;
     if (!options.enabled()) {
       actors.value = [];
       selectedId.value = null;
@@ -283,7 +289,6 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     selectedId.value = id;
     stopMotion();
     route.value = null;
-    pendingPortal = null;
     actors.value = actors.value.map((actor) => ({
       ...actor,
       selected: actor.id === id,
@@ -316,15 +321,14 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   /**
    * Актор под точкой; призраки тоже кликабельны.
    *
-   * Точка — в координатах активного поля, поэтому чужие этажи не участвуют:
-   * клик по видимому соседнему этажу — задача маршрутов через этажи (F2).
+   * Точка — в координатах того поля, по которому кликнули, поэтому актор
+   * ищется только на нём: соседний этаж кликается своей точкой.
    */
-  function actorAt(point: ScenePoint): ScenePreviewActor | null {
+  function actorAt(point: ScenePoint, boardId: number): ScenePreviewActor | null {
     let best: ScenePreviewActor | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
-    const activeBoardId = options.board()?.id;
     for (const actor of actors.value) {
-      if (actor.boardId !== activeBoardId) {
+      if ((actor.boardId ?? boardId) !== boardId) {
         continue;
       }
 
@@ -338,51 +342,48 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     return best;
   }
 
-  /** Клик: выбрать актора, отправить по земле (Alt) или показать выбор уровня. */
-  function onMapClick(point: ScenePoint, under = false, at?: ScenePoint): void {
+  /**
+   * Клик: выбрать актора, отправить по земле (Alt) или показать выбор уровня.
+   *
+   * Клик приходит с полем, по которому он сделан: видимые этажи кликаются
+   * своими координатами, а маршрут между полями строит `SceneRouteService`.
+   */
+  function onMapClick(point: ScenePoint, under = false, at?: ScenePoint, boardId?: number): void {
     levelMenu.value = null;
     menuPoint = null;
+    menuBoardId = null;
 
-    const actor = actorAt(point);
+    const active = options.board();
+    const targetId = boardId ?? active?.id ?? 0;
+    const target = options.boards().find((item) => item.id === targetId) ?? null;
+    const actor = actorAt(point, targetId);
     const selected = selectedActor.value;
-    const board = options.board();
 
-    // Alt — всегда по земле, мимо порталов: дверь на этаж не должна
-    // перехватывать обычный проход под ней.
+    // Alt — всегда по земле целевого поля, мимо площадок: дверь на этаж не
+    // должна перехватывать обычный проход под ней.
     if (under) {
       if (actor !== null) {
         select(actor.id);
 
         return;
       }
-      if (selected !== null && board !== null) {
-        moveTo(point, 0);
+      if (selected !== null) {
+        moveTo(targetId, point, 0);
       }
 
       return;
     }
 
-    // Площадка лестницы — дверь на другой этаж. Клик по ней ведёт к
-    // площадке, а по прибытии актор переходит на парную площадку. Стоящего
-    // на площадке актора портал забирает сразу: иначе клик по нему выбирал бы
-    // манекен и обратный переход был бы недоступен.
-    const selectedHere =
-      selected !== null && board !== null && (selected.boardId ?? board.id) === board.id ? selected : null;
-    if (selectedHere !== null && board !== null) {
+    // Площадка лестницы — дверь на другой этаж. Клик по ней только ведёт к
+    // ней: переносить актора на другое поле без шага нельзя. Дальше клик по
+    // цели на другом этаже строит маршрут через площадку.
+    if (selected !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
-      const portal = portals.portalAt(options.elements(), board.id, point, tolerance);
-      if (portal !== null && (actor === null || actor.id === selectedHere.id)) {
-        const standing = portals.portalAt(options.elements(), board.id, [selectedHere.x, selectedHere.y], tolerance);
-        if (standing !== null && standing.opening.id === portal.opening.id) {
-          cross(portal);
+      const portal = portals.portalAt(options.elements(), targetId, point, tolerance);
+      if (portal !== null && (actor === null || actor.id === selected.id)) {
+        moveTo(targetId, portal.center);
 
-          return;
-        }
-        if (moveTo(portal.center)) {
-          pendingPortal = portal;
-
-          return;
-        }
+        return;
       }
     }
 
@@ -392,20 +393,22 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    if (selected === null || board === null) {
+    if (selected === null || target === null) {
       return;
     }
 
-    const mesh = navigation.build(board, options.elements(), options.resolution(), { agentRadius: selected.radius });
+    const mesh = navigation.build(target, options.elements(), options.resolution(), {
+      agentRadius: selected.radius,
+    });
     if (mesh === null) {
-      moveTo(point);
+      moveTo(targetId, point);
 
       return;
     }
 
     const levels = navigation.levelsAt(mesh, point);
     if (levels.length === 0) {
-      moveTo(point);
+      moveTo(targetId, point);
 
       return;
     }
@@ -413,11 +416,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const choices = levels
       .map((level) => ({
         ...level,
-        route: navigation.routeOn(mesh, [selected.x, selected.y], point, {
-          agentRadius: selected.radius,
-          fromLevel: selected.level ?? 0,
-          toLevel: level.level,
-        }),
+        route: buildRoute(targetId, point, level.level),
       }))
       .filter((choice) => choice.route !== null);
     if (choices.length === 0) {
@@ -433,6 +432,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     menuPoint = point;
+    menuBoardId = targetId;
     levelMenu.value = {
       x: at?.[0] ?? 0,
       y: at?.[1] ?? 0,
@@ -448,22 +448,58 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     };
   }
 
-  /** Маршрут выбранного актора и анимация движения. */
-  function moveTo(point: ScenePoint, level?: number): boolean {
+  /**
+   * Модель рендера для маршрутизатора: поля, вложения и элементы.
+   *
+   * @returns Модель без выделения: маршруту оно не нужно.
+   */
+  function routeModel(): SceneRenderModel {
+    return {
+      activeBoardId: options.board()?.id ?? 0,
+      resolution: options.resolution(),
+      boards: options.boards(),
+      elements: options.elements(),
+      enclosures: options.enclosures(),
+      selection: [],
+      mode: 'preview',
+    };
+  }
+
+  /**
+   * Маршрут выбранного актора до точки на поле.
+   *
+   * @param boardId Поле цели.
+   * @param point Точка в координатах цели.
+   * @param level Уровень поверхности; без него — верхний.
+   *
+   * @returns Маршрут или null, если пути нет.
+   */
+  function buildRoute(boardId: number, point: ScenePoint, level?: number): SceneNavRoute | null {
     const actor = selectedActor.value;
-    const board = options.board();
-    // Маршрут строится по активному полю: актор с другого этажа им не ходит.
-    if (actor === null || board === null || (actor.boardId ?? board.id) !== board.id) {
+    if (actor === null) {
+      return null;
+    }
+
+    return routes.route(
+      routeModel(),
+      {
+        boardId: actor.boardId ?? options.board()?.id ?? boardId,
+        point: [actor.x, actor.y],
+        level: actor.level ?? 0,
+      },
+      { boardId, point, level },
+      { agentRadius: actor.radius },
+    );
+  }
+
+  /** Маршрут выбранного актора и анимация движения. */
+  function moveTo(boardId: number, point: ScenePoint, level?: number): boolean {
+    const actor = selectedActor.value;
+    if (actor === null) {
       return false;
     }
 
-    pendingPortal = null;
-
-    const result = navigation.route(board, options.elements(), options.resolution(), [actor.x, actor.y], point, {
-      agentRadius: actor.radius,
-      fromLevel: actor.level ?? 0,
-      toLevel: level,
-    });
+    const result = buildRoute(boardId, point, level);
     if (result === null || result.points.length < 2) {
       return false;
     }
@@ -473,62 +509,15 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     return true;
   }
 
-  /**
-   * Переход на другое поле через проём.
-   *
-   * Точка проёма переносится пятном вложения в координаты целевого поля; на
-   * нём ищется парный проём, ведущий назад. Манекен встаёт у парного проёма,
-   * чтобы сразу было видно, где он оказался.
-   */
-  function cross(portal: ScenePortal): void {
-    const actor = selectedActor.value;
-    const source = options.board();
-    if (actor === null || source === null) {
-      return;
-    }
-
-    const target = options.boards().find((board) => board.id === portal.targetBoardId);
-    if (target === undefined) {
-      return;
-    }
-
-    const enclosures = options.enclosures();
-    const enclosure =
-      enclosures.find((item) => item.parentBoardId === source.id && item.childBoardId === target.id) ??
-      enclosures.find((item) => item.parentBoardId === target.id && item.childBoardId === source.id);
-    let mapped = portal.center;
-    if (enclosure !== undefined) {
-      const footprint = portals.footprint(enclosure.footprint);
-      if (footprint !== null) {
-        mapped =
-          enclosure.childBoardId === target.id
-            ? portals.toChild(portal.center, footprint, target)
-            : portals.toParent(portal.center, footprint, source);
-      }
-    }
-
-    const pair = portals.paired(options.elements(), target.id, source.id, mapped);
-    const destination = pair === null ? mapped : portals.center(pair);
-    const mesh = navigation.build(target, options.elements(), options.resolution(), {
-      agentRadius: actor.radius,
-    });
-    const levels = mesh === null ? [] : navigation.levelsAt(mesh, destination);
-    const level = levels[0]?.level ?? 0;
-
-    pendingPortal = null;
-    stopMotion();
-    actorBoards.set(actor.id, target.id);
-    setPlacement({ ...actor, x: destination[0], y: destination[1], level }, target.id);
-    options.switchBoard(target.id);
-  }
-
   /** Выбор уровня из меню. */
   function chooseLevel(level: number): void {
     const point = menuPoint;
+    const boardId = menuBoardId;
     levelMenu.value = null;
     menuPoint = null;
-    if (point !== null) {
-      moveTo(point, level);
+    menuBoardId = null;
+    if (point !== null && boardId !== null) {
+      moveTo(boardId, point, level);
     }
   }
 
@@ -536,6 +525,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   function closeLevelMenu(): void {
     levelMenu.value = null;
     menuPoint = null;
+    menuBoardId = null;
   }
 
   /** Ставит маршрут и запускает движение. */
@@ -547,11 +537,16 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   /** Запускает движение по маршруту с уровнями. */
   function startMotion(actorId: number, path: SceneNavRoute): void {
     stopMotion();
-    const { points, levels } = routePath(path);
+    const { points, levels, boardIds } = routePath(path);
     const lengths: number[] = [];
     let total = 0;
     for (let index = 1; index < points.length; index += 1) {
-      const length = Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1]);
+      // Стык этажей — одна точка мира в координатах разных полей: путь между
+      // ними нулевой, иначе актор проехал бы по выдуманной прямой.
+      const length =
+        boardIds[index] === boardIds[index - 1]
+          ? Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1])
+          : 0;
       lengths.push(length);
       total += length;
     }
@@ -560,7 +555,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     const now = performance.now();
-    motion = { actorId, points, lengths, levels, total, traveled: 0, lastTime: now, lastGhostAt: now };
+    motion = { actorId, points, lengths, levels, boardIds, total, traveled: 0, lastTime: now, lastGhostAt: now };
     frame = requestAnimationFrame(step);
   }
 
@@ -570,15 +565,18 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
    * Участки делят общую точку на стыке уровней: для отрезка, выходящего со
    * стыка, берётся уровень следующего участка.
    */
-  function routePath(path: SceneNavRoute): { points: ScenePoint[]; levels: number[] } {
+  function routePath(path: SceneNavRoute): { points: ScenePoint[]; levels: number[]; boardIds: number[] } {
     const points: ScenePoint[] = [];
     const levels: number[] = [];
+    const boardIds: number[] = [];
     for (const segment of path.segments) {
       segment.points.forEach((point, index) => {
         const last = points[points.length - 1];
+        const sameBoard = boardIds[boardIds.length - 1] === segment.boardId;
         if (
           index === 0 &&
           last !== undefined &&
+          sameBoard &&
           Math.hypot(last[0] - point[0], last[1] - point[1]) <= SCENE_NAVIGATION.linkEpsilon
         ) {
           levels[levels.length - 1] = segment.level;
@@ -588,10 +586,11 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
         points.push(point);
         levels.push(segment.level);
+        boardIds.push(segment.boardId);
       });
     }
 
-    return { points, levels };
+    return { points, levels, boardIds };
   }
 
   /** Кадр движения. */
@@ -614,7 +613,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     const { point, facing, index } = sampled;
-    const board = options.board();
+    // Поле берётся у отрезка: на стыке этажей актор меняет поле, а не мир.
+    const boardId = motion.boardIds[index] ?? options.board()?.id ?? 0;
+    const board = options.boards().find((item) => item.id === boardId) ?? null;
     const surface = board === null ? null : surfaceGrid(board);
     const level = motion.levels[index] ?? 0;
     actors.value = actors.value.map((actor) => {
@@ -622,9 +623,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
         return actor;
       }
 
-      const moved: ScenePreviewActor = { ...actor, x: point[0], y: point[1], facing, level };
+      const moved: ScenePreviewActor = { ...actor, boardId, x: point[0], y: point[1], facing, level };
       if (board !== null) {
-        setPlacement(moved, moved.boardId ?? board.id);
+        setPlacement(moved, boardId);
+        actorBoards.set(moved.id, boardId);
       }
 
       return { ...moved, underDeck: surface === null ? false : isUnderDeck(surface, moved) };
@@ -636,12 +638,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     if (motion.traveled >= motion.total) {
-      const portal = pendingPortal;
-      pendingPortal = null;
       stopMotion();
-      if (portal !== null) {
-        cross(portal);
-      }
 
       return;
     }
@@ -675,7 +672,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   /** Обновляет призраков по обзору выбранного актора и признак «под настилом». */
   function updateGhosts(): void {
     const observer = selectedActor.value;
-    const board = options.board();
+    // Обзор строится по полю наблюдателя: он может стоять на нижнем этаже,
+    // пока фокус на верхнем.
+    const board =
+      observer === null
+        ? options.board()
+        : (options.boards().find((item) => item.id === observer.boardId) ?? options.board());
     const surface = board === null || !options.enabled() ? null : surfaceGrid(board);
     const observerPoint: ScenePoint | null = observer === null ? null : [observer.x, observer.y];
     const resolution = Math.max(1, options.resolution());

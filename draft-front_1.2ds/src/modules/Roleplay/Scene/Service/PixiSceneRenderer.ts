@@ -11,7 +11,7 @@ import type {
   SceneOverlayMask,
   SceneOverlayPaint,
 } from '@/modules/Roleplay/Scene/Dto/SceneOverlayPaint';
-import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
+import type { SceneNavRoute, SceneNavSegment } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
@@ -1354,48 +1354,67 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   /** Линия маршрута: над миром и туманом, под ручками редактирования. */
   private drawRoute(): void {
-    const layer = this.layers.route;
-    if (layer === undefined) {
-      return;
+    // Линия маршрута живёт в координатах своего поля: у каждого этажа свой
+    // участок, поэтому чистим слои всех видимых полей.
+    for (const field of this.fields) {
+      const layer = field.layers.route;
+      if (layer === undefined) {
+        continue;
+      }
+
+      layer.mask = null;
+      for (const child of layer.removeChildren()) {
+        child.destroy({ children: true, texture: false, textureSource: false });
+      }
     }
 
-    this.clearLayer('route');
     if (this.route === null || this.route.points.length < 2 || this.isEdit()) {
       return;
     }
 
-    const zoom = Math.max(0.001, this.zoom());
-    const open = new Graphics();
-    const covered = new Graphics();
+    const grouped = new Map<number, SceneNavSegment[]>();
     for (const segment of this.route.segments) {
       if (segment.points.length < 2) {
         continue;
       }
 
-      const target = segment.covered ? covered : open;
-      const first = segment.points[0];
-      target.moveTo(first[0], first[1]);
-      for (const point of segment.points.slice(1)) {
-        target.lineTo(point[0], point[1]);
+      const list = grouped.get(segment.boardId) ?? [];
+      list.push(segment);
+      grouped.set(segment.boardId, list);
+    }
+
+    for (const [boardId, segments] of grouped) {
+      const field = this.fieldOf(boardId);
+      const layer = field?.layers.route;
+      if (field === null || layer === undefined) {
+        continue;
       }
-    }
 
-    // Участок под настилом ведёт по земле: он приглушён и тоньше, чтобы не
-    // читаться как дорога поверх моста.
-    open.stroke({ color: 0x60a5fa, width: 3 / zoom, alpha: 0.85 });
-    covered.stroke({ color: 0x1d4ed8, width: 2 / zoom, alpha: 0.4 });
-    layer.addChild(open);
-    layer.addChild(covered);
+      const zoom = Math.max(0.001, (this.viewport?.zoom ?? 1) * field.scale);
+      const open = new Graphics();
+      const covered = new Graphics();
+      const dots = new Graphics();
+      for (const segment of segments) {
+        const target = segment.covered ? covered : open;
+        const first = segment.points[0];
+        target.moveTo(first[0], first[1]);
+        for (const point of segment.points.slice(1)) {
+          target.lineTo(point[0], point[1]);
+        }
 
-    // Точки стыков: вход на настил и спуск с него.
-    const dots = new Graphics();
-    for (const segment of this.route.segments) {
-      const first = segment.points[0];
-      const last = segment.points[segment.points.length - 1];
-      dots.circle(first[0], first[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
-      dots.circle(last[0], last[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+        const last = segment.points[segment.points.length - 1];
+        dots.circle(first[0], first[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+        dots.circle(last[0], last[1], 2.5 / zoom).fill({ color: 0xbfdbfe, alpha: 0.95 });
+      }
+
+      // Участок под настилом ведёт по земле: он приглушён и тоньше, чтобы не
+      // читаться как дорога поверх моста.
+      open.stroke({ color: 0x60a5fa, width: 3 / zoom, alpha: 0.85 });
+      covered.stroke({ color: 0x1d4ed8, width: 2 / zoom, alpha: 0.4 });
+      layer.addChild(open);
+      layer.addChild(covered);
+      layer.addChild(dots);
     }
-    layer.addChild(dots);
   }
 
   /**
