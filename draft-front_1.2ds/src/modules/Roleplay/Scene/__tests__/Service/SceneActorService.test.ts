@@ -57,4 +57,12 @@ describe('SceneActorService', () => {
     service.update(painted, actor({ facing: 0 }), 1);
     expect(painted.sprite.scale.x).toBeGreaterThan(0);
   });
+
+  it('прячет актора за перекрытием чужого этажа', () => {
+    const painted = service.paint(actor({ hidden: true }), 64, 1);
+
+    expect(painted.node.visible).toBe(false);
+    service.update(painted, actor(), 64);
+    expect(painted.node.visible).toBe(true);
+  });
 });

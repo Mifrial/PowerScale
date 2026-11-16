@@ -71,6 +71,9 @@ export class SceneActorService {
   /** Обновляет позицию, поворот стрелки, кольцо под зум и отражение стендалки. */
   update(painted: SceneActorPaint, actor: SceneActor, zoom: number): void {
     painted.node.position.set(actor.x, actor.y);
+    // Скрытый перекрытием чужого этажа актор не рисуется, но остаётся в
+    // списке: панель акторов и выбор ведущего его не теряют.
+    painted.node.visible = actor.hidden !== true;
     painted.arrow.rotation = (actor.facing * Math.PI) / 180;
     // Смотрит влево — отражаем стендалку; кольцо и стрелка показывают точный угол.
     const looksLeft = actor.facing > 90 && actor.facing < 270;

@@ -3506,8 +3506,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 35863,
-            "lines": 151,
+            "bytes": 36774,
+            "lines": 152,
             "modules": [],
             "linksCount": 20,
             "brokenLinks": [],
@@ -7960,15 +7960,15 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-16 — F0 (данные и канон), F1 (один мир) и",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-16 — F0 (данные и канон), F1 (один мир),",
             "layers": [
                 "PHP",
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-16",
-            "bytes": 32138,
-            "lines": 328,
+            "bytes": 32926,
+            "lines": 336,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7996,8 +7996,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-16",
-            "bytes": 63953,
-            "lines": 689,
+            "bytes": 64414,
+            "lines": 692,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8030,8 +8030,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-16",
-            "bytes": 58150,
-            "lines": 659,
+            "bytes": 59764,
+            "lines": 673,
             "modules": [
                 "Roleplay/Scene"
             ],

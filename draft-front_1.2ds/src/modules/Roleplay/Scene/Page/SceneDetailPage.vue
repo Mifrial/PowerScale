@@ -66,6 +66,7 @@ const {
   resolution: () => scene.value?.resolution ?? 64,
   boards: () => scene.value?.boards ?? [],
   enclosures: () => scene.value?.enclosures ?? [],
+  slabCutaway: () => true,
 });
 const model = computed<SceneRenderModel>(() => ({
   activeBoardId: activeBoardId.value ?? 0,

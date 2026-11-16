@@ -146,6 +146,7 @@ const {
   resolution: () => draft.value.resolution,
   boards: () => viewBoards.value,
   enclosures: () => viewEnclosures.value,
+  slabCutaway: () => !preview.value,
 });
 const boardTerrainKind = computed<string | null>(() => {
   const board = activeBoard.value;

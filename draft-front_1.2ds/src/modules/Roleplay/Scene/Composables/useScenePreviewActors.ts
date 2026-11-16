@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
@@ -10,10 +11,15 @@ import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePrevie
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import { SCENE_ACTOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ACTOR';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_PREVIEW } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_PREVIEW';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
 import { sceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/Instance/sceneFloorPlanService';
+import {
+  SceneFloorSightService,
+  type SceneFloorSightScene,
+} from '@/modules/Roleplay/Scene/Service/SceneFloorSightService';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 import { ScenePortalService } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
 import { SceneRouteService } from '@/modules/Roleplay/Scene/Service/SceneRouteService';
@@ -35,6 +41,8 @@ export interface ScenePreviewActorOptions {
   boards: () => SceneBoard[];
   /** Вложения полей: по ним точка переносится между полями. */
   enclosures: () => SceneEnclosure[];
+  /** Плита фокуса полупрозрачна: нижний этаж показан планом, а не перекрытием. */
+  slabCutaway?: () => boolean;
 }
 
 /** Состояние движения по полилинии. */
@@ -71,6 +79,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const routes = new SceneRouteService(navigation);
   const surfaces = new SceneSurfaceService();
   const visibility = new SceneVisibilityService();
+  const floorSight = new SceneFloorSightService();
   const portals = new ScenePortalService();
   // Позиции актора по полям: перешедший на этаж манекен не должен пропадать
   // при смене поля и не должен прыгать к маркеру при возврате.
@@ -81,6 +90,8 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const actorBoards = new Map<number, number>();
   let gridKey = '';
   let grid: SceneSurfaceGrid | null = null;
+  let sightKey = '';
+  let sight: SceneFloorSightScene | null = null;
   let motion: Motion | null = null;
   let frame = 0;
   // Где стоял маркер при прошлой сборке: так видно, переставили ли маркер,
@@ -204,6 +215,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           label: element.props.label || (role === 'player_start' ? 'Манекен' : 'Токен'),
           selected: element.id === selectedId.value,
           ghost: old?.ghost ?? false,
+          hidden: false,
           level: placed?.level ?? (markerMoved ? markerLevel(visibleBoard, point) : (old?.level ?? 0)),
           underDeck: old?.underDeck ?? false,
           sightRadius:
@@ -328,6 +340,11 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     let best: ScenePreviewActor | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const actor of actors.value) {
+      // Скрытый за плитой или стеной актор не ловится кликом: его не видно.
+      if (actor.hidden === true) {
+        continue;
+      }
+
       if ((actor.boardId ?? boardId) !== boardId) {
         continue;
       }
@@ -682,16 +699,42 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const observerPoint: ScenePoint | null = observer === null ? null : [observer.x, observer.y];
     const resolution = Math.max(1, options.resolution());
     const body = sceneBodyHeight(resolution);
+    const observerBoardId = observer?.boardId ?? board?.id ?? null;
+    const scene = observer === null ? null : floorSightScene();
+    // В разрезе плита полупрозрачна: нижний этаж виден планом, и его акторы не
+    // прячутся за перекрытием. Без разреза плита — настоящая преграда.
+    const slabs = !(options.slabCutaway?.() ?? true);
+    const cut = slabs ? undefined : cutFloor();
     actors.value = actors.value.map((actor) => {
-      // Призраки и «под настилом» считаются только на этаже наблюдателя:
-      // чужие этажи видны как есть, без взаимного невидения.
-      if (observer !== null && actor.boardId !== observer.boardId) {
-        return { ...actor, ghost: false, underDeck: false };
+      // Призраки — только на этаже наблюдателя: взаимного «невидения» между
+      // NPC на одном этаже нет, а чужие этажи либо видны через проём, либо
+      // скрыты плитой или стеной. Призрак — это «скрыт от наблюдателя, но
+      // виден ведущему»; на другом этаже он просто не виден.
+      if (observer !== null && observerBoardId !== null && (actor.boardId ?? observerBoardId) !== observerBoardId) {
+        const visible =
+          scene === null || observerPoint === null
+            ? true
+            : floorSight.sees(
+                scene,
+                {
+                  boardId: observerBoardId,
+                  point: observerPoint,
+                  height: observer.height ?? body,
+                },
+                {
+                  boardId: actor.boardId ?? observerBoardId,
+                  point: [actor.x, actor.y],
+                  height: actor.height ?? body,
+                },
+                { slabs, cut },
+              );
+
+        return { ...actor, ghost: false, hidden: !visible, underDeck: false };
       }
 
       const under = surface === null ? false : isUnderDeck(surface, actor);
       if (observer === null || observerPoint === null || surface === null || actor.id === observer.id) {
-        return { ...actor, ghost: false, underDeck: under };
+        return { ...actor, ghost: false, hidden: false, underDeck: under };
       }
 
       const distance = Math.hypot(actor.x - observer.x, actor.y - observer.y);
@@ -709,7 +752,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           actor.level ?? 0,
         );
 
-      return { ...actor, ghost: !visible, underDeck: under };
+      return { ...actor, ghost: !visible, hidden: false, underDeck: under };
     });
   }
 
@@ -771,6 +814,102 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     return grid;
+  }
+
+  /**
+   * Препятствия этажей для межэтажного луча, с кэшем.
+   *
+   * Ключ — только элементы, которые перекрывают взгляд: террейн, стены и
+   * проёмы. Декор и маркеры на видимость между этажами не влияют, поэтому их
+   * правки не пересобирают сцену.
+   */
+  function floorSightScene(): SceneFloorSightScene | null {
+    const boards = options.boards();
+    if (boards.length === 0) {
+      return null;
+    }
+
+    const resolution = options.resolution();
+    const key = [
+      resolution,
+      boards.map((board) => `${board.id}:${board.boundWidth}:${board.boundHeight}`).join(','),
+      options
+        .enclosures()
+        .map((item) => `${item.parentBoardId}:${item.childBoardId}:${item.elevation}:${JSON.stringify(item.footprint)}`)
+        .join(','),
+      options
+        .elements()
+        .filter((element) => element.kind === 'terrain' || element.kind === 'obstacle' || element.kind === 'opening')
+        .map((element) =>
+          [
+            element.boardId,
+            element.id,
+            element.kind,
+            element.targetBoardId ?? '',
+            element.props.kind ?? '',
+            element.props.blocksVision ?? '',
+            JSON.stringify(element.shape),
+          ].join(':'),
+        )
+        .join(','),
+    ].join('|');
+
+    if (sight === null || sightKey !== key) {
+      sight = floorSight.scene({
+        activeBoardId: options.board()?.id ?? boards[0]?.id ?? 0,
+        resolution,
+        boards,
+        elements: options.elements(),
+        enclosures: options.enclosures(),
+        selection: [],
+        mode: 'preview',
+      });
+      sightKey = key;
+    }
+
+    return sight;
+  }
+
+  /**
+   * Пятно разреза: этаж под плитой фокуса и его границы в мире корня.
+   *
+   * Рисунок срезает стены этого этажа под плитой с запасом, поэтому и взгляд
+   * сквозь них проходит. Границы нужны, чтобы не срезать забор во дворе:
+   * снаружи пятна стены остаются.
+   */
+  function cutFloor(): { boardId: number; bounds: SceneBounds } | undefined {
+    const board = options.board();
+    if (board === null) {
+      return undefined;
+    }
+
+    const resolution = options.resolution();
+    const plan = sceneFloorPlanService.plan({
+      activeBoardId: board.id,
+      resolution,
+      boards: options.boards(),
+      elements: options.elements(),
+      enclosures: options.enclosures(),
+      selection: [],
+      mode: 'preview',
+    });
+    const below = plan.floors.find((floor) => floor.underCut);
+    const active = plan.floors.find((floor) => floor.active);
+    if (below === undefined || active === undefined) {
+      return undefined;
+    }
+
+    const margin = resolution * SCENE_FLOOR.cutMarginIpari;
+
+    return {
+      boardId: below.boardId,
+      bounds: {
+        x: active.transform.x - margin,
+        y: active.transform.y - margin,
+        width: active.board.boundWidth * active.transform.scaleX + margin * 2,
+        height: active.board.boundHeight * active.transform.scaleY + margin * 2,
+      },
+    };
   }
 
   /** Останавливает анимацию. */
