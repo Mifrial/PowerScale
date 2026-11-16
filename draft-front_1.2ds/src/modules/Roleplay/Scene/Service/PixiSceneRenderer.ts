@@ -882,9 +882,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
           left.id - right.id,
       );
     for (const element of elements) {
-      if (element.kind !== 'terrain' && element.kind !== 'decor' && !this.isGroundDeck(element)) {
-        this.drawElement(element, openings);
+      if (
+        element.kind === 'terrain' ||
+        element.kind === 'decor' ||
+        this.isGroundDeck(element) ||
+        this.isFloorOpening(element)
+      ) {
+        continue;
       }
+      this.drawElement(element, openings);
     }
 
     this.drawWallJoints(elements, board.id);
@@ -943,6 +949,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
         ground.addChild(painted);
       }
     }
+
+    this.drawFloorOpenings(board.id, ground);
 
     // Трава сеется только по террейну, но настил обязан её перекрывать:
     // иначе пучки растут прямо на досках. Трава идёт первой, чтобы более
@@ -1668,6 +1676,25 @@ export class PixiSceneRenderer implements ISceneRenderer {
     );
   }
 
+  /** Проём в полу: площадка перехода или лестничный колодец. */
+  private isFloorOpening(element: SceneElement): boolean {
+    return element.kind === 'opening' && element.shape.type === 'rect';
+  }
+
+  /** Проёмы в полу ложатся поверх настилов: площадка не должна тонуть в ступенях. */
+  private drawFloorOpenings(boardId: number, layer: Container | undefined): void {
+    if (layer === undefined || this.model === null) {
+      return;
+    }
+
+    const zoom = this.zoom();
+    for (const element of this.model.elements) {
+      if (element.boardId === boardId && this.isFloorOpening(element)) {
+        layer.addChild(this.painter.paintElement(element, zoom));
+      }
+    }
+  }
+
   /**
    * Родитель и область вложения для поля-этажа.
    *
@@ -1771,7 +1798,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     const openings = elements.filter((element) => element.kind === 'opening');
     for (const element of elements) {
-      if (element.kind === 'terrain' || element.kind === 'decor') {
+      if (element.kind === 'terrain' || element.kind === 'decor' || this.isFloorOpening(element)) {
         continue;
       }
       if (this.isGroundDeck(element)) {
@@ -1783,6 +1810,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
       this.drawElement(element, openings);
     }
+    this.drawFloorOpenings(context.parent.id, this.contextLayers.ground);
     this.drawWallJoints(elements, context.parent.id);
 
     const water = elements.filter((element) => element.kind === 'terrain' && element.props.kind === 'water');
