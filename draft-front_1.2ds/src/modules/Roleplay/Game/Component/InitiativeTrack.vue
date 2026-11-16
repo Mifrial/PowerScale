@@ -159,6 +159,8 @@ const committedContinueBusy = ref(false);
 const committedContinueSession = ref<CommittedActionSession | null>(null);
 const committedContinueSpeaker = ref<ChatSpeaker | null>(null);
 const committedContinueActorName = ref('');
+/** Долг предлагается только при первом чтении боя; дальше — на входе в ход. */
+let firstLoad = true;
 
 // Оверлеи боевых изменений участников: для текущего Истощения (сумма состояния 'exhaustion').
 const overlays = ref<GameCombatOverlay[]>([]);
@@ -400,11 +402,12 @@ async function load(): Promise<void> {
     processSessions.value = nextProcesses;
     pendingEffectsByEntity.value = nextPendingEffects;
     committedSessions.value = nextCommitted;
-    if (gamePhpMode.isEnabled() && nextInitiative?.active) {
+    if (gamePhpMode.isEnabled() && firstLoad && nextInitiative?.active && !committedContinueOpen.value) {
       const current = nextInitiative.participants[nextInitiative.activeIndex ?? 0];
       const committed = nextCommitted as Record<CombatEntityKey, CommittedActionSession>;
       if (current && committed[current.id as CombatEntityKey]) void promptCommittedContinue(current);
     }
+    firstLoad = false;
     emit(
       'participants',
       (initiative.value?.active ? initiative.value.participants : []).map((participant) => participant.id),
@@ -1003,6 +1006,16 @@ async function continueCommittedTurn(): Promise<void> {
       const result = await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, session.entityKey, false);
       if (result.refused) {
         error.value = result.refused;
+
+        return;
+      }
+      if (result.opened !== true) {
+        const nextMap = { ...committedSessions.value };
+        nextMap[session.entityKey] = { ...session, remainingOd: result.remaining ?? session.remainingOd };
+        committedSessions.value = nextMap;
+        committedContinueOpen.value = false;
+        committedContinueSession.value = null;
+        emit('overlay-changed');
 
         return;
       }

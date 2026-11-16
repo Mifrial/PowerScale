@@ -809,6 +809,43 @@ final class GameSpellCastChat
     }
 
     /**
+     * Пишет начало сотворения в долг ОД.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $paid Оплачено сейчас.
+     * @param int $remaining Остаток.
+     * @param int $total Полная цена.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function pending(
+        GameRecord $game,
+        int $actorUserId,
+        GameSpellCastPrepared $prepared,
+        GameBattleRecord $battle,
+        int $paid,
+        int $remaining,
+        int $total,
+    ): void {
+        $chatId = $this->chatId($game);
+        $thread = GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+        $attachments = $this->attachments($thread, $prepared->casterKind, $prepared->casterId);
+        $token = $this->tokens->getEntityToken($prepared->casterKind, $prepared->casterId);
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $token . ' начинает сотворение [[rule:' . $prepared->spellCode . ']]: оплачено '
+                . $paid . ' из ' . $total . ' ОД, остаток ' . $remaining . '.',
+            $attachments,
+        );
+    }
+
+    /**
      * Вложения треда и спикера.
      *
      * @param array{id: string, parentId: string, kind: string} $thread Нить.

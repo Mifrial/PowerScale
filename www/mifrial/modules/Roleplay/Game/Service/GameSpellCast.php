@@ -505,7 +505,7 @@ final class GameSpellCast
                 $body['expectedTargetVersion'] = $prepared->target['version'];
             }
         } else {
-            $opened = $this->castDebt($game, $battle, $expected, $body, $prepared, $actorKey);
+            $opened = $this->castDebt($game, $actorUserId, $battle, $expected, $body, $prepared, $actorKey);
             if ($opened !== null) {
                 return $opened;
             }
@@ -554,6 +554,7 @@ final class GameSpellCast
      * Открывает долг ОД, если ресурса хода не хватает.
      *
      * @param GameRecord $game Игра.
+     * @param int $actorUserId Пользователь.
      * @param GameBattleRecord $battle Бой.
      * @param int $expected Версия боя из запроса.
      * @param array<string, mixed> $body Тело.
@@ -567,6 +568,7 @@ final class GameSpellCast
      */
     private function castDebt(
         GameRecord $game,
+        int $actorUserId,
         GameBattleRecord $battle,
         int $expected,
         array $body,
@@ -606,6 +608,7 @@ final class GameSpellCast
         $saved = $this->repos->battles->replaceTracked($battle->getId(), $expected, null, $debtMap, null, null);
         $total = is_int($planned['slot']['total'] ?? null) ? $planned['slot']['total'] : 0;
         $remaining = is_int($planned['slot']['remaining'] ?? null) ? $planned['slot']['remaining'] : 0;
+        $this->chat->pending($game, $actorUserId, $prepared, $battle, $total - $remaining, $remaining, $total);
 
         return [
             'kind' => 'spell',

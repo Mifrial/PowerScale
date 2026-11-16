@@ -156,8 +156,6 @@ const error = ref<string | null>(null);
 /** Подтверждение сотворения в долг ОД. */
 const debtConfirmOpen = ref(false);
 const debtAccepted = ref(false);
-/** Сообщение об открытом долге после отправки каста. */
-const debtNotice = ref<string | null>(null);
 const debtNeedNow = computed(() => Math.max(0, actionPointCost.value - casterAp.value.base));
 const lastSkip = ref(false);
 const lastMilk = ref(false);
@@ -798,7 +796,6 @@ async function loadCastContext(open: boolean): Promise<void> {
   loadPhase.value = 'loading';
   loadError.value = null;
   error.value = null;
-  debtNotice.value = null;
   debtConfirmOpen.value = false;
   debtAccepted.value = false;
   lastSkip.value = false;
@@ -1011,7 +1008,8 @@ function confirmDebtCast(): void {
   void runCast();
 }
 
-async function runCast(): Promise<void> {  if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
+async function runCast(): Promise<void> {
+  if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
     return;
   }
   if (busy.value) return;
@@ -1232,7 +1230,9 @@ async function runCast(): Promise<void> {  if (!props.canEdit || !spellCode.valu
 function castErrorMessage(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : '';
 
-  return message === 'Game action debt is open' ? 'Сначала закончи или сорви текущее сотворение' : message || 'Не удалось сотворить заклинание';
+  return message === 'Game action debt is open'
+    ? 'Сначала закончи или сорви текущее сотворение'
+    : message || 'Не удалось сотворить заклинание';
 }
 
 async function runPhpCast(): Promise<void> {
@@ -1308,8 +1308,9 @@ async function runPhpCast(): Promise<void> {
   rememberSheet(result.caster);
   if (result.target) rememberSheet(result.target);
   if (result.debt === true) {
-    debtNotice.value = `Сотворение начато: оплачено ${result.spent ?? 0} из ${result.total ?? 0} ОД, остаток ${result.remaining ?? 0}. Продолжите в свой ход — эффект появится после полной оплаты.`;
     emit('overlay-changed');
+    emit('settled');
+    emit('update:open', false);
 
     return;
   }
@@ -1572,12 +1573,7 @@ async function offerTouchHit(
         characteristicName: characteristic?.name ?? selectedPath.value?.name ?? 'Сотворение',
         touchActionCode: touchActionCode.value,
         touchActionName: action?.name ?? 'Касание',
-        spellOd: actionOdCost(
-          spellSpec.value?.action_components,
-          0,
-          turnResourceCode(props.rules),
-          turnApMax.value,
-        ),
+        spellOd: actionOdCost(spellSpec.value?.action_components, 0, turnResourceCode(props.rules), turnApMax.value),
         touchOd: action?.odCost ?? 0,
         spentAp: cost,
         trainingDifficultyDelta,
@@ -1839,12 +1835,7 @@ async function announceTargetedCast(
       casterName,
       spellRuleCode: spellCode.value,
       spellName: spellRule?.name ?? spellCode.value,
-      spellOd: actionOdCost(
-        spellSpec.value?.action_components,
-        0,
-        turnResourceCode(props.rules),
-        turnApMax.value,
-      ),
+      spellOd: actionOdCost(spellSpec.value?.action_components, 0, turnResourceCode(props.rules), turnApMax.value),
       touchActionCode: null,
       touchActionName: '',
       touchOd: 0,
@@ -2209,7 +2200,6 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
     // Цепь уже прервана локально: сервер снимет запись следующей командой.
   }
 }
-
 </script>
 
 <template>
@@ -2314,9 +2304,6 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
           <template v-else>
             <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
               Каст через электрозаряд
-            </v-alert>
-            <v-alert v-if="debtNotice" type="info" variant="tonal" density="compact" class="mb-3">
-              {{ debtNotice }}
             </v-alert>
             <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
             <SpellCastUpgradeList
@@ -2542,8 +2529,7 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
               !preview ||
               !spellAvailable ||
               !handsAvailable ||
-              manaShortage ||
-              Boolean(debtNotice)
+              manaShortage
             "
             @click="runCast"
           >
@@ -2558,8 +2544,8 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
       <v-card-title>Сотворение займёт несколько ходов</v-card-title>
       <v-card-text>
         Цена — {{ actionPointCost }} ОД, сейчас {{ casterAp.base }}. Не хватает {{ debtNeedNow }} ОД: они спишутся в
-        следующий ход. Пока долг не закрыт, другие действия недоступны. Эффект появится после полной оплаты;
-        оплаченное не возвращается, если сорвать сотворение.
+        следующий ход. Пока долг не закрыт, другие действия недоступны. Эффект появится после полной оплаты; оплаченное
+        не возвращается, если сорвать сотворение.
       </v-card-text>
       <v-card-actions>
         <v-spacer />
