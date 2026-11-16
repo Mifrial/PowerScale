@@ -121,7 +121,7 @@ final class GameRunActionSpellPhase
      *
      * @param array<string, mixed> $parsed Разбор конверта.
      * @param GameRunActionCall $call Снимок вызова.
-     * @param string $phase resolve или abort.
+     * @param string $phase Фаза отложенного каста.
      * @param callable(array<string, mixed>): array<string, mixed> $command Команда.
      *
      * @return array<string, mixed> Итог.

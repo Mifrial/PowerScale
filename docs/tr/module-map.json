@@ -3414,8 +3414,8 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/spell-real-plan-11-psionic-shaman.md",
-                    "title": "План M11–M12 — Псионик и Шаман",
+                    "path": "docs/tr/spell-real-plan-13-chain.md",
+                    "title": "План M13 — Цепная молния",
                     "kind": "plan",
                     "state": "В РАБОТЕ",
                     "date": "2026-11-16",
@@ -3723,6 +3723,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-14",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-11-psionic-shaman.md",
+                    "title": "План M11–M12 — Псионик и Шаман",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 },
                 {

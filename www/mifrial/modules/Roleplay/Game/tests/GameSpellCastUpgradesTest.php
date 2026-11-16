@@ -285,6 +285,27 @@ final class GameSpellCastUpgradesTest extends TestCase
     }
 
     /**
+     * Цепь из записи источника применяется без изученного уровня.
+     *
+     * @return void
+     */
+    public function testRecordedChainUpgradeApplies(): void
+    {
+        $resolution = $this->resolve(
+            [$this->upgradeRule('chain', $this->chainUpgrade())],
+            [],
+            'simple-magic',
+            [['code' => 'chain', 'value' => null]],
+            'lightning-strike',
+            ['chain'],
+        );
+
+        self::assertSame(1, $resolution->getActionPointDelta());
+        self::assertSame('chain', $resolution->getChainRuleCode());
+        self::assertNotNull($resolution->getChain());
+    }
+
+    /**
      * Неизвестное значение формы цепи отклоняется при касте.
      *
      * @param string $key Поле формы.
