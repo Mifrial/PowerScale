@@ -348,8 +348,17 @@ export class SceneWallService {
     }
 
     const length = this.length(wall);
-    const offset = Math.round(Math.max(0, Math.min(length - MIN_SIZE, Math.min(start.offset, end.offset))));
-    const spanEnd = Math.round(Math.max(offset + MIN_SIZE, Math.min(length, Math.max(start.offset, end.offset))));
+    // Оба конца проёма спроецировались в одну точку — он не на этой стене, а
+    // в разрыве между двумя её кусками. Привязка схлопнула бы проём в единицу
+    // длины и потеряла бы его при загрузке, поэтому оставляем его свободным.
+    const from = Math.min(start.offset, end.offset);
+    const to = Math.max(start.offset, end.offset);
+    if (to - from < MIN_SIZE) {
+      return null;
+    }
+
+    const offset = Math.round(Math.max(0, Math.min(length - MIN_SIZE, from)));
+    const spanEnd = Math.round(Math.max(offset + MIN_SIZE, Math.min(length, to)));
     const shape = this.spanShape(wall, offset, spanEnd);
     if (shape === null) {
       return null;

@@ -112,6 +112,37 @@ describe('SceneWallService', () => {
     expect(placement).toBeNull();
   });
 
+  it('не привязывает проём к стене, если он стоит в разрыве между кусками', () => {
+    // Частокол собран из двух стен, калитка стоит между ними. Привязка к
+    // ближайшему куску схлопнула бы её в единицу длины и потеряла бы при
+    // загрузке, поэтому проём остаётся свободным.
+    const gate = opening(
+      [
+        [200, 100],
+        [300, 100],
+      ],
+      { kind: 'gate', state: 'open' },
+    );
+
+    service.attachAll([
+      wall([
+        [0, 100],
+        [200, 100],
+      ]),
+      wall([
+        [300, 100],
+        [400, 100],
+      ]),
+      gate,
+    ]);
+
+    expect(gate.props.wallId).toBeUndefined();
+    expect(gate.shape.type === 'wall' ? gate.shape.points : []).toEqual([
+      [200, 100],
+      [300, 100],
+    ]);
+  });
+
   it('восстанавливает привязку по геометрии', () => {
     const door = opening(
       [
