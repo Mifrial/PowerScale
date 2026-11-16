@@ -69,6 +69,54 @@ final class GameRunActionSpellPhase
     }
 
     /**
+     * Прыжок цепи.
+     *
+     * @param array<string, mixed> $parsed Разбор конверта.
+     * @param GameRunActionCall $call Снимок вызова.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function chain(array $parsed, GameRunActionCall $call): array
+    {
+        return $this->run(
+            $parsed,
+            $call,
+            'chain',
+            fn (array $body): array => $this->cast->chain(
+                $call->gameId,
+                $call->actorUserId,
+                $call->editAll,
+                $call->viewAll,
+                $body,
+            ),
+        );
+    }
+
+    /**
+     * Останавливает цепь без следующей цели.
+     *
+     * @param array<string, mixed> $parsed Разбор конверта.
+     * @param GameRunActionCall $call Снимок вызова.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function chainStop(array $parsed, GameRunActionCall $call): array
+    {
+        return $this->run(
+            $parsed,
+            $call,
+            'chainStop',
+            fn (array $body): array => $this->cast->chainStop(
+                $call->gameId,
+                $call->actorUserId,
+                $call->editAll,
+                $call->viewAll,
+                $body,
+            ),
+        );
+    }
+
+    /**
      * Собирает тело фазы и зовёт команду.
      *
      * @param array<string, mixed> $parsed Разбор конверта.
@@ -89,13 +137,19 @@ final class GameRunActionSpellPhase
         $body = [
             'gameId' => $call->gameId,
             'battleId' => $call->battleId,
-            'idempotencyKey' => $castId . ':' . $phase,
+            'idempotencyKey' => $phase === 'chain' || $phase === 'chainStop'
+                ? $call->idempotencyKey
+                : $castId . ':' . $phase,
             'expectedVersion' => $call->expectedVersion,
             'castId' => $castId,
         ];
         if ($phase === 'resolve') {
             $body['saturationSteps'] = $context['saturationSteps'] ?? 0;
             $body['burstTargets'] = $context['burstTargets'] ?? null;
+        }
+
+        if ($phase === 'chain') {
+            $body['chainTarget'] = $context['chainTarget'] ?? null;
         }
 
         $result = $command($body);

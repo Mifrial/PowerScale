@@ -100,6 +100,16 @@ final class GameRunAction
                 : $this->spellPhase->abort($parsed, $call);
         }
 
+        if ($parsed['phase'] === 'chain' || $parsed['phase'] === 'chainStop') {
+            if ($parsed['kind'] !== 'spell') {
+                throw new GameInvalidException('Game action phase is invalid');
+            }
+
+            return $parsed['phase'] === 'chain'
+                ? $this->spellPhase->chain($parsed, $call)
+                : $this->spellPhase->chainStop($parsed, $call);
+        }
+
         if ($parsed['actor'] === null) {
             throw new GameInvalidException('Game action actor is invalid');
         }

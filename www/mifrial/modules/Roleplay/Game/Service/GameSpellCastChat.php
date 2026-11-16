@@ -405,6 +405,60 @@ final class GameSpellCastChat
     }
 
     /**
+     * Прыжок цепи: строка попадания, разрыв или последствия.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param GameBattleRecord $battle Бой.
+     * @param array<string, mixed> $chain Состояние цепи.
+     * @param array<string, mixed>|null $row Строка прыжка или null.
+     * @param bool $broken Цепь оборвалась.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если чата нет или отправитель не участник.
+     */
+    public function postChain(
+        GameRecord $game,
+        int $actorUserId,
+        GameBattleRecord $battle,
+        array $chain,
+        ?array $row,
+        bool $broken,
+    ): void {
+        $chatId = $this->chatId($game);
+        $thread = is_array($chain['thread'] ?? null)
+            ? $chain['thread']
+            : GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+        $actor = is_array($chain['actor'] ?? null) ? $chain['actor'] : [];
+        $attachments = $this->attachments(
+            $thread,
+            is_string($actor['type'] ?? null) ? $actor['type'] : 'character',
+            is_int($actor['id'] ?? null) ? $actor['id'] : 0,
+        );
+        $spell = '[[rule:' . (string) $chain['ruleCode'] . ']]';
+        if ($broken || $row === null) {
+            $this->send($chatId, $actorUserId, $spell . ' обрывается.', $attachments);
+
+            return;
+        }
+
+        $target = is_array($row['target'] ?? null) ? $row['target'] : null;
+        $targetToken = $target === null
+            ? ''
+            : $this->tokens->getEntityToken((string) $target['type'], (int) $target['id']);
+        $damageName = is_string($row['damageName'] ?? null) ? $row['damageName'] : null;
+        $this->send(
+            $chatId,
+            $actorUserId,
+            $targetToken . ' попадает под ' . $spell . '.',
+            [['type' => 'attack-calc', 'payload' => $this->calc($row, 'Цепь', 'РУ цепи')], ...$attachments],
+        );
+        $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
+        $this->postConsequence($chatId, $actorUserId, $targetToken, null, $consequence, $attachments, $damageName);
+    }
+
+    /**
      * Payload attack-calc для цели взрыва: урон, сопротивление и последствия.
      *
      * @param array<string, mixed> $row Строка цели.
@@ -412,6 +466,20 @@ final class GameSpellCastChat
      * @return array<string, mixed> Payload.
      */
     private function burstCalc(array $row): array
+    {
+        return $this->calc($row, 'Взрыв магии', 'РУ взрыва');
+    }
+
+    /**
+     * Payload attack-calc с подписью источника удара.
+     *
+     * @param array<string, mixed> $row Строка цели.
+     * @param string $heading Заголовок.
+     * @param string $srCaption Подпись РУ.
+     *
+     * @return array<string, mixed> Payload.
+     */
+    private function calc(array $row, string $heading, string $srCaption): array
     {
         $consequence = is_array($row['consequence'] ?? null) ? $row['consequence'] : [];
         $injury = $this->dimensionalPair($row['injury'] ?? null);
@@ -426,10 +494,10 @@ final class GameSpellCastChat
             'endurance' => $this->dimensionalPair($row['endurance'] ?? null) ?? ['base' => 0, 'size' => 0],
             'defenseIgnored' => ($row['defenseIgnored'] ?? false) === true,
             'attackSrLabel' => (string) (is_int($row['successRating'] ?? null) ? $row['successRating'] : 0),
-            'attackSrCaption' => 'РУ взрыва',
+            'attackSrCaption' => $srCaption,
             'appliedSr' => null,
             'srCap' => null,
-            'heading' => 'Взрыв магии',
+            'heading' => $heading,
             'stun' => null,
             'shock' => null,
             'exhaustion' => is_int($consequence['exhaustionDelta'] ?? null) ? $consequence['exhaustionDelta'] : 0,
@@ -479,7 +547,7 @@ final class GameSpellCastChat
      * @param int $chatId Чат.
      * @param int $actorUserId Автор.
      * @param string $targetToken Токен цели.
-     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param GameSpellCastPrepared|null $prepared Подготовка или null у прыжка цепи.
      * @param array<string, mixed> $consequence Последствия.
      * @param list<array<string, mixed>> $attachments Вложения.
      * @param string|null $damageName Родительный типа урона или null.
@@ -490,7 +558,7 @@ final class GameSpellCastChat
         int $chatId,
         int $actorUserId,
         string $targetToken,
-        GameSpellCastPrepared $prepared,
+        ?GameSpellCastPrepared $prepared,
         array $consequence,
         array $attachments,
         ?string $damageName = null,
@@ -533,7 +601,7 @@ final class GameSpellCastChat
             $payload = $this->tokens->getMaimPayload(
                 $targetToken,
                 $maim,
-                $damageName ?? $this->damageTypeName($prepared),
+                $damageName ?? ($prepared === null ? '' : $this->damageTypeName($prepared)),
             );
             $this->send($chatId, $actorUserId, '', [['type' => 'roll', 'payload' => $maim], ...$attachments]);
             $this->send(

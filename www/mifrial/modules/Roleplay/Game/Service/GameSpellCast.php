@@ -51,6 +51,9 @@ final class GameSpellCast
      * @param GameSpellDeviation $deviation Отклонение.
      * @param GameSpellDeviationBurst $burst Взрыв отклонения.
      * @param GameActiveSpellCharge $activeCharge Заряд поддержания.
+     * @param GameSpellChainPending $chainPending Состояние цепи.
+     * @param GameSpellChainDamage $chainDamage Урон прыжка цепи.
+     * @param GameSpellChainHop $chainHop Правила прыжка.
      *
      * @return void
      */
@@ -79,6 +82,9 @@ final class GameSpellCast
         private readonly GameActiveSpellCreate $activeCreate,
         private readonly GameActiveSpellChat $activeChat,
         private readonly GameActiveSpellCharge $activeCharge,
+        private readonly GameSpellChainPending $chainPending,
+        private readonly GameSpellChainDamage $chainDamage,
+        private readonly GameSpellChainHop $chainHop,
         private readonly GameSpellMana $mana = new GameSpellMana(),
         private readonly GameSpellStability $stability = new GameSpellStability(),
         private readonly GameSpellDurationRules $durations = new GameSpellDurationRules(),
@@ -187,6 +193,56 @@ final class GameSpellCast
     }
 
     /**
+     * Прыжок цепи к следующей цели.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param bool $viewAll Право видеть карточку.
+     * @param array<string, mixed> $body Тело прыжка.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если запрос или домен отвергнуты.
+     * @throws GameNotFoundException Если боя или цели нет.
+     * @throws GameBattleConflictException Если версия, ключ или лист чужие.
+     */
+    public function chain(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+    ): array {
+        return $this->runChain($gameId, $actorUserId, $editAll, $viewAll, $body, false);
+    }
+
+    /**
+     * Останавливает цепь без следующей цели.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param bool $viewAll Право видеть карточку.
+     * @param array<string, mixed> $body Тело остановки.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если запрос или домен отвергнуты.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameBattleConflictException Если версия или ключ чужие.
+     */
+    public function chainStop(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+    ): array {
+        return $this->runChain($gameId, $actorUserId, $editAll, $viewAll, $body, true);
+    }
+
+    /**
      * Однофазный каст или проверка с паузой.
      *
      * @param int $gameId Игра.
@@ -255,6 +311,40 @@ final class GameSpellCast
             fn (GameRecord $game, int $sessionId): array => $abort
                 ? $this->abortWork($game, $sessionId, $actorUserId, $editAll, $body)
                 : $this->resolveWork($game, $sessionId, $actorUserId, $editAll, $body),
+        );
+    }
+
+    /**
+     * Фаза прыжка или остановки цепи.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param bool $viewAll Право видеть карточку.
+     * @param array<string, mixed> $body Тело.
+     * @param bool $stop Остановить цепь.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    private function runChain(
+        int $gameId,
+        int $actorUserId,
+        bool $editAll,
+        bool $viewAll,
+        array $body,
+        bool $stop,
+    ): array {
+        return $this->execute(
+            $gameId,
+            $actorUserId,
+            $editAll,
+            $viewAll,
+            $body,
+            null,
+            $stop ? 'Game spell chain stop is invalid' : 'Game spell chain is invalid',
+            fn (GameRecord $game, int $sessionId): array => $stop
+                ? $this->chainStopWork($game, $sessionId, $actorUserId, $editAll, $body)
+                : $this->chainWork($game, $sessionId, $actorUserId, $editAll, $body),
         );
     }
 
@@ -543,7 +633,8 @@ final class GameSpellCast
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
 
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
-        $saved = $this->saveBattle($battle, $pending, $pendingCast);
+        $chain = $this->chainOf($castId, $prepared, $damageForPower, $this->threadOf($battle, $castId, $pendingCast));
+        $saved = $this->saveBattle($battle, $pending, $pendingCast, $chain);
 
         return $this->respond(
             $game,
@@ -563,6 +654,7 @@ final class GameSpellCast
             $burstRows,
             $plan,
             $activeSpell,
+            $chain,
         );
     }
 
@@ -585,6 +677,8 @@ final class GameSpellCast
      * @param array<string, mixed>|null $deviation Отклонение.
      * @param list<array<string, mixed>> $burst Цели взрыва.
      * @param GameSpellCastSaturationPlan|null $plan Выбор насыщения.
+     * @param GameActiveSpellRecord|null $activeSpell Созданное волшебство.
+     * @param array<string, mixed>|null $chain Продолжение цепи.
      *
      * @return array<string, mixed> Итог.
      */
@@ -606,6 +700,7 @@ final class GameSpellCast
         array $burst = [],
         ?GameSpellCastSaturationPlan $plan = null,
         ?GameActiveSpellRecord $activeSpell = null,
+        ?array $chain = null,
     ): array {
         $this->chat->post(
             $game,
@@ -664,6 +759,7 @@ final class GameSpellCast
                 $activeSpell,
                 $this->stability->value($prepared->spell, $activeSpell->getParameterValues(), $prepared->usedPower),
             ),
+            'chain' => $chain === null ? null : $this->chainPending->view($chain),
         ];
     }
 
@@ -933,7 +1029,10 @@ final class GameSpellCast
         );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
-        $saved = $this->repos->battles->finishSpellCast($battleId, $expected, $pending);
+        $chain = $this->chainOf($castId, $prepared, $damage, $this->threadOf($battle, $castId, $pendingCast));
+        $saved = $chain === null
+            ? $this->repos->battles->finishSpellCast($battleId, $expected, $pending)
+            : $this->repos->battles->replacePending($battleId, $expected, $pending, null, $chain);
         $this->repos->actions->close($pendingCast['actionId']);
         return $this->respond(
             $game,
@@ -953,6 +1052,7 @@ final class GameSpellCast
             $burstRows,
             $plan,
             $activeSpell,
+            $chain,
         );
     }
 
@@ -1008,6 +1108,248 @@ final class GameSpellCast
             'battleId' => $battleId,
             'castId' => $castId,
             'version' => $saved->getStateVersion(),
+        ];
+    }
+
+    /**
+     * Применяет прыжок цепи и обновляет её состояние.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param array<string, mixed> $body Тело прыжка.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если цель или состояние цепи битые.
+     * @throws GameNotFoundException Если боя или цели нет.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    private function chainWork(
+        GameRecord $game,
+        int $sessionId,
+        int $actorUserId,
+        bool $editAll,
+        array $body,
+    ): array {
+        $battleId = is_int($body['battleId'] ?? null) ? $body['battleId'] : 0;
+        $expected = is_int($body['expectedVersion'] ?? null) ? $body['expectedVersion'] : -1;
+        $battle = $this->lookup->of($sessionId, $battleId, $expected);
+        $chain = $this->chainPending->from($battle->getPendingSpellCast());
+        $castId = is_string($body['castId'] ?? null) ? $body['castId'] : '';
+        if ($castId === '' || $chain['castId'] !== $castId) {
+            throw new GameInvalidException('Game spell chain is unknown');
+        }
+
+        $actor = $this->chainActor($chain);
+        $this->access->assertAttacker($game, $actorUserId, $editAll, $actor);
+        $target = is_array($body['chainTarget'] ?? null) ? $body['chainTarget'] : null;
+        if ($target === null) {
+            throw new GameInvalidException('Game spell chain target is missing');
+        }
+
+        $this->access->assertRoster(
+            $battleId,
+            $actor,
+            [['type' => $target['type'], 'id' => $target['id']]],
+        );
+        $key = $target['type'] . ':' . $target['id'];
+        if (!$this->chainHop->canHit($this->chainPending->chainSpec($chain), $key, (string) $chain['lastKey'])) {
+            throw new GameInvalidException('Game spell chain target is invalid');
+        }
+
+        $row = $this->chainDamage->hop($game, $chain, $target);
+        $broken = $row === null || $this->chainBroke($row);
+        if (!$broken) {
+            $row = $this->writeHop($game, $target, $row);
+            $chain = $this->chainPending->advance($chain, $row['damage'], $key);
+        }
+
+        $next = $broken ? null : $this->chainNext($chain);
+        $this->chat->postChain($game, $actorUserId, $battle, $chain, $row, $broken);
+        $saved = $next === null
+            ? $this->repos->battles->finishSpellCast($battleId, $expected, $battle->getPendingActionEffects())
+            : $this->repos->battles->replacePending(
+                $battleId,
+                $expected,
+                $battle->getPendingActionEffects(),
+                null,
+                $next,
+            );
+
+        return [
+            'kind' => 'spell',
+            'phase' => 'chain',
+            'battleId' => $battleId,
+            'castId' => $castId,
+            'version' => $saved->getStateVersion(),
+            'broke' => $broken,
+            'hop' => $row === null ? null : $this->hopView($row),
+            'chain' => $next === null ? null : $this->chainPending->view($next),
+        ];
+    }
+
+    /**
+     * Снимает продолжение цепи.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param int $actorUserId Пользователь.
+     * @param bool $editAll Право править чужое.
+     * @param array<string, mixed> $body Тело остановки.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если состояние цепи битое.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameBattleConflictException Если версия боя чужая.
+     */
+    private function chainStopWork(
+        GameRecord $game,
+        int $sessionId,
+        int $actorUserId,
+        bool $editAll,
+        array $body,
+    ): array {
+        $battleId = is_int($body['battleId'] ?? null) ? $body['battleId'] : 0;
+        $expected = is_int($body['expectedVersion'] ?? null) ? $body['expectedVersion'] : -1;
+        $battle = $this->lookup->of($sessionId, $battleId, $expected);
+        $chain = $this->chainPending->from($battle->getPendingSpellCast());
+        $castId = is_string($body['castId'] ?? null) ? $body['castId'] : '';
+        if ($castId === '' || $chain['castId'] !== $castId) {
+            throw new GameInvalidException('Game spell chain is unknown');
+        }
+
+        $this->access->assertAttacker($game, $actorUserId, $editAll, $this->chainActor($chain));
+        $saved = $this->repos->battles->clearSpellCast($battleId, $expected);
+
+        return [
+            'kind' => 'spell',
+            'phase' => 'chainStop',
+            'battleId' => $battleId,
+            'castId' => $castId,
+            'version' => $saved->getStateVersion(),
+        ];
+    }
+
+    /**
+     * Продолжение цепи после попадания.
+     *
+     * @param string $castId Ключ каста.
+     * @param GameSpellCastPrepared $prepared Подготовка.
+     * @param array<string, mixed> $damage Итог урона.
+     * @param array<string, mixed> $thread Нить чата.
+     *
+     * @return array<string, mixed>|null Продолжение или null.
+     */
+    private function chainOf(
+        string $castId,
+        GameSpellCastPrepared $prepared,
+        array $damage,
+        array $thread,
+    ): ?array {
+        $ruleCode = $prepared->upgrades->getChainRuleCode();
+
+        return $ruleCode === null
+            ? null
+            : $this->chainPending->build($castId, $prepared, $damage, $ruleCode, $thread);
+    }
+
+    /**
+     * Кастер цепи в форме состава.
+     *
+     * @param array<string, mixed> $chain Состояние цепи.
+     *
+     * @return array{type: string, id: int} Кастер.
+     *
+     * @throws GameInvalidException Если кастер битый.
+     */
+    private function chainActor(array $chain): array
+    {
+        $actor = is_array($chain['actor'] ?? null) ? $chain['actor'] : [];
+        $type = $actor['type'] ?? null;
+        $id = $actor['id'] ?? null;
+        if (!is_string($type) || $type === '' || !is_int($id)) {
+            throw new GameInvalidException('Game spell chain actor is invalid');
+        }
+
+        return ['type' => $type, 'id' => $id];
+    }
+
+    /**
+     * Попадание прыжка не нанесло повреждений.
+     *
+     * @param array<string, mixed> $row Строка прыжка.
+     *
+     * @return bool true, если цепь обрывается.
+     */
+    private function chainBroke(array $row): bool
+    {
+        $injury = $row['injury'] ?? null;
+
+        return !$injury instanceof DimensionalNumber || $injury->toInteger() <= 0;
+    }
+
+    /**
+     * Цепь может продолжиться со следующей целью.
+     *
+     * @param array<string, mixed> $chain Состояние цепи.
+     *
+     * @return array<string, mixed>|null Продолжение или null.
+     */
+    private function chainNext(array $chain): ?array
+    {
+        $amount = $this->chainHop->nextAmount(
+            $this->chainPending->chainSpec($chain),
+            $this->chainPending->damageSpec($chain),
+            $this->chainPending->amount($chain),
+            0,
+        );
+
+        return $amount === null ? null : $chain;
+    }
+
+    /**
+     * Пишет операции листа поражённой цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param array{type: string, id: int, distanceIpari: int} $target Цель.
+     * @param array<string, mixed> $row Строка прыжка.
+     *
+     * @return array<string, mixed> Строка с версией листа.
+     */
+    private function writeHop(GameRecord $game, array $target, array $row): array
+    {
+        if ($row['operations'] === []) {
+            return $row;
+        }
+
+        $row['version'] = $this->sheets->write(
+            $game,
+            $target['type'],
+            $target['id'],
+            $row['version'],
+            $row['operations'],
+        );
+
+        return $row;
+    }
+
+    /**
+     * Блок прыжка для ответа.
+     *
+     * @param array<string, mixed> $row Строка прыжка.
+     *
+     * @return array<string, mixed> Блок.
+     */
+    private function hopView(array $row): array
+    {
+        return [
+            'target' => $row['target'],
+            'damage' => $this->pair($row['damage']),
+            'injury' => $this->pair($row['injury']),
+            'sheetVersion' => $row['version'],
         ];
     }
 
@@ -1239,6 +1581,7 @@ final class GameSpellCast
      * @param GameBattleRecord $battle Бой.
      * @param array<string, mixed> $pending Ожидание.
      * @param array<string, mixed>|null $pendingCast Отложенный каст.
+     * @param array<string, mixed>|null $chain Продолжение цепи.
      *
      * @return GameBattleRecord Бой после записи.
      *
@@ -1248,7 +1591,18 @@ final class GameSpellCast
         GameBattleRecord $battle,
         array $pending,
         ?array $pendingCast,
+        ?array $chain = null,
     ): GameBattleRecord {
+        if ($chain !== null) {
+            return $this->repos->battles->replacePending(
+                $battle->getId(),
+                $battle->getStateVersion(),
+                $pending,
+                null,
+                $chain,
+            );
+        }
+
         if ($pendingCast !== null) {
             return $this->repos->battles->finishSpellCast(
                 $battle->getId(),

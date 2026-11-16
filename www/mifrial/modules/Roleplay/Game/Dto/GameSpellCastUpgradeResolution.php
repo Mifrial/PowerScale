@@ -116,4 +116,20 @@ final class GameSpellCastUpgradeResolution
 
         return null;
     }
+
+    /**
+     * Код улучшения цепи из выбранных.
+     *
+     * @return string|null Код или null, если цепь не выбрана.
+     */
+    public function getChainRuleCode(): ?string
+    {
+        foreach ($this->applied as $upgrade) {
+            if ($upgrade->getChain() instanceof SpellChain) {
+                return $upgrade->getRuleCode();
+            }
+        }
+
+        return null;
+    }
 }

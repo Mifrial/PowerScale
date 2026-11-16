@@ -3798,6 +3798,176 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Цепная молния: прыжок теряет размер, повтор последней цели запрещён, цепь рвётся по минимуму.
+     *
+     * @return void
+     */
+    public function testChainLightningHopsAndBreaks(): void
+    {
+        $scene = $this->spellScene(
+            12,
+            extraAbilities: [['ruleCode' => 'chain-lightning', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['chain-lightning' => $this->chainCard()],
+            npcs: 2,
+        );
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'chain-lightning']];
+        $body['parameters'] = ['x' => ['base' => 5, 'size' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $castId = (string) $cast['data']['castId'];
+        $chain = $cast['data']['chain'] ?? null;
+        self::assertIsArray($chain);
+        self::assertSame('chain-lightning', $chain['ruleCode']);
+        self::assertSame(['base' => 5, 'size' => 1], $chain['amount']);
+        self::assertSame(['base' => 3, 'size' => -1], $chain['min']);
+
+        $repeat = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            $castId,
+            'chain-repeat',
+            (int) $cast['data']['version'],
+            ['type' => 'npc', 'id' => (int) $scene['npcId'], 'distanceIpari' => 0],
+        ));
+        self::assertFalse($repeat['success']);
+        self::assertSame('GAME_INVALID', $repeat['error']['code']);
+
+        $first = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            $castId,
+            'chain-hop-1',
+            (int) $cast['data']['version'],
+            ['type' => 'npc', 'id' => $scene['npcIds'][1], 'distanceIpari' => 0],
+        ));
+        self::assertTrue($first['success'], json_encode($first));
+        self::assertSame('chain', $first['data']['phase'] ?? null);
+        self::assertFalse($first['data']['broke'] ?? true);
+        self::assertSame(['base' => 5, 'size' => 0], $first['data']['chain']['amount'] ?? null);
+        self::assertSame(['base' => 5, 'size' => 0], $first['data']['hop']['damage'] ?? null);
+
+        $second = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            $castId,
+            'chain-hop-2',
+            (int) $first['data']['version'],
+            ['type' => 'npc', 'id' => (int) $scene['npcId'], 'distanceIpari' => 0],
+        ));
+        self::assertTrue($second['success'], json_encode($second));
+        self::assertFalse($second['data']['broke'] ?? true);
+        self::assertSame(['base' => 5, 'size' => -1], $second['data']['hop']['damage'] ?? null);
+        self::assertNull($second['data']['chain']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+
+        $last = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            $castId,
+            'chain-hop-3',
+            (int) $second['data']['version'],
+            ['type' => 'npc', 'id' => $scene['npcIds'][1], 'distanceIpari' => 0],
+        ));
+        self::assertFalse($last['success']);
+        self::assertSame('GAME_INVALID', $last['error']['code']);
+    }
+
+    /**
+     * Снижение по дистанции рвёт цепь до записи листа.
+     *
+     * @return void
+     */
+    public function testChainLightningBreaksByDistance(): void
+    {
+        $scene = $this->spellScene(
+            12,
+            extraAbilities: [['ruleCode' => 'chain-lightning', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['chain-lightning' => $this->chainCard()],
+            npcs: 2,
+        );
+        $body = $this->spellBody($scene);
+        $body['upgrades'] = [['code' => 'chain-lightning']];
+        $body['parameters'] = ['x' => ['base' => 5, 'size' => 1]];
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $second = $scene['npcIds'][1];
+        $npcVersion = (int) $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $second,
+        ])['data']['actualVersion'];
+
+        $hop = $this->dispatch('game.runAction', $this->chainBody(
+            $scene,
+            (string) $cast['data']['castId'],
+            'chain-far',
+            (int) $cast['data']['version'],
+            ['type' => 'npc', 'id' => $second, 'distanceIpari' => 4],
+        ));
+        self::assertTrue($hop['success'], json_encode($hop));
+        self::assertTrue($hop['data']['broke'] ?? false);
+        self::assertNull($hop['data']['hop']);
+        self::assertNull($hop['data']['chain']);
+        self::assertSame($npcVersion, (int) $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $second,
+        ])['data']['actualVersion']);
+        self::assertNull($this->battleRow($scene['battleId'])['pending_spell_cast'] ?? null);
+    }
+
+    /**
+     * Карточка цепи: минимум, повтор через другую цель, размер на прыжок.
+     *
+     * @return array<string, mixed> Карточка.
+     */
+    private function chainCard(): array
+    {
+        return [
+            'type' => 'skill',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'parent_ability_code' => 'lightning-strike',
+                'spell_upgrade' => [
+                    'action_point_delta' => 1,
+                    'chain' => [
+                        'min' => ['base' => 3, 'size' => -1],
+                        'retarget' => 'from_last_hit',
+                        'same_target' => 'via_other',
+                        'damage_size_per_hop' => 1,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Тело прыжка цепи через game.runAction.
+     *
+     * @param array<string, mixed> $scene Сцена.
+     * @param string $castId Ключ каста.
+     * @param string $key Ключ команды.
+     * @param int $version Версия боя.
+     * @param array{type: string, id: int, distanceIpari: int} $target Цель.
+     *
+     * @return array<string, mixed> Тело.
+     */
+    private function chainBody(array $scene, string $castId, string $key, int $version, array $target): array
+    {
+        return [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => $key,
+            'expectedVersion' => $version,
+            'action' => [
+                'phase' => 'chain',
+                'kind' => 'spell',
+                'context' => [
+                    'castId' => $castId,
+                    'chainTarget' => $target,
+                ],
+            ],
+        ];
+    }
+
+    /**
      * Сцена каста: герой, NPC и бой.
      *
      * @return array{
@@ -3806,6 +3976,7 @@ final class GameStrikeMysqlTest extends TestCase
      *     hero: int,
      *     heroVersion: int,
      *     npcId: int,
+     *     npcIds: list<int>,
      *     targetVersion: int
      * } Сцена.
      */
@@ -3823,6 +3994,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withNpc = true,
         array $heroInventory = [],
         array $heroSheet = [],
+        int $npcs = 1,
     ): array {
         $world = $this->spellWorld(
             $occupyHands,
@@ -3849,23 +4021,28 @@ final class GameStrikeMysqlTest extends TestCase
         );
         $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
         $participants = [['type' => 'character', 'id' => $hero]];
-        $npcId = null;
+        $npcIds = [];
         $targetVersion = 0;
         if ($withNpc) {
-            $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
-                'gameId' => $gameId,
-                'name' => 'Guard',
-                'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
-            ]));
-            if ($targetAbilities !== []) {
-                $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+            for ($index = 0; $index < max(1, $npcs); $index++) {
+                $npc = $this->endureNpc($gameId, $this->dispatch('game.createNpc', [
+                    'gameId' => $gameId,
+                    'name' => 'Guard ' . ($index + 1),
+                    'visibility' => ['scope' => 'all', 'userIds' => [], 'sections' => []],
+                ]));
+                if ($targetAbilities !== []) {
+                    $npc = $this->endureNpcAbilities($gameId, $npc, $targetAbilities);
+                }
+                if ($targetRaceCode !== null) {
+                    $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);
+                }
+
+                $npcIds[] = $npc['data']['npcId'];
+                $participants[] = ['type' => 'npc', 'id' => $npc['data']['npcId']];
+                if ($index === 0) {
+                    $targetVersion = $npc['data']['actualVersion'];
+                }
             }
-            if ($targetRaceCode !== null) {
-                $npc = $this->endureNpcRace($gameId, $npc, $targetRaceCode);
-            }
-            $npcId = $npc['data']['npcId'];
-            $targetVersion = $npc['data']['actualVersion'];
-            $participants[] = ['type' => 'npc', 'id' => $npcId];
         }
         self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
         $battle = $this->dispatch('game.startBattle', [
@@ -3880,7 +4057,8 @@ final class GameStrikeMysqlTest extends TestCase
             'battleId' => $battle['data']['battleId'],
             'hero' => $hero,
             'heroVersion' => $this->characterFacade()->get($hero)->getActualVersion(),
-            'npcId' => $npcId,
+            'npcId' => $npcIds[0] ?? null,
+            'npcIds' => $npcIds,
             'targetVersion' => $targetVersion,
         ];
     }

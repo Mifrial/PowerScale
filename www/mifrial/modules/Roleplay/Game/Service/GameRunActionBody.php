@@ -11,7 +11,7 @@ use Mifrial\Core\Kernel\Exception\ActionException;
  */
 final class GameRunActionBody
 {
-    private const PHASES = ['declare', 'check', 'resolve', 'abort', 'respond'];
+    private const PHASES = ['declare', 'check', 'resolve', 'abort', 'respond', 'chain', 'chainStop'];
 
     private const KINDS = ['action', 'strike', 'reaction', 'wound', 'spell'];
 
@@ -216,6 +216,7 @@ final class GameRunActionBody
         return match ($kind) {
             'action' => $this->actions->parse($context),
             'spell' => $phase === 'resolve' || $phase === 'abort'
+                || $phase === 'chain' || $phase === 'chainStop'
                 ? $this->spells->phase($context, $phase)
                 : $this->spells->parse($context),
             'wound' => $this->wounds->parse($context),

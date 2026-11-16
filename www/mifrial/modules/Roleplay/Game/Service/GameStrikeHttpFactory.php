@@ -116,6 +116,19 @@ final class GameStrikeHttpFactory
             new GameSpellDurationRules(),
         );
         $activeChat = new GameActiveSpellChat($ports->chats(), $shared->chat);
+        $chainHop = new GameSpellChainHop();
+        $chainPending = new GameSpellChainPending();
+        $chainDamage = new GameSpellChainDamage(
+            $rules,
+            $shared->sheets,
+            $characters->characterSheets(),
+            $rules->defense,
+            new GameStrikeAmounts(),
+            $magicResistance,
+            $ruleWiring->consequences($rules),
+            $chainHop,
+            $chainPending,
+        );
 
         return new GameSpellCast(
             $shared->ready,
@@ -159,6 +172,9 @@ final class GameStrikeHttpFactory
             $activeCreate,
             $activeChat,
             new GameActiveSpellCharge(new GameSpellCharge(), $shared->sheetWrites, $activeChat),
+            $chainPending,
+            $chainDamage,
+            $chainHop,
         );
     }
 

@@ -97,18 +97,22 @@ final class GameRunActionSpellBody
     }
 
     /**
-     * Контекст фазы resolve или abort.
+     * Контекст фазы resolve, chain, chainStop или abort.
      *
      * @param array<string, mixed> $context Контекст.
-     * @param string $phase Фаза resolve или abort.
+     * @param string $phase Фаза.
      *
-     * @return array{castId: string, saturationSteps?: int, burstTargets?: mixed} Контекст.
+     * @return array{castId: string, saturationSteps?: int, burstTargets?: mixed, chainTarget?: array{type: string, id: int, distanceIpari: int}} Контекст.
      *
      * @throws \Mifrial\Core\Kernel\Exception\ActionException INVALID_PARAMS.
      */
     public function phase(array $context, string $phase): array
     {
-        $allowed = $phase === 'resolve' ? ['castId', 'saturationSteps'] : ['castId'];
+        $allowed = match ($phase) {
+            'resolve' => ['castId', 'saturationSteps'],
+            'chain' => ['castId', 'chainTarget'],
+            default => ['castId'],
+        };
         if ($phase === 'resolve' && array_key_exists('burstTargets', $context)) {
             $allowed[] = 'burstTargets';
         }
@@ -127,7 +131,46 @@ final class GameRunActionSpellBody
             ];
         }
 
+        if ($phase === 'chain') {
+            return [
+                'castId' => $castId,
+                'chainTarget' => $this->chainTarget($context['chainTarget'] ?? null),
+            ];
+        }
+
         return ['castId' => $castId];
+    }
+
+    /**
+     * Цель прыжка цепи.
+     *
+     * @param mixed $value Значение.
+     *
+     * @return array{type: string, id: int, distanceIpari: int} Цель.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function chainTarget(mixed $value): array
+    {
+        if (!is_array($value)) {
+            throw $this->invalid();
+        }
+
+        $this->fields->assertKeys($value, ['type', 'id', 'distanceIpari'], 'chain target');
+        $type = $value['type'] ?? null;
+        $id = $value['id'] ?? null;
+        $distance = $value['distanceIpari'] ?? null;
+        if (
+            !in_array($type, ['character', 'npc'], true)
+            || !is_int($id)
+            || $id < 1
+            || !is_int($distance)
+            || $distance < 0
+        ) {
+            throw $this->invalid();
+        }
+
+        return ['type' => $type, 'id' => $id, 'distanceIpari' => $distance];
     }
 
     /**
