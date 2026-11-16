@@ -75,6 +75,17 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private layers: Partial<Record<SceneLayerName, Container>> = {};
 
+  /**
+   * Мир родительского поля вокруг поля-этажа.
+   *
+   * Этаж — отдельное поле, но окно смотрит в поляну родителя. Поэтому вокруг
+   * дочернего поля рисуется контекст: террейн, стены и декор родителя, сжатые
+   * вложением в координаты этажа. Слой лежит ниже всех слоёв активного поля.
+   */
+  private context: Container | null = null;
+
+  private contextLayers: Partial<Record<SceneLayerName, Container>> = {};
+
   private model: SceneRenderModel | null = null;
 
   /** Границы активного поля: по ним открываются концы рек, упёршиеся в край. */
@@ -660,6 +671,31 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.world.label = 'scene-world';
     this.app.stage.addChild(this.world);
     this.layers = {};
+    // Контекст родителя — под слоями активного поля. Порядок внутри него
+    // повторяет мир: террейн, вода, острова, опоры, препятствия, проёмы, пол,
+    // декор.
+    this.context = new Container();
+    this.context.label = 'scene-context';
+    this.context.visible = false;
+    this.world.addChild(this.context);
+    this.contextLayers = {};
+    const contextOrder: SceneLayerName[] = [
+      'terrain',
+      'waterPlane',
+      'islands',
+      'supports',
+      'obstacles',
+      'openings',
+      'ground',
+      'decor',
+    ];
+    for (const name of contextOrder) {
+      const layer = new Container();
+      layer.label = `context-${name}`;
+      this.context.addChild(layer);
+      this.contextLayers[name] = layer;
+    }
+
     const order: SceneLayerName[] = [
       'backdrop',
       'grid',
@@ -710,7 +746,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    this.drawBackdrop(board);
+    const context = this.contextOf(board);
+    if (context === null) {
+      if (this.context !== null) {
+        this.context.visible = false;
+      }
+      this.drawBackdrop(board);
+    } else {
+      this.drawContext(board, context);
+    }
     if (this.isEdit()) {
       this.drawGrid(board);
     }
@@ -746,7 +790,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.drawTerrain(element, this.layers.islands);
     }
 
-    const bridgeElements = elements.filter((element) => this.isBridge(element));
+    const bridgeElements = elements.filter((element) => this.isGroundDeck(element));
     const openings = elements.filter((element) => element.kind === 'opening');
     const decorElements = elements
       .filter((element) => element.kind === 'decor')
@@ -757,7 +801,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
           left.id - right.id,
       );
     for (const element of elements) {
-      if (element.kind !== 'terrain' && element.kind !== 'decor' && !this.isBridge(element)) {
+      if (element.kind !== 'terrain' && element.kind !== 'decor' && !this.isGroundDeck(element)) {
         this.drawElement(element, openings);
       }
     }
@@ -807,8 +851,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.actorNodes.clear();
     this.carpet = null;
     const bounds = { x: 0, y: 0, width: board.boundWidth, height: board.boundHeight };
-    // Мосты и съезды — пол над водой и под оверлеями, декором и акторами.
-    // Съезду нужна доля низкой части: под ней насыпь, а не просвет.
+    // Мосты, съезды и лестницы — пол над водой и под оверлеями, декором и
+    // акторами. Съезду нужна доля низкой части: под ней насыпь, а не просвет.
     const heightElements = [...terrainElements, ...bridgeElements];
     for (const element of bridgeElements) {
       const blockedShare =
@@ -1197,6 +1241,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
     for (const name of Object.keys(this.layers) as SceneLayerName[]) {
       this.clearLayer(name);
     }
+
+    // Контекст родителя живёт отдельным набором слоёв: чистим его так же,
+    // иначе после смены поля остались бы тени прошлого родителя.
+    const saved = this.layers;
+    this.layers = this.contextLayers;
+    for (const name of Object.keys(this.contextLayers) as SceneLayerName[]) {
+      this.clearLayer(name);
+    }
+    this.layers = saved;
   }
 
   private clearLayer(name: SceneLayerName): void {
@@ -1498,8 +1551,150 @@ export class PixiSceneRenderer implements ISceneRenderer {
     node.update(this.waterElapsed);
   }
 
-  private isBridge(element: SceneElement): boolean {
-    return element.kind === 'support' && (element.props.kind === 'bridge' || element.props.kind === 'ramp');
+  /** Настил, который рисуется в слое `ground`: мост, съезд, лестница. */
+  private isGroundDeck(element: SceneElement): boolean {
+    return (
+      element.kind === 'support' &&
+      (element.props.kind === 'bridge' || element.props.kind === 'ramp' || element.props.kind === 'stairs')
+    );
+  }
+
+  /**
+   * Родитель и область вложения для поля-этажа.
+   *
+   * `null` — поле не вложено ни в какое другое: обычное поле рисуется как
+   * раньше, без контекста.
+   */
+  private contextOf(board: SceneBoard): { parent: SceneBoard; footprint: SceneBounds } | null {
+    if (this.model === null) {
+      return null;
+    }
+
+    const enclosure = this.model.enclosures.find((item) => item.childBoardId === board.id);
+    if (enclosure === undefined) {
+      return null;
+    }
+
+    const parent = this.model.boards.find((item) => item.id === enclosure.parentBoardId);
+    if (parent === undefined) {
+      return null;
+    }
+
+    const footprint = this.footprintRect(enclosure.footprint);
+    if (footprint === null || footprint.width <= 0 || footprint.height <= 0) {
+      return null;
+    }
+
+    return { parent, footprint };
+  }
+
+  /** Прямоугольник пятна вложения: у полигона берётся габарит. */
+  private footprintRect(shape: SceneShape): SceneBounds | null {
+    if (shape.type === 'rect') {
+      return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+    }
+
+    if (shape.type !== 'polygon' && shape.type !== 'wall') {
+      return null;
+    }
+
+    if (shape.points.length === 0) {
+      return null;
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const point of shape.points) {
+      minX = Math.min(minX, point[0]);
+      minY = Math.min(minY, point[1]);
+      maxX = Math.max(maxX, point[0]);
+      maxY = Math.max(maxY, point[1]);
+    }
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
+  /**
+   * Мир родителя вокруг поля-этажа.
+   *
+   * Рисуется в отдельные слои контекста, сжатые пятном вложения в координаты
+   * этажа. Крыши и вода родителя пропускаются: в поляне вокруг дома их нет, а
+   * накрытие скрыло бы план. Слои активного поля ложатся поверх, поэтому пол
+   * этажа закрывает внутренность дома, а поляна остаётся по краям.
+   */
+  private drawContext(board: SceneBoard, context: { parent: SceneBoard; footprint: SceneBounds }): void {
+    if (this.context === null || this.model === null) {
+      return;
+    }
+
+    const scaleX = board.boundWidth / context.footprint.width;
+    const scaleY = board.boundHeight / context.footprint.height;
+    if (!(scaleX > 0) || !(scaleY > 0)) {
+      this.context.visible = false;
+
+      return;
+    }
+
+    this.context.visible = true;
+    this.context.scale.set(scaleX, scaleY);
+    this.context.position.set(-context.footprint.x * scaleX, -context.footprint.y * scaleY);
+
+    const savedLayers = this.layers;
+    const savedBounds = this.boardBounds;
+    this.layers = this.contextLayers;
+    this.boardBounds = { x: 0, y: 0, width: context.parent.boundWidth, height: context.parent.boundHeight };
+    const resolution = this.model.resolution;
+    const elements = this.model.elements.filter(
+      (element) => element.boardId === context.parent.id && !isSceneRoof(element),
+    );
+    const terrain = elements.filter(
+      (element) => element.kind === 'terrain' && element.props.kind !== 'water' && element.props.overWater !== true,
+    );
+    const islands = elements.filter((element) => element.kind === 'terrain' && element.props.overWater === true);
+    for (const element of terrain) {
+      this.drawTerrain(element, this.contextLayers.terrain);
+    }
+    for (const element of islands) {
+      this.drawTerrain(element, this.contextLayers.islands);
+    }
+
+    const openings = elements.filter((element) => element.kind === 'opening');
+    for (const element of elements) {
+      if (element.kind === 'terrain' || element.kind === 'decor') {
+        continue;
+      }
+      if (this.isGroundDeck(element)) {
+        const painted = this.bridge.paint(element, resolution, this.zoom(), 0);
+        if (painted !== null) {
+          this.contextLayers.ground?.addChild(painted);
+        }
+        continue;
+      }
+      this.drawElement(element, openings);
+    }
+    this.drawWallJoints(elements, context.parent.id);
+
+    const water = elements.filter((element) => element.kind === 'terrain' && element.props.kind === 'water');
+    const decor = elements
+      .filter((element) => element.kind === 'decor')
+      .sort(
+        (left, right) =>
+          this.decor.anchorY(left) - this.decor.anchorY(right) ||
+          left.sortOrder - right.sortOrder ||
+          left.id - right.id,
+      );
+    for (const element of decor) {
+      const group = this.decorGroup(element, water, islands, resolution);
+      if (group !== null) {
+        this.contextLayers.decor?.addChild(group);
+      }
+    }
+
+    this.applyContentClip(context.parent);
+    this.layers = savedLayers;
+    this.boardBounds = savedBounds;
   }
 
   private drawElement(element: SceneElement, openings: readonly SceneElement[]): void {

@@ -54,6 +54,23 @@ describe('SceneBridgeService', () => {
     expect(ramp?.context.instructions.length).toBeGreaterThan(0);
   });
 
+  it('рисует лестницу ступенями по подъёму', () => {
+    const low = service.paint(
+      bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation: 64 }),
+      64,
+      1,
+    );
+    const high = service.paint(
+      bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation: 128 }),
+      64,
+      1,
+    );
+
+    expect(low?.context.instructions.length).toBeGreaterThan(0);
+    // Чем выше марш, тем больше ступеней.
+    expect(high?.context.instructions.length).toBeGreaterThan(low?.context.instructions.length ?? 0);
+  });
+
   it('не рисует мост не по прямоугольнику', () => {
     expect(service.paint(bridge({ type: 'point', x: 0, y: 0 }), 64, 1)).toBeNull();
   });

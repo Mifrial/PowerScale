@@ -290,11 +290,23 @@ const silhouetteImplicit = computed(
   () => props.element.props.silhouette === undefined && props.element.props.footprint !== undefined,
 );
 
-/** Мост и съезд: у них `height` — толщина настила, а не высота объёма. */
+/** Мост, съезд и лестница: у них `height` — толщина настила, а не высота объёма. */
 const isDeck = computed(
   () =>
-    props.element.kind === 'support' && (props.element.props.kind === 'bridge' || props.element.props.kind === 'ramp'),
+    props.element.kind === 'support' &&
+    (props.element.props.kind === 'bridge' ||
+      props.element.props.kind === 'ramp' ||
+      props.element.props.kind === 'stairs'),
 );
+
+/** Наклонный марш: съезд или лестница. */
+const isRamp = computed(
+  () =>
+    props.element.kind === 'support' && (props.element.props.kind === 'ramp' || props.element.props.kind === 'stairs'),
+);
+
+/** Лестница: у неё свои подписи к толщине и подъёму. */
+const isStairs = computed(() => props.element.kind === 'support' && props.element.props.kind === 'stairs');
 
 /** Крыша: накрытие над стенами. По ней не ходят, скорость ей не нужна. */
 const isRoof = computed(() => props.element.kind === 'support' && props.element.props.kind === 'roof');
@@ -309,7 +321,7 @@ const deckClearance = computed(() =>
 
 /** Зазор под съездом на низком и высоком концах, единицы сцены. */
 const rampClearance = computed(() => {
-  if (props.element.props.kind !== 'ramp') {
+  if (!isRamp.value) {
     return null;
   }
 
@@ -339,8 +351,10 @@ const elevationHint = computed(() => {
     return undefined;
   }
 
-  if (props.element.props.kind === 'ramp') {
-    return 'Съезд садится низким концом на поверхность; высокий конец задаёт подъём.';
+  if (isRamp.value) {
+    return isStairs.value
+      ? 'Лестница садится низким концом на поверхность; верхний конец задаёт подъём.'
+      : 'Съезд садится низким концом на поверхность; высокий конец задаёт подъём.';
   }
 
   if (deckClearance.value !== null && deckClearance.value >= bodyHeight.value) {
@@ -765,7 +779,15 @@ function onAssetCleared(publicId: string | null): void {
       <SceneDistanceField
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
-        :label="isRoof ? 'Толщина накрытия, ипари' : isDeck ? 'Толщина настила, ипари' : 'Высота, ипари'"
+        :label="
+          isRoof
+            ? 'Толщина накрытия, ипари'
+            : isStairs
+              ? 'Толщина марша, ипари'
+              : isDeck
+                ? 'Толщина настила, ипари'
+                : 'Высота, ипари'
+        "
         :hint="
           isRoof
             ? 'Толщина накрытия: вертикальный размер для зазора под крышей.'
@@ -780,7 +802,15 @@ function onAssetCleared(publicId: string | null): void {
       <SceneDistanceField
         :model-value="props.element.props.elevation ?? 0"
         :resolution="props.resolution"
-        :label="isRoof ? 'Высота крыши, ипари' : isDeck ? 'Подъём настила, ипари' : 'Подъём, ипари'"
+        :label="
+          isRoof
+            ? 'Высота крыши, ипари'
+            : isStairs
+              ? 'Высота подъёма, ипари'
+              : isDeck
+                ? 'Подъём настила, ипари'
+                : 'Подъём, ипари'
+        "
         :hint="isRoof ? 'Высота накрытия над землёй: у стен дома — два ипари.' : isDeck ? elevationHint : undefined"
         :min="0"
         :max="100000"

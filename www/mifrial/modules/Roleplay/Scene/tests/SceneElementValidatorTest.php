@@ -338,6 +338,27 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Лестница — допустимый подтип опоры с обычной скоростью.
+     *
+     * @return void
+     */
+    public function testStairsSpeedDefault(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'stairs'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('stairs', $element['props']['kind']);
+        self::assertSame(100, $element['props']['speed']);
+    }
+
+    /**
      * Поворот опоры сохраняется и ограничен 0–359.
      *
      * @return void

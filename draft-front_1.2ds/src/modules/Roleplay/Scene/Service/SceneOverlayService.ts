@@ -110,7 +110,9 @@ export class SceneOverlayService {
     const size = grid.columns * grid.rows;
     const alpha = new Uint8Array(size);
     for (let index = 0; index < size; index += 1) {
-      alpha[index] = this.hiddenAlpha(visibility, distance, index);
+      // За пределами поверхностей прятать нечего: поля этажа окружены полями
+      // обзора, и туман на них закрыл бы поляну родителя.
+      alpha[index] = grid.kinds[index] === 'none' ? 0 : this.hiddenAlpha(visibility, distance, index);
     }
 
     return {

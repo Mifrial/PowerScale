@@ -7,6 +7,7 @@ import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRID
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import {
   isSceneDeck,
+  isSceneRamp,
   sceneDeckBaseElevation,
   sceneDeckClearance,
   sceneDeckLowestBaseElevation,
@@ -59,11 +60,18 @@ describe('SceneHeight', () => {
     expect(sceneDeckThickness(element(2, 'support', deckShape, { kind: 'bridge', height: 16 }), RESOLUTION)).toBe(16);
   });
 
-  it('мост и съезд — настил, остальные опоры — нет', () => {
+  it('мост, съезд и лестница — настил, остальные опоры — нет', () => {
     expect(isSceneDeck(element(1, 'support', deckShape, { kind: 'bridge' }))).toBe(true);
     expect(isSceneDeck(element(2, 'support', deckShape, { kind: 'ramp' }))).toBe(true);
-    expect(isSceneDeck(element(3, 'support', deckShape, { kind: 'ground' }))).toBe(false);
-    expect(isSceneDeck(element(4, 'terrain', deckShape, { kind: 'grass' }))).toBe(false);
+    expect(isSceneDeck(element(3, 'support', deckShape, { kind: 'stairs' }))).toBe(true);
+    expect(isSceneDeck(element(4, 'support', deckShape, { kind: 'ground' }))).toBe(false);
+    expect(isSceneDeck(element(5, 'terrain', deckShape, { kind: 'grass' }))).toBe(false);
+  });
+
+  it('лестница — наклонный марш, мост — нет', () => {
+    expect(isSceneRamp(element(1, 'support', deckShape, { kind: 'stairs' }))).toBe(true);
+    expect(isSceneRamp(element(2, 'support', deckShape, { kind: 'ramp' }))).toBe(true);
+    expect(isSceneRamp(element(3, 'support', deckShape, { kind: 'bridge' }))).toBe(false);
   });
 
   it('ищет самую высокую поверхность под настилом', () => {
@@ -157,6 +165,25 @@ describe('SceneHeight', () => {
     expect(sceneSlopeElevation(slope!, [100, 130])).toBe(0);
     expect(sceneSlopeElevation(slope!, [200, 130])).toBeCloseTo(48);
     expect(sceneSlopeElevation(slope!, [300, 130])).toBeCloseTo(96);
+  });
+
+  it('считает наклон лестницы как марш', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const stairs = element(
+      2,
+      'support',
+      { type: 'rect', x: 100, y: 100, w: 96, h: 400 },
+      {
+        kind: 'stairs',
+        elevation: 128,
+      },
+    );
+    const slope = sceneRampSlope(stairs, [grass, stairs], RESOLUTION);
+
+    expect(slope?.from).toEqual([148, 100]);
+    expect(slope?.to).toEqual([148, 500]);
+    expect(slope?.low).toBe(0);
+    expect(slope?.high).toBe(128);
   });
 
   it('поворачивает наклон съезда вместе с опорой', () => {

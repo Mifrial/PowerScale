@@ -32,6 +32,7 @@ import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeom
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import {
   isSceneDeck,
+  isSceneRamp,
   isSceneRoof,
   sceneDeckClearance,
   sceneRampSlope,
@@ -476,12 +477,15 @@ export class SceneNavigationService {
         const elevation = sceneSurfaceElevation(element);
         const deck = isSceneDeck(element);
         const deckFrame = deck ? sceneDeckFrame(element) : null;
+        // Лестница идёт в клетке стен: перила ей не нужны, а полосы перил
+        // отрезали бы марш по краям.
+        const railed = element.props.kind === 'bridge' || element.props.kind === 'ramp';
         const railBlocks =
-          deckFrame === null
+          deckFrame === null || !railed
             ? []
             : sceneDeckRailPolygons(deckFrame, resolution, agentRadius).map((ring) => [ring] as Polygon);
-        const railRings = deckFrame === null ? [] : sceneDeckRailPolygons(deckFrame, resolution, 0);
-        const slope = element.props.kind === 'ramp' ? sceneRampSlope(element, elements, resolution) : null;
+        const railRings = deckFrame === null || !railed ? [] : sceneDeckRailPolygons(deckFrame, resolution, 0);
+        const slope = isSceneRamp(element) ? sceneRampSlope(element, elements, resolution) : null;
         const railElevation = elevation + sceneDeckRailHeight(resolution);
         const railSlope = slope === null ? null : sceneDeckRailSlope(slope, resolution);
 
@@ -493,7 +497,7 @@ export class SceneNavigationService {
           // Под настилом закрыты только те полосы, где просвет меньше роста
           // тела: у моста через реку это торцы на берегу, а вода под серединой
           // остаётся проходимой. У съезда закрыта низкая часть.
-          if (element.props.kind === 'ramp') {
+          if (isSceneRamp(element)) {
             const rampBlocker = sceneRampBaseBlocker(element, elements, resolution, agentRadius);
             if (rampBlocker !== null) {
               blockers.push([rampBlocker]);

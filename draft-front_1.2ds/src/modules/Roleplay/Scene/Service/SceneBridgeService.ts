@@ -1,6 +1,7 @@
 import { Graphics } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
+import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { sceneDeckFrame, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
@@ -38,13 +39,16 @@ interface DeckMetrics {
  * зум.
  */
 export class SceneBridgeService {
-  /** Рисует мост или съезд; `null` — элемент не прямоугольный. */
+  /** Рисует мост, съезд или лестницу; `null` — элемент не прямоугольный. */
   paint(element: SceneElement, resolution: number, zoom: number, blockedShare = 0): Graphics | null {
     if (element.shape.type !== 'rect') {
       return null;
     }
 
     const metrics = this.metrics(element, resolution, zoom);
+    if (element.props.kind === 'stairs') {
+      return this.paintStairs(metrics, resolution);
+    }
 
     return element.props.kind === 'ramp' ? this.paintRamp(metrics, blockedShare) : this.paintBridge(metrics);
   }
@@ -71,6 +75,77 @@ export class SceneBridgeService {
     this.paintRampCleats(graphics, metrics);
     this.paintRampEnds(graphics, metrics);
     this.paintRails(graphics, metrics);
+    this.applyRotation(graphics, metrics);
+
+    return graphics;
+  }
+
+  /**
+   * Лестница: марш со ступенями и тетивами.
+   *
+   * Ступени считаются от подъёма: марш на два ипари при ступени в четверть
+   * ипари даёт восемь ступеней. Ширина ступени — длинная сторона на число
+   * ступеней; линии идут поперёк хода.
+   */
+  private paintStairs(metrics: DeckMetrics, resolution: number): Graphics {
+    const graphics = new Graphics();
+    this.paintShadow(graphics, metrics);
+
+    const inset = Math.max(1, metrics.short * SCENE_STAIRS.inset);
+    graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.edgeColor });
+    graphics
+      .rect(
+        metrics.x + inset,
+        metrics.y + inset,
+        Math.max(1, metrics.w - inset * 2),
+        Math.max(1, metrics.h - inset * 2),
+      )
+      .fill({ color: SCENE_STAIRS.color });
+
+    const run = metrics.horizontal ? metrics.w : metrics.h;
+    const rise = Math.max(0, metrics.rise);
+    const riser = Math.max(1, Math.max(1, resolution) * SCENE_STAIRS.riserIpari);
+    const steps = Math.max(1, Math.round(rise / riser));
+    const tread = run / steps;
+    const line = Math.max(1, metrics.line);
+    for (let index = 1; index < steps; index += 1) {
+      const offset = tread * index;
+      if (metrics.horizontal) {
+        const px = metrics.x + offset;
+        graphics
+          .moveTo(px, metrics.y + inset)
+          .lineTo(px, metrics.y + metrics.h - inset)
+          .stroke({ color: SCENE_STAIRS.treadColor, width: line });
+        graphics
+          .moveTo(px + line, metrics.y + inset)
+          .lineTo(px + line, metrics.y + metrics.h - inset)
+          .stroke({ color: SCENE_STAIRS.highlightColor, width: line * 0.5, alpha: 0.35 });
+      } else {
+        const py = metrics.y + offset;
+        graphics
+          .moveTo(metrics.x + inset, py)
+          .lineTo(metrics.x + metrics.w - inset, py)
+          .stroke({ color: SCENE_STAIRS.treadColor, width: line });
+        graphics
+          .moveTo(metrics.x + inset, py + line)
+          .lineTo(metrics.x + metrics.w - inset, py + line)
+          .stroke({ color: SCENE_STAIRS.highlightColor, width: line * 0.5, alpha: 0.35 });
+      }
+    }
+
+    const stringer = Math.max(1, metrics.short * 0.07);
+    if (metrics.horizontal) {
+      graphics.rect(metrics.x, metrics.y, metrics.w, stringer).fill({ color: SCENE_STAIRS.stringerColor });
+      graphics
+        .rect(metrics.x, metrics.y + metrics.h - stringer, metrics.w, stringer)
+        .fill({ color: SCENE_STAIRS.stringerColor });
+    } else {
+      graphics.rect(metrics.x, metrics.y, stringer, metrics.h).fill({ color: SCENE_STAIRS.stringerColor });
+      graphics
+        .rect(metrics.x + metrics.w - stringer, metrics.y, stringer, metrics.h)
+        .fill({ color: SCENE_STAIRS.stringerColor });
+    }
+
     this.applyRotation(graphics, metrics);
 
     return graphics;

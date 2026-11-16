@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue';
 import type { ImageContentBox } from '@/modules/Core/File/Dto/ImageContentBox';
 import type { SceneDetail } from '@/modules/Roleplay/Scene/Dto/SceneDetail';
+import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
@@ -201,6 +202,29 @@ export function useSceneDraft(initial: SceneDetail) {
     markDirty();
 
     return board.id;
+  }
+
+  /**
+   * Создаёт этаж по протяжке плана и переключает на него.
+   *
+   * Поле этажа шире плана на поля обзора: из окна видна поляна родителя.
+   * Вложение хранит область родителя, поэтому переход между полями знает
+   * общий масштаб и смещение.
+   */
+  function addFloor(from: ScenePoint, to: ScenePoint): number | null {
+    const result = service.addFloor(draft.value, from, to, draft.value.resolution);
+    if (result === null) {
+      return null;
+    }
+
+    draft.value.boards = [...draft.value.boards];
+    draft.value.elements = [...draft.value.elements];
+    draft.value.enclosures = [...draft.value.enclosures];
+    draft.value.activeBoardId = result.board.id;
+    selection.value = [];
+    markDirty();
+
+    return result.board.id;
   }
 
   /** Переименовывает поле, если имя свободно. */
@@ -731,6 +755,28 @@ export function useSceneDraft(initial: SceneDetail) {
       return;
     }
 
+    // Границы перемещаемых стен до сдвига: по ним видно, что едет всё
+    // строение, а не комната внутри него.
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const element of draft.value.elements) {
+      if (!selected.has(element.id) || !sceneWallService.isWall(element) || element.shape.type !== 'wall') {
+        continue;
+      }
+
+      for (const point of element.shape.points) {
+        minX = Math.min(minX, point[0]);
+        minY = Math.min(minY, point[1]);
+        maxX = Math.max(maxX, point[0]);
+        maxY = Math.max(maxY, point[1]);
+      }
+    }
+    const wallBounds: SceneBounds | null = Number.isFinite(minX)
+      ? { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+      : null;
+
     // Вершины выбранных стен до сдвига: по ним находим общие узлы у соседних
     // стен. Соседняя стена не выделена, но её узел должен поехать вместе с
     // узлом выбранной — иначе сеть рвётся.
@@ -768,6 +814,51 @@ export function useSceneDraft(initial: SceneDetail) {
       if (changed) {
         element.shape = { ...element.shape, points };
         sceneWallService.sync(draft.value.elements, element.id);
+      }
+    }
+
+    // Этаж — отдельное поле; его пятно на родителе едет вместе со строением.
+    // Иначе после перетаскивания дома переход между полями разъедется.
+    if (wallBounds !== null) {
+      const tolerance = Math.max(2, Math.round(draft.value.resolution / 2));
+      for (const enclosure of draft.value.enclosures) {
+        if (enclosure.parentBoardId !== draft.value.activeBoardId || enclosure.footprint.type !== 'rect') {
+          continue;
+        }
+
+        const floors = draft.value.elements.filter(
+          (element) =>
+            element.boardId === enclosure.childBoardId && element.kind === 'terrain' && element.shape.type === 'rect',
+        );
+        const floor = floors.sort(
+          (left, right) =>
+            (right.shape.type === 'rect' ? right.shape.w * right.shape.h : 0) -
+            (left.shape.type === 'rect' ? left.shape.w * left.shape.h : 0),
+        )[0];
+        if (floor === undefined || floor.shape.type !== 'rect') {
+          continue;
+        }
+
+        const footprint = enclosure.footprint;
+        const expected = {
+          x: footprint.x + floor.shape.x,
+          y: footprint.y + floor.shape.y,
+          width: floor.shape.w,
+          height: floor.shape.h,
+        };
+        if (
+          Math.abs(expected.x - wallBounds.x) <= tolerance &&
+          Math.abs(expected.y - wallBounds.y) <= tolerance &&
+          Math.abs(expected.width - wallBounds.width) <= tolerance &&
+          Math.abs(expected.height - wallBounds.height) <= tolerance
+        ) {
+          enclosure.footprint = {
+            ...footprint,
+            x: footprint.x + delta[0],
+            y: footprint.y + delta[1],
+          };
+          draft.value.enclosures = [...draft.value.enclosures];
+        }
       }
     }
 
@@ -944,6 +1035,7 @@ export function useSceneDraft(initial: SceneDetail) {
     setResolution,
     setActiveBoard,
     addBoard,
+    addFloor,
     renameBoard,
     removeBoard,
     moveBoard,

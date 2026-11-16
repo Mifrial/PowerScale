@@ -7,7 +7,7 @@ import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibility';
 import { SCENE_OVERLAY } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OVERLAY';
 import { SceneOverlayService } from '@/modules/Roleplay/Scene/Service/SceneOverlayService';
-import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { SceneSurfaceService, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 
 const board: SceneBoard = {
   id: 1,
@@ -111,6 +111,20 @@ describe('SceneOverlayService', () => {
     expect(alphas.has(Math.round(SCENE_OVERLAY.hiddenMid.alpha * 255))).toBe(true);
     expect(alphas.has(Math.round(SCENE_OVERLAY.hidden.alpha * 255))).toBe(true);
     expect(alphas.has(0)).toBe(true);
+  });
+
+  it('не прячет клетки без поверхности: поля этажа остаются видимыми', () => {
+    const grid = surfaces.build(
+      board,
+      [element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 64, h: 64 }, { kind: 'grass' })],
+      64,
+    );
+    const visible = new Uint8Array(grid.columns * grid.rows).fill(0);
+    const visibility: SceneVisibility = { columns: grid.columns, rows: grid.rows, visible };
+    const mask = service.hiddenMask(grid, visibility);
+
+    expect(grid.kinds[surfaceIndex(grid, 200, 200)]).toBe('none');
+    expect(mask.alpha[surfaceIndex(grid, 200, 200)]).toBe(0);
   });
 
   it('держит стоимость и туман в разных наборах', () => {

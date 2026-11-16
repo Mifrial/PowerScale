@@ -25,7 +25,7 @@ final class SceneElementValidator
         'marker' => ['point'],
     ];
 
-    private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge', 'ramp'];
+    private const SUPPORT_KINDS = ['ground', 'deck', 'roof', 'tabletop', 'bridge', 'ramp', 'stairs'];
 
     /**
      * Пресеты скорости опор: 100 — норма, мост и съезд быстрее.
@@ -37,6 +37,7 @@ final class SceneElementValidator
         'tabletop' => 100,
         'bridge' => 150,
         'ramp' => 150,
+        'stairs' => 100,
     ];
 
     private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];

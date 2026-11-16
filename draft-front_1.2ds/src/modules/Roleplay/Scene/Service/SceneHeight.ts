@@ -23,9 +23,22 @@ export interface SceneHeightElement {
 /** Доли длинной стороны настила, по которым ищется поверхность под ним. */
 const DECK_SAMPLES: readonly number[] = [0.5, 0.25, 0.75];
 
-/** Настил: мост или съезд. */
+/** Настил: мост, съезд или лестница. */
 export function isSceneDeck(element: SceneHeightElement): boolean {
-  return element.kind === 'support' && (element.props.kind === 'bridge' || element.props.kind === 'ramp');
+  return (
+    element.kind === 'support' &&
+    (element.props.kind === 'bridge' || element.props.kind === 'ramp' || element.props.kind === 'stairs')
+  );
+}
+
+/**
+ * Наклонный марш: съезд или лестница.
+ *
+ * Оба садятся низким концом на поверхность, а высокий задаёт `elevation`.
+ * Мост — ровный настил, у него наклона нет.
+ */
+export function isSceneRamp(element: SceneHeightElement): boolean {
+  return element.kind === 'support' && (element.props.kind === 'ramp' || element.props.kind === 'stairs');
 }
 
 /**
@@ -209,7 +222,7 @@ export function sceneRampSlope(
   elements: readonly SceneHeightElement[],
   resolution: number,
 ): SceneRampSlope | null {
-  if (element.props.kind !== 'ramp' || element.shape.type !== 'rect') {
+  if (!isSceneRamp(element) || element.shape.type !== 'rect') {
     return null;
   }
 

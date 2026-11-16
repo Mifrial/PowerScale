@@ -6,11 +6,13 @@ import type { SceneFootprint } from '@/modules/Roleplay/Scene/Dto/SceneFootprint
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneDraftElement } from '@/modules/Roleplay/Scene/Dto/SceneDraftElement';
+import type { SceneSaveEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneSaveEnclosure';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import type { SceneHandleSide } from '@/modules/Roleplay/Scene/Enum/SceneHandleSide';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import { SCENE_BOARD_DEFAULTS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BOARD_DEFAULTS';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
@@ -56,6 +58,69 @@ export class SceneDraftService {
     }
 
     return `${SCENE_BOARD_DEFAULTS.name} ${index}`;
+  }
+
+  /** Свободное имя этажа: «Этаж 2», «Этаж 3», … */
+  freeFloorName(draft: SceneDraft): string {
+    const names = new Set(draft.boards.map((board) => board.name));
+    let index = draft.boards.length + 1;
+    while (names.has(`Этаж ${index}`)) {
+      index += 1;
+    }
+
+    return `Этаж ${index}`;
+  }
+
+  /**
+   * Создаёт этаж отдельным полем-вложением.
+   *
+   * Прямоугольник протяжки — план этажа; поле шире плана на поля обзора, чтобы
+   * из окна была видна поляна родителя. План вписывается в поле с тем же
+   * отступом, а вложение хранит область родителя, которую покрывает поле.
+   */
+  addFloor(
+    draft: SceneDraft,
+    from: ScenePoint,
+    to: ScenePoint,
+    resolution: number,
+  ): { board: SceneDraftBoard; enclosure: SceneSaveEnclosure; floor: SceneDraftElement } | null {
+    const parent = draft.boards.find((board) => board.id === draft.activeBoardId);
+    if (parent === undefined) {
+      return null;
+    }
+
+    const x = Math.max(0, Math.min(parent.boundWidth - 1, Math.round(Math.min(from[0], to[0]))));
+    const y = Math.max(0, Math.min(parent.boundHeight - 1, Math.round(Math.min(from[1], to[1]))));
+    const right = Math.max(x + 1, Math.min(parent.boundWidth, Math.round(Math.max(from[0], to[0]))));
+    const bottom = Math.max(y + 1, Math.min(parent.boundHeight, Math.round(Math.max(from[1], to[1]))));
+    const w = right - x;
+    const h = bottom - y;
+    const margin = Math.max(0, Math.round(Math.max(1, resolution) * SCENE_FLOOR.contextMarginIpari));
+    const fx = Math.max(0, x - margin);
+    const fy = Math.max(0, y - margin);
+    const fw = Math.min(parent.boundWidth, x + w + margin) - fx;
+    const fh = Math.min(parent.boundHeight, y + h + margin) - fy;
+
+    const board = this.addBoard(draft, this.freeFloorName(draft));
+    board.boundWidth = Math.max(1, fw);
+    board.boundHeight = Math.max(1, fh);
+    const floor = this.addElement(
+      draft,
+      board.id,
+      'terrain',
+      { type: 'rect', x: x - fx, y: y - fy, w, h },
+      { kind: 'dirt', label: 'Пол', speed: 100 },
+    );
+    const enclosure: SceneSaveEnclosure = {
+      id: this.allocateId(),
+      parentBoardId: parent.id,
+      childBoardId: board.id,
+      footprint: { type: 'rect', x: fx, y: fy, w: fw, h: fh },
+      sortOrder: draft.enclosures.length,
+    };
+    draft.enclosures.push(enclosure);
+
+    return { board, enclosure, floor };
   }
 
   /** Добавляет поле в конец. */

@@ -197,6 +197,10 @@ const toolHint = computed<string | null>(() => {
     return 'Клик по полу внутри стен тянет всё строение';
   }
 
+  if (tool.value === 'floor') {
+    return 'Протяни план этажа: поле получит поля обзора вокруг, из окна будет видна поляна';
+  }
+
   return null;
 });
 const rooms = computed<SceneRoom[]>(() => {
@@ -477,6 +481,15 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
 
   const definition = toolDefinition.value;
   if (definition === null) return;
+  if (definition.id === 'floor') {
+    if (state.addFloor(from, to) !== null) {
+      notice.value = 'Этаж создан: план и поля обзора вокруг';
+      error.value = null;
+    }
+
+    return;
+  }
+
   if (definition.kind === 'opening') {
     insertOpeningOnWall(definition, from, to);
 

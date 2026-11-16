@@ -47,6 +47,33 @@ describe('SceneDraftService', () => {
     expect(service.allocateId()).toBe(-2);
   });
 
+  it('создаёт этаж полем-вложением с полями обзора', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+
+    const result = service.addFloor(state, [100, 100], [500, 400], 64);
+
+    expect(result).not.toBeNull();
+    const { board, enclosure, floor } = result!;
+    expect(board.name).toBe('Этаж 2');
+    // План 400×300 плюс поля обзора по 4 ипари; слева и сверху они
+    // обрезаны краем родителя, поэтому поле 756×656.
+    expect(board.boundWidth).toBe(756);
+    expect(board.boundHeight).toBe(656);
+    expect(enclosure).toMatchObject({
+      parentBoardId: 10,
+      childBoardId: board.id,
+      footprint: { type: 'rect', x: 0, y: 0, w: 756, h: 656 },
+    });
+    expect(floor).toMatchObject({
+      boardId: board.id,
+      kind: 'terrain',
+      shape: { type: 'rect', x: 100, y: 100, w: 400, h: 300 },
+      props: { kind: 'dirt', label: 'Пол' },
+    });
+    expect(service.freeFloorName(state)).toBe('Этаж 3');
+  });
+
   it('adds a board with defaults and a free name', () => {
     const service = new SceneDraftService();
     const state = draft();

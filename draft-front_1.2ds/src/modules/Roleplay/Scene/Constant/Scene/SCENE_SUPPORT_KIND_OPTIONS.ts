@@ -6,4 +6,5 @@ export const SCENE_SUPPORT_KIND_OPTIONS = [
   { value: 'tabletop', title: 'Стойка' },
   { value: 'bridge', title: 'Мост' },
   { value: 'ramp', title: 'Съезд' },
+  { value: 'stairs', title: 'Лестница' },
 ];

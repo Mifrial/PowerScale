@@ -68,6 +68,14 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     variant: 'Строение',
   },
   {
+    id: 'floor',
+    label: 'Этаж',
+    icon: 'mdi-home-floor-2',
+    kind: null,
+    shapeType: 'rect',
+    props: {},
+  },
+  {
     id: 'support',
     label: 'Опора',
     icon: 'mdi-floor-plan',
@@ -90,6 +98,15 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     kind: 'support',
     shapeType: 'rect',
     props: { kind: 'ramp', height: 16, elevation: 48, speed: 150 },
+  },
+  {
+    id: 'stairs',
+    label: 'Лестница',
+    icon: 'mdi-stairs',
+    kind: 'support',
+    shapeType: 'rect',
+    // Марш на два ипари: высота дома. Длина и ширина — протяжкой.
+    props: { kind: 'stairs', height: 16, elevation: 128, speed: 100 },
   },
   {
     id: 'roof',

@@ -215,4 +215,49 @@ describe('useSceneDraft floor drag', () => {
     const movedFloor = state.draft.value.elements.find((element) => element.id === floor);
     expect(movedFloor?.shape.type === 'rect' ? movedFloor.shape.x : null).toBe(140);
   });
+
+  it('двигает пятно этажа вместе со строением', () => {
+    const state = useSceneDraft(detail());
+    const floorBoard = state.addFloor([100, 100], [500, 500]);
+    if (floorBoard === null) {
+      throw new Error('floor was not created');
+    }
+    expect(state.draft.value.enclosures).toHaveLength(1);
+    state.setActiveBoard(10);
+
+    const wallTool = SCENE_TOOLS.find((tool) => tool.id === 'wall')!;
+    const walls: number[] = [];
+    const corners: [number, number][][] = [
+      [
+        [100, 100],
+        [500, 100],
+      ],
+      [
+        [500, 100],
+        [500, 500],
+      ],
+      [
+        [500, 500],
+        [100, 500],
+      ],
+      [
+        [100, 500],
+        [100, 100],
+      ],
+    ];
+    for (const points of corners) {
+      const id = state.createElement(wallTool, { type: 'wall', points, width: 8 }, {});
+      if (id !== null) {
+        walls.push(id);
+      }
+    }
+
+    state.moveElements(walls, 40, 0);
+
+    const footprint = state.draft.value.enclosures[0].footprint;
+    expect(footprint.type === 'rect' ? footprint.x : null).toBe(40);
+    // Пол этажа остаётся в координатах поля: едет только пятно на родителе.
+    const floor = state.draft.value.elements.find((element) => element.boardId === floorBoard);
+    expect(floor?.shape.type === 'rect' ? floor.shape.x : null).toBe(100);
+  });
 });
