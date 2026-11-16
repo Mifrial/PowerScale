@@ -1,6 +1,7 @@
 # План реализации магии 02 — Межструктурные энергопереходы
 
-**Статус:** ~В РАБОТЕ~ — `IN_PROGRESS`, 2026-09-21.
+**Статус:** ~СДЕЛАНО~, 2026-11-16 — карточка `interstructure-energy-transfer` в каталоге,
+эффект следующей Сложности посажен на real в [`spell-real-plan-04-saturation.md`](spell-real-plan-04-saturation.md).
 **Дизайн:** [`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md).  
 **Секция:** `Арканист → Образование → Базовое`.  
 **Код:** `interstructure-energy-transfer`.
@@ -306,3 +307,4 @@ pending потребляется, ОД списываются, а новый б�
 | 2026-09-20 | Добавлена reservation-модель: preview создаёт блокировку без списания, commit/cancel выполняются единым Game-контрактом; offer использует существующий `SpellCastOfferContext`. |
 | 2026-09-20 | Зафиксирован lifecycle reservation: связь с `offerId`, подпись pending, пересчёт на revise, release на cancel и commit внутри перехода offer в `accepted`. |
 | 2026-09-21 | В mock offer добавлена reservation с подписью pending и статусами `reserved`/`committed`/`released`; добавлена UI-разметка подсказки без служебных маркеров в тексте. |
+| 2026-11-16 | Сверено с real: карточка в каталоге, эффект следующей Сложности посажен в [`spell-real-plan-04-saturation.md`](spell-real-plan-04-saturation.md); мок-реализация осталась историей. |

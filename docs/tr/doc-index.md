@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 267 | 10 | 21 | 36 | 160 | 4 | 1 | 8 | 27 |
+| `tr` | 267 | 10 | 8 | 40 | 168 | 4 | 1 | 9 | 27 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -61,20 +61,20 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Messages/Chat](module-map/Messages/Chat.md) | 9 | 0 | 0 | 0 | 8 | 1 | 8 | 4 | 1 |
 | [Messages/Notes](module-map/Messages/Notes.md) | 6 | 0 | 0 | 1 | 5 | 0 | 4 | 5 | 2 |
 | [Roleplay/Character](module-map/Roleplay/Character.md) | 18 | 1 | 0 | 3 | 11 | 2 | 14 | 3 | 0 |
-| [Roleplay/Game](module-map/Roleplay/Game.md) | 52 | 0 | 1 | 3 | 42 | 1 | 45 | 12 | 6 |
+| [Roleplay/Game](module-map/Roleplay/Game.md) | 52 | 0 | 1 | 3 | 42 | 1 | 45 | 12 | 4 |
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
-| [Roleplay/Map](module-map/Roleplay/Map.md) | 3 | 0 | 3 | 0 | 0 | 0 | 3 | 3 | 3 |
+| [Roleplay/Map](module-map/Roleplay/Map.md) | 3 | 0 | 1 | 0 | 2 | 0 | 3 | 3 | 3 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |
-| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 56 | 5 | 8 | 9 | 28 | 3 | 20 | 24 | 2 |
+| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 56 | 5 | 1 | 13 | 30 | 3 | 20 | 24 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Roleplay/Scene](module-map/Roleplay/Scene.md) | 9 | 0 | 5 | 0 | 4 | 0 | 8 | 9 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |
-| — | 138 | 6 | 4 | 6 | 12 | 47 | 8 | 14 | 2 |
+| — | 138 | 6 | 0 | 6 | 16 | 47 | 8 | 14 | 2 |
 
 ## Реализация: где есть PHP и где только мок
 
 - **Не опираться на реализацию** (`~НЕ ОСНОВА~`): [notes-plan-01-inline-extract.md](notes-plan-01-inline-extract.md).
-- **Только мок, PHP нет**: [game-combat-readiness.md](game-combat-readiness.md), [lore-plan-02-inline-links.md](lore-plan-02-inline-links.md), [notes-plan-03-vue.md](notes-plan-03-vue.md), [rule-content-plan-02-concentration.md](rule-content-plan-02-concentration.md).
+- **Только мок, PHP нет**: [lore-plan-02-inline-links.md](lore-plan-02-inline-links.md), [notes-plan-03-vue.md](notes-plan-03-vue.md), [rule-content-plan-02-concentration.md](rule-content-plan-02-concentration.md).
 - **Есть PHP** — колонка `PHP` в таблице модулей ниже.
 
 ## Отложено до следующих релизов

@@ -1,6 +1,8 @@
 # C2 — план: языки, письменность, народность, книжный червь
 
-**Статус:** ~В РАБОТЕ~ — `DRAFT`, 2026-09-15.
+**Статус:** ~ЧАСТИЧНО~, 2026-11-16 — дерево языков, письменности и народности посажено
+в каталог 2026-10-13 (20 `language`, 7 `script`, 14 `ethnicity`); остаётся лист
+народности с родным языком и авто-2, мок-часть переписать под real.
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Карточки:** `vladenie-yazykom`, `pismennost`, `pravilnoe-proiznoshenie`, `chtenie-po-gubam`, `gramotnost`, `bookworm`; заглушка `language-native` **убрать**.  

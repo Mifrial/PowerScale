@@ -1,6 +1,6 @@
 # Нарезка редакционного прохода каталога
 
-**Статус:** ~В РАБОТЕ~ — план, 2026-09-16. Канон статусов — [`rule-system.md`](rule-system.md). Оси `contentStatus` / runtime — `DEC-053`…`DEC-055`. Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Очередь пропусков — [`rule-content-queue.md`](rule-content-queue.md). Магия как отдельная линия — [`spell-roadmap.md`](spell-roadmap.md).
+**Статус:** ~ЧАСТИЧНО~ — план, 2026-11-16: C1 `DONE`, C2 `IN_PROGRESS` (хвост — языки), C3 `DEFERRED`. Канон статусов — [`rule-system.md`](rule-system.md). Оси `contentStatus` / runtime — `DEC-053`…`DEC-055`. Фронт — [`../../draft-front_1.2ds/frontend-rules.md`](../../draft-front_1.2ds/frontend-rules.md). Очередь пропусков — [`rule-content-queue.md`](rule-content-queue.md). Магия как отдельная линия — [`spell-roadmap.md`](spell-roadmap.md).
 
 Цель: пройти уже выгруженные правила так, чтобы карточке можно было верить (текст + spec), не подгоняя Game под сырой дамп и не объявляя «актуальным» то, что врёт.
 
@@ -72,3 +72,4 @@
 | 2026-09-20 | C2 тактика: дизайн «Защита знанием» / «Прикрытие» — [`rule-content-plan-15-melee-tactics-design.md`](rule-content-plan-15-melee-tactics-design.md). |
 | 2026-11-08 | C2 закрыты ветки «ударные улучшения» (план-08), «Сила» (план-10), «Точность» (план-11) и «Количество» (план-13). Очередь обновлена. |
 | 2026-11-08 | C2 манёвры: план-17, первый срез — «Разбить защиту» и «Вскрыть слабость»; немедленная атака и движение отложены — [`rule-content-plan-17-melee-maneuvers.md`](rule-content-plan-17-melee-maneuvers.md). |
+| 2026-11-16 | Сверено с кодом: C1 `DONE`, C2 `IN_PROGRESS` (хвост — языки), C3 `DEFERRED`; статус — `~ЧАСТИЧНО~`. |

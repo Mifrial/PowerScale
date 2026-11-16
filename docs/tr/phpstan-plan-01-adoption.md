@@ -1,6 +1,6 @@
 # План PHPStan 1 — подключение статического анализа
 
-**Статус:** ~В РАБОТЕ~
+**Статус:** ~СДЕЛАНО~, 2026-11-16 — этапы 0–4 закрыты, `composer stan` в гейте.
 **Реализация:** ~PHP~
 **Опираться на:** ~PHP~
 
@@ -62,8 +62,8 @@
 
 - [x] `docs/tr/php-coding-standards.md`: `composer stan` в итерационный список + подраздел «Статический анализ»
 - [x] `AGENTS.md` § «Тесты и гейт»: `composer stan` в самопроверку, статическая полоса в полном прогоне
-- [ ] `composer maps-check`, `composer docs-check`
-- [ ] полный прогон `bash tools/test-full.sh` — после ручной проверки пользователем
+- [x] `composer maps-check`, `composer docs-check`
+- [x] полный прогон `bash tools/test-full.sh` — после ручной проверки пользователем
 
 ## Сдача
 

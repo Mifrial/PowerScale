@@ -3044,27 +3044,27 @@
             "dependedOnBy": [],
             "plans": [
                 {
+                    "path": "docs/tr/spatial-roadmap.md",
+                    "title": "Пространственный слой: карты, локации сцен, сцены",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-10",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/map-plan-01.md",
                     "title": "Карты: серверный срез",
                     "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-08",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 },
                 {
                     "path": "docs/tr/map-plan-02.md",
                     "title": "Карты: фронтенд-срез",
                     "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-08",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/spatial-roadmap.md",
-                    "title": "Пространственный слой: карты, локации сцен, сцены",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-10",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 }
             ]
@@ -3350,62 +3350,6 @@
                     "hasStatus": true
                 },
                 {
-                    "path": "docs/tr/rule-content-plan-07-languages.md",
-                    "title": "C2 — план: языки, письменность, народность, книжный червь",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-09-15",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
-                    "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-16-melee-tactics.md",
-                    "title": "C2 — ветка ближнего боя «Тактика и реакции»",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": null,
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-plan-17-melee-maneuvers.md",
-                    "title": "C2 — ветка ближнего боя «Боевые манёвры»",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-11-08",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/rule-content-roadmap.md",
-                    "title": "Нарезка редакционного прохода каталога",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-09-16",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/spell-inventory-01.md",
-                    "title": "Inventory 01 — магия из AI.html",
-                    "kind": "canon",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-09-07",
-                    "hasStatus": true
-                },
-                {
-                    "path": "docs/tr/spell-plan-02-slice.md",
-                    "title": "План M2 — representative vertical slice магии",
-                    "kind": "plan",
-                    "state": "В РАБОТЕ",
-                    "date": "2026-09-07",
-                    "hasStatus": true
-                },
-                {
                     "path": "docs/tr/spell-real-plan-10-crystal.md",
                     "title": "План M10 — кристалл, мана и записи",
                     "kind": "plan",
@@ -3419,6 +3363,38 @@
                     "kind": "plan",
                     "state": "ЧАСТИЧНО",
                     "date": "2026-09-13",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-07-languages.md",
+                    "title": "C2 — план: языки, письменность, народность, книжный червь",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-16-melee-tactics.md",
+                    "title": "C2 — ветка ближнего боя «Тактика и реакции»",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-plan-17-melee-maneuvers.md",
+                    "title": "C2 — ветка ближнего боя «Боевые манёвры»",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/rule-content-roadmap.md",
+                    "title": "Нарезка редакционного прохода каталога",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-16",
                     "hasStatus": true
                 },
                 {
@@ -3566,6 +3542,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/rule-content-plan-15-melee-tactics-design.md",
+                    "title": "C2 — дизайн способностей «Защита знанием» и «Прикрытие»",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-plan-02-init-surface.md",
                     "title": "План Rule 2 — поверхность Vue `Rule/init`",
                     "kind": "plan",
@@ -3619,6 +3603,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-09-07",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-plan-02-slice.md",
+                    "title": "План M2 — representative vertical slice магии",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": null,
                     "hasStatus": true
                 },
                 {
@@ -3731,6 +3723,14 @@
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-inventory-01.md",
+                    "title": "Inventory 01 — магия из AI.html",
+                    "kind": "canon",
+                    "state": "СНИМОК",
+                    "date": "2026-09-07",
                     "hasStatus": true
                 },
                 {

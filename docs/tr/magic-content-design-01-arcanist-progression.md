@@ -1,9 +1,9 @@
 # Дизайн-пачка магии 01 — последовательное развитие Арканиста
 
-**Статус:** `IN_PROGRESS`, 2026-09-20.  
+**Статус:** ~СДЕЛАНО~, 2026-11-16 — дизайн реализован линией [`spell-real-roadmap.md`](spell-real-roadmap.md); историческая ветка закрыта.  
 **Родитель:** [`spell-roadmap.md`](spell-roadmap.md).  
 **Источник наблюдений:** [`spell-inventory-01.md`](spell-inventory-01.md), [`spell-review-01.md`](spell-review-01.md), выгрузка [`AI.html`](../rule/spell/AI.html).  
-**Текущий мок:** `draft-front_1.2ds/src/modules/Roleplay/Rule/Mock/mockSpellImport.ts`.
+**Исторический мок:** `draft-front_1.2ds/src/modules/Roleplay/Rule/Mock/mockSpellImport.ts`.
 
 ## 1. Цель
 
@@ -225,3 +225,4 @@
 | 2026-09-20 | `interstructure-energy-transfer` закреплена как третья способность базового образования; план реализации — [`magic-content-plan-02-interstructure-energy-transfer.md`](magic-content-plan-02-interstructure-energy-transfer.md). |
 | 2026-09-21 | Уточнён состав секции «Углублённое» и создан отдельный дизайн-документ для четырёх способностей курса. |
 | 2026-09-26 | Зафиксирован дизайн навыка `piercing-magic`: произвольное `х`, увеличение Требуемой мощи и снижение сопротивления магии. |
+| 2026-11-16 | Сверено с real: вход Арканиста в каталоге, проверен в `spell-real-plan-09`; дизайн закрыт, историческая ветка закрыта. |

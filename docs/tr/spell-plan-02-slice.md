@@ -1,6 +1,6 @@
 # План M2 — representative vertical slice магии
 
-**Статус:** ~В РАБОТЕ~ — в работе, 2026-09-07. Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Входные результаты — [`spell-inventory-01.md`](spell-inventory-01.md), [`spell-review-01.md`](spell-review-01.md), [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md).
+**Статус:** ~СДЕЛАНО~ — срез собран, решения перешли в планы 03–09; прошлая нарезка больше не канон, runtime — [`spell-real-roadmap.md`](spell-real-roadmap.md). Родительская нарезка — [`spell-roadmap.md`](spell-roadmap.md). Входные результаты — [`spell-inventory-01.md`](spell-inventory-01.md), [`spell-review-01.md`](spell-review-01.md), [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md).
 
 Канон кода: `AbilitySpec` / `SpellSpec` / `AbilityParameter`, `ActionExecutionService`, `AttackDamageService`, `DamageTypeSpec`, `CheckSuccessRatingService`. Не вводить параллельные имена, если в коде уже есть контракт.
 
@@ -275,3 +275,4 @@ ActiveSpell:
 | 2026-09-10 | Касание: компонент до check, та же атака; молоко при промахе; 0 РУ атаки → 1 РУ только для эффекта касания. Отклонение остаётся M9. |
 | 2026-09-10 | Цель касания vs цель заклинания; молоко ≠ auto-fail; ОД = max; касание = выбранное оружие. |
 | 2026-09-11 | M8 закрыт. E6 уходит в [`spell-plan-09-magic-runtime.md`](spell-plan-09-magic-runtime.md). |
+| 2026-11-16 | Срез закрыт: планы 03–09 сделаны, runtime переехал на сервер (`spell-real-*`). |

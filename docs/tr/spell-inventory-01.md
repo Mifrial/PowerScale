@@ -1,6 +1,6 @@
 # Inventory 01 — магия из AI.html
 
-**Статус:** черновик на review, 2026-09-07. План — [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md). Источник — [`docs/rule/spell/AI.html`](../rule/spell/AI.html).
+**Статус:** ~СНИМОК~ — inventory наблюдений из `AI.html`, 2026-09-07. Не план, а источник: на него опирается линия [`spell-real-roadmap.md`](spell-real-roadmap.md). План выгрузки — [`spell-plan-01-inventory.md`](spell-plan-01-inventory.md). Источник — [`docs/rule/spell/AI.html`](../rule/spell/AI.html).
 
 Это inventory наблюдений, а не утверждённый каталог Rule. Коды предварительные и не являются публичными кодами контента.
 

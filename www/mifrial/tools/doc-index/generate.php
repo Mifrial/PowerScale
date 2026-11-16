@@ -6,12 +6,17 @@ declare(strict_types=1);
  * Собирает карту документации docs/: тип, статус, слои, связи и битые ссылки.
  *
  * Запуск: composer docs-map (запись) или composer docs-check (сверка).
+ * У `--check` есть мягкий режим `--stale-days=N`: предупреждения о документах
+ * в работе, которые давно не менялись; код возврата при этом остаётся 0.
  * Файл не подпадает под phpcs: правила стандарта соблюдаются вручную.
  */
 
 const STATE_TOKENS = ['ПЛАН', 'В РАБОТЕ', 'ЧАСТИЧНО', 'СДЕЛАНО', 'ОТЛОЖЕН', 'ОТМЕНЁН', 'СНИМОК'];
 const LAYER_TOKENS = ['PHP', 'VUE', 'МОК', 'НИГДЕ'];
 const BASIS_TOKENS = ['PHP', 'МОК', 'НЕ ОСНОВА'];
+
+/** Сколько дней документ может числиться в работе без правок, прежде чем дать предупреждение. */
+const STALE_WORK_DAYS = 14;
 
 const KIND_LABELS = [
     'canon' => 'канон',
@@ -57,6 +62,12 @@ $repoRoot = dirname($toolRoot, 2);
 $docsRoot = $repoRoot . '/docs';
 $indexDir = $docsRoot . '/tr';
 $checkOnly = in_array('--check', $argv, true);
+$staleDays = STALE_WORK_DAYS;
+foreach ($argv as $argument) {
+    if (preg_match('/^--stale-days=(\d+)$/', $argument, $match) === 1) {
+        $staleDays = (int) $match[1];
+    }
+}
 
 $allowlist = readAllowlist(__DIR__ . '/allowlist.json');
 $documents = collectDocuments($docsRoot, $repoRoot);
@@ -72,6 +83,7 @@ if ($checkOnly) {
     checkBrokenLinks($documents, $allowlist);
     checkPlanStatuses($documents);
     checkTrustMap($repoRoot);
+    warnStaleWork($documents, $repoRoot, $staleDays);
     fwrite(STDOUT, 'doc index is up to date' . PHP_EOL);
     exit(0);
 }
@@ -437,7 +449,7 @@ function layersFromProse(string $text): array
         $layers['VUE'] = true;
     }
 
-    if (preg_match('/мок|mock/u', $lower) === 1) {
+    if (preg_match('/(?<![\p{L}])мок(?:а|и|у|е|ом|ов|ам|ами|ах)?(?![\p{L}])|mock/u', $lower) === 1) {
         $layers['МОК'] = true;
     }
 
@@ -1226,6 +1238,93 @@ function checkPlanStatuses(array $documents): void
         count($reported),
         implode("\n", $reported),
     ));
+}
+
+/**
+ * Предупреждает о документах, которые числятся в работе, но давно не менялись.
+ *
+ * Предупреждения не валят гейт: список печатается в STDERR, код возврата остаётся 0.
+ *
+ * @param array<string, array{zone: string, state: string|null, statusRaw: string, date: string|null, path: string}> $documents
+ *        Документы карты.
+ * @param string $repoRoot Корень репозитория.
+ * @param int $staleDays Порог в днях.
+ *
+ * @return void
+ */
+function warnStaleWork(array $documents, string $repoRoot, int $staleDays): void
+{
+    $today = new DateTimeImmutable('today');
+    $warnings = [];
+    foreach ($documents as $path => $document) {
+        if ($document['zone'] !== 'tr' || $document['state'] !== 'В РАБОТЕ') {
+            continue;
+        }
+
+        $reference = lastCommitDate($repoRoot, $document['path']) ?? $document['date'];
+        if ($reference === null) {
+            $warnings[] = $path . ': в работе, но нет ни даты статуса, ни истории коммитов';
+            continue;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $reference);
+        if ($date === false) {
+            continue;
+        }
+
+        $age = (int) $date->diff($today)->days;
+        if ($age > $staleDays) {
+            $warnings[] = sprintf(
+                '%s: в работе, но не менялся %d дн. (последняя правка — %s)',
+                $path,
+                $age,
+                $reference,
+            );
+        }
+    }
+
+    foreach ($warnings as $warning) {
+        fwrite(STDERR, 'warning: ' . $warning . PHP_EOL);
+    }
+}
+
+/**
+ * Возвращает дату последнего коммита файла.
+ *
+ * Если git недоступен, возвращает null — тогда вызывающий код берёт дату из статуса.
+ *
+ * @param string $repoRoot Корень репозитория.
+ * @param string $relativePath Путь файла относительно корня.
+ *
+ * @return string|null Дата в формате Y-m-d или null.
+ */
+function lastCommitDate(string $repoRoot, string $relativePath): ?string
+{
+    static $available = null;
+    static $cache = [];
+
+    if ($available === null) {
+        $available = function_exists('exec') && file_exists($repoRoot . '/.git');
+    }
+    if ($available === false) {
+        return null;
+    }
+
+    if (array_key_exists($relativePath, $cache)) {
+        return $cache[$relativePath];
+    }
+
+    $output = [];
+    $code = 0;
+    exec(sprintf(
+        'git -C %s log -1 --format=%%cs -- %s 2>/dev/null',
+        escapeshellarg($repoRoot),
+        escapeshellarg($relativePath),
+    ), $output, $code);
+
+    $cache[$relativePath] = $code === 0 && isset($output[0]) && $output[0] !== '' ? $output[0] : null;
+
+    return $cache[$relativePath];
 }
 
 /**

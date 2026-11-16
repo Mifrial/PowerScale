@@ -47,15 +47,12 @@
 | [rule-content-plan-12-dodge-benefit.md](../../rule-content-plan-12-dodge-benefit.md) | план | `~ПЛАН~` | 2026-09-19 |
 | [spell-real-roadmap.md](../../spell-real-roadmap.md) | план | `~ПЛАН~` | 2026-11-09 |
 | [spell-review-01.md](../../spell-review-01.md) | канон | `~ПЛАН~` | 2026-09-07 |
-| [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~В РАБОТЕ~` | 2026-09-15 |
-| [rule-content-plan-15-melee-tactics-design.md](../../rule-content-plan-15-melee-tactics-design.md) | план | `~В РАБОТЕ~` | — |
-| [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~В РАБОТЕ~` | — |
-| [rule-content-plan-17-melee-maneuvers.md](../../rule-content-plan-17-melee-maneuvers.md) | план | `~В РАБОТЕ~` | 2026-11-08 |
-| [rule-content-roadmap.md](../../rule-content-roadmap.md) | план | `~В РАБОТЕ~` | 2026-09-16 |
-| [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~В РАБОТЕ~` | 2026-09-07 |
-| [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~В РАБОТЕ~` | 2026-09-07 |
 | [spell-real-plan-10-crystal.md](../../spell-real-plan-10-crystal.md) | план | `~В РАБОТЕ~` | 2026-11-14 |
 | [rule-content-plan-02-concentration.md](../../rule-content-plan-02-concentration.md) | план | `~ЧАСТИЧНО~` | 2026-09-13 |
+| [rule-content-plan-07-languages.md](../../rule-content-plan-07-languages.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
+| [rule-content-plan-16-melee-tactics.md](../../rule-content-plan-16-melee-tactics.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
+| [rule-content-plan-17-melee-maneuvers.md](../../rule-content-plan-17-melee-maneuvers.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
+| [rule-content-roadmap.md](../../rule-content-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-11-16 |
 | [rule-plan-01.md](../../rule-plan-01.md) | план | `~ЧАСТИЧНО~` | 2026-09-05 |
 | [rule-plan-03.md](../../rule-plan-03.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
 | [rule-plan-04.md](../../rule-plan-04.md) | план | `~ЧАСТИЧНО~` | 2026-10-05 |
@@ -74,6 +71,7 @@
 | [rule-content-plan-10-melee-power.md](../../rule-content-plan-10-melee-power.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
 | [rule-content-plan-11-melee-accuracy.md](../../rule-content-plan-11-melee-accuracy.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
 | [rule-content-plan-13-melee-quantity.md](../../rule-content-plan-13-melee-quantity.md) | план | `~СДЕЛАНО~` | 2026-11-08 |
+| [rule-content-plan-15-melee-tactics-design.md](../../rule-content-plan-15-melee-tactics-design.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [rule-plan-02-init-surface.md](../../rule-plan-02-init-surface.md) | план | `~СДЕЛАНО~` | 2026-09-07 |
 | [rule-plan-05.md](../../rule-plan-05.md) | план | `~СДЕЛАНО~` | 2026-10-05 |
 | [rule-plan-06.md](../../rule-plan-06.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
@@ -81,6 +79,7 @@
 | [rule-plan-09.md](../../rule-plan-09.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
 | [rule-plan-10.md](../../rule-plan-10.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
 | [spell-plan-01-inventory.md](../../spell-plan-01-inventory.md) | план | `~СДЕЛАНО~` | 2026-09-07 |
+| [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~СДЕЛАНО~` | — |
 | [spell-plan-03-contract.md](../../spell-plan-03-contract.md) | план | `~СДЕЛАНО~` | 2026-09-08 |
 | [spell-plan-04-import.md](../../spell-plan-04-import.md) | план | `~СДЕЛАНО~` | 2026-09-08 |
 | [spell-plan-05-frontend.md](../../spell-plan-05-frontend.md) | план | `~СДЕЛАНО~` | 2026-09-08 |
@@ -95,6 +94,7 @@
 | [spell-real-plan-09-core.md](../../spell-real-plan-09-core.md) | план | `~СДЕЛАНО~` | 2026-11-14 |
 | [spell-real-plan-11-psionic-shaman.md](../../spell-real-plan-11-psionic-shaman.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
+| [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~СНИМОК~` | 2026-09-07 |
 | [rule-content-queue.md](../../rule-content-queue.md) | канон | ? | 2026-09-16 |
 | [rule-system.md](../../rule-system.md) | канон | ? | 2026-08-30 |
 

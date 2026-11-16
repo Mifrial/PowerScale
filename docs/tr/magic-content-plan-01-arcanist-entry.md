@@ -2,7 +2,8 @@
 
 > Контракт изучения обновлён в Character 13: `magic_study.paths` вместо `scope`/`path_code`, карточка помечается `study`. Ниже по тексту `scope`/`path_code` — исторические формулировки; актуально см. [`character-plan-13-path-study.md`](character-plan-13-path-study.md).
 
-**Статус:** ~В РАБОТЕ~ — `IN_PROGRESS`, 2026-09-20.
+**Статус:** ~СДЕЛАНО~, 2026-11-16 — `becoming-arcanist` и `structure-substitution` в каталоге,
+проверены на real в [`spell-real-plan-09-core.md`](spell-real-plan-09-core.md).
 **Дизайн:** [`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md).  
 **Источник:** [`spell-inventory-01.md`](spell-inventory-01.md), `AI.html`.  
 **Первая группа:** `becoming-arcanist`, `structure-substitution`.
@@ -90,3 +91,4 @@ ID и не должны считать карточки доказательст
 | --- | --- |
 | 2026-09-20 | Создан план первой реализации после дизайн-прохода всей ветки Арканиста. |
 | 2026-09-20 | Кодовая часть реализована: добавлены секции образования Арканиста; `becoming-arcanist` и `structure-substitution` помещены в «Базовое». Гейт тестов ожидает проверки. |
+| 2026-11-16 | Сверено с real: `becoming-arcanist` и `structure-substitution` в каталоге, проверены в [`spell-real-plan-09-core.md`](spell-real-plan-09-core.md); гейт пройден. |
