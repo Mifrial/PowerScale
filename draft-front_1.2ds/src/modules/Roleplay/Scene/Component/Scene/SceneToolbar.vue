@@ -25,6 +25,9 @@ const GROUP_LABELS: Record<string, string> = {
   wall: 'Стена',
 };
 
+/** Группы, у которых на кнопке виден активный вариант, а не имя группы. */
+const VARIANT_LABEL_GROUPS = new Set(['select']);
+
 /** Инструменты, сгруппированные по общей кнопке с меню вариантов. */
 const entries = SCENE_TOOLS.reduce<{ key: string; label: string; icon: string; tools: SceneToolDefinition[] }[]>(
   (list, item) => {
@@ -87,7 +90,7 @@ function isGroupActive(entry: { tools: SceneToolDefinition[] }): boolean {
             :title="`${entry.label}: ${groupTool(entry).variant ?? groupTool(entry).label}`"
             @click="emit('update:tool', groupTool(entry).id)"
           >
-            {{ groupTool(entry).variant ?? entry.label }}
+            {{ VARIANT_LABEL_GROUPS.has(entry.key) ? (groupTool(entry).variant ?? entry.label) : entry.label }}
           </v-btn>
           <v-menu location="bottom start">
             <template #activator="{ props: menuProps }">
