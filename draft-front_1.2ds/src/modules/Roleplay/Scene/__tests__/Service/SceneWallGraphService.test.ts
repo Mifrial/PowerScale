@@ -252,4 +252,18 @@ describe('SceneWallGraphService', () => {
 
     expect(ids).toContain(10);
   });
+
+  it('крыша над домом едет вместе со строением', () => {
+    const elements = [
+      ...square(1, 0, 0, 400),
+      element(
+        10,
+        'support',
+        { type: 'rect', x: 0, y: 0, w: 400, h: 400 },
+        { kind: 'roof', elevation: 128, height: 16 },
+      ),
+    ];
+
+    expect(service.building(elements, 1, 1, bounds)).toContain(10);
+  });
 });
