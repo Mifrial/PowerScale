@@ -791,5 +791,6 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     moveTo,
     chooseLevel,
     closeLevelMenu,
+    pendingPortalId: () => pendingPortal?.opening.id ?? null,
   };
 }
