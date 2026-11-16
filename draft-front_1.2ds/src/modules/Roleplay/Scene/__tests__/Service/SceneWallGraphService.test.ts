@@ -201,4 +201,55 @@ describe('SceneWallGraphService', () => {
     expect(ids).not.toContain(2);
     expect(ids).not.toContain(3);
   });
+
+  it('не забирает чужой забор и его калитку, если контур дома накрыл забор', () => {
+    // Двор 0..800; дом 100..700 × 300..900 наехал на южную стену двора. Середина
+    // стены оказалась внутри контура дома, но сама стена выходит за него.
+    const elements = [
+      ...square(20, 0, 0, 800),
+      ...square(10, 100, 300, 600),
+      element(
+        30,
+        'opening',
+        {
+          type: 'wall',
+          points: [
+            [380, 800],
+            [420, 800],
+          ],
+          width: 8,
+        },
+        { kind: 'gate' },
+      ),
+    ];
+
+    const ids = service.building(elements, 1, 10, bounds);
+
+    expect(ids).toEqual(expect.arrayContaining([10, 11, 12, 13]));
+    expect(ids).not.toContain(22);
+    expect(ids).not.toContain(30);
+  });
+
+  it('забирает проём на своей стене', () => {
+    const elements = [
+      ...square(1, 0, 0, 400),
+      element(
+        10,
+        'opening',
+        {
+          type: 'wall',
+          points: [
+            [150, 400],
+            [250, 400],
+          ],
+          width: 8,
+        },
+        { kind: 'door' },
+      ),
+    ];
+
+    const ids = service.building(elements, 1, 1, bounds);
+
+    expect(ids).toContain(10);
+  });
 });

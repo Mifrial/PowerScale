@@ -263,8 +263,13 @@ export class SceneWallGraphService {
         continue;
       }
 
-      if (element.kind === 'opening' && element.props.wallId !== undefined && wallIds.has(element.props.wallId)) {
-        elementIds.add(element.id);
+      if (element.kind === 'opening') {
+        // Проём принадлежит своей стене, а не месту: калитка чужого забора не
+        // должна уезжать вместе с комнатой, наехавшей на этот забор.
+        const host = this.hostWallId(elements, element);
+        if (host !== null && wallIds.has(host)) {
+          elementIds.add(element.id);
+        }
 
         continue;
       }
@@ -278,6 +283,16 @@ export class SceneWallGraphService {
 
         elementIds.add(element.id);
         floorIds.add(element.id);
+
+        continue;
+      }
+
+      if (element.kind === 'obstacle' && element.shape.type === 'wall') {
+        // Чужая стена входит в комнату, только если лежит в ней целиком:
+        // забор, который грань лишь пересекает, — не часть комнаты.
+        if (this.insideShape(element.shape, face.points)) {
+          elementIds.add(element.id);
+        }
 
         continue;
       }
@@ -431,12 +446,12 @@ export class SceneWallGraphService {
   ): number[] {
     const ids = new Set<number>(wallIds);
     for (const element of elements) {
-      if (
-        element.boardId === boardId &&
-        element.kind === 'opening' &&
-        element.props.wallId !== undefined &&
-        wallIds.includes(element.props.wallId)
-      ) {
+      if (element.boardId !== boardId || element.kind !== 'opening') {
+        continue;
+      }
+
+      const host = this.hostWallId(elements, element);
+      if (host !== null && wallIds.includes(host)) {
         ids.add(element.id);
       }
     }
@@ -459,6 +474,21 @@ export class SceneWallGraphService {
         continue;
       }
 
+      // Проём уже разобран по своей стене выше.
+      if (element.kind === 'opening') {
+        continue;
+      }
+
+      if (element.kind === 'obstacle' && element.shape.type === 'wall') {
+        // Чужая стена входит в строение, только если лежит в нём целиком:
+        // длинный забор, который контур лишь пересекает, — не часть дома.
+        if (this.insideShape(element.shape, outer.points)) {
+          ids.add(element.id);
+        }
+
+        continue;
+      }
+
       const anchor = this.anchor(element);
       if (anchor !== null && this.contains(outer.points, anchor)) {
         ids.add(element.id);
@@ -466,6 +496,21 @@ export class SceneWallGraphService {
     }
 
     return [...ids];
+  }
+
+  /**
+   * Стена, на которой стоит проём.
+   *
+   * Привязка `wallId` — редакторская и в снимок не попадает: после загрузки её
+   * восстанавливает `SceneWallService.attachAll`. Здесь тот же поиск, но по
+   * геометрии, чтобы правило работало и на снимке без привязки.
+   */
+  private hostWallId(elements: readonly SceneWallGraphElement[], opening: SceneWallGraphElement): number | null {
+    if (opening.props.wallId !== undefined) {
+      return opening.props.wallId;
+    }
+
+    return sceneWallService.attach(elements, opening, 0)?.wallId ?? null;
   }
 
   /** Связная сеть стен, в которой лежит стена. */
