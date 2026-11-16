@@ -6,6 +6,7 @@ import type { SceneDraft } from '@/modules/Roleplay/Scene/Dto/SceneDraft';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
+import type { SceneSaveEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneSaveEnclosure';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRectHandle } from '@/modules/Roleplay/Scene/Dto/SceneRectHandle';
 import type { SceneSaveSnapshot } from '@/modules/Roleplay/Scene/Dto/SceneSaveSnapshot';
@@ -20,6 +21,7 @@ import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { sceneWallGraphService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallGraphService';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import {
   sceneFootprintLocalOffset,
@@ -211,8 +213,15 @@ export function useSceneDraft(initial: SceneDetail) {
    * Вложение хранит область родителя, поэтому переход между полями знает
    * общий масштаб и смещение.
    */
-  function addFloor(from: ScenePoint, to: ScenePoint): number | null {
-    const result = service.addFloor(draft.value, from, to, draft.value.resolution);
+  function addFloor(
+    from: ScenePoint,
+    to: ScenePoint,
+    options: { elevation?: number; label?: string | null } = {},
+  ): number | null {
+    const resolution = draft.value.resolution;
+    const elevation = options.elevation ?? Math.round(Math.max(1, resolution) * SCENE_FLOOR.storeyIpari);
+    const label = options.label?.trim() ?? null;
+    const result = service.addFloor(draft.value, from, to, resolution, elevation, label === '' ? null : label);
     if (result === null) {
       return null;
     }
@@ -287,6 +296,18 @@ export function useSceneDraft(initial: SceneDetail) {
 
     draft.value.boards = [...draft.value.boards];
     markDirty();
+  }
+
+  /** Меняет отметку или подпись этажа; не-этаж — no-op. */
+  function updateEnclosure(boardId: number, patch: Partial<Pick<SceneSaveEnclosure, 'elevation' | 'label'>>): boolean {
+    if (!service.updateEnclosure(draft.value, boardId, patch)) {
+      return false;
+    }
+
+    draft.value.enclosures = [...draft.value.enclosures];
+    markDirty();
+
+    return true;
   }
 
   /** Заливает поле террейном выбранного шаблона. */
@@ -1040,6 +1061,7 @@ export function useSceneDraft(initial: SceneDetail) {
     removeBoard,
     moveBoard,
     updateBoard,
+    updateEnclosure,
     setBackdrop,
     fillTerrain,
     stretchTerrain,

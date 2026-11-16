@@ -84,6 +84,7 @@ export class SceneDraftService {
     to: ScenePoint,
     resolution: number,
     elevation = Math.round(Math.max(1, resolution) * SCENE_FLOOR.storeyIpari),
+    label: string | null = null,
   ): { board: SceneDraftBoard; enclosure: SceneSaveEnclosure; floor: SceneDraftElement } | null {
     const parent = draft.boards.find((board) => board.id === draft.activeBoardId);
     if (parent === undefined) {
@@ -102,7 +103,7 @@ export class SceneDraftService {
     const fw = Math.min(parent.boundWidth, x + w + margin) - fx;
     const fh = Math.min(parent.boundHeight, y + h + margin) - fy;
 
-    const board = this.addBoard(draft, this.freeFloorName(draft));
+    const board = this.addBoard(draft, this.floorName(draft, label));
     board.boundWidth = Math.max(1, fw);
     board.boundHeight = Math.max(1, fh);
     const floor = this.addElement(
@@ -112,18 +113,57 @@ export class SceneDraftService {
       { type: 'rect', x: x - fx, y: y - fy, w, h },
       { kind: 'dirt', label: 'Пол', speed: 100 },
     );
+    // Подпись попадает во вложение только если стала именем поля: занятую
+    // подпись не дублируем, иначе две вкладки выглядели бы одинаково.
+    const resolvedLabel = label !== null && label === board.name ? label : null;
     const enclosure: SceneSaveEnclosure = {
       id: this.allocateId(),
       parentBoardId: parent.id,
       childBoardId: board.id,
       footprint: { type: 'rect', x: fx, y: fy, w: fw, h: fh },
       elevation,
-      label: null,
+      label: resolvedLabel,
       sortOrder: draft.enclosures.length,
     };
     draft.enclosures.push(enclosure);
 
     return { board, enclosure, floor };
+  }
+
+  /**
+   * Имя поля этажа: подпись, если она свободна, иначе «Этаж N».
+   *
+   * Подпись — имя строения или этажа; она же попадает во вложение, поэтому
+   * вкладки этажей и карточка поля говорят одно и то же.
+   */
+  private floorName(draft: SceneDraft, label: string | null): string {
+    const trimmed = label?.trim() ?? '';
+    if (trimmed === '' || this.isBoardNameTaken(draft, trimmed)) {
+      return this.freeFloorName(draft);
+    }
+
+    return trimmed;
+  }
+
+  /**
+   * Меняет отметку или подпись вложения.
+   *
+   * Отметка — знаковая, в единицах сцены относительно родителя: вниз — подвал,
+   * вверх — следующий этаж. Ноль — помещение на той же отметке.
+   */
+  updateEnclosure(
+    draft: SceneDraft,
+    childBoardId: number,
+    patch: Partial<Pick<SceneSaveEnclosure, 'elevation' | 'label'>>,
+  ): boolean {
+    const enclosure = draft.enclosures.find((item) => item.childBoardId === childBoardId);
+    if (enclosure === undefined) {
+      return false;
+    }
+
+    Object.assign(enclosure, patch);
+
+    return true;
   }
 
   /** Добавляет поле в конец. */

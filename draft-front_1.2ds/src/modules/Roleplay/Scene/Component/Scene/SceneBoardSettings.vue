@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import type { FileRecord } from '@/modules/Core/File/Dto/FileRecord';
 import type { SceneDraftBoard } from '@/modules/Roleplay/Scene/Dto/SceneDraftBoard';
 import type { SceneSaveBoard } from '@/modules/Roleplay/Scene/Dto/SceneSaveBoard';
+import type { SceneSaveEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneSaveEnclosure';
 import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
@@ -13,6 +14,8 @@ const props = defineProps<{
   board: SceneDraftBoard;
   resolution: number;
   terrainKind: string | null;
+  /** Вложение, если поле — этаж; у корня null. */
+  enclosure: SceneSaveEnclosure | null;
 }>();
 
 const emit = defineEmits<{
@@ -20,10 +23,61 @@ const emit = defineEmits<{
   update: [boardId: number, patch: Partial<Omit<SceneSaveBoard, 'id' | 'sortOrder'>>];
   backdrop: [boardId: number, publicId: string | null, width: number | null, height: number | null];
   terrain: [boardId: number, kind: string];
+  enclosure: [boardId: number, patch: Partial<Pick<SceneSaveEnclosure, 'elevation' | 'label'>>];
 }>();
 
 const name = ref(props.board.name);
 const terrainKind = ref(props.terrainKind ?? 'grass');
+const floorUp = ref((props.enclosure?.elevation ?? 0) >= 0);
+const floorHeight = ref(Math.abs(props.enclosure?.elevation ?? 0));
+const floorLabel = ref(props.enclosure?.label ?? '');
+
+watch(
+  () => props.enclosure,
+  (value) => {
+    floorUp.value = (value?.elevation ?? 0) >= 0;
+    floorHeight.value = Math.abs(value?.elevation ?? 0);
+    floorLabel.value = value?.label ?? '';
+  },
+);
+
+/** Направление этажа: знак отметки вложения. */
+function setFloorDirection(value: unknown): void {
+  const up = value === 'up';
+  if (up === floorUp.value) {
+    return;
+  }
+
+  floorUp.value = up;
+  applyFloorHeight(floorHeight.value);
+}
+
+/** Высота этажа: абсолютная, знак берётся из направления. */
+function applyFloorHeight(value: number): void {
+  if (props.enclosure === null) {
+    return;
+  }
+
+  const elevation = (floorUp.value ? 1 : -1) * Math.abs(value);
+  if (elevation !== props.enclosure.elevation) {
+    emit('enclosure', props.board.id, { elevation });
+  }
+}
+
+/** Подпись этажа или строения; пусто — без подписи. */
+function commitFloorLabel(): void {
+  if (props.enclosure === null) {
+    return;
+  }
+
+  const label = floorLabel.value.trim();
+  const current = props.enclosure.label ?? '';
+  if (label === current) {
+    return;
+  }
+
+  emit('enclosure', props.board.id, { label: label === '' ? null : label });
+}
 
 watch(
   () => props.terrainKind,
@@ -110,6 +164,43 @@ function onBackdrop(file: FileRecord | null): void {
     />
 
     <div class="scene-board-settings__summary">{{ summary }}</div>
+
+    <template v-if="props.enclosure !== null">
+      <v-divider />
+      <div class="text-subtitle-2">Этаж строения</div>
+      <div class="scene-board-settings__row scene-board-settings__row--align-end">
+        <v-btn-toggle
+          :model-value="floorUp ? 'up' : 'down'"
+          mandatory
+          density="compact"
+          variant="outlined"
+          divided
+          @update:model-value="setFloorDirection"
+        >
+          <v-btn value="up" prepend-icon="mdi-arrow-up">Вверх</v-btn>
+          <v-btn value="down" prepend-icon="mdi-arrow-down">Вниз</v-btn>
+        </v-btn-toggle>
+        <SceneDistanceField
+          :model-value="floorHeight"
+          :resolution="props.resolution"
+          label="Высота этажа"
+          hint="Отметка относительно родительского поля."
+          :min="0"
+          :max="maxBound"
+          @update:model-value="applyFloorHeight"
+        />
+      </div>
+      <v-text-field
+        v-model="floorLabel"
+        label="Подпись этажа или строения"
+        placeholder="Например, «Мельница»"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @blur="commitFloorLabel"
+        @keyup.enter="commitFloorLabel"
+      />
+    </template>
 
     <div class="scene-board-settings__row">
       <SceneDistanceField

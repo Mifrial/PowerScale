@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import SceneBoardTabs from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardTabs.vue';
 import SceneCanvas from '@/modules/Roleplay/Scene/Component/Scene/SceneCanvas.vue';
 import SceneOverlayControls from '@/modules/Roleplay/Scene/Component/Scene/SceneOverlayControls.vue';
 import ScenePreviewActorPanel from '@/modules/Roleplay/Scene/Component/Scene/ScenePreviewActorPanel.vue';
@@ -31,6 +32,8 @@ const canvas = ref<InstanceType<typeof SceneCanvas> | null>(null);
 const overlayCosts = ref(false);
 const overlayVisibility = ref(false);
 const roofsHidden = ref(readRoofsHidden());
+/** Показывать нижний этаж сквозь полупрозрачную плиту фокуса. */
+const slabCutaway = ref(true);
 const overlay = computed<SceneOverlay | null>(() =>
   overlayCosts.value || overlayVisibility.value
     ? { costs: overlayCosts.value, visibility: overlayVisibility.value, observer: null, radius: null }
@@ -66,7 +69,7 @@ const {
   resolution: () => scene.value?.resolution ?? 64,
   boards: () => scene.value?.boards ?? [],
   enclosures: () => scene.value?.enclosures ?? [],
-  slabCutaway: () => true,
+  slabCutaway: () => slabCutaway.value,
 });
 const model = computed<SceneRenderModel>(() => ({
   activeBoardId: activeBoardId.value ?? 0,
@@ -228,6 +231,17 @@ function zoomLabel(): string {
             />
           </template>
         </v-tooltip>
+        <v-tooltip location="bottom" :text="slabCutaway ? 'Скрыть нижний этаж' : 'Показать нижний этаж'">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-bind="tooltipProps"
+              variant="tonal"
+              :icon="slabCutaway ? 'mdi-layers' : 'mdi-layers-off'"
+              :color="slabCutaway ? 'primary' : undefined"
+              @click="slabCutaway = !slabCutaway"
+            />
+          </template>
+        </v-tooltip>
         <v-btn
           variant="tonal"
           :prepend-icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
@@ -256,11 +270,15 @@ function zoomLabel(): string {
         </v-btn>
       </div>
 
-      <v-tabs v-if="scene.boards.length > 1" v-model="activeBoardId" density="compact" class="px-4">
-        <v-tab v-for="item in scene.boards" :key="item.id" :value="item.id">
-          {{ item.name }}
-        </v-tab>
-      </v-tabs>
+      <SceneBoardTabs
+        v-if="scene.boards.length > 1"
+        :model-value="activeBoardId"
+        :boards="scene.boards"
+        :enclosures="scene.enclosures"
+        :show-add="false"
+        class="px-4"
+        @update:model-value="activeBoardId = $event"
+      />
 
       <div class="scene-workspace">
         <div class="scene-viewer">
@@ -272,7 +290,7 @@ function zoomLabel(): string {
             :roofs-hidden="roofsHidden"
             :preview="true"
             :actors="previewActorList"
-            :slab-cutaway="true"
+            :slab-cutaway="slabCutaway"
             :selected-actor-id="previewSelectedId"
             :route="previewRoute"
             :level-menu="previewLevelMenu"

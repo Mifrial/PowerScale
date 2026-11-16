@@ -76,6 +76,28 @@ describe('SceneDraftService', () => {
     expect(service.freeFloorName(state)).toBe('Этаж 3');
   });
 
+  it('создаёт этаж с подписью и отрицательной отметкой', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+
+    const result = service.addFloor(state, [100, 100], [500, 400], 64, -128, 'Подвал');
+
+    expect(result).not.toBeNull();
+    expect(result!.board.name).toBe('Подвал');
+    expect(result!.enclosure).toMatchObject({ elevation: -128, label: 'Подвал' });
+    expect(service.freeFloorName(state)).toBe('Этаж 3');
+  });
+
+  it('меняет отметку и подпись вложения', () => {
+    const service = new SceneDraftService();
+    const state = draft();
+    const result = service.addFloor(state, [100, 100], [500, 400], 64);
+
+    expect(service.updateEnclosure(state, result!.board.id, { elevation: 256, label: 'Мельница' })).toBe(true);
+    expect(result!.enclosure).toMatchObject({ elevation: 256, label: 'Мельница' });
+    expect(service.updateEnclosure(state, 999, { elevation: 0 })).toBe(false);
+  });
+
   it('adds a board with defaults and a free name', () => {
     const service = new SceneDraftService();
     const state = draft();

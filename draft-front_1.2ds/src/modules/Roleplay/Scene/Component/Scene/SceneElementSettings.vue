@@ -989,6 +989,9 @@ function onAssetCleared(publicId: string | null): void {
         clearable
         @update:model-value="(value) => emit('target', value === null ? null : Number(value))"
       />
+      <div v-if="props.element.targetBoardId !== null" class="text-caption text-medium-emphasis">
+        Площадка перехода: актор меняет поле на кромке колодца и продолжает путь по маршу, без телепорта.
+      </div>
     </template>
 
     <template v-if="props.element.kind === 'terrain'">

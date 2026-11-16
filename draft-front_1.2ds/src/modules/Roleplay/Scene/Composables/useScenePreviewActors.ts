@@ -107,6 +107,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       prepareNavigation();
     },
   );
+  // Тумблер разреза меняет перекрытие плиты: видимость чужих этажей
+  // пересчитывается сразу, а не только на следующем клике.
+  watch(
+    () => options.slabCutaway?.() ?? true,
+    () => updateGhosts(),
+  );
   syncFromScene();
   prepareNavigation();
 

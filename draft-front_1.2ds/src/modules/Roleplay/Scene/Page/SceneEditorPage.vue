@@ -5,6 +5,7 @@ import SceneBoardSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneBo
 import SceneBoardTabs from '@/modules/Roleplay/Scene/Component/Scene/SceneBoardTabs.vue';
 import SceneConflictDialog from '@/modules/Roleplay/Scene/Component/Scene/SceneConflictDialog.vue';
 import SceneCanvas from '@/modules/Roleplay/Scene/Component/Scene/SceneCanvas.vue';
+import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDistanceField.vue';
 import SceneElementSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneElementSettings.vue';
 import SceneLocationSettings from '@/modules/Roleplay/Scene/Component/Scene/SceneLocationSettings.vue';
 import SceneOverlayControls from '@/modules/Roleplay/Scene/Component/Scene/SceneOverlayControls.vue';
@@ -33,6 +34,7 @@ import type { SceneTool } from '@/modules/Roleplay/Scene/Enum/SceneTool';
 import { SCENE_ELEMENT_KIND_LABELS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ELEMENT_KIND_LABELS';
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { SCENE_EMPTY_DETAIL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_EMPTY_DETAIL';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_TOOLS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TOOLS';
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
@@ -88,6 +90,8 @@ const viewport = ref<SceneViewport | null>(null);
 const boardPanelKey = ref(0);
 const openPanels = ref<string[]>(['board']);
 const preview = ref(false);
+/** Предпросмотр: показывать нижний этаж сквозь полупрозрачную плиту. */
+const previewCutaway = ref(true);
 const {
   full: previewFull,
   toggle: toggleFullscreen,
@@ -105,11 +109,29 @@ const overlay = computed<SceneOverlay | null>(() =>
 );
 const waterAnimation = ref(readWaterAnimation());
 const roofsHidden = ref(readRoofsHidden());
+/** Инструмент «Этаж»: вверх или вниз, высота и подпись нового этажа. */
+const floorUp = ref(true);
+const floorHeight = ref(Math.round(Math.max(1, SCENE_EMPTY_DETAIL.resolution) * SCENE_FLOOR.storeyIpari));
+const floorLabel = ref('');
+const maxFloorHeight = computed(() => Math.max(1, draft.value.resolution) * 200);
+
+/** Направление нового этажа: знак отметки вложения. */
+function setFloorDirection(value: unknown): void {
+  floorUp.value = value === 'up';
+}
 
 const draft = state.draft;
 const selection = state.selection;
 const isDirty = state.isDirty;
 const activeBoard = state.activeBoard;
+const activeEnclosure = computed(() => {
+  const board = activeBoard.value;
+  if (board === null) {
+    return null;
+  }
+
+  return draft.value.enclosures.find((item) => item.childBoardId === board.id) ?? null;
+});
 const viewBoards = computed(() => mapper.toViewBoards(draft.value.boards));
 const viewElements = computed(() => mapper.toViewElements(draft.value.elements));
 const viewEnclosures = computed(() => mapper.toViewEnclosures(draft.value.enclosures));
@@ -146,7 +168,7 @@ const {
   resolution: () => draft.value.resolution,
   boards: () => viewBoards.value,
   enclosures: () => viewEnclosures.value,
-  slabCutaway: () => !preview.value,
+  slabCutaway: () => previewCutaway.value,
 });
 const boardTerrainKind = computed<string | null>(() => {
   const board = activeBoard.value;
@@ -426,6 +448,7 @@ async function load(): Promise<void> {
 
     state.reset(detail);
     tool.value = 'select';
+    floorHeight.value = Math.round(Math.max(1, detail.resolution) * SCENE_FLOOR.storeyIpari);
   } catch (exception) {
     error.value = messageOf(exception);
   } finally {
@@ -485,9 +508,11 @@ function onDraw(from: ScenePoint, to: ScenePoint): void {
   const definition = toolDefinition.value;
   if (definition === null) return;
   if (definition.id === 'floor') {
-    if (state.addFloor(from, to) !== null) {
+    const elevation = (floorUp.value ? 1 : -1) * Math.abs(floorHeight.value);
+    if (state.addFloor(from, to, { elevation, label: floorLabel.value }) !== null) {
       notice.value = 'Этаж создан: план и поля обзора вокруг';
       error.value = null;
+      floorLabel.value = '';
     }
 
     return;
@@ -1192,6 +1217,10 @@ function updateBoard(boardId: number, patch: Parameters<typeof state.updateBoard
   state.updateBoard(boardId, patch);
 }
 
+function updateEnclosure(boardId: number, patch: Parameters<typeof state.updateEnclosure>[1]): void {
+  state.updateEnclosure(boardId, patch);
+}
+
 function updateBackdrop(boardId: number, publicId: string | null, width: number | null, height: number | null): void {
   state.setBackdrop(boardId, publicId, width, height);
 }
@@ -1452,9 +1481,43 @@ function messageOf(exception: unknown): string {
     />
     <div v-if="!preview && toolHint !== null" class="text-caption text-medium-emphasis mt-1">{{ toolHint }}</div>
 
+    <v-card v-if="!preview && tool === 'floor'" variant="outlined" class="scene-editor__floor-tool mt-2">
+      <div class="scene-editor__floor-tool-row">
+        <v-btn-toggle
+          :model-value="floorUp ? 'up' : 'down'"
+          mandatory
+          density="compact"
+          variant="outlined"
+          divided
+          @update:model-value="setFloorDirection"
+        >
+          <v-btn value="up" prepend-icon="mdi-arrow-up">Вверх</v-btn>
+          <v-btn value="down" prepend-icon="mdi-arrow-down">Вниз</v-btn>
+        </v-btn-toggle>
+        <SceneDistanceField
+          v-model="floorHeight"
+          :resolution="draft.resolution"
+          label="Высота этажа"
+          hint="По умолчанию 2 ипари: этаж над этажом."
+          :min="1"
+          :max="maxFloorHeight"
+        />
+        <v-text-field
+          v-model="floorLabel"
+          label="Подпись"
+          placeholder="Строение или этаж"
+          density="compact"
+          variant="outlined"
+          hide-details
+          class="scene-editor__floor-label"
+        />
+      </div>
+    </v-card>
+
     <SceneBoardTabs
       :model-value="draft.activeBoardId"
       :boards="draft.boards"
+      :enclosures="draft.enclosures"
       class="my-3"
       @update:model-value="state.setActiveBoard"
       @add="addBoard"
@@ -1475,7 +1538,7 @@ function messageOf(exception: unknown): string {
           :preview="preview"
           :overlay="overlay"
           :actors="previewActorList"
-          :slab-cutaway="!preview"
+          :slab-cutaway="preview ? previewCutaway : true"
           :selected-actor-id="previewSelectedId"
           :route="previewRoute"
           :level-menu="previewLevelMenu"
@@ -1550,6 +1613,22 @@ function messageOf(exception: unknown): string {
               />
             </template>
           </v-tooltip>
+          <v-tooltip
+            v-if="preview"
+            location="bottom"
+            :text="previewCutaway ? 'Скрыть нижний этаж' : 'Показать нижний этаж'"
+          >
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                :icon="previewCutaway ? 'mdi-layers' : 'mdi-layers-off'"
+                size="small"
+                variant="flat"
+                :color="previewCutaway ? 'primary' : 'surface-variant'"
+                @click="previewCutaway = !previewCutaway"
+              />
+            </template>
+          </v-tooltip>
           <v-switch
             v-if="preview"
             :model-value="waterAnimation"
@@ -1606,10 +1685,12 @@ function messageOf(exception: unknown): string {
               <SceneBoardSettings
                 :key="`${activeBoard.id}-${boardPanelKey}`"
                 :board="activeBoard"
+                :enclosure="activeEnclosure"
                 :resolution="draft.resolution"
                 :terrain-kind="boardTerrainKind"
                 @rename="renameBoard"
                 @update="updateBoard"
+                @enclosure="updateEnclosure"
                 @backdrop="updateBackdrop"
                 @terrain="fillTerrain"
               />
@@ -1841,6 +1922,30 @@ function messageOf(exception: unknown): string {
   padding: 0 10px;
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.78);
+}
+
+.scene-editor__floor-tool {
+  padding: 8px 12px;
+}
+
+.scene-editor__floor-tool-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scene-editor__floor-tool-row > * {
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.scene-editor__floor-tool-row > :first-child {
+  flex: 0 0 auto;
+}
+
+.scene-editor__floor-label {
+  flex: 1 1 200px;
 }
 
 .scene-editor__panel {
