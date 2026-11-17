@@ -6,6 +6,7 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
+import type { SceneNavSurface } from '@/modules/Roleplay/Scene/Enum/SceneNavSurface';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { ScenePreviewActor } from '@/modules/Roleplay/Scene/Dto/ScenePreviewActor';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
@@ -478,12 +479,17 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    const choices = levels
+    const routed = levels
       .map((level) => ({
         ...level,
         route: buildRoute(targetId, point, level.level),
       }))
       .filter((choice) => choice.route !== null);
+    // Крыша и лестница на одной отметке — это одна высота, а не два выбора.
+    // Оставляем верхний уровень: путь на крышу всё равно идёт по маршу.
+    const choices = routed.filter(
+      (choice, index) => routed.findIndex((other) => other.elevation === choice.elevation) === index,
+    );
     if (choices.length === 0) {
       return;
     }
@@ -503,14 +509,33 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       y: at?.[1] ?? 0,
       options: choices.map((choice) => ({
         level: choice.level,
-        label:
-          choice.level === 0
-            ? 'Под настилом'
-            : choice.elevation > 0
-              ? `На настил ${sceneUnits.formatUnits(Math.round(choice.elevation), options.resolution())}`
-              : 'На настил',
+        label: levelLabel(choice.level, choice.elevation, choice.surface),
       })),
     };
+  }
+
+  /**
+   * Подпись выбора уровня.
+   *
+   * Крыша и лестница могут стоять на одной отметке, поэтому подпись говорит,
+   * что именно выбрано, а не только высоту.
+   */
+  function levelLabel(level: number, elevation: number, surface: SceneNavSurface | undefined): string {
+    if (level === 0) {
+      return surface === 'stairs' || surface === 'ramp' ? 'Вниз по лестнице' : 'Под настилом';
+    }
+
+    if (surface === 'roof') {
+      return `На крышу ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`;
+    }
+
+    if (surface === 'stairs' || surface === 'ramp') {
+      return `На лестницу ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`;
+    }
+
+    return elevation > 0
+      ? `На настил ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`
+      : 'На настил';
   }
 
   /**

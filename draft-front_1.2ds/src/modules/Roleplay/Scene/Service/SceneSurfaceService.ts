@@ -148,6 +148,7 @@ export class SceneSurfaceService {
     this.paintObstacles(grid, own, openings);
     this.paintDecor(grid, own, resolution);
     this.paintOpenings(grid, own);
+    this.clearRoofHatches(grid, own, resolution);
 
     grid.costs = grid.speeds.map((speed) => (speed > 0 ? 100 / speed : Number.POSITIVE_INFINITY));
 
@@ -462,6 +463,33 @@ export class SceneSurfaceService {
   private clearOccluder(grid: SceneSurfaceGrid, index: number): void {
     grid.sightBottom[index] = Number.POSITIVE_INFINITY;
     grid.sightTop[index] = Number.NEGATIVE_INFINITY;
+  }
+
+  /**
+   * Колодец в проходимой крыше: обзор не перекрыт там, где марш выходит на неё.
+   *
+   * Крыша режется по пятну лестницы, поэтому и луч с крыши вниз не должен
+   * упираться в её полосу. Иначе актора на ступенях под крышей не было бы
+   * видно из открытого прохода.
+   */
+  private clearRoofHatches(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
+    const roofs = elements.filter((element) => element.kind === 'support' && isWalkableRoof(element));
+    if (roofs.length === 0) {
+      return;
+    }
+
+    const step = Math.max(1, resolution) * SCENE_NAVIGATION.stepIpari;
+    for (const element of elements) {
+      if (element.kind !== 'support' || element.props.kind !== 'stairs') {
+        continue;
+      }
+      const top = sceneSurfaceElevation(element);
+      if (!roofs.some((roof) => Math.abs(sceneSurfaceElevation(roof) - top) <= step)) {
+        continue;
+      }
+
+      this.paintShape(grid, element.shape, (index) => this.clearOccluder(grid, index), sceneRotation(element));
+    }
   }
 
   /** Заливает клетки, чей центр попал в фигуру; `rotation` — поворот опоры. */

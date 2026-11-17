@@ -40,7 +40,12 @@ import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassSha
 import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
 import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
-import { isSceneRoof, isWalkableRoof, sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import {
+  isSceneRoof,
+  isWalkableRoof,
+  sceneSurfaceElevation,
+  sceneWaterDepth,
+} from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
@@ -51,6 +56,7 @@ import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/scen
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
+import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
@@ -1071,6 +1077,48 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /**
+   * Колодцы в проходимой крыше: марши, которые выходят на неё.
+   *
+   * Лестница на крышу не прорезает плиту отдельным проёмом: крыша — настил, а
+   * не перекрытие с заливкой. Поэтому её настил режется по пятну марша, верх
+   * которого совпадает с крышей, — так видно ступени и проход вниз.
+   *
+   * @param boardId Поле этажа.
+   *
+   * @returns Прямоугольники вырезов в координатах поля.
+   */
+  private roofHoles(boardId: number): SceneBounds[] {
+    const model = this.model;
+    if (model === null) {
+      return [];
+    }
+
+    const roofs = model.elements.filter((element) => element.boardId === boardId && isWalkableRoof(element));
+    if (roofs.length === 0) {
+      return [];
+    }
+
+    const step = Math.max(1, model.resolution) * SCENE_NAVIGATION.stepIpari;
+    const holes: SceneBounds[] = [];
+    for (const element of model.elements) {
+      if (element.boardId !== boardId || element.kind !== 'support' || element.props.kind !== 'stairs') {
+        continue;
+      }
+      if (element.shape.type !== 'rect') {
+        continue;
+      }
+      const top = sceneSurfaceElevation(element);
+      if (!roofs.some((roof) => Math.abs(sceneSurfaceElevation(roof) - top) <= step)) {
+        continue;
+      }
+
+      holes.push({ x: element.shape.x, y: element.shape.y, width: element.shape.w, height: element.shape.h });
+    }
+
+    return holes;
+  }
+
+  /**
    * Пятна подвалов в плите корня.
    *
    * Подвал — вложение корня с отрицательной отметкой. Сквозь его пятно видно
@@ -1694,6 +1742,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'fog',
       'route',
     ];
+    const roofHoles = this.roofHoles(board.id);
     for (const name of names) {
       const layer = this.layers[name];
       if (layer === undefined) {
@@ -1706,6 +1755,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
       // видимый сквозь пятно в земле.
       if (name === 'terrain' || name === 'backdrop') {
         for (const hole of holes) {
+          mask.rect(hole.x, hole.y, hole.width, hole.height).cut();
+        }
+      }
+
+      // Марш, который выходит на проходимую крышу, прорезает её настил: видно,
+      // куда спускаться, а не глухую заливку поверх ступеней.
+      if (name === 'deckRoofs') {
+        for (const hole of roofHoles) {
           mask.rect(hole.x, hole.y, hole.width, hole.height).cut();
         }
       }

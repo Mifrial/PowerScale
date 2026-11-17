@@ -17,6 +17,7 @@ import type {
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
+import type { SceneNavSurface } from '@/modules/Roleplay/Scene/Enum/SceneNavSurface';
 import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneDecorFootprint, type SceneWorldFootprint } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
@@ -433,6 +434,7 @@ export class SceneNavigationService {
       speed: number;
       elevation: number;
       slope: SceneRampSlope | null;
+      surface: SceneNavSurface;
       frame: SceneDeckFrame | null;
       railBlocks: Polygon[];
       blockers: Polygon[];
@@ -441,6 +443,7 @@ export class SceneNavigationService {
       speed: number;
       elevation: number;
       slope: SceneRampSlope | null;
+      surface: SceneNavSurface;
       frame: SceneDeckFrame | null;
       ring: ScenePoint[];
       blockers: Polygon[];
@@ -489,6 +492,7 @@ export class SceneNavigationService {
         const speed = this.speedOf(element);
         const elevation = sceneSurfaceElevation(element);
         const deck = isSceneDeck(element);
+        const surface = this.surfaceOf(element);
         // У крыши нет торцов настила: на неё заходят с любой стороны, где
         // рядом лестница. Рамка нужна только мосту и съезду.
         const deckFrame = deck && !isWalkableRoof(element) ? sceneDeckFrame(element) : null;
@@ -526,12 +530,22 @@ export class SceneNavigationService {
             const deckBlockers = levelBlockers
               .filter((blocker) => Math.abs(blocker.elevation - elevation) <= step)
               .map((blocker) => blocker.polygon);
-            decks.push({ element, speed, elevation, slope, frame: deckFrame, railBlocks, blockers: deckBlockers });
+            decks.push({
+              element,
+              speed,
+              elevation,
+              slope,
+              surface,
+              frame: deckFrame,
+              railBlocks,
+              blockers: deckBlockers,
+            });
             for (const ring of railRings) {
               rails.push({
                 speed,
                 elevation: railElevation,
                 slope: railSlope,
+                surface,
                 frame: deckFrame,
                 ring,
                 blockers: deckBlockers,
@@ -561,6 +575,7 @@ export class SceneNavigationService {
                 speed,
                 elevation: railElevation,
                 slope: railSlope,
+                surface,
                 frame: deckFrame,
                 ring,
                 blockers: floorBlockers,
@@ -610,6 +625,7 @@ export class SceneNavigationService {
       elevation: number;
       slope: SceneRampSlope | null;
       rail: boolean;
+      surface: SceneNavSurface;
       frame: SceneDeckFrame | null;
       order: number;
       id: number;
@@ -635,6 +651,7 @@ export class SceneNavigationService {
         elevation: deck.elevation,
         slope: deck.slope,
         rail: false,
+        surface: deck.surface,
         frame: deck.frame,
         order: deck.element.sortOrder,
         id: deck.element.id,
@@ -653,6 +670,7 @@ export class SceneNavigationService {
         elevation: rail.elevation,
         slope: rail.slope,
         rail: true,
+        surface: rail.surface,
         frame: rail.frame,
         order: rail.order,
         id: rail.id,
@@ -676,6 +694,7 @@ export class SceneNavigationService {
         entry.slope,
         entry.rail,
         entry.frame,
+        entry.surface,
       );
     });
 
@@ -692,6 +711,7 @@ export class SceneNavigationService {
     slope: SceneRampSlope | null = null,
     rail = false,
     frame: SceneDeckFrame | null = null,
+    surface: SceneNavSurface = 'ground',
   ): void {
     for (const polygon of geometry) {
       if (polygon.length === 0) continue;
@@ -703,6 +723,7 @@ export class SceneNavigationService {
         elevation,
         slope,
         rail,
+        surface,
         frame,
         outer,
         holes: polygon
@@ -965,7 +986,15 @@ export class SceneNavigationService {
       const bounds = this.boundsOfRing(region.outer);
       const spans = Math.ceil(bounds.width / cell) > 1 || Math.ceil(bounds.height / cell) > 1;
       if (!spans) {
-        this.pushTriangles(triangles, polygon, region.speed, region.level, region.elevation, region.rail);
+        this.pushTriangles(
+          triangles,
+          polygon,
+          region.speed,
+          region.level,
+          region.elevation,
+          region.rail,
+          region.surface,
+        );
         continue;
       }
 
@@ -983,7 +1012,15 @@ export class SceneNavigationService {
             ],
           ]);
           for (const piece of clipped) {
-            this.pushTriangles(triangles, piece, region.speed, region.level, region.elevation, region.rail);
+            this.pushTriangles(
+              triangles,
+              piece,
+              region.speed,
+              region.level,
+              region.elevation,
+              region.rail,
+              region.surface,
+            );
           }
         }
       }
@@ -1000,6 +1037,7 @@ export class SceneNavigationService {
     level: number,
     elevation: number,
     rail: boolean,
+    surface: SceneNavSurface,
   ): void {
     if (polygon.length === 0 || polygon[0].length < 3) {
       return;
@@ -1028,6 +1066,7 @@ export class SceneNavigationService {
         level,
         elevation,
         rail,
+        surface,
         centroid: [(points[0][0] + points[1][0] + points[2][0]) / 3, (points[0][1] + points[1][1] + points[2][1]) / 3],
         links: [],
       });
@@ -1589,21 +1628,21 @@ export class SceneNavigationService {
    * Нужно для выбора «на настил или под настил»: если уровней несколько,
    * маршрут строится до каждого, а выбор остаётся за игроком.
    */
-  levelsAt(mesh: SceneNavMesh, point: ScenePoint): { level: number; elevation: number }[] {
-    const found = new Map<number, number>();
+  levelsAt(mesh: SceneNavMesh, point: ScenePoint): { level: number; elevation: number; surface: SceneNavSurface }[] {
+    const found = new Map<number, { elevation: number; surface: SceneNavSurface }>();
     for (const triangle of mesh.triangles) {
       if (triangle.rail || !this.inTriangle(point, triangle.points)) {
         continue;
       }
 
       const current = found.get(triangle.level);
-      if (current === undefined || triangle.elevation > current) {
-        found.set(triangle.level, triangle.elevation);
+      if (current === undefined || triangle.elevation > current.elevation) {
+        found.set(triangle.level, { elevation: triangle.elevation, surface: triangle.surface });
       }
     }
 
     return [...found.entries()]
-      .map(([level, elevation]) => ({ level, elevation }))
+      .map(([level, item]) => ({ level, elevation: item.elevation, surface: item.surface }))
       .sort((left, right) => right.elevation - left.elevation || right.level - left.level);
   }
 
@@ -1726,6 +1765,26 @@ export class SceneNavigationService {
     return typeof speed === 'number' && Number.isFinite(speed)
       ? Math.max(0, Math.min(SCENE_NAVIGATION.maxSpeed, speed))
       : preset;
+  }
+
+  /** Вид поверхности элемента для подписи выбора уровня. */
+  private surfaceOf(element: SceneElement): SceneNavSurface {
+    if (element.kind !== 'support') {
+      return 'ground';
+    }
+
+    switch (element.props.kind) {
+      case 'roof':
+        return 'roof';
+      case 'stairs':
+        return 'stairs';
+      case 'ramp':
+        return 'ramp';
+      case 'bridge':
+        return 'bridge';
+      default:
+        return 'ground';
+    }
   }
 
   /** Порядок наложения: опоры, вода, остальной террейн. */

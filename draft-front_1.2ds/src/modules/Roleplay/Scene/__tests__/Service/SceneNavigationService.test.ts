@@ -500,6 +500,37 @@ describe('SceneNavigationService', () => {
     expect(service.levelsAt(mesh, [200, 350]).map((level) => level.level)).toEqual([0]);
   });
 
+  it('несёт вид поверхности для подписи уровня крыши и лестницы', () => {
+    const roof = rect(
+      2,
+      'support',
+      600,
+      300,
+      200,
+      100,
+      { kind: 'roof', speed: 100, elevation: 128, height: 16, walkable: true },
+      20,
+    );
+    const stairs = rect(
+      3,
+      'support',
+      640,
+      340,
+      120,
+      40,
+      { kind: 'stairs', speed: 100, elevation: 128, height: 16 },
+      15,
+    );
+    const mesh = service.build(board, [grass(), roof, stairs], 64, options);
+    if (mesh === null) {
+      throw new Error('ожидалась сетка навигации');
+    }
+
+    const levels = service.levelsAt(mesh, [700, 350]);
+    expect(levels.find((level) => level.surface === 'roof')?.elevation).toBe(128);
+    expect(levels.find((level) => level.surface === 'stairs')?.elevation).toBe(128);
+  });
+
   it('ведёт по указанному уровню цели', () => {
     const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
     const bridge = rect(

@@ -136,7 +136,7 @@ export class SceneShapePainter {
     this.paint(
       graphics,
       element.shape,
-      { color: walkable ? SCENE_ROOF.deckColor : SCENE_ROOF.color, alpha: 0.94 },
+      { color: walkable ? SCENE_ROOF.deckColor : SCENE_ROOF.color, alpha: walkable ? 1 : 0.94 },
       { color: walkable ? SCENE_ROOF.deckEdgeColor : SCENE_ROOF.edgeColor, width: 2 / zoom, alpha: 1 },
       zoom,
       sceneRotation(element),

@@ -2,6 +2,7 @@ import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneDeckFrame } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
+import type { SceneNavSurface } from '@/modules/Roleplay/Scene/Enum/SceneNavSurface';
 
 /** Тип перехода между уровнями. */
 export type SceneNavTransitionType = 'walk' | 'climb' | 'drop';
@@ -43,6 +44,8 @@ export interface SceneNavTriangle {
   elevation: number;
   /** Полоса перил: узкий уровень на `railHeightIpari` выше настила. */
   rail: boolean;
+  /** Вид поверхности: земля, мост, съезд, лестница или проходимая крыша. */
+  surface: SceneNavSurface;
   centroid: ScenePoint;
   links: SceneNavLink[];
 }
@@ -58,6 +61,8 @@ export interface SceneNavRegion {
   slope: SceneRampSlope | null;
   /** Полоса перил: полосы соединяются только по длинным сторонам. */
   rail: boolean;
+  /** Вид поверхности: земля, мост, съезд, лестница или проходимая крыша. */
+  surface: SceneNavSurface;
   /** Рамка настила для правил порталов; у базы — `null`. */
   frame: SceneDeckFrame | null;
   outer: ScenePoint[];

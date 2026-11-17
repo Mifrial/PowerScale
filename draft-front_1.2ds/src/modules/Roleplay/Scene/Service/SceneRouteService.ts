@@ -111,13 +111,13 @@ export class SceneRouteService {
           continue;
         }
 
-        const route = this.walk(model, landing.boardId, landing.entry, other.entry, options, undefined);
+        const route = this.walk(model, landing.boardId, landing.entry, other.entry, options, 0, 0);
         if (route !== null) {
           add(index, { to: next, cost: route.cost, route });
         }
       }
       if (landing.boardId === to.boardId) {
-        const route = this.walk(model, landing.boardId, landing.entry, to.point, options, to.level);
+        const route = this.walk(model, landing.boardId, landing.entry, to.point, options, to.level, 0);
         if (route !== null) {
           add(index, { to: goal, cost: route.cost, route });
         }
@@ -130,7 +130,7 @@ export class SceneRouteService {
         continue;
       }
 
-      const route = this.walk(model, from.boardId, from.point, landing.entry, options, undefined);
+      const route = this.walk(model, from.boardId, from.point, landing.entry, options, 0, from.level);
       if (route !== null) {
         add(start, { to: index, cost: route.cost, route });
       }

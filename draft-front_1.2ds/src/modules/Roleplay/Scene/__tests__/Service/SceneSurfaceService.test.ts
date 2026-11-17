@@ -151,6 +151,33 @@ describe('SceneSurfaceService', () => {
     expect(ceilingGrid.clearance[cell]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('прорезает обзор в крыше там, где на неё выходит марш', () => {
+    const roof = element(
+      2,
+      'support',
+      { type: 'rect', x: 48, y: 48, w: 160, h: 160 },
+      { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+      20,
+    );
+    const stairs = element(
+      3,
+      'support',
+      { type: 'rect', x: 96, y: 96, w: 96, h: 48 },
+      { kind: 'stairs', elevation: 128, height: 16, speed: 100 },
+      25,
+    );
+    const grid = service.build(board(), [grass(), roof, stairs], 64);
+    const hatch = cellOf(grid, 8, 8);
+    const covered = cellOf(grid, 4, 4);
+
+    // Над маршем крыша не перекрывает взгляд: виден проход вниз.
+    expect(grid.sightTop[hatch]).toBe(Number.NEGATIVE_INFINITY);
+    expect(grid.sightBottom[hatch]).toBe(Number.POSITIVE_INFINITY);
+    // Рядом крыша остаётся потолком.
+    expect(grid.sightTop[covered]).toBe(128 / 64);
+    expect(grid.sightBottom[covered]).toBeCloseTo(112 / 64);
+  });
+
   it('настил на уровне берега перекрывает толщину над врезанным руслом', () => {
     const grid = service.build(
       board(),

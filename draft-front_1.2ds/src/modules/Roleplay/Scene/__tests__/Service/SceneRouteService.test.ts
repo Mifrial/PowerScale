@@ -85,6 +85,20 @@ function hole(id: number, boardId: number, x: number, y: number, w = 60, h = 60)
   };
 }
 
+/** Проходимая крыша над полем: настил на высоте этажа. */
+function roof(id: number, boardId: number, width: number, height: number): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'support',
+    shape: { type: 'rect', x: 0, y: 0, w: width, h: height },
+    props: { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+    sortOrder: id,
+    targetBoardId: null,
+    asset: null,
+  };
+}
+
 const boards = [board(1, 1000, 800), board(2, 400, 400), board(3, 300, 300)];
 const enclosures = [
   enclosure(1, 2, { x: 200, y: 200, w: 400, h: 400 }),
@@ -160,6 +174,24 @@ describe('SceneRouteService', () => {
 
     expect(route).not.toBeNull();
     expect(new Set(route!.segments.map((segment) => segment.boardId))).toEqual(new Set([1]));
+  });
+
+  it('с площадки под крышей идёт по полу, а не по крыше', () => {
+    // Крыша накрывает площадку: с неё маршрут не должен стартовать наверху.
+    const withRoof: SceneRenderModel = {
+      ...model,
+      elements: [...elements, roof(30, 2, 400, 400)],
+    };
+    const route = service.route(
+      withRoof,
+      { boardId: 1, point: [50, 50], level: 0 },
+      { boardId: 2, point: [300, 300], level: 0 },
+      { agentRadius: 16 },
+    );
+
+    expect(route).not.toBeNull();
+    const upper = route!.segments.find((segment) => segment.boardId === 2)!;
+    expect(upper.level).toBe(0);
   });
 
   it('переходит на кромке колодца, а не в центре площадки', () => {
