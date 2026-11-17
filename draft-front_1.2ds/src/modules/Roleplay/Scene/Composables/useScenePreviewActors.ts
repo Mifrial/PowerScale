@@ -461,16 +461,22 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return;
     }
 
-    // Площадка лестницы — дверь на другой этаж. Клик по ней только ведёт к
-    // ней: переносить актора на другое поле без шага нельзя. Дальше клик по
-    // цели на другом этаже строит маршрут через площадку. Идём на пол
-    // площадки, а не на верхний настил: над лестничной клеткой может лежать
-    // крыша, и путь не должен уводить на неё.
+    // Площадка лестницы — дверь на другой этаж. Клик по ней ведёт через
+    // переход на парную площадку: иначе, чтобы спуститься, пришлось бы ещё
+    // раз кликать пол на другом этаже. Если пары или пути нет, остаётся
+    // подход к самой площадке на её полу.
     if (selected !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
       const portal = portals.portalAt(options.elements(), targetId, point, tolerance);
       if (portal !== null && (actor === null || actor.id === selected.id)) {
-        moveTo(targetId, portal.center, 0);
+        const optionsOfRoute = { agentRadius: selected.radius };
+        const pair = routes.pairLanding(routeModel(), targetId, portal.targetBoardId, portal.center, optionsOfRoute);
+        if (pair !== null && moveTo(pair.boardId, pair.point, pair.level)) {
+          return;
+        }
+
+        const level = routes.levelFor(routeModel(), targetId, portal.targetBoardId, portal.center, optionsOfRoute);
+        moveTo(targetId, portal.center, level ?? 0);
 
         return;
       }

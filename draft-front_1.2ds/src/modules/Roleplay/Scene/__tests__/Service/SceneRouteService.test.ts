@@ -99,6 +99,28 @@ function roof(id: number, boardId: number, width: number, height: number): Scene
   };
 }
 
+/** Марш на нижнем поле: высокий торец при повороте 180° — у меньшего `y`. */
+function stairs(
+  id: number,
+  boardId: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation = 180,
+): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'support',
+    shape: { type: 'rect', x, y, w: width, h: height },
+    props: { kind: 'stairs', elevation: 128, height: 16, speed: 100, rotation },
+    sortOrder: id,
+    targetBoardId: null,
+    asset: null,
+  };
+}
+
 const boards = [board(1, 1000, 800), board(2, 400, 400), board(3, 300, 300)];
 const enclosures = [
   enclosure(1, 2, { x: 200, y: 200, w: 400, h: 400 }),
@@ -223,5 +245,75 @@ describe('SceneRouteService', () => {
     expect(lowerWorld[1]).toBeCloseTo(360, 3);
     expect(upperWorld[0]).toBeCloseTo(330, 3);
     expect(upperWorld[1]).toBeCloseTo(360, 3);
+  });
+
+  it('ведёт на второй этаж по маршу, а не под ним', () => {
+    const stack: SceneRenderModel = {
+      activeBoardId: 1,
+      resolution: 64,
+      boards: [board(1, 1000, 800), board(2, 400, 400)],
+      enclosures: [enclosure(1, 2, { x: 200, y: 200, w: 400, h: 400 })],
+      elements: [
+        grass(1, 1, 1000, 800),
+        grass(2, 2, 400, 400),
+        stairs(40, 1, 400, 300, 100, 400),
+        landing(41, 1, 2, 400, 250, 100, 100),
+        landing(42, 2, 1, 200, 50, 100, 100),
+      ],
+      selection: [],
+      mode: 'preview',
+    };
+
+    // Площадка на нижнем поле стоит наверху марша: клик должен вести по
+    // ступеням на её уровень, а не на пол под ними.
+    expect(service.levelFor(stack, 1, 2, [450, 300], { agentRadius: 16 })).toBe(1);
+
+    const up = service.route(
+      stack,
+      { boardId: 1, point: [50, 50], level: 0 },
+      { boardId: 2, point: [350, 300], level: 0 },
+      { agentRadius: 16 },
+    );
+    expect(up).not.toBeNull();
+    const climb = up!.segments.find((segment) => segment.boardId === 1 && segment.level === 1);
+    expect(climb).toBeDefined();
+    expect(climb!.points[0][1]).toBeCloseTo(700, 0);
+    expect(climb!.points[climb!.points.length - 1][1]).toBeCloseTo(300, 0);
+  });
+
+  it('при клике по лестнице спускается по маршу до нижнего торца', () => {
+    const stack: SceneRenderModel = {
+      activeBoardId: 2,
+      resolution: 64,
+      boards: [board(1, 1000, 800), board(2, 400, 400)],
+      enclosures: [enclosure(1, 2, { x: 200, y: 200, w: 400, h: 400 })],
+      elements: [
+        grass(1, 1, 1000, 800),
+        grass(2, 2, 400, 400),
+        stairs(40, 1, 400, 300, 100, 400),
+        landing(41, 1, 2, 400, 250, 100, 100),
+        landing(42, 2, 1, 200, 50, 100, 100),
+      ],
+      selection: [],
+      mode: 'preview',
+    };
+
+    // Клик по площадке верхнего этажа ведёт через переход к нижнему торцу
+    // марша, а не просто на площадку.
+    const exit = service.pairLanding(stack, 2, 1, [250, 100], { agentRadius: 16 });
+    expect(exit).not.toBeNull();
+    expect(exit!.boardId).toBe(1);
+    expect(exit!.point[1]).toBeCloseTo(700, 0);
+
+    const down = service.route(
+      stack,
+      { boardId: 2, point: [350, 300], level: 0 },
+      { boardId: exit!.boardId, point: exit!.point, level: exit!.level },
+      { agentRadius: 16 },
+    );
+    expect(down).not.toBeNull();
+    expect(down!.segments.some((segment) => segment.boardId === 1 && segment.level === 1)).toBe(true);
+    const last = down!.segments[down!.segments.length - 1];
+    expect(last.points[last.points.length - 1][1]).toBeCloseTo(700, 0);
   });
 });

@@ -2,7 +2,9 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneNavMesh, SceneNavRoute, SceneNavSegment } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { SceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/SceneFloorPlanService';
+import { sceneRampSlope } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 
 /** Конечная точка маршрута: поле, локальная точка и уровень поверхности. */
@@ -39,6 +41,13 @@ interface SceneLanding {
    * пол, а не идёт под настилом верхнего этажа до середины площадки.
    */
   entry: ScenePoint;
+  /**
+   * Отметка площадки в координатах своего поля.
+   *
+   * Площадка всегда стоит на верхнем из двух этажей пары: на нижнем поле это
+   * верх марша, на верхнем — его пол.
+   */
+  elevation: number;
 }
 
 /** Ребро поиска: маршрут по полю или нулевой переход между площадками. */
@@ -102,6 +111,7 @@ export class SceneRouteService {
 
     for (let index = 0; index < landings.length; index += 1) {
       const landing = landings[index];
+      const landingLevel = this.levelAt(model, landing.boardId, landing.entry, landing.elevation, options);
       if (landing.pair !== null) {
         add(index, { to: landings.indexOf(landing.pair), cost: 0, route: null });
       }
@@ -111,13 +121,14 @@ export class SceneRouteService {
           continue;
         }
 
-        const route = this.walk(model, landing.boardId, landing.entry, other.entry, options, 0, 0);
+        const otherLevel = this.levelAt(model, other.boardId, other.entry, other.elevation, options);
+        const route = this.walk(model, landing.boardId, landing.entry, other.entry, options, otherLevel, landingLevel);
         if (route !== null) {
           add(index, { to: next, cost: route.cost, route });
         }
       }
       if (landing.boardId === to.boardId) {
-        const route = this.walk(model, landing.boardId, landing.entry, to.point, options, to.level, 0);
+        const route = this.walk(model, landing.boardId, landing.entry, to.point, options, to.level, landingLevel);
         if (route !== null) {
           add(index, { to: goal, cost: route.cost, route });
         }
@@ -130,7 +141,8 @@ export class SceneRouteService {
         continue;
       }
 
-      const route = this.walk(model, from.boardId, from.point, landing.entry, options, 0, from.level);
+      const landingLevel = this.levelAt(model, landing.boardId, landing.entry, landing.elevation, options);
+      const route = this.walk(model, from.boardId, from.point, landing.entry, options, landingLevel, from.level);
       if (route !== null) {
         add(start, { to: index, cost: route.cost, route });
       }
@@ -159,6 +171,161 @@ export class SceneRouteService {
     }
 
     return { points: segments.flatMap((segment) => segment.points), segments, distance, cost };
+  }
+
+  /**
+   * Уровень площадки на её поле.
+   *
+   * Клик по площадке должен вести на верх марша на нижнем поле и на пол — на
+   * верхнем. Уровень берётся ближайший к отметке площадки, поэтому крыша над
+   * лестничной клеткой не перехватывает клик.
+   *
+   * @param model Модель рендера.
+   * @param boardId Поле площадки.
+   * @param targetBoardId Поле, куда ведёт площадка.
+   * @param point Точка на поле площадки.
+   * @param options Настройки маршрута.
+   *
+   * @returns Уровень навигации или undefined, если сетки нет.
+   */
+  levelFor(
+    model: SceneRenderModel,
+    boardId: number,
+    targetBoardId: number,
+    point: ScenePoint,
+    options: SceneRouteOptions,
+  ): number | undefined {
+    const elevations = this.floors.elevations(model);
+    const boardElevation = elevations.get(boardId) ?? 0;
+    const targetElevation = elevations.get(targetBoardId) ?? boardElevation;
+    const elevation = Math.max(boardElevation, targetElevation) - boardElevation;
+
+    return this.levelAt(model, boardId, point, elevation, options);
+  }
+
+  /** Ближайший к отметке уровень на поле; крыша проигрывает настилу и полу. */
+  private levelAt(
+    model: SceneRenderModel,
+    boardId: number,
+    point: ScenePoint,
+    elevation: number,
+    options: SceneRouteOptions,
+  ): number | undefined {
+    const board = model.boards.find((item) => item.id === boardId);
+    if (board === undefined) {
+      return undefined;
+    }
+
+    const mesh = this.navigation.build(board, model.elements, model.resolution, {
+      agentRadius: options.agentRadius,
+    });
+    if (mesh === null) {
+      return undefined;
+    }
+
+    let best: number | undefined;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const level of this.navigation.levelsAt(mesh, point)) {
+      // Крыша и лестница могут стоять на одной отметке; площадка — не крыша.
+      const score = Math.abs(level.elevation - elevation) + (level.surface === 'roof' ? 0.5 : 0);
+      if (score < bestScore) {
+        best = level.level;
+        bestScore = score;
+      }
+    }
+
+    return best;
+  }
+
+  /**
+   * Парная площадка: куда актор выходит после перехода.
+   *
+   * Клик по лестнице идёт через неё, а не только до её центра: иначе, чтобы
+   * спуститься или подняться, пришлось бы кликать ещё и пол на другом этаже.
+   *
+   * @param model Модель рендера.
+   * @param boardId Поле площадки, по которой кликнули.
+   * @param targetBoardId Поле, куда ведёт площадка.
+   * @param near Точка клика: выбирается ближайшая площадка на поле.
+   * @param options Настройки маршрута.
+   *
+   * @returns Поле, точка и уровень парной площадки или null.
+   */
+  pairLanding(
+    model: SceneRenderModel,
+    boardId: number,
+    targetBoardId: number,
+    near: ScenePoint,
+    options: SceneRouteOptions,
+  ): { boardId: number; point: ScenePoint; level: number } | null {
+    let source: SceneLanding | null = null;
+    let best = Number.POSITIVE_INFINITY;
+    for (const landing of this.landings(model)) {
+      if (landing.boardId !== boardId || landing.targetBoardId !== targetBoardId || landing.pair === null) {
+        continue;
+      }
+
+      const distance = Math.hypot(landing.center[0] - near[0], landing.center[1] - near[1]);
+      if (distance < best) {
+        source = landing;
+        best = distance;
+      }
+    }
+    if (source === null || source.pair === null) {
+      return null;
+    }
+
+    const pair = source.pair;
+    // Спуск: парная площадка стоит на верхнем торце марша. Ведём не в её
+    // центр, а к нижнему торцу — иначе актор останавливается на верхней
+    // ступени под полом верхнего этажа и кажется, что он не спустился.
+    const elevations = this.floors.elevations(model);
+    const sourceElevation = elevations.get(source.boardId) ?? 0;
+    const pairElevation = elevations.get(pair.boardId) ?? sourceElevation;
+    const exit = sourceElevation > pairElevation ? this.stairsExit(model, pair.boardId, pair.element) : null;
+    const point = exit ?? pair.center;
+    // Спуск заканчивается на полу нижнего этажа, а не на последней ступени.
+    const level = this.levelAt(model, pair.boardId, point, exit === null ? pair.elevation : 0, options);
+    if (level === undefined) {
+      return null;
+    }
+
+    return { boardId: pair.boardId, point, level };
+  }
+
+  /**
+   * Нижний торец марша, который выходит на площадку.
+   *
+   * Нужен после спуска: актор проходит марш до конца, а не останавливается
+   * на верхней ступени.
+   *
+   * @param model Модель рендера.
+   * @param boardId Поле парной площадки.
+   * @param landing Парная площадка.
+   *
+   * @returns Нижний торец марша в координатах поля или null.
+   */
+  private stairsExit(model: SceneRenderModel, boardId: number, landing: SceneElement): ScenePoint | null {
+    for (const element of model.elements) {
+      if (element.boardId !== boardId || element.kind !== 'support' || element.props.kind !== 'stairs') {
+        continue;
+      }
+      if (element.shape.type !== 'rect') {
+        continue;
+      }
+
+      const slope = sceneRampSlope(element, model.elements, model.resolution);
+      if (slope === null) {
+        continue;
+      }
+      if (!sceneGeometryService.contains(landing.shape, slope.to, 1, 0)) {
+        continue;
+      }
+
+      return slope.from;
+    }
+
+    return null;
   }
 
   /** Маршрут по одному полю: обычный случай и последний участок. */
@@ -244,6 +411,7 @@ export class SceneRouteService {
    */
   private landings(model: SceneRenderModel): SceneLanding[] {
     const result: SceneLanding[] = [];
+    const elevations = this.floors.elevations(model);
     for (const element of model.elements) {
       if (element.kind !== 'opening' || element.targetBoardId === null) {
         continue;
@@ -251,6 +419,8 @@ export class SceneRouteService {
 
       const transform = this.floors.transform(model, element.boardId);
       const center = this.center(element);
+      const boardElevation = elevations.get(element.boardId) ?? 0;
+      const targetElevation = elevations.get(element.targetBoardId) ?? boardElevation;
       result.push({
         element,
         boardId: element.boardId,
@@ -260,6 +430,7 @@ export class SceneRouteService {
         pair: null,
         crossing: null,
         entry: center,
+        elevation: Math.max(boardElevation, targetElevation) - boardElevation,
       });
     }
 
@@ -286,7 +457,6 @@ export class SceneRouteService {
       landing.crossing = hole === null ? null : this.floors.toRoot(this.floors.transform(model, landing.boardId), hole);
     }
 
-    const elevations = this.floors.elevations(model);
     for (const landing of result) {
       const pair = landing.pair;
       // Пару обрабатываем один раз: точка перехода у неё общая.
