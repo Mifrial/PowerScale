@@ -155,7 +155,7 @@ export class SceneVisibilityService {
   }
 
   /** Индекс клетки по точке; `-1` — точка вне сетки. */
-  indexAt(x: number, y: number, columns: number, rows: number, cell: number, pointX: number, pointY: number): number {
+  private indexAt(x: number, y: number, columns: number, rows: number, cell: number, pointX: number, pointY: number): number {
     const column = Math.floor((pointX - x) / cell);
     const row = Math.floor((pointY - y) / cell);
     if (column < 0 || row < 0 || column >= columns || row >= rows) {
