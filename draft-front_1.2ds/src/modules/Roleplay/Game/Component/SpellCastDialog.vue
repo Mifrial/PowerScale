@@ -389,7 +389,7 @@ const freeHands = computed(() =>
   characterHandsService.getRemainingHands(casterVersion.value?.inventory ?? [], props.rules),
 );
 const handsAvailable = computed(() => freeHands.value >= requiredHands.value);
-const needsTouchAttack = computed(() => spellSpec.value?.hit_resolution?.type === 'attack');
+const needsTouchAttack = computed(() => spellSpec.value?.hit_resolution?.type === 'attack' && !rangeSelected.value);
 const spellTargeting = computed(() => {
   const targeting = spellSpec.value?.spell.targeting;
   if (targeting) {
@@ -398,7 +398,7 @@ const spellTargeting = computed(() => {
 
   return spellSpec.value?.hit_resolution?.type === 'auto' ? 'entity' : 'none';
 });
-const needsSpellTarget = computed(() => spellTargeting.value === 'entity');
+const needsSpellTarget = computed(() => spellTargeting.value === 'entity' || rangeSelected.value);
 const targetsSelf = computed(() => spellTargeting.value === 'self');
 const touchActions = computed(() =>
   listAttackActions(props.rules, overview.value, 'strike', keywords.value)
@@ -537,8 +537,18 @@ const recordedUpgradeCodes = computed<string[]>(() => {
 const upgradeOptions = computed(() => {
   if (selectedPath.value?.recordedCasting === true) {
     return gamePhpMode.isEnabled()
-      ? spellCastUpgradeService.listRuntimeRecorded(recordedUpgradeCodes.value, spellCode.value, props.rules)
-      : spellCastUpgradeService.listRecorded(recordedUpgradeCodes.value, spellCode.value, props.rules);
+      ? spellCastUpgradeService.listRuntimeRecorded(
+          recordedUpgradeCodes.value,
+          spellCode.value,
+          props.rules,
+          keywords.value,
+        )
+      : spellCastUpgradeService.listRecorded(
+          recordedUpgradeCodes.value,
+          spellCode.value,
+          props.rules,
+          keywords.value,
+        );
   }
 
   return gamePhpMode.isEnabled()
@@ -547,19 +557,25 @@ const upgradeOptions = computed(() => {
         pathCode.value || null,
         spellCode.value,
         props.rules,
+        keywords.value,
       )
     : spellCastUpgradeService.listApplicable(
         casterVersion.value?.abilities ?? [],
         pathCode.value || null,
         spellCode.value,
         props.rules,
+        keywords.value,
       );
 });
 const selectedUpgradeOptions = computed(() =>
   spellCastUpgradeService.selectedOf(upgradeOptions.value, appliedUpgradeCodes.value),
 );
+const rangeSelected = computed(() => spellCastUpgradeService.hasRange(selectedUpgradeOptions.value));
 const requiredPowerDelta = computed(() =>
   spellCastUpgradeService.requiredPowerDelta(selectedUpgradeOptions.value, appliedUpgradeValues.value),
+);
+const requiredControlDelta = computed(() =>
+  spellCastUpgradeService.requiredControlDelta(selectedUpgradeOptions.value),
 );
 const resistancePenetration = computed(() =>
   spellCastUpgradeService.resistancePenetration(selectedUpgradeOptions.value, appliedUpgradeValues.value),
@@ -736,6 +752,7 @@ const preview = computed(() => {
       hasTarget: hasTarget.value,
       targetResistanceAmount: targetResistance.value,
       requiredPowerDelta: requiredPowerDelta.value,
+      requiredControlDelta: requiredControlDelta.value,
       resistancePenetration: resistancePenetration.value,
       trainingDifficultyDelta: actionEffectService.resolveForSpellCast(pendingSpellEffects.value, actionPointCost.value)
         .difficultyDelta,
@@ -927,6 +944,12 @@ watch(sourceKey, () => {
 
 watch(upgradeOptions, (options) => {
   appliedUpgradeCodes.value = spellCastUpgradeService.pruneSelected(options, appliedUpgradeCodes.value);
+});
+
+watch(rangeSelected, (range) => {
+  if (range) {
+    hasTarget.value = true;
+  }
 });
 
 function close(): void {

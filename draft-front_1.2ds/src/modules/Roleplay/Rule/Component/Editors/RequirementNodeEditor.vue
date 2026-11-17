@@ -149,6 +149,31 @@ function removeChild(index: number) {
         />
       </template>
 
+      <template v-else-if="inner.type === 'keyword_experience'">
+        <v-select
+          :model-value="inner.keyword_codes"
+          @update:model-value="patch('keyword_codes', $event)"
+          :items="keywords"
+          item-title="name"
+          item-value="code"
+          label="Признаки"
+          density="compact"
+          hide-details
+          multiple
+          chips
+          class="flex-grow-1"
+        />
+        <ClampedNumberField
+          :model-value="inner.min"
+          @update:model-value="patch('min', $event)"
+          label="Опыт (мин)"
+          :min="1"
+          density="compact"
+          hide-details
+          style="min-width: 120px"
+        />
+      </template>
+
       <template v-else-if="inner.type === 'has_keyword'">
         <v-autocomplete
           :model-value="inner.keyword_code"

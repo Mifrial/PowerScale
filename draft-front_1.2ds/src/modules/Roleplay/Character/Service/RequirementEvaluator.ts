@@ -209,6 +209,14 @@ export class RequirementEvaluator {
 
         return `требуется опыт пути «${this.magicPathName(requirement.path_code, snapshot)}» от ${requirement.min} (сейчас ${experience})`;
       }
+      case 'keyword_experience': {
+        const experience = (snapshot.keywordAbilities ?? [])
+          .filter((row) => requirement.keyword_codes.every((code) => row.keywords.includes(code)))
+          .reduce((sum, row) => sum + row.cost, 0);
+        if (experience >= requirement.min) return null;
+
+        return `требуется опыт признаков от ${requirement.min} (сейчас ${experience})`;
+      }
       case 'resource_limit': {
         const limit = snapshot.resourceLimits.get(requirement.resource_code);
         if (limit === undefined) return `требуется ресурс «${this.resourceName(requirement.resource_code, snapshot)}»`;

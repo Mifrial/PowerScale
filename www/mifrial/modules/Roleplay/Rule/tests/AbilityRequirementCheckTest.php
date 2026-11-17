@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKnowledgeRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\KeywordExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
@@ -237,6 +238,37 @@ final class AbilityRequirementCheckTest extends TestCase
         self::assertNull($check->check(new MagicPathExperienceRequirement('psionic', 1), $empty));
         self::assertTrue($check->check(new MagicPathExperienceRequirement('psionic', 6), $filled));
         self::assertFalse($check->check(new MagicPathExperienceRequirement('psionic', 7), $filled));
+    }
+
+    /**
+     * Опыт признаков: сумма цен способностей со всеми перечисленными признаками.
+     *
+     * @return void
+     */
+    public function testKeywordExperience(): void
+    {
+        $check = new AbilityRequirementCheck();
+        $empty = new RequirementValues();
+        $filled = new RequirementValues(unmodelled: new RequirementUnmodelled(
+            keywordAbilities: [
+                ['keywords' => ['nolomancy', 'nervous-system'], 'cost' => 4],
+                ['keywords' => ['nolomancy', 'decay'], 'cost' => 3],
+                ['keywords' => ['electromancy', 'nervous-system'], 'cost' => 5],
+            ],
+        ));
+
+        self::assertNull($check->check(new KeywordExperienceRequirement(['nolomancy'], 1), $empty));
+        self::assertTrue($check->check(new KeywordExperienceRequirement(['nolomancy'], 7), $filled));
+        self::assertFalse($check->check(new KeywordExperienceRequirement(['nolomancy'], 8), $filled));
+        self::assertTrue($check->check(
+            new KeywordExperienceRequirement(['nolomancy', 'nervous-system'], 4),
+            $filled,
+        ));
+        self::assertFalse($check->check(
+            new KeywordExperienceRequirement(['nolomancy', 'nervous-system'], 5),
+            $filled,
+        ));
+        self::assertTrue($check->check(new KeywordExperienceRequirement(['electromancy'], 5), $filled));
     }
 
     /**

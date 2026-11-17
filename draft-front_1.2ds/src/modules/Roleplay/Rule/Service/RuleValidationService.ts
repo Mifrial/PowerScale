@@ -1554,6 +1554,11 @@ export class RuleValidationService {
     if (node.type === 'magic_path_experience' && node.path_code) {
       collect({ code: node.path_code, type: 'magic_path' });
     }
+    if (node.type === 'keyword_experience') {
+      for (const keywordCode of node.keyword_codes ?? []) {
+        collect({ code: keywordCode, type: 'keyword' });
+      }
+    }
   }
 
   private walkGrant(grant: Grant | undefined, collect: (ref: RefExpectation) => void): void {

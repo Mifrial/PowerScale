@@ -701,4 +701,153 @@ final class GameSpellCastUpgradesTest extends TestCase
     {
         return new CharacterAbilityChoice($code, 1, $domainCode, $domainCode, null, null, null);
     }
+
+    /**
+     * Улучшение с признаками применяется только к заклинанию со всеми ими.
+     *
+     * @return void
+     */
+    public function testUpgradeKeywordFilter(): void
+    {
+        $upgrade = $this->upgradeRule('strong', $this->skill([
+            'spell_upgrade' => ['action_point_delta' => 0, 'keyword_codes' => ['nolomancy']],
+        ]));
+        $nolomancySpell = $this->spellRule('living-blindness', ['nolomancy']);
+        $foreignSpell = $this->spellRule('discharge', ['electromancy']);
+
+        $resolution = $this->resolve(
+            [$upgrade, $nolomancySpell],
+            [$this->ability('strong', 'arcanist')],
+            'arcanist',
+            [['code' => 'strong', 'value' => null]],
+            'living-blindness',
+        );
+        self::assertCount(1, $resolution->getApplied());
+
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [$upgrade, $foreignSpell],
+            [$this->ability('strong', 'arcanist')],
+            'arcanist',
+            [['code' => 'strong', 'value' => null]],
+            'discharge',
+        );
+    }
+
+    /**
+     * Одинаковый источник преимущества остаётся одним источником.
+     *
+     * @return void
+     */
+    public function testAdvantageSourceIsShared(): void
+    {
+        $first = $this->upgradeRule('experienced', $this->skill([
+            'spell_upgrade' => [
+                'action_point_delta' => 0,
+                'check_advantage' => 1,
+                'check_advantage_source' => 'mastery',
+            ],
+        ]));
+        $second = $this->upgradeRule('control', $this->skill([
+            'spell_upgrade' => [
+                'action_point_delta' => 0,
+                'check_advantage' => 2,
+                'check_advantage_source' => 'mastery',
+            ],
+        ]));
+
+        $resolution = $this->resolve(
+            [$first, $second],
+            [$this->ability('experienced', 'arcanist'), $this->ability('control', 'arcanist')],
+            'arcanist',
+            [['code' => 'experienced', 'value' => null], ['code' => 'control', 'value' => null]],
+        );
+
+        self::assertCount(2, $resolution->getAdvantages());
+        self::assertSame('mastery', $resolution->getAdvantages()[0]->getSourceCode());
+        self::assertSame('mastery', $resolution->getAdvantages()[1]->getSourceCode());
+        self::assertSame(1, $resolution->getAdvantages()[0]->getDelta());
+        self::assertSame(2, $resolution->getAdvantages()[1]->getDelta());
+    }
+
+    /**
+     * Дальность меняет касание: мощь растёт размерами, контроль — на 2.
+     *
+     * @return void
+     */
+    public function testRangeUpgrade(): void
+    {
+        $upgrade = $this->upgradeRule('gaze-curse', $this->skill([
+            'spell_upgrade' => [
+                'action_point_delta' => 0,
+                'keyword_codes' => ['nolomancy'],
+                'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+            ],
+        ]));
+
+        $resolution = $this->resolve(
+            [$upgrade, $this->spellRule('living-blindness', ['nolomancy'])],
+            [$this->ability('gaze-curse', 'arcanist')],
+            'arcanist',
+            [['code' => 'gaze-curse', 'value' => 3]],
+            'living-blindness',
+        );
+
+        self::assertTrue($resolution->isRange());
+        self::assertSame(9, $resolution->getRequiredPowerDelta());
+        self::assertSame(2, $resolution->getRequiredControlDelta());
+        self::assertFalse($resolution->hasStatePermanence());
+    }
+
+    /**
+     * Постоянное состояние помечается в разрешении.
+     *
+     * @return void
+     */
+    public function testStatePermanence(): void
+    {
+        $upgrade = $this->upgradeRule('nerve-decay', $this->skill([
+            'spell_upgrade' => ['action_point_delta' => 0, 'state_permanence' => true],
+        ]));
+
+        $resolution = $this->resolve(
+            [$upgrade],
+            [$this->ability('nerve-decay', 'arcanist')],
+            'arcanist',
+            [['code' => 'nerve-decay', 'value' => null]],
+        );
+
+        self::assertTrue($resolution->hasStatePermanence());
+    }
+
+    /**
+     * Карточка заклинания с признаками.
+     *
+     * @param string $code Код.
+     * @param array<int, string> $keywords Признаки.
+     *
+     * @return CharacterResolvedRule Карточка.
+     */
+    private function spellRule(string $code, array $keywords): CharacterResolvedRule
+    {
+        return new CharacterResolvedRule(
+            new RuleVersionRecord(
+                1,
+                1,
+                $code,
+                true,
+                'ability',
+                'Spell',
+                '',
+                ['type' => 'spell', 'spell' => ['targeting' => 'none']],
+                [],
+                [],
+                'ready',
+                '',
+                DateTime::now(),
+            ),
+            $keywords,
+        );
+    }
+
 }

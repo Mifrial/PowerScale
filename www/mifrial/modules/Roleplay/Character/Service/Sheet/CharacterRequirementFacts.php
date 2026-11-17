@@ -37,6 +37,8 @@ final class CharacterRequirementFacts
 
     private readonly CharacterStudyPaths $paths;
 
+    private readonly CharacterKeywordExperience $experience;
+
     /**
      * Собирает помощники.
      *
@@ -48,6 +50,7 @@ final class CharacterRequirementFacts
         $this->arithmetic = new CharacterResourceArithmetic();
         $this->grants = new CharacterAbilityGrantReader(new CharacterDonorGrants(), new CharacterRaceAbilityCodes());
         $this->paths = new CharacterStudyPaths();
+        $this->experience = new CharacterKeywordExperience();
     }
 
     /**
@@ -75,6 +78,7 @@ final class CharacterRequirementFacts
                 null,
                 $this->magicPaths($slice, $choices, $levels),
                 $this->paths->experience($slice, $choices, $levels),
+                $this->experience->abilities($slice, $choices, $levels),
             ),
             $this->knowledge($choices),
         );

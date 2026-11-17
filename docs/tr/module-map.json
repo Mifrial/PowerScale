@@ -3468,6 +3468,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-22-nolomancy-skills.md",
+                    "title": "План M22 — навыки Ноломансии: опыт, мастерство, дальность и постоянство",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-17",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/spell-roadmap.md",
                     "title": "Нарезка магии и заклинаний",
                     "kind": "plan",

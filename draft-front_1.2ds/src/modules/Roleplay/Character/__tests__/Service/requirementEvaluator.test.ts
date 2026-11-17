@@ -315,6 +315,37 @@ describe('RequirementEvaluator', () => {
     );
   });
 
+  it('keyword_experience считает сумму цен по всем признакам', () => {
+    const withKeywords: CharacterSnapshot = {
+      ...snapshot,
+      keywordAbilities: [
+        { keywords: ['nolomancy', 'nervous-system'], cost: 4 },
+        { keywords: ['nolomancy', 'decay'], cost: 3 },
+        { keywords: ['electromancy', 'nervous-system'], cost: 5 },
+      ],
+    };
+
+    expect(evaluator.evaluate({ type: 'keyword_experience', keyword_codes: ['nolomancy'], min: 7 }, withKeywords)).toBe(
+      true,
+    );
+    expect(evaluator.evaluate({ type: 'keyword_experience', keyword_codes: ['nolomancy'], min: 8 }, withKeywords)).toBe(
+      false,
+    );
+    expect(
+      evaluator.evaluate(
+        { type: 'keyword_experience', keyword_codes: ['nolomancy', 'nervous-system'], min: 4 },
+        withKeywords,
+      ),
+    ).toBe(true);
+    expect(
+      evaluator.evaluate(
+        { type: 'keyword_experience', keyword_codes: ['nolomancy', 'nervous-system'], min: 5 },
+        withKeywords,
+      ),
+    ).toBe(false);
+    expect(evaluator.evaluate({ type: 'keyword_experience', keyword_codes: ['nolomancy'], min: 7 }, snapshot)).toBe(false);
+  });
+
   it('has_ability в домене пути учитывает includes_path_codes', () => {
     const mixed: CharacterSnapshot = {
       ...snapshot,

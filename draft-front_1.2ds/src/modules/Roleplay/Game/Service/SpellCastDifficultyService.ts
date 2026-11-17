@@ -71,7 +71,9 @@ export class SpellCastDifficultyService {
   compute(input: SpellCastDifficultyInput): SpellCastDifficultyResult {
     const requiredPower = CharacteristicNumber.from(input.requiredPower).modifyWith(input.requiredPowerDelta ?? 0);
     const usedPower = CharacteristicNumber.from(input.usedPower);
-    const requiredControl = CharacteristicNumber.from(input.requiredControl);
+    const requiredControl = CharacteristicNumber.from(input.requiredControl).modifyWith(
+      input.requiredControlDelta ?? 0,
+    );
     const availableControl = CharacteristicNumber.from(input.availableControl);
     const powerShortage = requiredPower.modifyDiffTo(usedPower);
     const controlShortage = requiredControl.modifyDiffTo(availableControl);
@@ -141,9 +143,11 @@ export class SpellCastDifficultyService {
       requiredPower,
       usedPower: input.usedPower,
       requiredControl,
+      requiredControlDelta: input.requiredControlDelta,
       availableControl: input.availableControl,
       resistanceModify,
       requiredPowerDelta: input.requiredPowerDelta,
+      requiredControlDelta: input.requiredControlDelta,
       resistancePenetration: input.resistancePenetration,
       trainingDifficultyDelta: input.trainingDifficultyDelta,
     });

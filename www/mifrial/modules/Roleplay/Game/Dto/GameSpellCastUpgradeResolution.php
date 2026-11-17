@@ -67,6 +67,53 @@ final class GameSpellCastUpgradeResolution
     }
 
     /**
+     * Суммарная добавка Требуемого контроля.
+     *
+     * @return int Число.
+     */
+    public function getRequiredControlDelta(): int
+    {
+        $total = 0;
+        foreach ($this->applied as $upgrade) {
+            $total += $upgrade->getRequiredControlDelta();
+        }
+
+        return $total;
+    }
+
+    /**
+     * Есть улучшение, заменяющее касание дальностью.
+     *
+     * @return bool true, если каст идёт на расстоянии.
+     */
+    public function isRange(): bool
+    {
+        foreach ($this->applied as $upgrade) {
+            if ($upgrade->isRange()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Есть улучшение, оставляющее состояние навсегда.
+     *
+     * @return bool true, если состояние постоянное.
+     */
+    public function hasStatePermanence(): bool
+    {
+        foreach ($this->applied as $upgrade) {
+            if ($upgrade->isStatePermanence()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Суммарное пробитие сопротивления.
      *
      * @return int Число.

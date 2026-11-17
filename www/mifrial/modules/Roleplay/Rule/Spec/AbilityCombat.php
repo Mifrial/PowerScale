@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellChargeCapStep;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSaturation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellTouch;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgrade;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgradeRange;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StrikeUpgrade;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\StrikeUpgradeMode;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
@@ -213,6 +214,32 @@ final class AbilityCombat
             SpecShape::bool($row, 'any_path'),
             SpecShape::optionalInt($row, 'resistance_penetration_per_step'),
             self::chain($row),
+            SpecShape::stringList($row, 'keyword_codes'),
+            SpecShape::optionalString($row, 'check_advantage_source'),
+            self::upgradeRange($row),
+            SpecShape::bool($row, 'state_permanence'),
+        );
+    }
+
+    /**
+     * Дальность улучшения каста.
+     *
+     * @param array<string, mixed> $row Строка улучшения.
+     *
+     * @return SpellUpgradeRange|null Форма или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function upgradeRange(array $row): ?SpellUpgradeRange
+    {
+        $range = SpecShape::object($row, 'range');
+        if ($range === null) {
+            return null;
+        }
+
+        return new SpellUpgradeRange(
+            SpecShape::int($range, 'power_size_per_step'),
+            SpecShape::int($range, 'control_base'),
         );
     }
 

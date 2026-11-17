@@ -18,6 +18,10 @@ final class SpellUpgrade
      * @param bool $anyPath Любой путь.
      * @param int|null $resistancePenetrationPerStep Пробитие на шаг.
      * @param SpellChain|null $chain Цепь.
+     * @param array<int, string> $keywordCodes Признаки, которые обязано иметь заклинание.
+     * @param string|null $checkAdvantageSource Источник преимущества; одинаковый — одно преимущество.
+     * @param SpellUpgradeRange|null $range Замена касания дальностью.
+     * @param bool $statePermanence Состояние остаётся после срока заклинания.
      *
      * @return void
      */
@@ -28,6 +32,10 @@ final class SpellUpgrade
         private readonly bool $anyPath,
         private readonly ?int $resistancePenetrationPerStep,
         private readonly ?SpellChain $chain,
+        private readonly array $keywordCodes = [],
+        private readonly ?string $checkAdvantageSource = null,
+        private readonly ?SpellUpgradeRange $range = null,
+        private readonly bool $statePermanence = false,
     ) {
     }
 
@@ -89,5 +97,45 @@ final class SpellUpgrade
     public function getChain(): ?SpellChain
     {
         return $this->chain;
+    }
+
+    /**
+     * Признаки заклинания.
+     *
+     * @return array<int, string> Коды.
+     */
+    public function getKeywordCodes(): array
+    {
+        return $this->keywordCodes;
+    }
+
+    /**
+     * Источник преимущества.
+     *
+     * @return string|null Код или null.
+     */
+    public function getCheckAdvantageSource(): ?string
+    {
+        return $this->checkAdvantageSource;
+    }
+
+    /**
+     * Дальность вместо касания.
+     *
+     * @return SpellUpgradeRange|null Форма или null.
+     */
+    public function getRange(): ?SpellUpgradeRange
+    {
+        return $this->range;
+    }
+
+    /**
+     * Состояние остаётся после срока.
+     *
+     * @return bool true, если состояние постоянное.
+     */
+    public function isStatePermanence(): bool
+    {
+        return $this->statePermanence;
     }
 }

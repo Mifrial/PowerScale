@@ -335,6 +335,8 @@ export class AbilitySpecService {
         return { type: 'has_magic_path', path_code: '' };
       case 'magic_path_experience':
         return { type: 'magic_path_experience', path_code: '', min: 1 };
+      case 'keyword_experience':
+        return { type: 'keyword_experience', keyword_codes: [], min: 1 };
       case 'current_speed':
         return {
           type: 'current_speed',

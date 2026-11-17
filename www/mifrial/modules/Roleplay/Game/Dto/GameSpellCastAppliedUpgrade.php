@@ -22,6 +22,9 @@ final class GameSpellCastAppliedUpgrade
      * @param int $resistancePenetration Пробитие сопротивления.
      * @param int $requiredPowerDelta Добавка Требуемой мощи.
      * @param SpellChain|null $chain Цепь прыжков или null.
+     * @param int $requiredControlDelta Добавка Требуемого контроля.
+     * @param bool $range Дальность вместо касания.
+     * @param bool $statePermanence Состояние остаётся после срока.
      *
      * @return void
      */
@@ -34,6 +37,9 @@ final class GameSpellCastAppliedUpgrade
         private readonly int $resistancePenetration,
         private readonly int $requiredPowerDelta,
         private readonly ?SpellChain $chain = null,
+        private readonly int $requiredControlDelta = 0,
+        private readonly bool $range = false,
+        private readonly bool $statePermanence = false,
     ) {
     }
 
@@ -115,5 +121,35 @@ final class GameSpellCastAppliedUpgrade
     public function getChain(): ?SpellChain
     {
         return $this->chain;
+    }
+
+    /**
+     * Добавка Требуемого контроля.
+     *
+     * @return int Число.
+     */
+    public function getRequiredControlDelta(): int
+    {
+        return $this->requiredControlDelta;
+    }
+
+    /**
+     * Дальность вместо касания.
+     *
+     * @return bool true, если каст идёт на расстоянии.
+     */
+    public function isRange(): bool
+    {
+        return $this->range;
+    }
+
+    /**
+     * Состояние остаётся после срока.
+     *
+     * @return bool true, если состояние постоянное.
+     */
+    public function isStatePermanence(): bool
+    {
+        return $this->statePermanence;
     }
 }

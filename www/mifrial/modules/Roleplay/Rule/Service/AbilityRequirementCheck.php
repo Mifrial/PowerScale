@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKnowledgeRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\KeywordExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
@@ -170,6 +171,10 @@ final class AbilityRequirementCheck
                 $requirement,
                 $values,
             ),
+            $requirement instanceof KeywordExperienceRequirement => $this->keywordExperiencePasses(
+                $requirement,
+                $values,
+            ),
             default => null,
         };
     }
@@ -208,6 +213,34 @@ final class AbilityRequirementCheck
         return $experience === null
             ? null
             : ($experience[$requirement->getPathCode()] ?? 0) >= $requirement->getMin();
+    }
+
+    /**
+     * Опыт признаков (сумма цен способностей со всеми перечисленными признаками).
+     *
+     * @param KeywordExperienceRequirement $requirement Требование.
+     * @param RequirementValues $values Факты.
+     *
+     * @return bool|null Результат или null, если модели нет.
+     */
+    private function keywordExperiencePasses(
+        KeywordExperienceRequirement $requirement,
+        RequirementValues $values,
+    ): ?bool {
+        $rows = $values->unmodelled->keywordAbilities;
+        if ($rows === null) {
+            return null;
+        }
+
+        $required = $requirement->getKeywordCodes();
+        $sum = 0;
+        foreach ($rows as $row) {
+            if (array_diff($required, $row['keywords']) === []) {
+                $sum += $row['cost'];
+            }
+        }
+
+        return $sum >= $requirement->getMin();
     }
 
     /**

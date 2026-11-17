@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKnowledgeRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\KeywordExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryValueRequirement;
@@ -149,6 +150,10 @@ final class AbilityRequirements
                 self::limit($row),
             ),
             'has_magic_path' => new HasMagicPathRequirement(SpecShape::string($row, 'path_code')),
+            'keyword_experience' => new KeywordExperienceRequirement(
+                SpecShape::stringList($row, 'keyword_codes'),
+                SpecShape::int($row, 'min'),
+            ),
             'magic_path_experience' => new MagicPathExperienceRequirement(
                 SpecShape::string($row, 'path_code'),
                 SpecShape::int($row, 'min'),

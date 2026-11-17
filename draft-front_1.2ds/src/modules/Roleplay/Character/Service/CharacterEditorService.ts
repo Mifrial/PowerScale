@@ -1906,6 +1906,7 @@ export class CharacterEditorService {
       magicPaths,
       magicPathExperience,
       magicPathCovers,
+      keywordAbilities: this.keywordAbilityRows(build, reference, keywords),
       languageScripts: scriptLiteracyService.languageScriptIndex(reference.rules()),
     };
   }
@@ -2577,6 +2578,62 @@ export class CharacterEditorService {
   }
 
   /**
+   * Стоимость взятой способности по лестнице её зоны.
+   */
+  private ladderCostOf(
+    build: CharacterBuild,
+    ability: CharacterAbility,
+    rule: Rule,
+    spec: Exclude<AbilitySpec, { type: 'group' }>,
+    reference: CharacterReferenceService,
+    parameterAutoValues: Map<string, Record<string, DimensionalNumberValue>>,
+    raceFixedBases: Map<string, DimensionalNumberValue>,
+  ): number {
+    const zoneCode = ability.zone ?? this.keywordExperience.purchasableZoneOf(spec);
+    if (!zoneCode) return 0;
+    const cost =
+      this.scriptCostOf(rule, ability, reference) ??
+      this.weaponFamilyCostOf(rule, ability, reference) ??
+      spec.zones[zoneCode];
+    if (!cost) return 0;
+
+    return this.keywordExperience.totalCostAtLevel(cost, ability.level, (code) =>
+      this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases),
+    );
+  }
+
+  /**
+   * Взятые способности с признаками и ценой — для требования «опыт признаков».
+   */
+  private keywordAbilityRows(
+    build: CharacterBuild,
+    reference: CharacterReferenceService,
+    keywords: Keyword[],
+  ): { keywords: string[]; cost: number }[] {
+    const rules = reference.rules();
+    const parameterAutoValues = this.racialAutomaticValues(build, reference, rules);
+    const raceFixedBases = this.raceFixedBases(build, reference);
+    const keywordCodeById = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+    const rows: { keywords: string[]; cost: number }[] = [];
+    for (const ability of build.abilities) {
+      if (ability.level < 1) continue;
+      const rule = reference.ruleByCode(ability.ruleCode);
+      const spec = rule?.spec as AbilitySpec | undefined;
+      if (!rule || !spec || spec.type === 'group') continue;
+      const cost = this.ladderCostOf(build, ability, rule, spec, reference, parameterAutoValues, raceFixedBases);
+      if (cost <= 0) continue;
+      rows.push({
+        keywords: (rule.keywordIds ?? [])
+          .map((keywordId) => keywordCodeById.get(keywordId))
+          .filter((code): code is string => typeof code === 'string'),
+        cost,
+      });
+    }
+
+    return rows;
+  }
+
+  /**
    * Производные уровни способностей (D109): уровень из «опыта» = суммы стоимостей взятых
    * способностей с признаком source_keyword. Пример: «Ближний бой» — опыт ближнего боя (2/8/16).
    */
@@ -2594,19 +2651,8 @@ export class CharacterEditorService {
         build.abilities,
         reference.rules(),
         keywords,
-        (ability, rule, spec) => {
-          const zoneCode = ability.zone ?? this.keywordExperience.purchasableZoneOf(spec);
-          if (!zoneCode) return 0;
-          const cost =
-            this.scriptCostOf(rule, ability, reference) ??
-            this.weaponFamilyCostOf(rule, ability, reference) ??
-            spec.zones[zoneCode];
-          if (!cost) return 0;
-
-          return this.keywordExperience.totalCostAtLevel(cost, ability.level, (code) =>
-            this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases),
-          );
-        },
+        (ability, rule, spec) =>
+          this.ladderCostOf(build, ability, rule, spec, reference, parameterAutoValues, raceFixedBases),
       );
 
     const result = new Map<string, number>();

@@ -141,6 +141,7 @@ export class SpellCastExecutionService {
       {
         ...input.resolve,
         requiredPowerDelta: spellCastUpgradeService.requiredPowerDelta(selectedUpgrades, upgradeValues),
+        requiredControlDelta: spellCastUpgradeService.requiredControlDelta(selectedUpgrades),
         resistancePenetration: spellCastUpgradeService.resistancePenetration(selectedUpgrades, upgradeValues),
       },
       input.checkCode,

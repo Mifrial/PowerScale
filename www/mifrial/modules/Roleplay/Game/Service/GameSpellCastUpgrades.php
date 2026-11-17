@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgrade;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
  * Разрешение улучшений каста по форме spell_upgrade.
@@ -102,7 +103,11 @@ final class GameSpellCastUpgrades
 
             $advantage = $upgrade->getCheckAdvantage() ?? 0;
             if ($advantage !== 0) {
-                $advantages[] = new RollAdvantage($code, $advantage, $rule->getName());
+                $advantages[] = new RollAdvantage(
+                    $upgrade->getCheckAdvantageSource() ?? $code,
+                    $advantage,
+                    $rule->getName(),
+                );
             }
         }
 
@@ -267,6 +272,7 @@ final class GameSpellCastUpgrades
         string $spellCode,
         string $pathCode,
     ): void {
+        $this->assertSpellKeywords($slice, $upgrade, $spellCode);
         if ($parent !== null && $parent !== '') {
             if ($parent !== $spellCode) {
                 throw new GameInvalidException('Game spell upgrade belongs to another spell');
@@ -294,6 +300,31 @@ final class GameSpellCastUpgrades
         }
 
         throw new GameInvalidException('Game spell upgrade belongs to another path');
+    }
+
+    /**
+     * Улучшение применимо только к заклинанию со всеми его признаками.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param SpellUpgrade $upgrade Улучшение.
+     * @param string $spellCode Заклинание.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если признак не совпал.
+     */
+    private function assertSpellKeywords(CharacterRuleSlice $slice, SpellUpgrade $upgrade, string $spellCode): void
+    {
+        $required = $upgrade->getKeywordCodes();
+        if ($required === []) {
+            return;
+        }
+
+        $rule = $slice->findLive($spellCode);
+        $keywords = $rule === null ? [] : $rule->getKeywordCodes();
+        if (array_diff($required, $keywords) !== []) {
+            throw new GameInvalidException('Game spell upgrade belongs to another school');
+        }
     }
 
     /**
@@ -335,7 +366,7 @@ final class GameSpellCastUpgrades
             throw new GameInvalidException('Game spell upgrade value is invalid');
         }
 
-        if ($upgrade->getResistancePenetrationPerStep() === null) {
+        if ($upgrade->getResistancePenetrationPerStep() === null && $upgrade->getRange() === null) {
             if ($value !== null && $value !== 0) {
                 throw new GameInvalidException('Game spell upgrade value is not allowed');
             }
@@ -343,7 +374,12 @@ final class GameSpellCastUpgrades
             return 0;
         }
 
-        return $value ?? 1;
+        $value ??= 1;
+        if ($upgrade->getRange() !== null && $value < 1) {
+            throw new GameInvalidException('Game spell upgrade range is invalid');
+        }
+
+        return $value;
     }
 
     /**
@@ -361,6 +397,8 @@ final class GameSpellCastUpgrades
         int $value,
     ): GameSpellCastAppliedUpgrade {
         $perStep = $upgrade->getResistancePenetrationPerStep();
+        $range = $upgrade->getRange();
+        $rangePower = $range === null ? 0 : $value * $range->getPowerSizePerStep() * CharacteristicNumber::BASE_STEP;
 
         return new GameSpellCastAppliedUpgrade(
             $rule->getCode(),
@@ -369,8 +407,11 @@ final class GameSpellCastUpgrades
             $upgrade->getActionPointDelta(),
             $upgrade->getCheckAdvantage() ?? 0,
             $perStep === null ? 0 : $value * $perStep,
-            $perStep === null ? 0 : $value,
+            ($perStep === null ? 0 : $value) + $rangePower,
             $upgrade->getChain(),
+            $range === null ? 0 : $range->getControlBase(),
+            $range !== null,
+            $upgrade->isStatePermanence(),
         );
     }
 }

@@ -46,6 +46,11 @@ export interface CharacterSnapshot {
   /** Опыт пути: сумма каталожных стоимостей способностей этого пути. */
   magicPathExperience?: Map<string, number>;
   /**
+   * Взятые способности с их признаками и ценой — для требования «опыт признаков».
+   * Сумма цен строк, у которых есть все требуемые признаки.
+   */
+  keywordAbilities?: { keywords: string[]; cost: number }[];
+  /**
    * Владелец пути → множество покрытых путей (сам + includes_path_codes, транзитивно).
    * Для шамана: {shaman, psionic}.
    */

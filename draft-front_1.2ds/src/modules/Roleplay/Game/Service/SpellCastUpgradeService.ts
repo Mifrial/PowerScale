@@ -4,8 +4,12 @@ import type { SpellCastUpgradeOption } from '@/modules/Roleplay/Game/Dto/Spell/S
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/init';
+
+/** Сколько пунктов шкалы характеристик в одном размере. */
+const CHARACTERISTIC_STEP = 3;
 
 /** Какие `spell_upgrade` можно отметить на этот каст. */
 export class SpellCastUpgradeService {
@@ -14,6 +18,7 @@ export class SpellCastUpgradeService {
     pathCode: string | null,
     spellCode: string,
     rules: Rule[],
+    keywords?: Keyword[],
   ): SpellCastUpgradeOption[] {
     const options: SpellCastUpgradeOption[] = [];
     const seen = new Set<string>();
@@ -30,6 +35,9 @@ export class SpellCastUpgradeService {
       if (!this.matches(spec, ability, pathCode, spellCode, rules)) {
         continue;
       }
+      if (!this.matchesKeywords(spec, spellCode, rules, keywords)) {
+        continue;
+      }
       if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
         continue;
       }
@@ -37,6 +45,8 @@ export class SpellCastUpgradeService {
         !spec.spell_upgrade.action_point_delta &&
         !spec.spell_upgrade.check_advantage &&
         !spec.spell_upgrade.resistance_penetration_per_step &&
+        !spec.spell_upgrade.range &&
+        !spec.spell_upgrade.state_permanence &&
         !spec.spell_upgrade.chain
       ) {
         continue;
@@ -55,7 +65,12 @@ export class SpellCastUpgradeService {
    * Улучшения, записанные в источнике под это заклинание: путь записей не требует
    * изученных экземпляров, состав берётся из `payload.recorded_spells[].upgrades`.
    */
-  listRecorded(codes: readonly string[], spellCode: string, rules: Rule[]): SpellCastUpgradeOption[] {
+  listRecorded(
+    codes: readonly string[],
+    spellCode: string,
+    rules: Rule[],
+    keywords?: Keyword[],
+  ): SpellCastUpgradeOption[] {
     const options: SpellCastUpgradeOption[] = [];
     const seen = new Set<string>();
     for (const code of codes) {
@@ -65,6 +80,7 @@ export class SpellCastUpgradeService {
       if (!rule || !spec) continue;
       const parent = spec.parent_ability_code;
       if (parent && parent !== spellCode) continue;
+      if (!this.matchesKeywords(spec, spellCode, rules, keywords)) continue;
       if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
         continue;
       }
@@ -72,6 +88,8 @@ export class SpellCastUpgradeService {
         !spec.spell_upgrade.action_point_delta &&
         !spec.spell_upgrade.check_advantage &&
         !spec.spell_upgrade.resistance_penetration_per_step &&
+        !spec.spell_upgrade.range &&
+        !spec.spell_upgrade.state_permanence &&
         !spec.spell_upgrade.chain
       ) {
         continue;
@@ -84,8 +102,15 @@ export class SpellCastUpgradeService {
   }
 
   /** Записанные улучшения, которые понимает серверный runtime. */
-  listRuntimeRecorded(codes: readonly string[], spellCode: string, rules: Rule[]): SpellCastUpgradeOption[] {
-    return this.listRecorded(codes, spellCode, rules).filter((option) => this.isRuntimeSupported(option));
+  listRuntimeRecorded(
+    codes: readonly string[],
+    spellCode: string,
+    rules: Rule[],
+    keywords?: Keyword[],
+  ): SpellCastUpgradeOption[] {
+    return this.listRecorded(codes, spellCode, rules, keywords).filter((option) =>
+      this.isRuntimeSupported(option),
+    );
   }
 
   /** Улучшения, которые понимает серверный runtime и можно отправить в real-каст. */
@@ -94,8 +119,9 @@ export class SpellCastUpgradeService {
     pathCode: string | null,
     spellCode: string,
     rules: Rule[],
+    keywords?: Keyword[],
   ): SpellCastUpgradeOption[] {
-    return this.listApplicable(abilities, pathCode, spellCode, rules).filter((option) =>
+    return this.listApplicable(abilities, pathCode, spellCode, rules, keywords).filter((option) =>
       this.isRuntimeSupported(option),
     );
   }
@@ -105,10 +131,10 @@ export class SpellCastUpgradeService {
     return !option.upgrade.charge_cap;
   }
 
-  /** Запрос улучшений: value уходит только для улучшения с шагами пробития. */
+  /** Запрос улучшений: value уходит только для улучшения с шагами (пробитие или дальность). */
   requestOf(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): GamePhpSpellCastUpgrade[] {
     return selected.map((option) => {
-      if (!option.upgrade.resistance_penetration_per_step) {
+      if (!option.upgrade.resistance_penetration_per_step && !option.upgrade.range) {
         return { code: option.ruleCode };
       }
 
@@ -142,6 +168,12 @@ export class SpellCastUpgradeService {
     if (option.upgrade.resistance_penetration_per_step) {
       bits.push(`х = ${parameterValue}`);
     }
+    if (option.upgrade.range) {
+      bits.push(`дальность ${parameterValue} ипари`);
+    }
+    if (option.upgrade.state_permanence) {
+      bits.push('постоянно');
+    }
     if (bits.length === 0) {
       return option.name;
     }
@@ -157,14 +189,29 @@ export class SpellCastUpgradeService {
     return selected
       .filter((option) => option.upgrade.check_advantage)
       .map((option) => ({
-        source_code: option.ruleCode,
+        source_code: option.upgrade.check_advantage_source ?? option.ruleCode,
         source_label: option.name,
         delta: option.upgrade.check_advantage ?? 0,
       }));
   }
 
   requiredPowerDelta(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number {
-    return selected.reduce((sum, option) => sum + this.parameterValue(option, values), 0);
+    return selected.reduce(
+      (sum, option) =>
+        sum +
+        (option.upgrade.resistance_penetration_per_step ? this.parameterValue(option, values) : 0) +
+        this.rangePowerDelta(option, values),
+      0,
+    );
+  }
+
+  requiredControlDelta(selected: SpellCastUpgradeOption[]): number {
+    return selected.reduce((sum, option) => sum + (option.upgrade.range?.control_base ?? 0), 0);
+  }
+
+  /** Дальность заменяет касание: каст становится целевым. */
+  hasRange(selected: SpellCastUpgradeOption[]): boolean {
+    return selected.some((option) => option.upgrade.range !== undefined);
   }
 
   resistancePenetration(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number {
@@ -175,12 +222,48 @@ export class SpellCastUpgradeService {
     );
   }
 
+  private rangePowerDelta(option: SpellCastUpgradeOption, values: Readonly<Record<string, number>>): number {
+    const range = option.upgrade.range;
+    if (!range) {
+      return 0;
+    }
+
+    return this.parameterValue(option, values) * range.power_size_per_step * CHARACTERISTIC_STEP;
+  }
+
   private parameterValue(option: SpellCastUpgradeOption, values: Readonly<Record<string, number>>): number {
-    if (!option.upgrade.resistance_penetration_per_step) {
+    if (!option.upgrade.resistance_penetration_per_step && !option.upgrade.range) {
       return 0;
     }
 
     return Math.max(0, Math.floor(values[option.ruleCode] ?? 1));
+  }
+
+  /** Улучшение применимо только к заклинанию со всеми его признаками. */
+  private matchesKeywords(
+    spec: { spell_upgrade: SpellUpgrade },
+    spellCode: string,
+    rules: Rule[],
+    keywords?: Keyword[],
+  ): boolean {
+    const required = spec.spell_upgrade.keyword_codes ?? [];
+    if (required.length === 0 || !keywords || keywords.length === 0) {
+      return true;
+    }
+
+    const rule = rules.find((entry) => entry.code === spellCode && entry.type === 'ability');
+    if (!rule) {
+      return false;
+    }
+
+    const byId = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+    const present = new Set(
+      (rule.keywordIds ?? [])
+        .map((id) => byId.get(id))
+        .filter((code): code is string => typeof code === 'string'),
+    );
+
+    return required.every((code) => present.has(code));
   }
 
   /** Пробитие сопротивления магии осмысленно только если заклинание с ним взаимодействует. */

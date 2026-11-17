@@ -51,11 +51,40 @@ final class CharacterKeywordExperience
     }
 
     /**
+     * Взятые способности с признаками и ценой.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param CharacterChoices $choices Выборы.
+     * @param array<string, int> $levels Эффективные уровни; нет кода — уровень экземпляра.
+     *
+     * @return array<int, array{keywords: array<int, string>, cost: int}> Строки.
+     */
+    public function abilities(CharacterRuleSlice $slice, CharacterChoices $choices, array $levels = []): array
+    {
+        $rows = [];
+        foreach ($choices->getAbilities() as $ability) {
+            $cost = $this->abilityExperience($slice, $ability, null, $levels);
+            if ($cost <= 0) {
+                continue;
+            }
+
+            $rule = $slice->findLive($ability->getRuleCode());
+            if ($rule === null) {
+                continue;
+            }
+
+            $rows[] = ['keywords' => $rule->getKeywordCodes(), 'cost' => $cost];
+        }
+
+        return $rows;
+    }
+
+    /**
      * Опыт одной взятой способности с признаком.
      *
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterAbilityChoice $ability Выбор.
-     * @param string $keyword Код признака.
+     * @param string|null $keyword Код признака; null — без фильтра по признаку.
      * @param array<string, int> $levels Эффективные уровни; нет кода — уровень экземпляра.
      *
      * @return int Опыт.
@@ -63,7 +92,7 @@ final class CharacterKeywordExperience
     private function abilityExperience(
         CharacterRuleSlice $slice,
         CharacterAbilityChoice $ability,
-        string $keyword,
+        ?string $keyword,
         array $levels,
     ): int {
         $level = $levels[$ability->getRuleCode()] ?? $ability->getLevel();
@@ -72,7 +101,7 @@ final class CharacterKeywordExperience
             $level < 1
             || $rule === null
             || $rule->isSpecBroken()
-            || !in_array($keyword, $rule->getKeywordCodes(), true)
+            || ($keyword !== null && !in_array($keyword, $rule->getKeywordCodes(), true))
         ) {
             return 0;
         }

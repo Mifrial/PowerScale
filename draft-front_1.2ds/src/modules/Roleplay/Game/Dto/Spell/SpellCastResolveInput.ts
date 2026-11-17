@@ -6,6 +6,8 @@ export interface SpellCastResolveInput {
   usedPower: DimensionalNumberValue;
   /** Дополнительные шаги Требуемой мощи от модификатора каста. */
   requiredPowerDelta?: number;
+  /** Добавка к Требуемому контролю от модификатора каста (дальность). */
+  requiredControlDelta?: number;
   availableControl: DimensionalNumberValue;
   parameterValues: Record<string, DimensionalNumberValue>;
   hasTarget: boolean;

@@ -9,7 +9,9 @@ export class ActiveEffectService {
   }
 
   labelOf(effect: GameActiveEffect, rules: Rule[]): string {
-    return `${this.nameOf(effect.sourceRuleCode, rules)} (осталось ходов: ${effect.turnsLeft})`;
+    const name = this.nameOf(effect.sourceRuleCode, rules);
+
+    return effect.turnsLeft > 0 ? `${name} (осталось ходов: ${effect.turnsLeft})` : `${name} (постоянно)`;
   }
 
   private nameOf(ruleCode: string, rules: Rule[]): string {

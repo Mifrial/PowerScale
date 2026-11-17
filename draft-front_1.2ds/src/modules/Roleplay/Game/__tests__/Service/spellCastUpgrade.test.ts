@@ -296,4 +296,102 @@ describe('SpellCastUpgradeService', () => {
       ),
     ).toEqual([]);
   });
+
+  it('Дальность заменяет касание: мощь растёт размерами, контроль — на 2', () => {
+    const range: Rule = {
+      ...careful,
+      code: 'gaze-curse',
+      name: 'Проклятие взглядом',
+      spec: {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        multiple: true,
+        domain_ref: 'magic-path',
+        spell_upgrade: {
+          action_point_delta: 0,
+          keyword_codes: ['nolomancy'],
+          range: { power_size_per_step: 1, control_base: 2 },
+        },
+      },
+    };
+    const spell: Rule = {
+      ...careful,
+      code: 'living-blindness',
+      spec: {
+        type: 'spell',
+        spell: { power: { base: 4, size: -1 }, control: { base: 4, size: -1 } },
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        hit_resolution: { type: 'attack' },
+      },
+      keywordIds: [7],
+    };
+    const keywords = [{ id: 7, code: 'nolomancy', name: 'Ноломансия' }];
+    const abilities = [{ ruleCode: 'gaze-curse', level: 1, domainCode: 'arcanist' }];
+    const selected = spellCastUpgradeService.selectedOf(
+      spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'living-blindness', [range, spell], keywords),
+      ['gaze-curse'],
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(spellCastUpgradeService.hasRange(selected)).toBe(true);
+    expect(spellCastUpgradeService.requiredPowerDelta(selected, { 'gaze-curse': 3 })).toBe(9);
+    expect(spellCastUpgradeService.requiredControlDelta(selected)).toBe(2);
+    expect(spellCastUpgradeService.requestOf(selected, { 'gaze-curse': 3 })).toEqual([
+      { code: 'gaze-curse', value: 3 },
+    ]);
+    expect(spellCastUpgradeService.chipLabel(selected[0]!, 3)).toContain('дальность 3 ипари');
+    expect(
+      spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'discharge', [range, spell], keywords),
+    ).toEqual([]);
+  });
+
+  it('Одинаковый источник преимущества объединяет улучшения', () => {
+    const first: Rule = {
+      ...careful,
+      code: 'experienced-nolomant',
+      name: 'Опытный ноломант',
+      spec: {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        multiple: true,
+        domain_ref: 'magic-path',
+        spell_upgrade: { action_point_delta: 0, check_advantage: 1, check_advantage_source: 'mastery' },
+      },
+    };
+    const second: Rule = {
+      ...first,
+      code: 'nerve-control',
+      name: 'Контроль нервов',
+      spec: {
+        ...first.spec,
+        spell_upgrade: { action_point_delta: 0, check_advantage: 2, check_advantage_source: 'mastery' },
+      } as Rule['spec'],
+    };
+    const selected = spellCastUpgradeService.selectedOf(
+      spellCastUpgradeService.listApplicable(
+        [
+          { ruleCode: 'experienced-nolomant', level: 1, domainCode: 'arcanist' },
+          { ruleCode: 'nerve-control', level: 1, domainCode: 'arcanist' },
+        ],
+        'arcanist',
+        'discharge',
+        [first, second],
+      ),
+      ['experienced-nolomant', 'nerve-control'],
+    );
+
+    expect(spellCastUpgradeService.advantageModifiers(selected)).toEqual([
+      { source_code: 'mastery', source_label: 'Опытный ноломант', delta: 1 },
+      { source_code: 'mastery', source_label: 'Контроль нервов', delta: 2 },
+    ]);
+  });
 });

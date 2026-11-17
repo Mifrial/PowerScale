@@ -14,5 +14,16 @@ export interface SpellUpgrade {
   any_path?: boolean;
   /** Каждый выбранный шаг повышает Требуемую мощь на 1 и снижает сопротивление на указанное число. */
   resistance_penetration_per_step?: number;
+  /** Признаки, которые обязано иметь заклинание (все сразу). */
+  keyword_codes?: string[];
+  /** Источник преимущества: одинаковый у нескольких улучшений даёт одно преимущество, а не сумму. */
+  check_advantage_source?: string;
+  /**
+   * Дальность вместо касания: цель выбирается на расстоянии `value` ипари.
+   * Требуемая мощь растёт на `power_size_per_step` размеров за шаг, контроль — на `control_base`.
+   */
+  range?: { power_size_per_step: number; control_base: number };
+  /** Состояние остаётся после срока заклинания (постоянно). */
+  state_permanence?: boolean;
   chain?: SpellChain;
 }

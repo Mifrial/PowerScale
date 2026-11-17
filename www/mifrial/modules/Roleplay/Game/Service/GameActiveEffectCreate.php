@@ -66,6 +66,9 @@ final class GameActiveEffectCreate
             ? ['type' => $prepared->casterKind, 'id' => $prepared->casterId]
             : ['type' => $prepared->damageTarget['type'], 'id' => $prepared->damageTarget['id']];
         $ticks = $this->durations->lingerTicks($duration);
+        if ($prepared->upgrades->hasStatePermanence()) {
+            $ticks = 0;
+        }
 
         return $this->effects->add(new GameActiveEffectNew(
             $game->getId(),

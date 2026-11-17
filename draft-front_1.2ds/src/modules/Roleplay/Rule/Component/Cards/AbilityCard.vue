@@ -273,6 +273,10 @@ function reqText(req: Requirement): string {
       return `путь «${ruleViewLabelService.ruleName(props.rules, req.path_code)}»`;
     case 'magic_path_experience':
       return `опыт пути «${ruleViewLabelService.ruleName(props.rules, req.path_code)}» ≥ ${req.min}`;
+    case 'keyword_experience':
+      return `опыт признаков (${req.keyword_codes
+        .map((code) => ruleViewLabelService.ruleName(props.rules, code))
+        .join(', ')}) ≥ ${req.min}`;
     case 'resource_limit':
       return `ресурс «${resourceName(req.resource_code)}»${req.min ? ` ≥ ${formatAmount(req.min)}` : ''}`;
     case 'and':

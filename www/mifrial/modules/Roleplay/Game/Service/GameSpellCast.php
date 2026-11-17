@@ -1200,9 +1200,12 @@ final class GameSpellCast
             $deliverySr !== null && $deliverySr <= 0,
             $versions['casterVersion'],
         );
-        $effectTarget = $prepared->damageTarget === null
+        $effectTarget = $prepared->target === null
             ? null
-            : ['type' => $prepared->damageTarget['type'], 'id' => $prepared->damageTarget['id']];
+            : ['type' => $prepared->target['type'], 'id' => $prepared->target['id']];
+        if ($effectTarget === null && $prepared->damageTarget !== null) {
+            $effectTarget = ['type' => $prepared->damageTarget['type'], 'id' => $prepared->damageTarget['id']];
+        }
         // У касания эффект идёт на цель удара, даже если у заклинания есть своя цель.
         if (($pendingCast['touch'] ?? false) === true && is_array($pendingCast['target'] ?? null)) {
             $effectTarget = [

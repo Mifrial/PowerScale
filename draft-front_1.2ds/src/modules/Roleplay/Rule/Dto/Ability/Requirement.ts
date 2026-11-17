@@ -11,6 +11,7 @@ export type Requirement =
   | { type: 'resource_limit'; resource_code: string; min?: DimensionalNumberValue | number }
   | { type: 'has_magic_path'; path_code: string }
   | { type: 'magic_path_experience'; path_code: string; min: number }
+  | { type: 'keyword_experience'; keyword_codes: string[]; min: number }
   | {
       type: 'current_speed';
       axis: 'horizontal' | 'vertical';

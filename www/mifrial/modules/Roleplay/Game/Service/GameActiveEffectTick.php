@@ -60,7 +60,7 @@ final class GameActiveEffectTick
             }
 
             $left = $effect->getTurnsLeft();
-            if ($left === null) {
+            if ($left === null || $left <= 0) {
                 continue;
             }
 

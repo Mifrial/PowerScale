@@ -156,10 +156,6 @@ final class GameSpellCastFacts
             $spell,
         );
 
-        $target = $this->target($game, $slice, $body, $spell);
-        $damageTarget = $target ?? $touchTarget;
-        $parameters = $this->parameterMap($body, $spell);
-        $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
         $upgrades = $this->resolveUpgrades(
             $slice,
             $model,
@@ -169,6 +165,14 @@ final class GameSpellCastFacts
             $body,
             $recorded ? $this->recordedUpgrades($caster['choices'], $power['key'], $spellCode) : null,
         );
+        if ($upgrades->isRange() && $touchTarget !== null) {
+            throw new GameInvalidException('Game spell touch is not allowed at range');
+        }
+
+        $target = $this->target($game, $slice, $body, $spell, $upgrades->isRange());
+        $damageTarget = $target ?? $touchTarget;
+        $parameters = $this->parameterMap($body, $spell);
+        $spellPower = $this->value($spell->getSpell()->getPower(), $parameters);
         $levels = $caster['sheet']['abilityLevels'] ?? [];
         $levelMap = is_array($levels) ? $levels : [];
         $efficiency = $this->efficiency->resolve(
@@ -181,7 +185,9 @@ final class GameSpellCastFacts
         $nextCastSources = $this->nextCast->sources($slice, $model, $levelMap);
         $requiredPower = (new CharacteristicNumber($spellPower->getBase(), $spellPower->getSize()))
             ->modify($upgrades->getRequiredPowerDelta());
-        $requiredControl = $this->value($spell->getSpell()->getControl(), $parameters);
+        $control = $this->value($spell->getSpell()->getControl(), $parameters);
+        $requiredControl = (new CharacteristicNumber($control->getBase(), $control->getSize()))
+            ->modify($upgrades->getRequiredControlDelta());
         $characteristics = $this->characteristicsOf($caster['sheet']);
         $usedPower = $power['value'];
         $availableControl = $this->availableControl($path, $requiredControl, $characteristics);
@@ -557,6 +563,7 @@ final class GameSpellCastFacts
      * @param CharacterRuleSlice $slice Срез.
      * @param array<string, mixed> $body Тело.
      * @param AbilitySpellSpec $spell Карточка.
+     * @param bool $range Дальность вместо касания разрешает цель.
      *
      * @return array{
      *     type: string,
@@ -573,14 +580,16 @@ final class GameSpellCastFacts
         CharacterRuleSlice $slice,
         array $body,
         AbilitySpellSpec $spell,
+        bool $range = false,
     ): ?array {
         $target = $body['target'] ?? null;
         $targeting = $spell->getSpell()->getTargeting();
-        if ($targeting === 'entity' && !is_array($target)) {
+        $needsTarget = $targeting === 'entity' || $range;
+        if ($needsTarget && !is_array($target)) {
             throw new ActionException('INVALID_PARAMS', 'Game spell target is required');
         }
 
-        if ($targeting !== 'entity' && $target !== null) {
+        if (!$needsTarget && $target !== null) {
             throw new ActionException('INVALID_PARAMS', 'Game spell target is not allowed');
         }
 

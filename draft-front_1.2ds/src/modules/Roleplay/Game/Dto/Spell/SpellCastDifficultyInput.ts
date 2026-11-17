@@ -7,6 +7,8 @@ export interface SpellCastDifficultyInput {
   requiredPowerDelta?: number;
   usedPower: DimensionalNumberValue;
   requiredControl: DimensionalNumberValue;
+  /** Добавка к Требуемому контролю от выбранного модификатора каста (дальность). */
+  requiredControlDelta?: number;
   availableControl: DimensionalNumberValue;
   /** Итоговое сопротивление магии цели, если заклинание помечено `resisted_by_magic`. */
   resistanceModify?: number;

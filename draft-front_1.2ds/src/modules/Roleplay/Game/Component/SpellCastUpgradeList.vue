@@ -101,10 +101,12 @@ function chipLabel(option: SpellCastUpgradeOption): string {
               @update:model-value="toggle(option.ruleCode, $event)"
             />
             <ClampedNumberField
-              v-if="option.upgrade.resistance_penetration_per_step && isOn(option.ruleCode)"
+              v-if="
+                (option.upgrade.resistance_penetration_per_step || option.upgrade.range) && isOn(option.ruleCode)
+              "
               :model-value="parameterValue(option.ruleCode)"
-              label="х"
-              :min="0"
+              :label="option.upgrade.range ? 'Дистанция, ипари' : 'х'"
+              :min="option.upgrade.range ? 1 : 0"
               :max="999"
               density="compact"
               hide-details

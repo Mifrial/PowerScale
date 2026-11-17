@@ -1785,6 +1785,178 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * «Проклятие взглядом» заменяет касание целевым кастом на расстоянии.
+     *
+     * @return void
+     */
+    public function testGazeCurseCastsNolomancySpellAtRange(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [
+                ['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'gaze-curse', 'level' => 1, 'domainCode' => 'arcanist'],
+            ],
+            [
+                'blindness-test' => $this->blindnessStateCard(),
+                'sense-vision' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'precise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+            ],
+            [],
+            [
+                'blindness-spell' => $this->blindnessSpellCard(),
+                'gaze-curse' => $this->gazeCurseCard(),
+            ],
+        );
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'blindness-spell';
+        $body['parameters'] = [];
+        $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('npc:' . $scene['npcId'], $cast['data']['activeEffect']['targetKey'] ?? null);
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        self::assertIsArray(
+            $this->runtimeStateOf($npc['data']['version']['sheet'], 'blindness-test'),
+            json_encode($npc),
+        );
+    }
+
+    /**
+     * Без «Проклятия взглядом» касательное заклинание не принимает цель.
+     *
+     * @return void
+     */
+    public function testNolomancySpellRejectsTargetWithoutRange(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist']],
+            ['blindness-test' => $this->blindnessStateCard()],
+            [],
+            ['blindness-spell' => $this->blindnessSpellCard()],
+        );
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'blindness-spell';
+        $body['parameters'] = [];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+        self::assertFalse($cast['success'], json_encode($cast));
+        self::assertSame('INVALID_PARAMS', $cast['error']['code']);
+    }
+
+    /**
+     * «Разложение нервов» оставляет состояние после срока заклинания.
+     *
+     * @return void
+     */
+    public function testNerveDecayKeepsStateAfterExpiry(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [
+                ['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'nerve-decay', 'level' => 1, 'domainCode' => 'arcanist'],
+            ],
+            ['blindness-test' => $this->blindnessStateCard()],
+            [],
+            [
+                'blindness-spell' => $this->blindnessSpellCard(),
+                'nerve-decay' => $this->nerveDecayCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'nerve-decay-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'blindness-spell',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'upgrades' => [['code' => 'nerve-decay']],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'nerve-decay-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(0, $closed['data']['activeEffect']['turnsTotal'] ?? null);
+        self::assertSame(0, $closed['data']['activeEffect']['turnsLeft'] ?? null);
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'nerve-decay-hero-end',
+            'expectedBattleVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $closed['data']['casterSheetVersion']['sheetVersion'],
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'nerve-decay-npc-end',
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $after = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($after['success'], json_encode($after));
+        self::assertIsArray(
+            $this->runtimeStateOf($after['data']['version']['sheet'], 'blindness-test'),
+            json_encode($after),
+        );
+    }
+
+    /**
      * Сопротивление магии цели повышает Сложность касательного состояния.
      *
      * @return void
@@ -4085,6 +4257,48 @@ final class GameStrikeMysqlTest extends TestCase
                     'amount' => 3,
                 ]],
                 'spell_touch' => ['weapon_damage' => false, 'attack_sr_bonus' => 1],
+            ],
+        ];
+    }
+
+
+    /**
+     * Улучшение «Проклятие взглядом»: дальность вместо касания.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function gazeCurseCard(): array
+    {
+        return [
+            'type' => 'ability',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'type' => 'skill',
+                'spell_upgrade' => [
+                    'action_point_delta' => 0,
+                    'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+                ],
+                'parent_ability_code' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Улучшение «Разложение нервов»: состояние без срока.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function nerveDecayCard(): array
+    {
+        return [
+            'type' => 'ability',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [4]]],
+            'spec' => [
+                'type' => 'skill',
+                'spell_upgrade' => ['action_point_delta' => 0, 'state_permanence' => true],
+                'parent_ability_code' => null,
             ],
         ];
     }

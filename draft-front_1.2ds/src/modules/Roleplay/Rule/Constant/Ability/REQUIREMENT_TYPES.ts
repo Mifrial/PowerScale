@@ -30,6 +30,11 @@ export const REQUIREMENT_TYPES: { label: string; value: Requirement['type']; des
     value: 'magic_path_experience',
     description: 'Сумма стоимостей способностей этого пути не ниже указанной',
   },
+  {
+    label: 'Опыт признаков',
+    value: 'keyword_experience',
+    description: 'Сумма стоимостей способностей со всеми указанными признаками не ниже N',
+  },
   { label: 'И', value: 'and', description: 'Все условия внутри должны выполниться' },
   { label: 'ИЛИ', value: 'or', description: 'Хотя бы одно условие внутри должно выполниться' },
 ];
