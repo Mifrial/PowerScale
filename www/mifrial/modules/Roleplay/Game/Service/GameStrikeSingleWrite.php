@@ -106,7 +106,7 @@ final class GameStrikeSingleWrite
     {
         $noEffects = $run->isPush
             ? $run->prepared === null || $run->prepared['operations'] === []
-            : $run->autoFail;
+            : ($run->autoFail || $run->contactOnly);
         if ($noEffects && $run->spends === []) {
             $run->result['sheetVersion'] = null;
 

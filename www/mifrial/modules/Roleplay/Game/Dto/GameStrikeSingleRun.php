@@ -30,6 +30,15 @@ final class GameStrikeSingleRun
 
     public bool $sequential = false;
 
+    /** Удар только доставляет касание: урон оружия и его последствия не применяются. */
+    public bool $contactOnly = false;
+
+    /** Бонус РУ за действие касания (spell_touch.attack_sr_bonus). */
+    public int $touchSrBonus = 0;
+
+    /** Удар объявлен действием касания (`spell_touch`). */
+    public bool $isTouchAction = false;
+
     public int $activeIndex = 0;
 
     public array $row = [];

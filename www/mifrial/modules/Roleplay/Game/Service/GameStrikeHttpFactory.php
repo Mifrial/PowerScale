@@ -8,6 +8,7 @@ use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterKeywordExperience;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
@@ -116,6 +117,7 @@ final class GameStrikeHttpFactory
             new GameSpellDurationRules(),
         );
         $activeChat = new GameActiveSpellChat($ports->chats(), $shared->chat);
+        $effects = new GameActiveEffectWiring($serviceLocator, $shared);
         $chainHop = new GameSpellChainHop();
         $chainPending = new GameSpellChainPending();
         $chainDamage = new GameSpellChainDamage(
@@ -172,6 +174,8 @@ final class GameStrikeHttpFactory
             $activeCreate,
             $activeChat,
             new GameActiveSpellCharge(new GameSpellCharge(), $shared->sheetWrites, $activeChat),
+            $effects->create,
+            $effects->chat,
             $chainPending,
             $chainDamage,
             $chainHop,
@@ -268,6 +272,28 @@ final class GameStrikeHttpFactory
     }
 
     /**
+     * HTTP чтения длительных эффектов.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActiveEffectQueryHttp Сценарий.
+     */
+    public function createActiveEffectQueryHttp(IServiceLocator $serviceLocator): GameActiveEffectQueryHttp
+    {
+        $ports = new GameStrikePorts($serviceLocator);
+        $gateway = $ports->gateway();
+
+        return new GameActiveEffectQueryHttp(
+            $ports->userAccess(),
+            $ports->games(),
+            (new GameStrikeCardWiring())->card($serviceLocator),
+            new GameSessionRepository($gateway),
+            new GameActiveEffectRepository($gateway),
+            new GameActiveEffectView(),
+        );
+    }
+
+    /**
      * Доменная команда карточки действия.
      *
      * @param IServiceLocator $serviceLocator Каталог.
@@ -326,12 +352,13 @@ final class GameStrikeHttpFactory
             $ports->events(),
         );
         $active = new GameActiveSpellWiring($serviceLocator, $rules, $shared, $access);
+        $effects = new GameActiveEffectWiring($serviceLocator, $shared);
         $spellChat = new GameSpellCastChat($ports->chats(), $shared->chat);
 
         return new GameTurns(
             $this->turnEnvelope($serviceLocator, $gateway, $access),
             new GameTurnScenario(new GameBattleLookup($battles), $access, $cursor),
-            $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor, $active->turnStart),
+            $this->turnEnd($serviceLocator, $rules, $write, $gateway, $access, $snapshot, $battles, $cursor, $active->turnStart, $effects->tick),
             $this->turnContinue($serviceLocator, $rules, $write, $snapshot, $battles, $spellChat),
             new GameTurnAbort($battles, $spellChat),
             $this->turnProcessAbort($serviceLocator, $rules, $write, $gateway, $access, $battles),
@@ -393,6 +420,7 @@ final class GameStrikeHttpFactory
      * @param GameBattleRepository $battles Бои.
      * @param GameTurnCursor $cursor Курсор.
      * @param GameActiveSpellTurnStart $activeSpells Вопрос поддержания.
+     * @param GameActiveEffectTick $activeEffects Тик длительных эффектов.
      *
      * @return GameTurnEnd Сценарий.
      */
@@ -406,6 +434,7 @@ final class GameStrikeHttpFactory
         GameBattleRepository $battles,
         GameTurnCursor $cursor,
         GameActiveSpellTurnStart $activeSpells,
+        GameActiveEffectTick $activeEffects,
     ): GameTurnEnd {
         $chats = (new GameStrikePorts($serviceLocator))->chats();
         $announce = new GameTurnAnnounce(
@@ -422,6 +451,7 @@ final class GameStrikeHttpFactory
             $cursor,
             $announce,
             $activeSpells,
+            $activeEffects,
         );
     }
 

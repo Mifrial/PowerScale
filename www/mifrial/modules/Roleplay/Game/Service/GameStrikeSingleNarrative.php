@@ -51,6 +51,10 @@ final class GameStrikeSingleNarrative
         array $split,
         ?array $maneuver,
     ): string {
+        if (($result['contactOnly'] ?? false) === true) {
+            return '';
+        }
+
         $narrative = $this->base($header);
         $narrative .= $this->after($game, $header, $open, $split, $reaction, $cover !== null);
         $narrative .= $this->maneuverPart($maneuver);

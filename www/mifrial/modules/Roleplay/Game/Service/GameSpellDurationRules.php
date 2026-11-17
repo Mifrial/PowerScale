@@ -17,8 +17,10 @@ final class GameSpellDurationRules
 
     private const SUSTAINED = 'sustained';
 
+    private const LINGERING = 'lingering';
+
     /**
-     * Проверяет, что вид длительности поддержан рантаймом M6.
+     * Проверяет, что вид длительности поддержан рантаймом.
      *
      * @param SpellDuration $duration Длительность карточки.
      *
@@ -28,7 +30,7 @@ final class GameSpellDurationRules
      */
     public function assertSupported(SpellDuration $duration): void
     {
-        if ($this->isInstant($duration) || $this->isSustained($duration)) {
+        if ($this->isInstant($duration) || $this->isSustained($duration) || $this->isLingering($duration)) {
             return;
         }
 
@@ -57,6 +59,52 @@ final class GameSpellDurationRules
     public function isSustained(SpellDuration $duration): bool
     {
         return $duration->getType() === self::SUSTAINED;
+    }
+
+    /**
+     * Длительное заклинание с таймером.
+     *
+     * @param SpellDuration $duration Длительность карточки.
+     *
+     * @return bool true, если lingering.
+     */
+    public function isLingering(SpellDuration $duration): bool
+    {
+        return $duration->getType() === self::LINGERING;
+    }
+
+    /**
+     * Срок lingering в собственных ходах цели.
+     *
+     * «1 минута» = 10 ходов, «1 час» = 600. Это соглашение карточек и M16:
+     * единица времени переводится в ходы, а не в реальные секунды.
+     *
+     * @param SpellDuration $duration Длительность карточки.
+     *
+     * @return int Положительный срок в тиках.
+     *
+     * @throws GameInvalidException Если лимита нет или единица неизвестна.
+     */
+    public function lingerTicks(SpellDuration $duration): int
+    {
+        if (!$this->isLingering($duration)) {
+            throw new GameInvalidException('Game spell duration is not lingering');
+        }
+
+        $value = $duration->getLimit();
+        $ticks = $value instanceof DimensionalNumber ? $value->toInteger() : $value;
+        if (!is_int($ticks) || $ticks < 1) {
+            throw new GameInvalidException('Game spell lingering limit is invalid');
+        }
+
+        $multiplier = match ($duration->getUnit()) {
+            'turn' => 1,
+            'minute' => 10,
+            'hour' => 600,
+            default => throw new GameInvalidException('Game spell lingering unit is invalid'),
+        };
+
+        return $ticks * $multiplier;
     }
 
     /**

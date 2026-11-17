@@ -45,6 +45,8 @@ import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatR
 import CombatProcessTile from '@/modules/Roleplay/Game/Component/Detail/CombatProcessTile.vue';
 import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { GameActiveEffect } from '@/modules/Roleplay/Game/Dto/GameActiveEffect';
+import { activeEffectService } from '@/modules/Roleplay/Game/Service/Instance/activeEffectService';
 import type { CombatProcessRow } from '@/modules/Roleplay/Game/Dto/CombatProcessRow';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
@@ -165,6 +167,7 @@ watch(isOpen, (value) => {
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const activeSpells = ref<ActiveSpell[]>([]);
+const activeEffects = ref<GameActiveEffect[]>([]);
 const pendingEffects = ref<PendingActionEffect[]>([]);
 const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
 /** Счётчик, чтобы overview пересобрался даже если версия листа та же ссылка (мутация НПС). */
@@ -210,7 +213,12 @@ function applyManeuver(option: { ruleCode: string; targetKey: CombatEntityKey })
   emit('launch-action', { actionCode: option.ruleCode, targetKey: option.targetKey, stateIndex: -1 });
 }
 
+const targetActiveEffects = computed(() =>
+  props.entityKey === null ? [] : activeEffectService.ofTarget(activeEffects.value, props.entityKey),
+);
+
 const activeEffectLabels = computed(() => [
+  ...targetActiveEffects.value.map((effect) => activeEffectService.labelOf(effect, props.rules)),
   ...pendingEffects.value.map((pending) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
     if (pending.effect.type === 'last_strike_snapshot') {
@@ -529,6 +537,7 @@ async function loadOverlays(): Promise<void> {
     const next = await getGameApi().getCombatOverlays(props.gameId);
     const allPendingEffects = await getGameApi().getPendingActionEffects(props.gameId);
     const spells = await getGameApi().getActiveSpells(props.gameId);
+    const effects = await getGameApi().getActiveEffects(props.gameId);
     const committed = await getGameApi()
       .getCommittedActionSessions(props.gameId)
       .catch(() => ({}));
@@ -536,6 +545,7 @@ async function loadOverlays(): Promise<void> {
     overlays.value = combatOverlayService.preferNewerCombatOverlays(overlays.value, next);
     pendingEffects.value = allPendingEffects[props.entityKey] ?? [];
     activeSpells.value = spells;
+    activeEffects.value = effects;
     committedSessions.value = committed;
     viewEpoch.value += 1;
   } catch (e) {
@@ -1308,7 +1318,7 @@ function onSheetToggleEquipped(itemId: number): void {
               <div v-show="isSectionOpen('combat')">
                 <v-alert v-if="activeEffectLabels.length" type="info" variant="tonal" density="compact" class="mb-3">
                   <div class="text-subtitle-2 mb-1">Активные эффекты</div>
-                  <div v-for="label in activeEffectLabels" :key="label">{{ label }}</div>
+                  <div v-for="(label, index) in activeEffectLabels" :key="`${index}-${label}`">{{ label }}</div>
                 </v-alert>
                 <template
                   v-for="(section, sectionKey) in { melee: overview.combat.melee, ranged: overview.combat.ranged }"

@@ -33,16 +33,16 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 368,
-        "plans": 246,
+        "documents": 372,
+        "plans": 248,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
             "promts": 2,
             "review": 63,
-            "rule": 7,
+            "rule": 8,
             "specs": 22,
-            "tr": 271,
+            "tr": 274,
             "tz": 2
         },
         "byZoneState": {
@@ -60,7 +60,8 @@
             },
             "rule": {
                 "нет": 6,
-                "СНИМОК": 1
+                "СНИМОК": 1,
+                "В РАБОТЕ": 1
             },
             "specs": {
                 "нет": 11,
@@ -70,7 +71,7 @@
             },
             "tr": {
                 "нет": 27,
-                "СДЕЛАНО": 170,
+                "СДЕЛАНО": 173,
                 "ОТЛОЖЕН": 4,
                 "ЧАСТИЧНО": 40,
                 "ПЛАН": 10,
@@ -86,12 +87,12 @@
         "byState": {
             "СНИМОК": 66,
             "нет": 58,
-            "СДЕЛАНО": 172,
+            "СДЕЛАНО": 175,
             "ПЛАН": 13,
+            "В РАБОТЕ": 11,
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 40,
-            "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 10
+            "ОТМЕНЁН": 1
         }
     },
     "modules": {
@@ -288,10 +289,10 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 58,
+            "docs": 61,
             "state": {
                 "нет": 3,
-                "СДЕЛАНО": 32,
+                "СДЕЛАНО": 35,
                 "ЧАСТИЧНО": 13,
                 "ОТЛОЖЕН": 3,
                 "ПЛАН": 5,
@@ -299,9 +300,9 @@
                 "В РАБОТЕ": 1
             },
             "layer": {
-                "VUE": 25,
+                "VUE": 27,
                 "МОК": 2,
-                "PHP": 22
+                "PHP": 25
             }
         },
         "Roleplay/RuleSpace": {
@@ -336,12 +337,13 @@
             }
         },
         "—": {
-            "docs": 138,
+            "docs": 139,
             "state": {
                 "СНИМОК": 58,
                 "нет": 47,
                 "СДЕЛАНО": 16,
                 "ПЛАН": 6,
+                "В РАБОТЕ": 1,
                 "ОТЛОЖЕН": 5,
                 "ЧАСТИЧНО": 6
             },
@@ -1705,6 +1707,28 @@
             "linksCount": 0,
             "brokenLinks": [],
             "backlinks": []
+        },
+        {
+            "path": "docs/rule/spells/nolomancy/draft-01.md",
+            "title": "Ноломансия — черновая выгрузка из настольных правил",
+            "zone": "rule",
+            "kind": "rule",
+            "state": "В РАБОТЕ",
+            "stateSource": "prose",
+            "statusRaw": "черновик для проектирования и импорта. Текст сохранён близко к источнику; орфография и разметка местами нормализованы, смысл не менялся.",
+            "layers": [],
+            "basis": null,
+            "date": null,
+            "bytes": 32995,
+            "lines": 468,
+            "modules": [],
+            "linksCount": 0,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-nolomancy-design-01.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
+                "docs/tr/spell-real-roadmap.md"
+            ]
         },
         {
             "path": "docs/specs/ability-parameters.md",
@@ -6729,8 +6753,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-13",
-            "bytes": 32571,
-            "lines": 336,
+            "bytes": 33173,
+            "lines": 338,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8797,6 +8821,33 @@
             ]
         },
         {
+            "path": "docs/tr/spell-nolomancy-design-01.md",
+            "title": "Концепция Ноломансии 01 — школа эффектов и касаний",
+            "zone": "tr",
+            "kind": "canon",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-16. Концепция и первая контентная пачка",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": null,
+            "date": "2026-11-16",
+            "bytes": 22071,
+            "lines": 303,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 6,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-plan-18-nolomancy.md",
+                "docs/tr/spell-real-plan-19-active-effects.md",
+                "docs/tr/spell-roadmap.md"
+            ]
+        },
+        {
             "path": "docs/tr/spell-plan-01-inventory.md",
             "title": "План M1 — inventory магии из AI.html",
             "zone": "tr",
@@ -8869,11 +8920,13 @@
             "linksCount": 3,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/spell-nolomancy-design-01.md",
                 "docs/tr/spell-plan-04-import.md",
                 "docs/tr/spell-plan-05-frontend.md",
                 "docs/tr/spell-plan-06-cast-check.md",
                 "docs/tr/spell-plan-07-runtime-slice.md",
                 "docs/tr/spell-plan-08-runtime-expansion.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -9095,10 +9148,12 @@
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
+                "docs/tr/spell-nolomancy-design-01.md",
                 "docs/tr/spell-real-plan-03-check-efficiency.md",
                 "docs/tr/spell-real-plan-04-saturation.md",
                 "docs/tr/spell-real-plan-05-magic-deviation.md",
                 "docs/tr/spell-real-plan-06-active-spells.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -9344,6 +9399,8 @@
             "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/spell-nolomancy-design-01.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -9369,8 +9426,61 @@
             "linksCount": 1,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/spell-nolomancy-design-01.md",
                 "docs/tr/spell-real-plan-16-spell-effects.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
                 "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-18-nolomancy.md",
+            "title": "План M18 — Ноломансия: черновая выгрузка и пачка эффектов",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-16. Срезы 18.1–18.4 закрыты; runtime эффектов, длительностей и переносчиков — следующие шаги роудмапа.",
+            "layers": [
+                "PHP"
+            ],
+            "basis": null,
+            "date": "2026-11-16",
+            "bytes": 8599,
+            "lines": 112,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 8,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-19-active-effects.md",
+            "title": "План M19 — длительные эффекты: цель, срок и тик",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "СДЕЛАНО",
+            "stateSource": "token",
+            "statusRaw": "~СДЕЛАНО~, 2026-11-16. Срез делает каркас длительного эффекта:",
+            "layers": [
+                "PHP",
+                "VUE"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-16",
+            "bytes": 11954,
+            "lines": 141,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 2,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/spell-real-plan-18-nolomancy.md",
+                "docs/tr/spell-real-roadmap.md",
+                "docs/tr/spell-roadmap.md"
             ]
         },
         {
@@ -9387,17 +9497,18 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 35323,
-            "lines": 378,
+            "bytes": 41776,
+            "lines": 422,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 14,
+            "linksCount": 17,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
                 "docs/tr/magic-content-design-01-arcanist-progression.md",
                 "docs/tr/spell-inventory-01.md",
+                "docs/tr/spell-nolomancy-design-01.md",
                 "docs/tr/spell-plan-02-slice.md",
                 "docs/tr/spell-real-plan-01-action-components.md",
                 "docs/tr/spell-real-plan-02-spell-upgrades.md",
@@ -9412,6 +9523,8 @@
                 "docs/tr/spell-real-plan-13-chain.md",
                 "docs/tr/spell-real-plan-16-spell-effects.md",
                 "docs/tr/spell-real-plan-17-multi-turn-cast.md",
+                "docs/tr/spell-real-plan-18-nolomancy.md",
+                "docs/tr/spell-real-plan-19-active-effects.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -9458,12 +9571,12 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-07",
-            "bytes": 37939,
-            "lines": 420,
+            "bytes": 38856,
+            "lines": 422,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 19,
+            "linksCount": 21,
             "brokenLinks": [
                 "spell-plan-10-backend.md"
             ],

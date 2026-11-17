@@ -69,8 +69,27 @@ final class GameStrikeSingleHits
         $run->pushRating = $pushRating;
         $run->success = $success;
         $this->bonus($run);
+        $this->touchBonus($run);
         $this->scales($run);
         $this->result($run);
+    }
+
+    /**
+     * Бонус РУ действия касания после попадания.
+     *
+     * @param GameStrikeSingleRun $run Прогон.
+     *
+     * @return void
+     */
+    private function touchBonus(GameStrikeSingleRun $run): void
+    {
+        if (!$run->isTouchAction || $run->touchSrBonus === 0 || $run->autoFail || $run->success <= 0) {
+            return;
+        }
+
+        $run->success += $run->touchSrBonus;
+        $rating = is_int($run->attackerRoll['rating'] ?? null) ? $run->attackerRoll['rating'] : 0;
+        $run->attackerRoll['rating'] = $rating + $run->touchSrBonus;
     }
 
     /**
@@ -163,8 +182,8 @@ final class GameStrikeSingleHits
         );
         $run->pushCanceled = $run->isPush
             && ($run->autoFail || (($run->pushRating ?? 0) <= 0 && $run->choice['reaction'] !== 'block'));
-        $run->damageSr = $this->damageSr($run);
-        $run->damage = $run->autoFail
+        $run->damageSr = $run->contactOnly ? 0 : $this->damageSr($run);
+        $run->damage = $run->autoFail || $run->contactOnly
             ? $this->amounts->zero()
             : $this->resolution->damage->damageOf($run->input->game, $run->open, $run->isPush ? $run->damageSr : $run->success, 1, $run->metrics['drop'], $run->isPush ? $this->push->damageModifier($this->pushSpec($run)) : null);
     }
@@ -207,6 +226,9 @@ final class GameStrikeSingleHits
         );
         $run->result['appliedSr'] = $run->damageSr;
         $run->result['srCap'] = $run->srCap;
+        if ($run->contactOnly) {
+            $run->result['contactOnly'] = true;
+        }
         $this->harm($run);
     }
 
@@ -331,6 +353,20 @@ final class GameStrikeSingleHits
      */
     private function injury(GameStrikeSingleRun $run): void
     {
+        if ($run->contactOnly) {
+            $zero = $this->amounts->zero();
+            $run->packetDamages = array_fill(0, $run->packets, $zero);
+            $run->packetInjuries = array_fill(0, $run->packets, $zero);
+            $run->injury = $zero;
+            $run->result['damage'] = $this->amounts->view($zero);
+            $run->result['injury'] = $this->amounts->view($zero);
+            $run->result['packetDamages'] = array_fill(0, $run->packets, $this->amounts->view($zero));
+            $run->result['packetInjuries'] = array_fill(0, $run->packets, $this->amounts->view($zero));
+            $run->prepared = null;
+
+            return;
+        }
+
         [$packetDamages, $packetInjuries] = $this->packets($run);
         $run->injury = $packetInjuries[0];
         $run->packetDamages = $packetDamages;

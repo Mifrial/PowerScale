@@ -45,6 +45,7 @@
 - `Mifrial\Roleplay\Game\Action\SustainGameSpellAction`
 - `Mifrial\Roleplay\Game\Action\DropGameSpellAction`
 - `Mifrial\Roleplay\Game\Action\GetGameActiveSpellsAction`
+- `Mifrial\Roleplay\Game\Action\GetGameActiveEffectsAction`
 - `Mifrial\Roleplay\Game\Action\ResolveGameStrikeWindowAction`
 - `Mifrial\Roleplay\Game\Action\StartGameBattleAction`
 - `Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction`
@@ -163,6 +164,7 @@
 | `game.sustainSpell` | `SustainGameSpellAction` | да |
 | `game.dropSpell` | `DropGameSpellAction` | да |
 | `game.getActiveSpells` | `GetGameActiveSpellsAction` | нет |
+| `game.getActiveEffects` | `GetGameActiveEffectsAction` | нет |
 | `game.resolveStrikeWindow` | `ResolveGameStrikeWindowAction` | да |
 | `game.applyEconomy` | `ApplyGameEconomyAction` | да |
 | `game.getShop` | `GetGameShopAction` | да |

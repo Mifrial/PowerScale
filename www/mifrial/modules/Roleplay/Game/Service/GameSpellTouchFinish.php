@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord;
 use Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastPrepared;
@@ -36,6 +37,8 @@ final class GameSpellTouchFinish
      * @param GameActiveSpellCreate $activeCreate Создание поддержания.
      * @param GameActiveSpellChat $activeChat Чат поддержания.
      * @param GameActiveSpellCharge $activeCharge Заряд поддержания.
+     * @param GameActiveEffectCreate $activeEffectCreate Создание длительного эффекта.
+     * @param GameActiveEffectChat $activeEffectChat Чат длительного эффекта.
      *
      * @return void
      */
@@ -53,6 +56,8 @@ final class GameSpellTouchFinish
         private readonly GameActiveSpellCreate $activeCreate,
         private readonly GameActiveSpellChat $activeChat,
         private readonly GameActiveSpellCharge $activeCharge,
+        private readonly GameActiveEffectCreate $activeEffectCreate,
+        private readonly GameActiveEffectChat $activeEffectChat,
         private readonly GameSpellMana $mana = new GameSpellMana(),
     ) {
     }
@@ -139,6 +144,14 @@ final class GameSpellTouchFinish
             $damage['milk'] === true,
             $casterVersion,
         );
+        $activeEffect = $this->activeEffectCreate->fromCast(
+            $game,
+            $prepared,
+            $run->battle,
+            $check['castOk'] === true,
+            $damage['milk'] === true,
+            ['type' => $run->target['type'], 'id' => $run->target['id']],
+        );
         $run->pending = $this->nextCast->consume($run->pending, $actorKey);
         $run->pending = $this->nextCast->queue(
             $run->pending,
@@ -178,11 +191,19 @@ final class GameSpellTouchFinish
                 $turnThread,
             );
         }
+        if ($activeEffect instanceof GameActiveEffectRecord) {
+            $effectThread = GameCombatThread::buildTurn(
+                $run->battle->getId(),
+                $run->battle->getRound(),
+                $run->battle->getActiveIndex(),
+            );
+            $this->activeEffectChat->appliedAt($game, $run->scope->actorUserId, $activeEffect, $effectThread);
+        }
         $this->setResult($run, $check, $damage, $version, null, [
             'type' => $prepared->casterKind,
             'id' => $prepared->casterId,
             'sheetVersion' => $casterVersion,
-        ], $activeSpell);
+        ], $activeSpell, $activeEffect);
     }
 
     /**
@@ -262,6 +283,7 @@ final class GameSpellTouchFinish
      * @param array<string, mixed>|null $pending Отложенный каст.
      * @param array{type: string, id: int, sheetVersion: int}|null $caster Кастер после отклонения.
      * @param GameActiveSpellRecord|null $activeSpell Поддерживаемое заклинание.
+     * @param GameActiveEffectRecord|null $activeEffect Длительный эффект.
      *
      * @return void
      */
@@ -273,6 +295,7 @@ final class GameSpellTouchFinish
         ?array $pending,
         ?array $caster = null,
         ?GameActiveSpellRecord $activeSpell = null,
+        ?GameActiveEffectRecord $activeEffect = null,
     ): void {
         $run->result['spellCast'] = $check;
         $run->result['spellCast']['difficulty'] = $check['difficulty'];
@@ -288,6 +311,9 @@ final class GameSpellTouchFinish
         $run->result['activeSpell'] = $activeSpell === null
             ? null
             : (new GameActiveSpellView())->build($activeSpell);
+        $run->result['activeEffect'] = $activeEffect === null
+            ? null
+            : (new GameActiveEffectView())->build($activeEffect);
     }
 
     /**

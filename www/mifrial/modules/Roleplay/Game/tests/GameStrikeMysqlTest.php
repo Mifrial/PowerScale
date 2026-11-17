@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
 use Mifrial\Roleplay\Game\Dto\NewGameMember;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
@@ -1284,6 +1285,170 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Эффект на себя не тикает в ход создания, но тикает в следующий свой ход.
+     *
+     * @return void
+     */
+    public function testLingeringSelfEffectSkipsCreationTurn(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lingering-self-test', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lingering-self-test' => $this->lingeringSelfCard()],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-self-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'lingering-self-test',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        self::assertSame('character:' . $scene['hero'], $cast['data']['activeEffect']['targetKey'] ?? null);
+        self::assertSame(1, $cast['data']['activeEffect']['turnsLeft'] ?? null);
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-self-hero-1',
+            'expectedBattleVersion' => $cast['data']['version'],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-self-npc',
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $heroAgain = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-self-hero-2',
+            'expectedBattleVersion' => $npcEnd['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        ]);
+        self::assertTrue($heroAgain['success'], json_encode($heroAgain));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+    }
+
+    /**
+     * Длительный эффект касания хранит цель и тикает в конце её хода.
+     *
+     * @return void
+     */
+    public function testLingeringTouchEffectTargetsAndExpires(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'tearing-test', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['tearing-test' => $this->lingeringTouchCard()],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-touch-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'tearing-test',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-touch-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $effect = $closed['data']['activeEffect'] ?? null;
+        self::assertIsArray($effect, json_encode($closed));
+        self::assertSame('tearing-test', $effect['sourceRuleCode']);
+        self::assertSame('spell', $effect['sourceType']);
+        self::assertSame('npc:' . $scene['npcId'], $effect['targetKey']);
+        self::assertSame(1, $effect['turnsLeft']);
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $listed = $this->dispatch('game.getActiveEffects', ['gameId' => $scene['gameId']]);
+        self::assertTrue($listed['success'], json_encode($listed));
+        self::assertSame(
+            'npc:' . $scene['npcId'],
+            $listed['data'][0]['targetKey'] ?? null,
+        );
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-hero-end',
+            'expectedBattleVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $closed['data']['casterSheetVersion']['sheetVersion'],
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-npc-end',
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $this->messageIndexOf($contents, 'спадает');
+    }
+
+    /**
      * Касание с насыщением откладывает эффект заклинания до resolve.
      *
      * @return void
@@ -1361,6 +1526,146 @@ final class GameStrikeMysqlTest extends TestCase
         );
         $this->messageIndexOf($contents, 'успешно сотворяет');
         $this->messageIndexOf($contents, '[[rule:dynamic-energy-saturation]]');
+    }
+
+    /**
+     * После насыщения длительный эффект касания остаётся на цели касания.
+     *
+     * @return void
+     */
+    public function testTouchLingeringEffectAfterSaturationTargetsTouchTarget(): void
+    {
+        $cards = $this->saturationCards();
+        $cards['dynamic-energy-saturation']['spec']['spell_saturation'] = [
+            'min_rating' => 1,
+            'rating_per_step' => 1,
+            'power_per_step' => 1,
+        ];
+        $cards['tearing-test'] = $this->lingeringTouchCard();
+        $scene = $this->spellScene(10, null, [
+            ['ruleCode' => 'dynamic-energy-saturation', 'level' => 1, 'domainCode' => 'arcanist'],
+            ['ruleCode' => 'tearing-test', 'level' => 1, 'domainCode' => 'arcanist'],
+        ], [], [], $cards);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-sat-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'tearing-test',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'lingering-sat-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame('check', $closed['data']['spellCastPhase'] ?? null);
+        $pending = $closed['data']['pendingSpellCast'] ?? null;
+        self::assertIsArray($pending, json_encode($closed));
+
+        $resolve = $this->dispatch(
+            'game.runAction',
+            $this->spellResolveBody($scene, $pending['castId'], 1, $closed['data']['version']),
+        );
+        self::assertTrue($resolve['success'], json_encode($resolve));
+        $effect = $resolve['data']['activeEffect'] ?? null;
+        self::assertIsArray($effect, json_encode($resolve));
+        self::assertSame('tearing-test', $effect['sourceRuleCode']);
+        self::assertSame('npc:' . $scene['npcId'], $effect['targetKey']);
+        self::assertSame('npc:' . $scene['npcId'], $resolve['data']['target']['type'] . ':' . $resolve['data']['target']['id']);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->messagesByThreadKinds($scene['gameId'], ['attack', 'spell', 'turn']),
+        );
+        $applied = $this->messageIndexOf($contents, 'накладывает [[rule:tearing-test]]');
+        self::assertStringContainsString('[[npc:' . $scene['npcId'], $contents[$applied]);
+        self::assertStringNotContainsString('на себя', $contents[$applied]);
+    }
+
+    /**
+     * «Простое касание» не наносит урон оружием и даёт бонус РУ.
+     *
+     * @return void
+     */
+    public function testSimpleTouchDealsNoWeaponDamage(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'tearing-test', 'level' => 1, 'domainCode' => 'arcanist']],
+            [],
+            [],
+            [
+                'tearing-test' => $this->lingeringTouchCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
+        );
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'simple-touch-1',
+            'expectedVersion' => 1,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'tearing-test',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'simple-touch-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(['base' => 0, 'size' => 0], $closed['data']['damage'] ?? null);
+        self::assertSame(['base' => 0, 'size' => 0], $closed['data']['injury'] ?? null);
+        self::assertSame('npc:' . $scene['npcId'], $closed['data']['activeEffect']['targetKey'] ?? null);
+
+        $contents = array_map(
+            static fn (MessageRecord $message): string => $message->getContent(),
+            $this->chatMessages($scene['gameId']),
+        );
+        self::assertStringNotContainsString('истощения', implode("\n", $contents));
+        self::assertStringNotContainsString('оружием', implode("\n", $contents));
+        $this->messageIndexOf($contents, 'попадает по [[npc:' . $scene['npcId']);
     }
 
     /**
@@ -3295,6 +3600,97 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Карточка длительного эффекта на себя: срок 1 ход.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function lingeringSelfCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 3, 'size' => -1],
+                    'control' => ['base' => 3, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'lingering',
+                        'limit' => ['value' => 1, 'unit' => 'turn'],
+                    ],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка длительного касания: без урона, срок 1 ход.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function lingeringTouchCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 3, 'size' => -1],
+                    'control' => ['base' => 3, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'lingering',
+                        'limit' => ['value' => 1, 'unit' => 'turn'],
+                    ],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка «Простого касания»: без урона оружия и с бонусом РУ.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function simpleTouchCard(): array
+    {
+        return [
+            'type' => 'ability',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'automatic']],
+            'spec' => [
+                'type' => 'action',
+                'zones' => ['or' => ['kind' => 'automatic']],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 3,
+                ]],
+                'spell_touch' => ['weapon_damage' => false, 'attack_sr_bonus' => 1],
+            ],
+        ];
+    }
+
+    /**
      * Карточка «Генератора»: sustained без урона.
      *
      * @return array<string, mixed> Правило.
@@ -4110,6 +4506,21 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertInstanceOf(ISmartTableGateway::class, $gateway);
 
         return (new GameActiveSpellRepository($gateway))->findForBattle($battleId);
+    }
+
+    /**
+     * Строки длительных эффектов боя.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<int, \Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord> Строки.
+     */
+    private function activeEffectRows(int $battleId): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+
+        return (new GameActiveEffectRepository($gateway))->findForBattle($battleId);
     }
 
     /**

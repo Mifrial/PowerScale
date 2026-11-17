@@ -25,12 +25,12 @@
 | Messages | [Chat](Messages/Chat.md) | `IChatContainer` | 11 | 7 | Core/Kernel, Core/SmartTable, Core/User | 9 |
 | Messages | [Notes](Messages/Notes.md) | `INotesContainer` | 10 | 8 | Core/Kernel, Core/SmartTable, Core/User | 6 |
 | Roleplay | [Character](Roleplay/Character.md) | `ICharacterContainer` | 15 | 7 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Keyword, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 17 |
-| Roleplay | [Game](Roleplay/Game.md) | `IGameContainer` | 80 | 68 | Core/Event, Core/Kernel, Core/SmartTable, Core/User, Messages/Chat, Roleplay/Character, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 49 |
+| Roleplay | [Game](Roleplay/Game.md) | `IGameContainer` | 81 | 69 | Core/Event, Core/Kernel, Core/SmartTable, Core/User, Messages/Chat, Roleplay/Character, Roleplay/Mechanic, Roleplay/Rule, Roleplay/RuleSpace | 49 |
 | Roleplay | [Keyword](Roleplay/Keyword.md) | `IKeywordContainer` | 7 | 5 | Core/Kernel, Core/SmartTable, Core/User | 3 |
 | Roleplay | [Lore](Roleplay/Lore.md) | `ILoreContainer` | 15 | 12 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Keyword | 0 |
 | Roleplay | [Map](Roleplay/Map.md) | `IMapContainer` | 8 | 5 | Core/File, Core/Kernel, Core/SmartTable, Core/User | 3 |
 | Roleplay | [Mechanic](Roleplay/Mechanic.md) | `IMechanicContainer` | 8 | 4 | Core/Kernel, Core/SmartTable, Core/User | 8 |
-| Roleplay | [Rule](Roleplay/Rule.md) | `IRuleContainer` | 2 | 0 | Core/Kernel, Core/SmartTable, Roleplay/Keyword, Roleplay/Mechanic, Versioning/Space | 57 |
+| Roleplay | [Rule](Roleplay/Rule.md) | `IRuleContainer` | 2 | 0 | Core/Kernel, Core/SmartTable, Roleplay/Keyword, Roleplay/Mechanic, Versioning/Space | 60 |
 | Roleplay | [RuleSpace](Roleplay/RuleSpace.md) | `IRuleSpaceContainer` | 11 | 9 | Core/Kernel, Core/SmartTable, Core/User, Roleplay/Rule | 8 |
 | Roleplay | [Scene](Roleplay/Scene.md) | `ISceneContainer` | 6 | 4 | Core/File, Core/Kernel, Core/SmartTable, Core/User, Library/Asset | 11 |
 | Versioning | [Space](Versioning/Space.md) | `ISpaceContainer` | 1 | 0 | Core/Cache, Core/Kernel, Core/SmartTable | 2 |

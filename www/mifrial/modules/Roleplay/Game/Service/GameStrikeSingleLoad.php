@@ -122,6 +122,31 @@ final class GameStrikeSingleLoad
         $run->process = $this->processes->strike->strike($run->input->game, $run->open, $this->abilityLevels($run));
         $run->targetOpen = $this->rows->targetOpen($run->open, $run->target);
         $run->hitCode = $this->hitCode($run);
+        $this->touch($run);
+    }
+
+    /**
+     * Признаки удара касания: урон оружия и бонус РУ действия.
+     *
+     * @param GameStrikeSingleRun $run Прогон.
+     *
+     * @return void
+     */
+    private function touch(GameStrikeSingleRun $run): void
+    {
+        $base = $this->rules->cards->actionBaseOf(
+            $run->input->game->getSpaceId(),
+            $run->input->game->getRulesRevision(),
+            $run->actionRuleCode,
+        );
+        $touch = $base?->getSpellTouch();
+        if ($touch === null) {
+            return;
+        }
+
+        $run->isTouchAction = true;
+        $run->touchSrBonus = $touch->getAttackSrBonus();
+        $run->contactOnly = !$touch->isWeaponDamage();
     }
 
     /**

@@ -8,6 +8,7 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCheckRepository;
@@ -53,8 +54,10 @@ final class GameBattleCleanup
             (new GameCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $battles = new GameBattleRepository($this->smartTableGateway);
             $activeSpells = new GameActiveSpellRepository($this->smartTableGateway);
+            $activeEffects = new GameActiveEffectRepository($this->smartTableGateway);
             foreach ($battles->findIdsBySession($sessionId) as $battleId) {
                 $activeSpells->deleteForBattle($battleId);
+                $activeEffects->deleteForBattle($battleId);
                 $battles->delete($battleId);
             }
             $this->sessionRepository->deleteSession($sessionId);

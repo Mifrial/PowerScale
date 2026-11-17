@@ -1897,6 +1897,7 @@
                 "Mifrial\\Roleplay\\Game\\Action\\SustainGameSpellAction",
                 "Mifrial\\Roleplay\\Game\\Action\\DropGameSpellAction",
                 "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveSpellsAction",
+                "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveEffectsAction",
                 "Mifrial\\Roleplay\\Game\\Action\\ResolveGameStrikeWindowAction",
                 "Mifrial\\Roleplay\\Game\\Action\\StartGameBattleAction",
                 "Mifrial\\Roleplay\\Game\\Action\\SetGameBattleRosterAction",
@@ -2266,6 +2267,11 @@
                 {
                     "action": "game.getActiveSpells",
                     "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveSpellsAction",
+                    "csrf": false
+                },
+                {
+                    "action": "game.getActiveEffects",
+                    "handler": "Mifrial\\Roleplay\\Game\\Action\\GetGameActiveEffectsAction",
                     "csrf": false
                 },
                 {
@@ -3598,6 +3604,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-nolomancy-design-01.md",
+                    "title": "Концепция Ноломансии 01 — школа эффектов и касаний",
+                    "kind": "canon",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/spell-plan-01-inventory.md",
                     "title": "План M1 — inventory магии из AI.html",
                     "kind": "plan",
@@ -3736,6 +3750,22 @@
                 {
                     "path": "docs/tr/spell-real-plan-17-multi-turn-cast.md",
                     "title": "План M17 — многоходовое сотворение",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-18-nolomancy.md",
+                    "title": "План M18 — Ноломансия: черновая выгрузка и пачка эффектов",
+                    "kind": "plan",
+                    "state": "СДЕЛАНО",
+                    "date": "2026-11-16",
+                    "hasStatus": true
+                },
+                {
+                    "path": "docs/tr/spell-real-plan-19-active-effects.md",
+                    "title": "План M19 — длительные эффекты: цель, срок и тик",
                     "kind": "plan",
                     "state": "СДЕЛАНО",
                     "date": "2026-11-16",

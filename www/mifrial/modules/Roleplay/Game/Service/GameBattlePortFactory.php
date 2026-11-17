@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameBattles;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
@@ -64,6 +65,7 @@ final class GameBattlePortFactory
                 new GameProcessRepository($gateway),
                 $order,
                 new GameActiveSpellRepository($gateway),
+                new GameActiveEffectRepository($gateway),
             ),
             $this->notices($serviceLocator),
             new GameDeliverySignal($this->events($serviceLocator)),

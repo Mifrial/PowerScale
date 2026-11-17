@@ -450,11 +450,11 @@ final class GameStrikeConsequenceChat
         array $thread,
         ?array $speaker,
     ): void {
-        $this->chats->send($chatId, $actorUserId, $result, $this->withThread([[
+        $attachments = $calc === [] ? [] : [[
             'type' => 'attack-calc',
             'payload' => $calc,
-        ],
-        ], $thread, $speaker), null);
+        ]];
+        $this->chats->send($chatId, $actorUserId, $result, $this->withThread($attachments, $thread, $speaker), null);
         if ($will !== null) {
             $this->chats->send($chatId, $actorUserId, '', $this->withThread([['type' => 'roll', 'payload' => $will['roll']]], $thread, $speaker), null);
             $this->chats->send($chatId, $actorUserId, $will['text'], $this->withThread([], $thread, $speaker), null);

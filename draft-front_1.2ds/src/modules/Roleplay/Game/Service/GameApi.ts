@@ -53,6 +53,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { GameActiveEffect } from '@/modules/Roleplay/Game/Dto/GameActiveEffect';
 import type { GamePhpSustainSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSustainSpellRequest';
 import type { GamePhpDropSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpDropSpellRequest';
 import type { GamePhpActiveSpellResult } from '@/modules/Roleplay/Game/Dto/GamePhpActiveSpellResult';
@@ -878,6 +879,10 @@ export class GameApi implements IGameApi {
 
   async getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]> {
     return this.requireData<ActiveSpell[]>('game.getActiveSpells', { gameId }, signal);
+  }
+
+  async getActiveEffects(gameId: number, signal?: AbortSignal): Promise<GameActiveEffect[]> {
+    return this.requireData<GameActiveEffect[]>('game.getActiveEffects', { gameId }, signal);
   }
 
   async upsertActiveSpell(_gameId: number, _spell: ActiveSpell, _signal?: AbortSignal): Promise<ActiveSpell> {

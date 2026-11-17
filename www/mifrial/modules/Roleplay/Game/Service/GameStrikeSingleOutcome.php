@@ -51,6 +51,7 @@ final class GameStrikeSingleOutcome
         array $pre,
     ): void {
         $success = $this->intOf($result['success'] ?? null);
+        $contactOnly = ($result['contactOnly'] ?? false) === true;
         $this->consequences->post(
             $game,
             $actorUserId,
@@ -60,7 +61,7 @@ final class GameStrikeSingleOutcome
             $narrative,
             $result['attackerRoll'],
             $resultText,
-            $this->calc($header, $result, $success),
+            $contactOnly ? [] : $this->calc($header, $result, $success),
             $this->will($header, $result),
             $this->maim($header, $result),
             $header['attackerSpeaker'],
@@ -83,6 +84,14 @@ final class GameStrikeSingleOutcome
      */
     public function text(array $header, array $open, array $result, string $reaction, array $bits): string
     {
+        if (($result['contactOnly'] ?? false) === true) {
+            $passed = ($result['attackerRoll']['success'] ?? false) === true;
+
+            return $passed
+                ? $header['attacker'] . ' попадает по ' . $header['defender'] . '!'
+                : $header['attacker'] . ' промахивается по ' . $header['defender'] . '!';
+        }
+
         $text = $header['push'] !== null
             ? $this->push->resultText($header, $open, $result, $reaction, $bits)
             : $this->damageText($header, $result, $bits);
@@ -104,6 +113,10 @@ final class GameStrikeSingleOutcome
      */
     public function bits(array $header, array $result): array
     {
+        if (($result['contactOnly'] ?? false) === true) {
+            return [];
+        }
+
         $exhaustion = $this->intOf($result['exhaustionDelta'] ?? null);
         $wound = $this->intOf($result['wound'] ?? null);
         $bits = [];

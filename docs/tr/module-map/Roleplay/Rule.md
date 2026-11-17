@@ -78,6 +78,7 @@
 | [rule-plan-08.md](../../rule-plan-08.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
 | [rule-plan-09.md](../../rule-plan-09.md) | план | `~СДЕЛАНО~` | 2026-10-06 |
 | [rule-plan-10.md](../../rule-plan-10.md) | план | `~СДЕЛАНО~` | 2026-10-07 |
+| [spell-nolomancy-design-01.md](../../spell-nolomancy-design-01.md) | канон | `~СДЕЛАНО~` | 2026-11-16 |
 | [spell-plan-01-inventory.md](../../spell-plan-01-inventory.md) | план | `~СДЕЛАНО~` | 2026-09-07 |
 | [spell-plan-02-slice.md](../../spell-plan-02-slice.md) | план | `~СДЕЛАНО~` | — |
 | [spell-plan-03-contract.md](../../spell-plan-03-contract.md) | план | `~СДЕЛАНО~` | 2026-09-08 |
@@ -96,6 +97,8 @@
 | [spell-real-plan-13-chain.md](../../spell-real-plan-13-chain.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [spell-real-plan-16-spell-effects.md](../../spell-real-plan-16-spell-effects.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [spell-real-plan-17-multi-turn-cast.md](../../spell-real-plan-17-multi-turn-cast.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
+| [spell-real-plan-18-nolomancy.md](../../spell-real-plan-18-nolomancy.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
+| [spell-real-plan-19-active-effects.md](../../spell-real-plan-19-active-effects.md) | план | `~СДЕЛАНО~` | 2026-11-16 |
 | [spell-inventory-01.md](../../spell-inventory-01.md) | канон | `~СНИМОК~` | 2026-09-07 |
 | [rule-content-queue.md](../../rule-content-queue.md) | канон | ? | 2026-09-16 |
 | [rule-system.md](../../rule-system.md) | канон | ? | 2026-08-30 |

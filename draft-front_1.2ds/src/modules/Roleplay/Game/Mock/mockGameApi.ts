@@ -11,6 +11,7 @@ import * as mockPendingActionEffects from '@/modules/Roleplay/Game/Mock/mockGame
 import * as mockProcessSessions from '@/modules/Roleplay/Game/Mock/mockGameProcessSessions';
 import * as mockCommittedActions from '@/modules/Roleplay/Game/Mock/mockGameCommittedActions';
 import * as mockActiveSpells from '@/modules/Roleplay/Game/Mock/mockGameActiveSpells';
+import * as mockActiveEffects from '@/modules/Roleplay/Game/Mock/mockGameActiveEffects';
 import * as mockQuickRolls from '@/modules/Roleplay/Game/Mock/mockGameQuickRolls';
 import * as mockCheckOffers from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
 import * as mockChronicle from '@/modules/Roleplay/Game/Mock/mockGameChronicle';
@@ -129,6 +130,7 @@ export const mockGameApi: IGameApi = {
   getCommittedActionSessions: mockCommittedActions.fetchCommittedActionSessions,
   setCommittedActionSession: mockCommittedActions.setCommittedActionSession,
   getActiveSpells: mockActiveSpells.fetchActiveSpells,
+  getActiveEffects: mockActiveEffects.fetchActiveEffects,
   upsertActiveSpell: mockActiveSpells.upsertActiveSpell,
   sustainActiveSpell: mockActiveSpells.sustainActiveSpell,
   dropActiveSpell: mockActiveSpells.dropActiveSpell,

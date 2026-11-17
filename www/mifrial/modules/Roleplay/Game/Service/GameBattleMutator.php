@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameSessionRoster;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
@@ -31,6 +32,8 @@ final class GameBattleMutator
      * @param IGameSessionRoster $sessionRoster Снимок сессии.
      * @param GameProcessRepository $processes Process боя.
      * @param GameBattleOrder $order Порядок хода.
+     * @param GameActiveSpellRepository $activeSpells Строки поддержания.
+     * @param GameActiveEffectRepository $activeEffects Строки длительных эффектов.
      *
      * @return void
      */
@@ -42,6 +45,7 @@ final class GameBattleMutator
         private readonly GameProcessRepository $processes,
         private readonly GameBattleOrder $order,
         private readonly GameActiveSpellRepository $activeSpells,
+        private readonly GameActiveEffectRepository $activeEffects,
     ) {
         $this->lookup = new GameBattleLookup($battles);
     }
@@ -165,6 +169,7 @@ final class GameBattleMutator
 
         $this->processes->cancelOpenForBattle($battleId);
         $this->activeSpells->deleteForBattle($battleId);
+        $this->activeEffects->deleteForBattle($battleId);
         $this->battles->delete($battleId);
         $result = [
             'battleId' => $battleId,
@@ -201,6 +206,7 @@ final class GameBattleMutator
             }
 
             $this->activeSpells->deleteForCaster($battleId, $participant['type'], $participant['id']);
+            $this->activeEffects->deleteForTarget($battleId, $participant['type'], $participant['id']);
         }
     }
 

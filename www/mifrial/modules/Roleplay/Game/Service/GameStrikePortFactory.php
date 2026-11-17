@@ -149,6 +149,7 @@ final class GameStrikePortFactory
         $processes = $write->processes($rules);
         $consequences = $rulesWiring->consequences($rules);
         $shared = $this->shared($ports, $card, $rules);
+        $effects = new GameActiveEffectWiring($serviceLocator, $shared);
         $characters = new GameStrikeCharacterPorts($serviceLocator);
         $magicResistance = new GameSpellMagicResistance($rules->defense);
         $mechanicPorts = new GameStrikeMechanicPorts($serviceLocator);
@@ -197,6 +198,8 @@ final class GameStrikePortFactory
             ),
             $activeChat,
             new GameActiveSpellCharge(new GameSpellCharge(), $shared->sheetWrites, $activeChat),
+            $effects->create,
+            $effects->chat,
         );
         $close = (new GameStrikeCloseFactory())->create(
             $rules,

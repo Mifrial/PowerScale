@@ -30,6 +30,7 @@ use Mifrial\Roleplay\Game\Action\FindGameNpcAction;
 use Mifrial\Roleplay\Game\Action\GameManualSheetAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameActionOptionsAction;
+use Mifrial\Roleplay\Game\Action\GetGameActiveEffectsAction;
 use Mifrial\Roleplay\Game\Action\GetGameActiveSpellsAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
@@ -208,6 +209,11 @@ return [
         GetGameActiveSpellsAction::class => static function (IServiceLocator $serviceLocator): GetGameActiveSpellsAction {
             return new GetGameActiveSpellsAction(
                 (new GameStrikeHttpFactory())->createActiveSpellQueryHttp($serviceLocator),
+            );
+        },
+        GetGameActiveEffectsAction::class => static function (IServiceLocator $serviceLocator): GetGameActiveEffectsAction {
+            return new GetGameActiveEffectsAction(
+                (new GameStrikeHttpFactory())->createActiveEffectQueryHttp($serviceLocator),
             );
         },
         ResolveGameStrikeWindowAction::class => static function (
@@ -629,6 +635,10 @@ return [
         ],
         'game.getActiveSpells' => [
             'handler' => GetGameActiveSpellsAction::class,
+            'csrf' => false,
+        ],
+        'game.getActiveEffects' => [
+            'handler' => GetGameActiveEffectsAction::class,
             'csrf' => false,
         ],
         'game.resolveStrikeWindow' => [

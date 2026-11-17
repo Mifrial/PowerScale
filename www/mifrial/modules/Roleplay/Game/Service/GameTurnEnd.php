@@ -29,6 +29,7 @@ final class GameTurnEnd
      * @param GameTurnCursor $cursor Курсор хода.
      * @param GameTurnAnnounce $announce Сообщения.
      * @param GameActiveSpellTurnStart $activeSpells Вопрос поддержания.
+     * @param GameActiveEffectTick $activeEffects Тик длительных эффектов.
      *
      * @return void
      */
@@ -40,6 +41,7 @@ final class GameTurnEnd
         private readonly GameTurnCursor $cursor,
         private readonly GameTurnAnnounce $announce,
         private readonly GameActiveSpellTurnStart $activeSpells,
+        private readonly GameActiveEffectTick $activeEffects,
     ) {
     }
 
@@ -74,6 +76,13 @@ final class GameTurnEnd
             $current,
             $performed['sheetVersion'],
             $battle->getConcentrationCycle(),
+        );
+        $this->activeEffects->tick(
+            $game,
+            $battle,
+            $current,
+            $actorUserId,
+            GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex()),
         );
         $cursor = $this->cursor->advanced($battle);
         $saved = $this->persist($battle, $expectedBattle, $performed['pending'], $cursor, $ticked['cycle'], $current);

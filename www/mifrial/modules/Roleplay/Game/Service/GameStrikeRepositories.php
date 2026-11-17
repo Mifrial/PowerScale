@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
@@ -24,6 +25,8 @@ final class GameStrikeRepositories
     public readonly GameActionRepository $actions;
 
     public readonly GameActiveSpellRepository $activeSpells;
+
+    public readonly GameActiveEffectRepository $activeEffects;
 
     public readonly GameCommandRepository $commands;
 
@@ -47,6 +50,7 @@ final class GameStrikeRepositories
         $this->battles = new GameBattleRepository($gateway);
         $this->actions = new GameActionRepository($gateway);
         $this->activeSpells = new GameActiveSpellRepository($gateway);
+        $this->activeEffects = new GameActiveEffectRepository($gateway);
         $this->commands = new GameCommandRepository($gateway);
         $this->npcs = new GameNpcRepository($gateway);
         $this->characters = new GameCharacterRepository($gateway);

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord;
 use Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -51,6 +52,8 @@ final class GameSpellCast
      * @param GameSpellDeviation $deviation Отклонение.
      * @param GameSpellDeviationBurst $burst Взрыв отклонения.
      * @param GameActiveSpellCharge $activeCharge Заряд поддержания.
+     * @param GameActiveEffectCreate $activeEffectCreate Создание длительного эффекта.
+     * @param GameActiveEffectChat $activeEffectChat Чат длительного эффекта.
      * @param GameSpellChainPending $chainPending Состояние цепи.
      * @param GameSpellChainDamage $chainDamage Урон прыжка цепи.
      * @param GameSpellChainHop $chainHop Правила прыжка.
@@ -82,6 +85,8 @@ final class GameSpellCast
         private readonly GameActiveSpellCreate $activeCreate,
         private readonly GameActiveSpellChat $activeChat,
         private readonly GameActiveSpellCharge $activeCharge,
+        private readonly GameActiveEffectCreate $activeEffectCreate,
+        private readonly GameActiveEffectChat $activeEffectChat,
         private readonly GameSpellChainPending $chainPending,
         private readonly GameSpellChainDamage $chainDamage,
         private readonly GameSpellChainHop $chainHop,
@@ -766,6 +771,16 @@ final class GameSpellCast
             false,
             $versions['casterVersion'],
         );
+        $activeEffect = $this->activeEffectCreate->fromCast(
+            $game,
+            $prepared,
+            $battle,
+            $check['castOk'] === true,
+            false,
+            $prepared->damageTarget === null
+                ? null
+                : ['type' => $prepared->damageTarget['type'], 'id' => $prepared->damageTarget['id']],
+        );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
 
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
@@ -796,6 +811,7 @@ final class GameSpellCast
             $burstRows,
             $plan,
             $activeSpell,
+            $activeEffect,
             $chain,
         );
     }
@@ -820,6 +836,7 @@ final class GameSpellCast
      * @param list<array<string, mixed>> $burst Цели взрыва.
      * @param GameSpellCastSaturationPlan|null $plan Выбор насыщения.
      * @param GameActiveSpellRecord|null $activeSpell Созданное волшебство.
+     * @param GameActiveEffectRecord|null $activeEffect Созданный длительный эффект.
      * @param array<string, mixed>|null $chain Продолжение цепи.
      *
      * @return array<string, mixed> Итог.
@@ -842,6 +859,7 @@ final class GameSpellCast
         array $burst = [],
         ?GameSpellCastSaturationPlan $plan = null,
         ?GameActiveSpellRecord $activeSpell = null,
+        ?GameActiveEffectRecord $activeEffect = null,
         ?array $chain = null,
     ): array {
         $this->chat->post(
@@ -880,6 +898,10 @@ final class GameSpellCast
                 $thread,
             );
         }
+        if ($activeEffect instanceof GameActiveEffectRecord) {
+            $thread = GameCombatThread::buildTurn($battle->getId(), $battle->getRound(), $battle->getActiveIndex());
+            $this->activeEffectChat->appliedAt($game, $actorUserId, $activeEffect, $thread);
+        }
 
         return $this->view->build(
             $prepared,
@@ -901,6 +923,7 @@ final class GameSpellCast
                 $activeSpell,
                 $this->stability->value($prepared->spell, $activeSpell->getParameterValues(), $prepared->usedPower),
             ),
+            'activeEffect' => $activeEffect === null ? null : (new GameActiveEffectView())->build($activeEffect),
             'chain' => $chain === null ? null : $this->chainPending->view($chain),
         ];
     }
@@ -1177,6 +1200,24 @@ final class GameSpellCast
             $deliverySr !== null && $deliverySr <= 0,
             $versions['casterVersion'],
         );
+        $effectTarget = $prepared->damageTarget === null
+            ? null
+            : ['type' => $prepared->damageTarget['type'], 'id' => $prepared->damageTarget['id']];
+        // У касания эффект идёт на цель удара, даже если у заклинания есть своя цель.
+        if (($pendingCast['touch'] ?? false) === true && is_array($pendingCast['target'] ?? null)) {
+            $effectTarget = [
+                'type' => (string) $pendingCast['target']['type'],
+                'id' => (int) $pendingCast['target']['id'],
+            ];
+        }
+        $activeEffect = $this->activeEffectCreate->fromCast(
+            $game,
+            $prepared,
+            $battle,
+            $check['castOk'],
+            $deliverySr !== null && $deliverySr <= 0,
+            $effectTarget,
+        );
         $burstRows = $this->applyBurst($game, $battle, $prepared, $deviation, $body);
         [$pending, $rows] = $this->queueNext($prepared, $battle, $saturation);
         $chain = $this->chainOf(
@@ -1208,6 +1249,7 @@ final class GameSpellCast
             $burstRows,
             $plan,
             $activeSpell,
+            $activeEffect,
             $chain,
         );
     }

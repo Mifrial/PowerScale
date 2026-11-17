@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
 use Mifrial\Roleplay\Game\Table\GameActionStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameActionTable;
+use Mifrial\Roleplay\Game\Table\GameActiveEffectTable;
 use Mifrial\Roleplay\Game\Table\GameActiveSpellTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
@@ -65,6 +66,7 @@ final class GameMysqlTables
             GameActionStrikeTable::class,
             GameActionTable::class,
             GameCommandTable::class,
+            GameActiveEffectTable::class,
             GameActiveSpellTable::class,
             GameBattleParticipantTable::class,
             GameBattleTable::class,

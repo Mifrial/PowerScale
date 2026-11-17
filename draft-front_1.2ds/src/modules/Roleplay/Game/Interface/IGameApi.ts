@@ -42,6 +42,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { GameActiveEffect } from '@/modules/Roleplay/Game/Dto/GameActiveEffect';
 import type { GamePhpSustainSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSustainSpellRequest';
 import type { GamePhpDropSpellRequest } from '@/modules/Roleplay/Game/Dto/GamePhpDropSpellRequest';
 import type { GamePhpActiveSpellResult } from '@/modules/Roleplay/Game/Dto/GamePhpActiveSpellResult';
@@ -214,6 +215,7 @@ export interface IGameApi {
     signal?: AbortSignal,
   ): Promise<CommittedActionSession | null>;
   getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]>;
+  getActiveEffects(gameId: number, signal?: AbortSignal): Promise<GameActiveEffect[]>;
   /** Создание в моке; в real-режиме строку создаёт сервер из каста. */
   upsertActiveSpell(gameId: number, spell: ActiveSpell, signal?: AbortSignal): Promise<ActiveSpell>;
   sustainActiveSpell(body: GamePhpSustainSpellRequest, signal?: AbortSignal): Promise<GamePhpActiveSpellResult>;
