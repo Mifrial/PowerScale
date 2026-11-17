@@ -810,6 +810,43 @@ describe('SceneSurfaceService', () => {
     expect(grid.sightBottom2[inWall]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('перемычка окна кончается на верху стены, а не на небе', () => {
+    // Стена дома два ипари. Окно прорезает её, но выше перемычки стена
+    // кончается на своём верху: иначе с крыши, которая выше стены, окно
+    // читалось бы стеной до неба и бросало на настил тень полосой.
+    const wallShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [64, 100],
+        [224, 100],
+      ],
+      width: 16,
+    };
+    const windowShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [128, 100],
+        [160, 100],
+      ],
+      width: 16,
+    };
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'obstacle', wallShape, { height: 128, blocksMovement: true, blocksVision: true }),
+        element(3, 'opening', windowShape, { kind: 'window', state: 'closed', sill: 32, lintel: 86 }),
+      ],
+      64,
+    );
+    const inWindow = cellOf(grid, 8, 6);
+
+    expect(grid.sightBottom[inWindow]).toBe(0);
+    expect(grid.sightTop[inWindow]).toBeCloseTo(0.5);
+    expect(grid.sightBottom2[inWindow]).toBeCloseTo(86 / 64);
+    expect(grid.sightTop2[inWindow]).toBeCloseTo(2);
+  });
+
   it('стеклянная дверь закрыта, но прозрачна', () => {
     const doorShape: SceneShape = {
       type: 'wall',

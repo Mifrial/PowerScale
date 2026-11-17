@@ -8,7 +8,7 @@ import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
-import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { SceneGeometryService, type SceneShapeProbe } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import {
   sceneDecorFootprint,
   sceneDecorSilhouette,
@@ -170,7 +170,7 @@ export class SceneSurfaceService {
     this.paintBridges(grid, own, resolution);
     this.paintObstacles(grid, own, openings);
     this.paintDecor(grid, own, resolution);
-    this.paintOpenings(grid, own);
+    this.paintOpenings(grid, own, resolution);
     this.clearRoofHatches(grid, own, resolution);
 
     grid.costs = grid.speeds.map((speed) => (speed > 0 ? 100 / speed : Number.POSITIVE_INFINITY));
@@ -482,7 +482,24 @@ export class SceneSurfaceService {
   }
 
   /** Проёмы: дверь режет стену, окно оставляет подоконник. */
-  private paintOpenings(grid: SceneSurfaceGrid, elements: readonly SceneElement[]): void {
+  private paintOpenings(
+    grid: SceneSurfaceGrid,
+    elements: readonly SceneElement[],
+    resolution: number,
+  ): void {
+    // Стены нужны окну: верх стены над перемычкой берётся у той стены, которую
+    // проём режет. В самой клетке его уже нет — `paintObstacles` вырезал стену
+    // под проёмом, поэтому окно читало бы «стену до неба».
+    const walls = elements
+      .filter(
+        (element) =>
+          element.kind === 'obstacle' && element.shape.type === 'wall' && element.props.blocksVision !== false,
+      )
+      .map((element) => ({
+        probe: this.geometry.probe(element.shape, 0),
+        top: this.occluderTop(element, resolution),
+      }));
+
     for (const element of elements) {
       if (element.kind !== 'opening') {
         continue;
@@ -515,12 +532,18 @@ export class SceneSurfaceService {
             // Две полосы нужны потому, что одной не описать окно: объединение
             // подоконника и перемычки дало бы глухую стену, а только
             // подоконник выпускал бы луч выше окна — сквозь стену над ним.
+            //
+            // Верх стены над окном берётся у стены, которую проём режет: окно
+            // прорезает стену, но не делает её бесконечной. Иначе с крыши,
+            // которая выше стены, перемычка читалась бы как стена до неба и
+            // бросала на настил тень полосой вдоль стены.
+            const wallTop = this.wallTopAt(walls, surfaceCenter(grid, index), grid.cell / 2);
             this.clearOccluder(grid, index);
             if (sill > 0) {
               this.paintOccluder(grid, index, 0, sill);
             }
-            if (lintel > 0) {
-              this.paintLintel(grid, index, lintel);
+            if (lintel > 0 && wallTop > lintel) {
+              this.paintLintel(grid, index, lintel, wallTop);
             }
 
             return;
@@ -555,9 +578,35 @@ export class SceneSurfaceService {
    * Выше перемычки идёт стена, а её верх в сетке не хранится: окно — не
    * отдельный этаж. Поэтому вторая полоса закрыта до неба.
    */
-  private paintLintel(grid: SceneSurfaceGrid, index: number, bottom: number): void {
+  private paintLintel(grid: SceneSurfaceGrid, index: number, bottom: number, top: number): void {
     grid.sightBottom2[index] = Math.min(grid.sightBottom2[index], bottom);
-    grid.sightTop2[index] = Math.max(grid.sightTop2[index], Number.POSITIVE_INFINITY);
+    grid.sightTop2[index] = Math.max(grid.sightTop2[index], top);
+  }
+
+  /**
+   * Верх стены, которую режет проём.
+   *
+   * Проём без стены остаётся «до неба», как раньше: в старой сцене окно само
+   * читалось стеной. У стены с высотой окно прорезает её насквозь, и выше
+   * перемычки стена кончается на её верху, а не уходит в небо.
+   */
+  private wallTopAt(
+    walls: readonly { probe: SceneShapeProbe; top: number }[],
+    point: ScenePoint,
+    tolerance: number,
+  ): number {
+    let found = false;
+    let top = Number.NEGATIVE_INFINITY;
+    for (const wall of walls) {
+      if (!wall.probe.contains(point, tolerance)) {
+        continue;
+      }
+
+      found = true;
+      top = Math.max(top, wall.top);
+    }
+
+    return found ? top : Number.POSITIVE_INFINITY;
   }
 
   /**

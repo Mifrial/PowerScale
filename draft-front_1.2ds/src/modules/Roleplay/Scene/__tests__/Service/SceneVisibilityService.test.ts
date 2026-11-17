@@ -66,6 +66,39 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(grid, [40, 128], [200, 128])).toBe(true);
   });
 
+  it('выше стены окно не перекрывает луч: перемычка не до неба', () => {
+    // Стена дома два ипари с окном. С крыши глаз выше верха стены, и окно не
+    // должно читаться стеной до неба: иначе тень перемычки ложится полосой на
+    // настил крыши вдоль стены.
+    const seeded = surfaces.build(
+      board,
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          { type: 'wall', points: [[0, 128], [256, 128]], width: 16 },
+          { height: 128, blocksMovement: true, blocksVision: true },
+        ),
+        element(
+          3,
+          'opening',
+          { type: 'wall', points: [[96, 128], [160, 128]], width: 16 },
+          { kind: 'window', state: 'closed', sill: 32, lintel: 86 },
+        ),
+      ],
+      64,
+    );
+
+    // Луч с крыши (3.078 ипари) проходит сквозь клетку окна: она лежит ниже
+    // верха стены, а не уходит в небо.
+    const roof = service.map(seeded, [40, 64], 4096, 3.078125, 1.2, 0);
+    expect(roof.visible[cellOf(seeded, 13, 12)]).toBe(1);
+    // На высоте глаз человека та же стена рядом с окном закрывает клетку.
+    const eye = service.map(seeded, [40, 64], 4096, 1.078125, 1.2, 0);
+    expect(eye.visible[cellOf(seeded, 8, 12)]).toBe(0);
+  });
+
   it('не видит точку сквозь стену, но видит в обход', () => {
     const grid = surfaces.build(board, [grass(), wall(2, 0, 224)], 64);
 
