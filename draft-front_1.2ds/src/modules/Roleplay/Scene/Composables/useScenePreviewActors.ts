@@ -467,7 +467,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     // подход к самой площадке на её полу.
     if (selected !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
-      const portal = portals.portalAt(options.elements(), targetId, point, tolerance);
+      const portal =
+        portals.portalAt(options.elements(), targetId, point, tolerance) ??
+        portals.stairsPortalAt(options.elements(), targetId, point, tolerance, options.resolution());
       if (portal !== null && (actor === null || actor.id === selected.id)) {
         const optionsOfRoute = { agentRadius: selected.radius };
         const pair = routes.pairLanding(routeModel(), targetId, portal.targetBoardId, portal.center, optionsOfRoute);

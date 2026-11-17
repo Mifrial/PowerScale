@@ -64,6 +64,19 @@ function hole(id: number, boardId: number, x: number, y: number): SceneElement {
   };
 }
 
+function stairs(id: number, boardId: number): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'support',
+    shape: { type: 'rect', x: 20, y: 30, w: 40, h: 100 },
+    props: { kind: 'stairs', elevation: 128, height: 16, speed: 100, rotation: 180 },
+    sortOrder: 0,
+    targetBoardId: null,
+    asset: null,
+  };
+}
+
 describe('ScenePortalService', () => {
   it('находит проём с целевым полем под точкой', () => {
     const elements = [opening(1, 10, 20), opening(2, 10, null, [10, 10], [20, 10])];
@@ -91,6 +104,13 @@ describe('ScenePortalService', () => {
     expect(service.portalAt(elements, 10, [40, 60], 4)?.opening.id).toBe(1);
     // Далёкий колодец без площадки рядом остаётся обычным проёмом.
     expect(service.portalAt([landing(1, 10, 20), hole(2, 10, 200, 200)], 10, [220, 210], 4)).toBeNull();
+  });
+
+  it('считает клик по маршу переходом, если он упирается в площадку', () => {
+    const elements = [landing(1, 10, 20), stairs(2, 10)];
+
+    expect(service.stairsPortalAt(elements, 10, [40, 100], 4, 64)?.opening.id).toBe(1);
+    expect(service.stairsPortalAt(elements, 10, [40, 200], 4, 64)).toBeNull();
   });
 
   it('переносит точку между полями через пятно вложения', () => {
