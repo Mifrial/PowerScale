@@ -42,6 +42,8 @@ export interface SceneOverlayObserver {
   point: ScenePoint;
   /** Уровень поверхности: 0 — пол, больше — настил или крыша. */
   level?: number;
+  /** Точно ли наблюдатель стоит на проходимой крыше (уровни навигации). */
+  onRoof?: boolean;
   /** Рост тела в единицах сцены; без него — стандартный. */
   height?: number;
 }
@@ -510,8 +512,12 @@ export class SceneOverlayService {
           const dy = (centerY - edge.center[1]) / Math.max(1e-6, edge.radiusY);
           // За радиусом кромку задаёт сам круг: расстояние до него точное, а не
           // клеточное. Внутри радиуса кромка — только граница тени.
+          //
+          // Только рядом с видимой областью: иначе остаток радиуса подсвечивал
+          // бы клетки за стеной, до которых взгляд не доходит, и на границе
+          // круга появлялись бы световые дуги.
           const outside = (Math.sqrt(dx * dx + dy * dy) - 1) * Math.min(edge.radiusX, edge.radiusY);
-          if (outside > 0) {
+          if (outside > 0 && clearance < blur) {
             clearance = Math.min(clearance, outside);
           }
         }
@@ -702,6 +708,7 @@ export class SceneOverlayService {
           JSON.stringify(element.props.silhouette ?? null),
           element.props.blocksMovement ?? '',
           element.props.blocksVision ?? '',
+          element.props.walkable ?? '',
           element.props.state ?? '',
           element.props.sill ?? '',
           JSON.stringify(element.shape),
@@ -736,9 +743,18 @@ export class SceneOverlayService {
    *
    * С крыши смотрят поверх стен своего этажа, и плита под ногами не
    * перекрывает двор: она ниже наблюдателя, а не между ним и целью.
+   *
+   * Признак приходит из предпросмотра (там уровни навигации известны точно).
+   * Запасная проверка по сетке — для тестов: `kind === 'roof'` недостаточно,
+   * марш под крышей тоже лежит в клетке крыши, но стоит ниже её поверхности.
    */
   private observerOnRoof(observer: SceneOverlayObserver): boolean {
-    if ((observer.level ?? 0) <= 0) {
+    if (observer.onRoof !== undefined) {
+      return observer.onRoof;
+    }
+
+    const level = observer.level ?? 0;
+    if (level <= 0) {
       return false;
     }
 
@@ -748,8 +764,11 @@ export class SceneOverlayService {
     }
 
     const index = surfaceIndex(grid, observer.point[0], observer.point[1]);
+    if (index < 0 || grid.kinds[index] !== 'roof') {
+      return false;
+    }
 
-    return index >= 0 && grid.kinds[index] === 'roof';
+    return surfaceFloor(grid, observer.point, level) >= grid.elevation[index] - 1e-6;
   }
 
   /**
@@ -784,6 +803,7 @@ export class SceneOverlayService {
             element.kind,
             element.targetBoardId ?? '',
             element.props.kind ?? '',
+            element.props.height ?? '',
             element.props.blocksVision ?? '',
             JSON.stringify(element.shape),
           ].join(':'),

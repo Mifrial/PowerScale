@@ -7,6 +7,7 @@ import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import {
   SceneSurfaceService,
   surfaceCenter,
+  surfaceFloor,
   surfaceIndex,
   surfaceUnderDeck,
 } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
@@ -176,6 +177,39 @@ describe('SceneSurfaceService', () => {
     // Рядом крыша остаётся потолком.
     expect(grid.sightTop[covered]).toBe(128 / 64);
     expect(grid.sightBottom[covered]).toBeCloseTo(112 / 64);
+  });
+
+  it('пишет высоту марша по склону и оставляет марш под крышей', () => {
+    const roof = element(
+      2,
+      'support',
+      { type: 'rect', x: 32, y: 32, w: 192, h: 192 },
+      { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+      10,
+    );
+    const stairs = element(
+      3,
+      'support',
+      { type: 'rect', x: 48, y: 80, w: 160, h: 32 },
+      { kind: 'stairs', elevation: 128, height: 16, speed: 100 },
+      20,
+    );
+    const grid = service.build(board(), [grass(), roof, stairs], 64);
+    const low = cellOf(grid, 4, 6);
+    const high = cellOf(grid, 12, 6);
+
+    // Марш наклонный: низ и верх — разные высоты, а не один высокий торец.
+    expect(grid.deck[low]).toBeLessThan(grid.deck[high]);
+    expect(grid.deck[high]).toBeGreaterThan(0);
+    expect(grid.elevation[low]).toBe(128);
+    expect(surfaceFloor(grid, surfaceCenter(grid, low), 1)).toBeCloseTo(grid.deck[low]);
+    expect(surfaceFloor(grid, surfaceCenter(grid, high), 1)).toBeCloseTo(grid.deck[high]);
+    expect(surfaceFloor(grid, surfaceCenter(grid, low), 2)).toBe(128);
+
+    // Полоса обзора принадлежит крыше: марш не сливается с ней в общий
+    // «бутерброд» от низа марша до верха крыши.
+    expect(grid.sightTop[low]).toBeCloseTo(128 / 64);
+    expect(grid.sightBottom[low]).toBeCloseTo(112 / 64);
   });
 
   it('настил на уровне берега перекрывает толщину над врезанным руслом', () => {

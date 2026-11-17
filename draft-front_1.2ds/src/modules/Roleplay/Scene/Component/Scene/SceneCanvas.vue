@@ -56,6 +56,8 @@ const props = withDefaults(
     slabCutaway?: boolean;
     /** Выбранный актор; от него считается туман и радиус обзора. */
     selectedActorId?: number | null;
+    /** Наблюдатель стоит на проходимой крыше: уровни навигации известны снаружи. */
+    observerOnRoof?: boolean;
     /** Маршрут выбранного актора. */
     route?: SceneNavRoute | null;
     /** Тактические оверлеи предпросмотра; null — выключены. */
@@ -76,6 +78,7 @@ const props = withDefaults(
     actors: () => [],
     slabCutaway: true,
     selectedActorId: null,
+    observerOnRoof: false,
     route: null,
     overlay: null,
     levelMenu: null,
@@ -238,6 +241,7 @@ function overlayPaint(): readonly SceneOverlayPaint[] | null {
           boardId: actor.boardId ?? props.model.activeBoardId,
           point: [actor.x, actor.y] as ScenePoint,
           level: actor.level ?? 0,
+          onRoof: props.selectedActorId === null ? undefined : props.observerOnRoof,
           height: actor.height,
         };
 
@@ -391,6 +395,7 @@ watch(
     selectedActor.value?.sightRadius,
     selectedActor.value?.level,
     selectedActor.value?.height,
+    props.observerOnRoof,
     props.overlay?.visibility,
   ],
   () => {

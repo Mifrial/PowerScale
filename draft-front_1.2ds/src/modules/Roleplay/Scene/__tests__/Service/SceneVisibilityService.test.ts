@@ -4,7 +4,7 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
-import { SceneSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { SceneSurfaceService, surfaceFloor } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { SceneVisibilityService } from '@/modules/Roleplay/Scene/Service/SceneVisibilityService';
 
 const board: SceneBoard = {
@@ -229,6 +229,42 @@ describe('SceneVisibilityService', () => {
     // Стена 128 (2 ипари) выше глаз: клетка за ней скрыта.
     const tall = build(128);
     expect(service.map(tall, [40, 128]).visible[cellOf(tall, 12, 8)]).toBe(0);
+  });
+
+  it('с нижней части марша не видно за стены дома', () => {
+    const grid = surfaces.build(
+      board,
+      [
+        grass(),
+        element(
+          2,
+          'support',
+          { type: 'rect', x: 32, y: 32, w: 192, h: 192 },
+          { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+        ),
+        element(
+          3,
+          'support',
+          { type: 'rect', x: 48, y: 112, w: 160, h: 32 },
+          { kind: 'stairs', elevation: 128, height: 16, speed: 100 },
+        ),
+        element(4, 'obstacle', { type: 'rect', x: 32, y: 32, w: 192, h: 16 }, { height: 128 }),
+        element(5, 'obstacle', { type: 'rect', x: 32, y: 208, w: 192, h: 16 }, { height: 128 }),
+        element(6, 'obstacle', { type: 'rect', x: 32, y: 32, w: 16, h: 192 }, { height: 128 }),
+        element(7, 'obstacle', { type: 'rect', x: 208, y: 32, w: 16, h: 192 }, { height: 128 }),
+      ],
+      64,
+    );
+
+    // Низ марша — низкая высота, а не верхний торец под крышей.
+    expect(surfaceFloor(grid, [60, 128], 1)).toBeLessThan(32);
+    const map = service.map(grid, [60, 128], 1200, undefined, undefined, 1);
+
+    // Внутри комнаты видно, за стены — нет: глаз остался под крышей.
+    expect(map.visible[cellOf(grid, 12, 4)]).toBe(1);
+    expect(map.visible[cellOf(grid, 15, 15)]).toBe(0);
+    expect(service.sees(grid, [60, 128], [200, 64], undefined, undefined, 1)).toBe(true);
+    expect(service.sees(grid, [60, 128], [240, 240], undefined, undefined, 1)).toBe(false);
   });
 
   it('не протекает вбок от двери и не выпускает сквозь глухую стену', () => {

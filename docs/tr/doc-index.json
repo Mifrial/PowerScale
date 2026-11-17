@@ -3530,7 +3530,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 42616,
+            "bytes": 43598,
             "lines": 155,
             "modules": [],
             "linksCount": 21,
@@ -8012,14 +8012,14 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — G1 (мир), G3 (край), G4 (скорость) и",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — G1 (мир), G3 (край), G4 (скорость),",
             "layers": [
                 "VUE"
             ],
             "basis": null,
             "date": "2026-11-17",
-            "bytes": 11578,
-            "lines": 126,
+            "bytes": 13459,
+            "lines": 139,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8046,8 +8046,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-17",
-            "bytes": 67136,
-            "lines": 714,
+            "bytes": 67895,
+            "lines": 720,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8081,8 +8081,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-17",
-            "bytes": 66004,
-            "lines": 722,
+            "bytes": 67263,
+            "lines": 734,
             "modules": [
                 "Roleplay/Scene"
             ],

@@ -56,7 +56,7 @@ export class SceneVisibilityService {
     }
 
     const fromFloor = surfaceFloor(grid, from, level) / grid.resolution;
-    const start = fromFloor + this.eyeHeight(grid, origin, eye, level === 0);
+    const start = fromFloor + this.eyeHeight(grid, origin, eye, fromFloor);
     if (this.insideBand(grid, origin, start)) {
       return { columns: grid.columns, rows: grid.rows, visible };
     }
@@ -210,28 +210,27 @@ export class SceneVisibilityService {
     const fromFloor = surfaceFloor(grid, from, fromLevel) / grid.resolution;
     const toFloor = surfaceFloor(grid, to, toLevel) / grid.resolution;
 
-    return this.clearAny(grid, from, to, origin, index, eye, body, fromFloor, toFloor, fromLevel, toLevel);
+    return this.clearAny(grid, from, to, origin, index, eye, body, fromFloor, toFloor);
   }
 
   /**
    * Высота глаз с поправкой на потолок, ипари.
    *
-   * Под настилом тело упирается в низ перекрытия: глаза не могут быть выше
-   * зазора, иначе луч из-под моста начинался бы внутри самого настила.
-   * На настиле зазор относится к пространству под ним и высоту не режет.
-   * `Infinity` и неположительный зазор — потолка нет.
+   * Потолок — низ полосы обзора клетки над полом: крыша дома над маршем,
+   * настил моста над водой, крона над землёй. Глаз не может быть выше него,
+   * иначе луч начинался бы внутри перекрытия и видел бы сквозь крышу. На самом
+   * настиле его низ уже под ногами, поэтому ограничение не срабатывает, а на
+   * люке полоса снята — глаз выходит на крышу.
+   *
+   * @param floor Пол под ногами, ипари.
    */
-  private eyeHeight(grid: SceneSurfaceGrid, cell: number, height: number, underCeiling: boolean): number {
-    if (!underCeiling) {
+  private eyeHeight(grid: SceneSurfaceGrid, cell: number, height: number, floor: number): number {
+    const bottom = grid.sightBottom[cell];
+    if (!Number.isFinite(bottom) || bottom <= floor) {
       return height;
     }
 
-    const clearance = grid.clearance[cell] / grid.resolution;
-    if (!Number.isFinite(clearance) || clearance <= 0) {
-      return height;
-    }
-
-    return Math.min(height, clearance);
+    return Math.min(height, bottom - floor);
   }
 
   /** Глаз внутри полосы исходной клетки: луч не выйдет наружу. */
@@ -320,14 +319,12 @@ export class SceneVisibilityService {
     bodyHeight: number,
     fromFloor: number,
     toFloor: number,
-    fromLevel: number,
-    toLevel: number,
   ): boolean {
     const distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const step = Math.max(1, grid.cell * SCENE_SURFACE.sightStep);
     const steps = Math.max(1, Math.ceil(distance / step));
-    const start = fromFloor + this.eyeHeight(grid, origin, eye, fromLevel === 0);
-    const body = this.eyeHeight(grid, target, bodyHeight, toLevel === 0);
+    const start = fromFloor + this.eyeHeight(grid, origin, eye, fromFloor);
+    const body = this.eyeHeight(grid, target, bodyHeight, toFloor);
     if (body <= 0) {
       return false;
     }

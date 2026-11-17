@@ -304,6 +304,7 @@ function zoomLabel(): string {
             :actors="previewActorList"
             :slab-cutaway="slabCutaway"
             :selected-actor-id="previewSelectedId"
+            :observer-on-roof="previewSelectedOnRoof"
             :route="previewRoute"
             :level-menu="previewLevelMenu"
             @point="onPreviewClick"

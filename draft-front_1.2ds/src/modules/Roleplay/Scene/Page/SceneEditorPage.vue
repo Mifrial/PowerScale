@@ -1550,6 +1550,7 @@ function messageOf(exception: unknown): string {
           :actors="previewActorList"
           :slab-cutaway="preview ? previewCutaway : true"
           :selected-actor-id="previewSelectedId"
+          :observer-on-roof="previewSelectedOnRoof"
           :route="previewRoute"
           :level-menu="previewLevelMenu"
           :shape-override="outlineTarget !== null ? 'polygon' : null"

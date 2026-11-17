@@ -1000,6 +1000,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             element.kind,
             element.targetBoardId ?? '',
             element.props.kind ?? '',
+            element.props.height ?? '',
             element.props.blocksVision ?? '',
             JSON.stringify(element.shape),
           ].join(':'),

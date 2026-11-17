@@ -226,6 +226,28 @@ describe('SceneOverlayService', () => {
     expect(mask.alpha[fineIndex(mask, [200, 200])]).toBe(0);
   });
 
+  it('не светит остатком радиуса сквозь стены за пределами видимости', () => {
+    const grid = surfaces.build(board, [grass()], 64);
+    const visible = new Uint8Array(grid.columns * grid.rows);
+    // Видимая полоса доходит до окружности радиуса, но не заслоняет всё поле.
+    for (let column = 4; column <= 7; column += 1) {
+      visible[8 * grid.columns + column] = 1;
+    }
+    const mask = service.hiddenMask(
+      grid,
+      { columns: grid.columns, rows: grid.rows, visible },
+      { scale: 1, edge: { center: [64, 128], radiusX: 64, radiusY: 64 } },
+    );
+    const full = Math.round(SCENE_OVERLAY.hidden.alpha * 255);
+    const cell = (x: number, y: number): number => fineIndex(mask, [x, y]);
+
+    // У кромки видимой области край мягкий.
+    expect(mask.alpha[cell(136, 136)]).toBeLessThan(full);
+    // А за стеной, далеко от видимых клеток, остаток радиуса не подсвечивает
+    // клетку: иначе на границе круга остаются световые дуги.
+    expect(mask.alpha[cell(136, 184)]).toBe(full);
+  });
+
   it('держит стоимость и туман в разных наборах', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const paint = service.build(1, grid, { costs: true, visibility: true, observer: null, radius: 48 }, 64, null);
@@ -279,6 +301,62 @@ describe('SceneOverlayService', () => {
     expect(rootPaint!.fog!.alpha[fineIndex(rootPaint!.fog!, [256, 256])]).toBeGreaterThan(0);
     // Двор в стороне от плиты виден: луч выходит из-под неё за край.
     expect(rootPaint!.fog!.alpha[fineIndex(rootPaint!.fog!, [32, 32])]).toBe(0);
+  });
+
+  it('с крыши плита не мешает, а с марша под ней — мешает', () => {
+    const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
+    const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };
+    const enclosure: SceneEnclosure = {
+      id: 1,
+      parentBoardId: 1,
+      childBoardId: 2,
+      footprint: { type: 'rect', x: 128, y: 128, w: 256, h: 256 },
+      elevation: 128,
+      label: null,
+      sortOrder: 0,
+    };
+    const elements = [
+      onBoard(1, 1, 'terrain', { type: 'rect', x: 0, y: 0, w: 512, h: 512 }, { kind: 'grass' }),
+      onBoard(2, 2, 'terrain', { type: 'rect', x: 0, y: 0, w: 256, h: 256 }, { kind: 'grass' }),
+      onBoard(
+        2,
+        3,
+        'support',
+        { type: 'rect', x: 32, y: 32, w: 192, h: 192 },
+        { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+      ),
+    ];
+    const model: SceneRenderModel = {
+      activeBoardId: 2,
+      resolution: 64,
+      boards: [root, upper],
+      elements,
+      enclosures: [enclosure],
+      selection: [],
+      mode: 'preview',
+    };
+    const paintsFor = (onRoof?: boolean) =>
+      service.paints(
+        model,
+        { costs: false, visibility: true, observer: null, radius: 400 },
+        { boardId: 2, point: [128, 128], level: 1, onRoof, height: 96 },
+      );
+    const rootMask = (onRoof?: boolean) => {
+      const paint = paintsFor(onRoof).find((item) => item.boardId === 1);
+      expect(paint?.fog).not.toBeNull();
+
+      return paint!.fog!;
+    };
+
+    // На крыше плита под ногами не перекрывает двор.
+    const roof = rootMask(true);
+    expect(roof.alpha[fineIndex(roof, [256, 256])]).toBe(0);
+    // Если наблюдатель на марше под крышей, плита честно перекрывает.
+    const stairs = rootMask(false);
+    expect(stairs.alpha[fineIndex(stairs, [256, 256])]).toBeGreaterThan(0);
+    // Без явного флага запасная проверка по сетке видит крышу.
+    const fallback = rootMask();
+    expect(fallback.alpha[fineIndex(fallback, [256, 256])]).toBe(0);
   });
 
   it('не отдаёт оверлеев, когда они выключены', () => {

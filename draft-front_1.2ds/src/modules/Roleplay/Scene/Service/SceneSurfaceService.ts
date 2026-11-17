@@ -15,8 +15,11 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
   isSceneDeck,
+  isSceneRamp,
   isWalkableRoof,
   sceneDeckThickness,
+  sceneRampSlope,
+  sceneSlopeElevation,
   sceneSurfaceElevation,
   sceneWaterDepth,
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
@@ -94,6 +97,10 @@ export function surfaceUnderDeck(grid: SceneSurfaceGrid, x: number, y: number): 
  * Верхний уровень стоит на настиле, базовый — на поверхности под ним: под
  * мостом это вода или берег. Обзор стартует от пола, поэтому луч с настила
  * идёт над ним, а не сквозь него.
+ *
+ * Когда настилы стоят друг над другом (марш под проходимой крышей), уровень 1
+ * — это нижний настил (`deck`), а крыша остаётся верхним уровнем. Иначе глаз
+ * на лестнице оказывался бы на крыше и видел бы весь этаж.
  */
 export function surfaceFloor(grid: SceneSurfaceGrid, point: ScenePoint, level = 0): number {
   const cell = surfaceIndex(grid, point[0], point[1]);
@@ -101,7 +108,18 @@ export function surfaceFloor(grid: SceneSurfaceGrid, point: ScenePoint, level = 
     return 0;
   }
 
-  return level > 0 ? grid.elevation[cell] : grid.ground[cell];
+  if (level <= 0) {
+    return grid.ground[cell];
+  }
+
+  if (level < 2) {
+    const deck = grid.deck[cell];
+    if (Number.isFinite(deck) && deck < grid.elevation[cell]) {
+      return deck;
+    }
+  }
+
+  return grid.elevation[cell];
 }
 
 /** Обход клеток в границах фигуры. */
@@ -137,6 +155,7 @@ export class SceneSurfaceService {
       costs: new Array<number>(size).fill(Number.POSITIVE_INFINITY),
       elevation: new Float32Array(size),
       ground: new Float32Array(size),
+      deck: new Float32Array(size).fill(Number.NaN),
       clearance: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightBottom: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightTop: new Float32Array(size).fill(Number.NEGATIVE_INFINITY),
@@ -249,13 +268,20 @@ export class SceneSurfaceService {
   }
 
   /**
-   * Мост, съезд и проходимая крыша — настил: проходим, перекрывает только свою
-   * толщину.
+   * Мост, съезд, лестница и проходимая крыша — настил: проходим, перекрывает
+   * только свою толщину.
    *
    * Настил — потолок, а не стена: луч с настила идёт над ним, луч из-под
    * настила — под ним, а сквозь настил не видно ни тому, ни другому.
+   *
+   * Марш и съезд наклонные: высота верхней поверхности берётся по клетке, а не
+   * одним высоким торцом. Иначе актор внизу лестницы стоял бы на крыше и видел
+   * весь этаж. Когда настилы стоят друг над другом (марш под проходимой
+   * крышей), верхний настил занимает `elevation`, а марш остаётся в `deck`.
    */
   private paintBridges(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
+    const base = grid.resolution;
+
     for (const element of elements) {
       if (!isSceneDeck(element)) {
         continue;
@@ -267,30 +293,45 @@ export class SceneSurfaceService {
       const preset = SCENE_SURFACE.speeds[roof ? 'roof' : 'bridge'];
       const deckElevation = sceneSurfaceElevation(element);
       const thickness = sceneDeckThickness(element, resolution);
-      const base = grid.resolution;
-      // Полоса настила в тех же координатах, что и пол: мост на уровне берега
-      // над врезанным руслом перекрывает свою толщину ниже нуля, и луч из-под
-      // него упирается в доски.
-      const bottom = (deckElevation - thickness) / base;
-      const top = deckElevation / base;
+      const slope = isSceneRamp(element) ? sceneRampSlope(element, elements, resolution) : null;
+      const speed = this.speedOf(element, preset);
+
       this.paintShape(
         grid,
         element.shape,
         (index) => {
-          // Клетка до настила — это поверхность под ним: вода, берег, дорога
-          // или нижний настил. Зазор считается до низа настила и берётся
-          // самый узкий, если настилов несколько.
-          const floor = grid.elevation[index];
-          const gap = deckElevation - thickness - floor;
-          grid.clearance[index] = Math.min(grid.clearance[index], gap);
-          grid.kinds[index] = roof ? 'roof' : 'bridge';
-          grid.speeds[index] = this.speedOf(element, preset);
-          grid.elevation[index] = deckElevation;
-          // Настил на уровне пола не перекрывает: его полоса лежит под полом.
-          // Над врезанным руслом та же полоса уже над водой и закрывает луч.
-          if (top > bottom && top > floor / base) {
-            this.paintOccluder(grid, index, bottom, top);
+          const topScene = slope === null ? deckElevation : sceneSlopeElevation(slope, surfaceCenter(grid, index));
+          const bottomScene = topScene - thickness;
+          const top = topScene / base;
+          const bottom = bottomScene / base;
+          const prevTop = grid.elevation[index];
+          const prevDeck = grid.kinds[index] === 'bridge' || grid.kinds[index] === 'roof';
+
+          if (topScene >= prevTop) {
+            // Верхний настил: прежняя поверхность уходит под него. Полоса
+            // обзора принадлежит верхнему настилу и не сливается с нижней:
+            // между маршем и крышей остаётся просвет, в котором стоит актор.
+            if (prevDeck && topScene > prevTop) {
+              grid.deck[index] = prevTop;
+            }
+
+            grid.elevation[index] = topScene;
+            grid.kinds[index] = roof ? 'roof' : 'bridge';
+            grid.speeds[index] = speed;
+            // Настил на уровне пола не перекрывает: его полоса лежит под полом.
+            // Над врезанным руслом та же полоса уже над водой и закрывает луч.
+            if (top > prevTop / base) {
+              grid.sightBottom[index] = bottom;
+              grid.sightTop[index] = top;
+            }
+            grid.clearance[index] = Math.min(grid.clearance[index], bottomScene - prevTop);
+
+            return;
           }
+
+          // Настил ниже верхнего: он может быть уровнем 1 под крышей.
+          const lower = grid.deck[index];
+          grid.deck[index] = Number.isFinite(lower) ? Math.max(lower, topScene) : topScene;
         },
         sceneRotation(element),
       );
