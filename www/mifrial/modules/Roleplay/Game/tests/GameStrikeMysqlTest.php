@@ -1855,6 +1855,178 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Длительная глухота лишает слуха, но не зрения.
+     *
+     * @return void
+     */
+    public function testLingeringDeafnessRemovesHearing(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'deafness-spell', 'level' => 1, 'domainCode' => 'arcanist']],
+            [
+                'deafness-test' => $this->deafnessStateCard(),
+                'sense-hearing' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'imprecise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+                'sense-vision' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'precise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+            ],
+            [],
+            [
+                'deafness-spell' => $this->deafnessSpellCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'deafness-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'deafness-spell',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'deafness-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(
+            'npc:' . $scene['npcId'],
+            $closed['data']['activeEffect']['targetKey'] ?? null,
+        );
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        $senseCodes = $this->senseCodesOf($npc['data']['version']['sheet']);
+        self::assertNotContains('sense-hearing', $senseCodes, json_encode($npc));
+        self::assertContains('sense-vision', $senseCodes, json_encode($npc));
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'deafness-hero-end',
+            'expectedBattleVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $closed['data']['casterSheetVersion']['sheetVersion'],
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'deafness-npc-end',
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+
+        $after = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($after['success'], json_encode($after));
+        self::assertContains(
+            'sense-hearing',
+            $this->senseCodesOf($after['data']['version']['sheet']),
+            json_encode($after),
+        );
+    }
+
+    /**
+     * «Неуклюжесть» даёт помеху броску попадания помеченного существа.
+     *
+     * @return void
+     */
+    public function testClumsinessStateGivesDisadvantageOnHit(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'clumsiness-self', 'level' => 1, 'domainCode' => 'arcanist']],
+            ['clumsiness-test' => $this->clumsinessStateCard()],
+            [],
+            ['clumsiness-self' => $this->clumsinessSelfCard()],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'clumsiness-self-1',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'clumsiness-self',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'clumsiness-strike',
+            'expectedVersion' => $cast['data']['version'],
+            'action' => $this->strikeEnvelope($this->attack($scene['hero'], $scene['npcId'])),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'clumsiness-defense',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        $this->assertAdvantage(
+            'clumsiness-test',
+            -1,
+            $closed['data']['strikes'][0]['roll']['advantages'] ?? [],
+        );
+    }
+
+    /**
      * Коды активных чувств листа.
      *
      * @param array<string, mixed> $sheet Лист.
@@ -3971,6 +4143,129 @@ final class GameStrikeMysqlTest extends TestCase
                     'sense_code' => 'sense-vision',
                     'status' => 'absent',
                 ]],
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+            ],
+        ];
+    }
+
+    /**
+     * Карточка касания, накладывающего глухоту.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function deafnessSpellCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'lingering',
+                        'limit' => ['value' => 1, 'unit' => 'turn'],
+                    ],
+                    'effects' => [['type' => 'state', 'state_code' => 'deafness-test']],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Состояние глухоты: лишает слуха.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function deafnessStateCard(): array
+    {
+        return [
+            'type' => 'state',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'effects' => [[
+                    'type' => 'sense_status',
+                    'sense_code' => 'sense-hearing',
+                    'status' => 'absent',
+                ]],
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+            ],
+        ];
+    }
+
+    /**
+     * Длительное заклинание на себя: накладывает «Неуклюжесть».
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function clumsinessSelfCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 3, 'size' => -1],
+                    'control' => ['base' => 3, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'lingering',
+                        'limit' => ['value' => 1, 'unit' => 'turn'],
+                    ],
+                    'effects' => [['type' => 'state', 'state_code' => 'clumsiness-test']],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'none'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Состояние неуклюжести: штраф Восприятию и помеха Ловкости, Реакции, попаданию.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function clumsinessStateCard(): array
+    {
+        return [
+            'type' => 'state',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'effects' => [
+                    [
+                        'type' => 'characteristic_modify',
+                        'amount' => -3,
+                        'characteristic_code' => 'perception',
+                    ],
+                    [
+                        'type' => 'check_advantage',
+                        'amount' => -1,
+                        'includes_hit' => true,
+                        'characteristic_codes' => ['dexterity', 'reaction'],
+                    ],
+                ],
                 'value_type' => 'flag',
                 'aggregation' => 'independent',
             ],
