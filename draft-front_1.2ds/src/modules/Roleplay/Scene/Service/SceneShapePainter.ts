@@ -340,9 +340,10 @@ export class SceneShapePainter {
    * Проём в полу: площадка перехода или лестничный проём.
    *
    * Площадка — верхняя ступень марша и одновременно дверь на другой этаж:
-   * тёплый настил с ромбом в центре. Проём без цели — дырка в полу: тёмный
-   * колодец с убегающими вниз ступенями. Рисуется поверх пола, поэтому снизу
-   * видно лестницу, а не голую плиту.
+   * кромка и метка-ромб. Заливки нет: плита этажа под площадкой прорезана, и
+   * сквозь вырез видны настоящие ступени. Сплошная доска закрывала бы актора
+   * на верхних ступенях. Проём без цели — дырка в полу: тёмный колодец с
+   * убегающими вниз ступенями.
    */
   private paintFloorOpening(graphics: Graphics, element: SceneElement, zoom: number): void {
     if (element.shape.type !== 'rect' || element.props.kind !== 'stairs') {
@@ -357,25 +358,11 @@ export class SceneShapePainter {
     const line = Math.max(1, 2 / zoom);
 
     if (element.targetBoardId !== null) {
-      graphics.rect(x, y, w, h).fill({ color: SCENE_STAIRS.landingFill });
+      // Площадка — только кромка и метка: ступени под ней настоящие.
+      graphics.rect(x, y, w, h).stroke({ color: SCENE_STAIRS.landingEdge, width: Math.max(1, 2 / zoom), alpha: 0.95 });
       graphics
         .rect(x + inset, y + inset, Math.max(1, w - inset * 2), Math.max(1, h - inset * 2))
-        .fill({ color: SCENE_STAIRS.stringerColor });
-
-      // Три ступени площадки поперёк хода: видно, что это верх марша.
-      const steps = 3;
-      for (let index = 1; index <= steps; index += 1) {
-        const t = index / (steps + 1);
-        if (horizontal) {
-          const px = x + w * t;
-          this.paintLine(graphics, [px, y + inset], [px, y + h - inset], SCENE_STAIRS.treadColor, line, 0.9);
-        } else {
-          const py = y + h * t;
-          this.paintLine(graphics, [x + inset, py], [x + w - inset, py], SCENE_STAIRS.treadColor, line, 0.9);
-        }
-      }
-
-      graphics.rect(x, y, w, h).stroke({ color: SCENE_STAIRS.landingEdge, width: line, alpha: 0.95 });
+        .stroke({ color: SCENE_STAIRS.stringerColor, width: line, alpha: 0.8 });
       const cx = x + w / 2;
       const cy = y + h / 2;
       const radius = Math.max(2, Math.min(w, h) * 0.16);

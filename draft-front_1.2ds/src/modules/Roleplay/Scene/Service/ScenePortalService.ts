@@ -4,8 +4,6 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
-import { sceneRampSlope } from '@/modules/Roleplay/Scene/Service/SceneHeight';
-import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Проём, ведущий на другое поле. */
 export interface ScenePortal {
@@ -79,53 +77,6 @@ export class ScenePortalService {
       }
 
       const landing = this.adjacentLanding(elements, boardId, element, tolerance);
-      if (landing !== null && landing.targetBoardId !== null) {
-        return { opening: landing, targetBoardId: landing.targetBoardId, center: this.center(landing) };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Переход по клику на сам марш.
-   *
-   * Лестница на нижнем поле — опора, а не проём: её верхний торец упирается в
-   * площадку перехода. Клик по ступеням должен вести на другой этаж, как и
-   * клик по площадке, иначе марш выглядит обычным настилом.
-   *
-   * @param elements Элементы сцены.
-   * @param boardId Поле, по которому кликнули.
-   * @param point Точка клика.
-   * @param tolerance Допуск попадания.
-   * @param resolution Разрешение сцены, единицы на ипари.
-   *
-   * @returns Переход или null, если марш не ведёт на площадку.
-   */
-  stairsPortalAt(
-    elements: readonly SceneElement[],
-    boardId: number,
-    point: ScenePoint,
-    tolerance: number,
-    resolution: number,
-  ): ScenePortal | null {
-    for (const element of elements) {
-      if (element.boardId !== boardId || element.kind !== 'support' || element.props.kind !== 'stairs') {
-        continue;
-      }
-      if (element.shape.type !== 'rect') {
-        continue;
-      }
-      if (!sceneGeometryService.contains(element.shape, point, tolerance, sceneRotation(element))) {
-        continue;
-      }
-
-      const slope = sceneRampSlope(element, elements, resolution);
-      if (slope === null) {
-        continue;
-      }
-
-      const landing = this.landingAt(elements, boardId, slope.to);
       if (landing !== null && landing.targetBoardId !== null) {
         return { opening: landing, targetBoardId: landing.targetBoardId, center: this.center(landing) };
       }

@@ -412,6 +412,64 @@ describe('SceneOverlayService', () => {
     expect(mask.alpha[fineIndex(mask, [96, 190])]).toBe(0);
   });
 
+  it('не открывает двор с марша под верхним этажом', () => {
+    const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
+    const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };
+    const enclosure: SceneEnclosure = {
+      id: 1,
+      parentBoardId: 1,
+      childBoardId: 2,
+      footprint: { type: 'rect', x: 128, y: 128, w: 256, h: 256 },
+      elevation: 128,
+      label: null,
+      sortOrder: 0,
+    };
+    const wall = (id: number, points: [number, number][]): SceneElement =>
+      onBoard(1, id, 'obstacle', { type: 'wall', points, width: 16 }, { height: 128, blocksVision: true });
+    const elements = [
+      onBoard(1, 1, 'terrain', { type: 'rect', x: 0, y: 0, w: 512, h: 512 }, { kind: 'grass' }),
+      onBoard(2, 2, 'terrain', { type: 'rect', x: 0, y: 0, w: 256, h: 256 }, { kind: 'grass' }),
+      // Дом с комнатой вокруг марша: стена выше глаз, но ниже поднятого марша.
+      wall(3, [
+        [160, 150],
+        [384, 150],
+        [384, 400],
+        [160, 400],
+        [160, 150],
+      ]),
+      onBoard(1, 4, 'support', { type: 'rect', x: 240, y: 170, w: 64, h: 200 }, {
+        kind: 'stairs',
+        elevation: 128,
+        height: 16,
+        speed: 100,
+      }),
+    ];
+    const model: SceneRenderModel = {
+      activeBoardId: 2,
+      resolution: 64,
+      boards: [root, upper],
+      elements,
+      enclosures: [enclosure],
+      selection: [],
+      mode: 'preview',
+    };
+    const paint = service
+      .paints(
+        model,
+        { costs: false, visibility: true, observer: null, radius: 400 },
+        // Наблюдатель на середине марша: глаз выше стен своего этажа.
+        { boardId: 1, point: [272, 320], level: 1, height: 96 },
+      )
+      .find((item) => item.boardId === 1);
+    expect(paint?.fog).not.toBeNull();
+    const mask = paint!.fog!;
+
+    // Пол комнаты виден, а двор за стеной — нет: перекрытие верхнего этажа
+    // не даёт глазу подняться выше своего пола и смотреть поверх стены.
+    expect(mask.alpha[fineIndex(mask, [200, 320])]).toBe(0);
+    expect(mask.alpha[fineIndex(mask, [64, 320])]).toBeGreaterThan(0);
+  });
+
   it('с марша под крышей двор за стеной не открывается', () => {
     const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
     const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };

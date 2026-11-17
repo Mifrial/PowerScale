@@ -106,11 +106,13 @@ describe('ScenePortalService', () => {
     expect(service.portalAt([landing(1, 10, 20), hole(2, 10, 200, 200)], 10, [220, 210], 4)).toBeNull();
   });
 
-  it('считает клик по маршу переходом, если он упирается в площадку', () => {
+  it('не считает марш переходом: клик по ступеням ставит на них', () => {
     const elements = [landing(1, 10, 20), stairs(2, 10)];
 
-    expect(service.stairsPortalAt(elements, 10, [40, 100], 4, 64)?.opening.id).toBe(1);
-    expect(service.stairsPortalAt(elements, 10, [40, 200], 4, 64)).toBeNull();
+    // Марш — опора, а не проём: обычный клик идёт по навигации ступеней.
+    expect(service.portalAt(elements, 10, [40, 100], 4)).toBeNull();
+    // Площадка на высоком торце остаётся дверью на другой этаж.
+    expect(service.portalAt(elements, 10, [40, 40], 0)?.opening.id).toBe(1);
   });
 
   it('переносит точку между полями через пятно вложения', () => {

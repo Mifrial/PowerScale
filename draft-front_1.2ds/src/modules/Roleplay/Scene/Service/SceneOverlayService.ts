@@ -141,6 +141,23 @@ export class SceneOverlayService {
     const radius = options.radius ?? resolution * SCENE_OVERLAY.sightIpari;
     const paints: SceneOverlayPaint[] = [];
     const scene = options.visibility && defaultObserver !== null ? this.sightScene(model) : null;
+    // Сетка наблюдателя нужна и до обхода полей: по ней считается потолок и
+    // поверхность луча, а сам он может оказаться не первым в плане.
+    const observerBoard =
+      defaultObserver === null
+        ? null
+        : (plan.floors.find((floor) => floor.boardId === defaultObserver.boardId)?.board ??
+          model.boards.find((board) => board.id === defaultObserver.boardId) ??
+          null);
+    if (observerBoard !== null) {
+      this.grid(observerBoard, model.elements, resolution);
+    }
+
+    // Голова под перекрытием верхнего этажа не поднимается выше его пола:
+    // иначе марш у самого верха смотрел бы поверх стен своего этажа и открывал
+    // двор и чужие комнаты. Ограничение общее для своего и чужих полей.
+    const eyeCap =
+      scene !== null && defaultObserver !== null ? this.observerCeiling(scene, defaultObserver) : null;
     let query: SceneSightQuery | null = null;
 
     for (const floor of plan.floors) {
@@ -153,7 +170,7 @@ export class SceneOverlayService {
           query = this.queryOf(scene, defaultObserver);
         }
 
-        const visibility = this.visibilityOf(model, board, grid, defaultObserver, radius, query);
+        const visibility = this.visibilityOf(model, board, grid, defaultObserver, radius, query, eyeCap);
         const scale = grid.columns * grid.rows <= SCENE_OVERLAY.fogFineCells ? SCENE_OVERLAY.fogScale : 1;
         fog = this.hiddenMask(grid, visibility, {
           scale,
@@ -167,6 +184,34 @@ export class SceneOverlayService {
     }
 
     return paints;
+  }
+
+  /**
+   * Потолок наблюдателя: пол ближайшего этажа над ним.
+   *
+   * На марше, площадке и в колодце голова может оказаться выше стен своего
+   * этажа. Верхний этаж при этом остаётся перекрытием: его стены и пол не
+   * должны пропускать взгляд наружу. Поэтому глаз ограничивается полом
+   * ближайшего этажа, в пятне которого стоит наблюдатель; когда пол под
+   * ногами уже выше этого этажа, ограничения нет.
+   *
+   * @param scene Препятствия этажей.
+   * @param observer Наблюдатель.
+   *
+   * @returns Абсолютная отметка потолка в мире корня или null.
+   */
+  private observerCeiling(scene: SceneFloorSightScene, observer: SceneOverlayObserver): number | null {
+    const grid = this.gridOf(observer.boardId);
+    if (grid === null) {
+      return null;
+    }
+
+    return this.floorSight.ceiling(scene, {
+      boardId: observer.boardId,
+      point: observer.point,
+      height: observer.height,
+      surface: surfaceFloor(grid, observer.point, observer.level ?? 0),
+    });
   }
 
   /** Общий запрос видимости чужих полей на текущий тик. */
@@ -188,7 +233,6 @@ export class SceneOverlayService {
       { slabs: !onRoof, onRoof },
     );
   }
-
   /**
    * Пол наблюдателя, ограниченный низом потолка.
    *
@@ -221,6 +265,33 @@ export class SceneOverlayService {
     const eye = sceneSightEyeIpari(observer.height ?? sceneBodyHeight(resolution), resolution) * Math.max(1, resolution);
 
     return Math.min(surface, ceiling - eye);
+  }
+
+  /**
+   * Глаз наблюдателя, ограниченный потолком.
+   *
+   * @param grid Сетка поля наблюдателя.
+   * @param observer Наблюдатель.
+   * @param resolution Разрешение сцены.
+   * @param ceiling Абсолютный потолок в мире поля или null.
+   *
+   * @returns Высота глаз в ипари, не выше потолка.
+   */
+  private eyeIpari(
+    grid: SceneSurfaceGrid,
+    observer: SceneOverlayObserver,
+    resolution: number,
+    ceiling: number | null,
+  ): number {
+    const base = sceneSightEyeIpari(observer.height ?? sceneBodyHeight(resolution), resolution);
+    if (ceiling === null) {
+      return base;
+    }
+
+    const floor = surfaceFloor(grid, observer.point, observer.level ?? 0);
+    const headroom = (ceiling - 0.5 - floor) / Math.max(1, resolution);
+
+    return Math.max(0, Math.min(base, headroom));
   }
 
   /**
@@ -281,6 +352,7 @@ export class SceneOverlayService {
     observer: SceneOverlayObserver | null,
     radius: number,
     query: SceneSightQuery | null,
+    eyeCap: number | null,
   ): SceneVisibility {
     const visible = new Uint8Array(grid.columns * grid.rows);
     if (observer === null) {
@@ -294,7 +366,7 @@ export class SceneOverlayService {
         grid,
         observer.point,
         radius,
-        sceneSightEyeIpari(observer.height ?? sceneBodyHeight(resolution), resolution),
+        this.eyeIpari(grid, observer, resolution, eyeCap),
         body,
         observer.level ?? 0,
       );

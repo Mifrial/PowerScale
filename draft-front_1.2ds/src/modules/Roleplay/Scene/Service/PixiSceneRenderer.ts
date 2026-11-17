@@ -1055,10 +1055,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /**
-   * Проёмы-колодцы в плите этажа: настоящие вырезы, а не заливка поверх.
+   * Проёмы в плите этажа: настоящие вырезы, а не заливка поверх.
    *
    * Колодец — прямоугольный проём `stairs` без целевого поля. Площадка с
-   * целью — настил перехода, она плиту не режет.
+   * целью — верхняя ступень марша, а не плита: под ней тоже вырез, иначе
+   * верхние ступени прятались бы под доской, а актор на них оказывался бы
+   * в перекрытии. Настил площадки уже даёт сам марш на его отметке.
    *
    * @param floor Этаж.
    *
@@ -1084,7 +1086,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
         element.boardId !== floor.boardId ||
         element.kind !== 'opening' ||
         element.shape.type !== 'rect' ||
-        element.targetBoardId !== null ||
         element.props.kind !== 'stairs'
       ) {
         continue;

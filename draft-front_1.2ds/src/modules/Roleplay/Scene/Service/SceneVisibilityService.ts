@@ -150,7 +150,7 @@ export class SceneVisibilityService {
       // Клетка на пути: без вызовов и проверок границ — отрезок между двумя
       // клетками сетки всегда остаётся внутри её прямоугольника.
       const index = row * grid.columns + column;
-      if (eye > grid.sightBottom[index] && eye < grid.sightTop[index]) {
+      if (eye > grid.sightBottom[index] && eye <= grid.sightTop[index]) {
         return false;
       }
     }
@@ -179,7 +179,7 @@ export class SceneVisibilityService {
       return false;
     }
 
-    return eye > bottom && eye < grid.sightTop[index];
+    return eye > bottom && eye <= grid.sightTop[index];
   }
 
   /**

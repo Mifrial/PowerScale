@@ -74,7 +74,7 @@ export interface SceneFloorSightLevel {
   elevation: number;
   /** Плита: террейн этажа, кроме воды. */
   slabs: SceneShapeProbe[];
-  /** Колодцы в плите: проёмы-лестницы без целевого поля. */
+  /** Колодцы и площадки в плите: проёмы-лестницы. */
   holes: SceneShapeProbe[];
   /** Стены этажа. */
   walls: SceneFloorSightWall[];
@@ -108,8 +108,13 @@ const BODY_SHARES = [0.5, 0.75, 0.9] as const;
  *
  * Плита — террейн этажа (кроме воды): она лежит на отметке этажа и
  * перекрывает луч, если тот пересекает её плоскость внутри пятна и вне
- * колодца. В разрезе (`slabs: false`) плита не мешает: нижний этаж показан
- * планом, и его акторы видны сквозь полупрозрачный пол.
+ * колодца или площадки (проём-лестница). В разрезе (`slabs: false`) плита не
+ * мешает: нижний этаж показан планом, и его акторы видны сквозь
+ * полупрозрачный пол.
+ *
+ * Глаз не поднимается выше пола верхнего этажа, в пятне которого стоит
+ * наблюдатель: иначе марш у верха или колодец открывали бы взгляд поверх стен
+ * своего этажа.
  *
  * Стена этажа наблюдателя перекрывает луч; проём в ней — дверь, окно, ворота
  * — считается прозрачным целиком. Подоконник и перемычка важны для обзора
@@ -180,9 +185,9 @@ export class SceneFloorSightService {
 
         if (element.kind === 'opening') {
           if (element.shape.type === 'rect') {
-            // Колодец — проём-лестница без целевого поля. Площадка с целевым
-            // полем — настил, а не дыра в плите.
-            if (element.props.kind === 'stairs' && element.targetBoardId === null) {
+            // Колодец и площадка — вырезы в плите этажа: площадка перехода
+            // это верхняя ступень марша, а не доска над ним.
+            if (element.props.kind === 'stairs') {
               level.holes.push(this.geometry.probe(element.shape));
             }
 
@@ -237,6 +242,51 @@ export class SceneFloorSightService {
   }
 
   /**
+   * Потолок над наблюдателем: пол ближайшего этажа выше.
+   *
+   * На марше, площадке и в колодце голова может оказаться выше стен своего
+   * этажа. Верхний этаж при этом остаётся перекрытием: его пол не должен
+   * пропускать взгляд наружу. Поэтому глаз ограничивается полом ближайшего
+   * этажа, в пятне которого стоит наблюдатель. Когда пол под ногами уже выше
+   * этого этажа, ограничения нет — там он уже сверху.
+   *
+   * @param scene Препятствия этажей.
+   * @param from Наблюдатель: поле, точка и отметка пола под ногами.
+   *
+   * @returns Абсолютная отметка потолка в мире корня или null.
+   */
+  ceiling(scene: SceneFloorSightScene, from: SceneFloorSightPoint): number | null {
+    const level = scene.levels.get(from.boardId);
+    if (level === undefined) {
+      return null;
+    }
+
+    const floor = level.elevation + (from.surface ?? 0);
+    const root = this.floors.toRoot(level.transform, from.point);
+    let ceiling = Number.POSITIVE_INFINITY;
+    for (const other of scene.levels.values()) {
+      if (other.elevation <= level.elevation) {
+        continue;
+      }
+
+      // Наблюдатель уже выше пола этого этажа: это не потолок над ним, а
+      // настил под ногами (башня, второй марш).
+      if (floor > other.elevation) {
+        continue;
+      }
+
+      const local = this.floors.toLocal(other.transform, root);
+      if (!other.slabs.some((probe) => probe.contains(local, 0))) {
+        continue;
+      }
+
+      ceiling = Math.min(ceiling, other.elevation);
+    }
+
+    return Number.isFinite(ceiling) ? ceiling : null;
+  }
+
+  /**
    * Видимость другого этажа по запечённым маскам.
    *
    * Стены читаются из корневого растра обходом клеток на пути луча, плиты —
@@ -256,12 +306,23 @@ export class SceneFloorSightService {
   ): SceneSightQuery {
     const level = scene.levels.get(from.boardId);
     const fromRoot = level === undefined ? from.point : this.floors.toRoot(level.transform, from.point);
-    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
-    const eye =
-      (level?.elevation ?? 0) + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const eye = this.eyeOf(scene, from);
     const wall = options.onRoof === true ? null : (level?.wall ?? null);
 
     return new SceneSightQuery(scene, this.floors, from, fromRoot, eye, wall, options.slabs !== false);
+  }
+
+  /** Глаз наблюдателя в мире корня, не выше потолка над ним. */
+  private eyeOf(scene: SceneFloorSightScene, from: SceneFloorSightPoint): number {
+    const level = scene.levels.get(from.boardId);
+    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
+    const eye =
+      (level?.elevation ?? 0) +
+      (from.surface ?? 0) +
+      sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const ceiling = this.ceiling(scene, from);
+
+    return ceiling === null ? eye : Math.min(eye, Math.max(0, ceiling - 0.5));
   }
 
   /**
@@ -441,9 +502,7 @@ export class SceneFloorSightService {
 
     const rootFrom = this.floors.toRoot(fromLevel.transform, from.point);
     const rootTo = this.floors.toRoot(toLevel.transform, to.point);
-    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
-    const eye =
-      fromLevel.elevation + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const eye = this.eyeOf(scene, from);
     const body = Math.max(1, to.height ?? sceneBodyHeight(scene.resolution));
     const targetSurface = to.surface ?? 0;
     const slabs = options.slabs !== false;
@@ -493,9 +552,7 @@ export class SceneFloorSightService {
 
     const rootFrom = this.floors.toRoot(fromLevel.transform, from.point);
     const rootTo = this.floors.toRoot(toLevel.transform, to.point);
-    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
-    const eye =
-      fromLevel.elevation + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const eye = this.eyeOf(scene, from);
     const target =
       toLevel.elevation + (to.surface ?? 0) + Math.max(1, to.height ?? sceneBodyHeight(scene.resolution)) * 0.9;
 

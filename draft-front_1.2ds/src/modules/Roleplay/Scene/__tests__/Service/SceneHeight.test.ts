@@ -239,6 +239,41 @@ describe('SceneHeight', () => {
     expect(slope?.high).toBe(128);
   });
 
+  it('доводит марш до кромки площадки, а не под неё', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const stairs = element(
+      2,
+      'support',
+      { type: 'rect', x: 100, y: 100, w: 96, h: 500 },
+      {
+        kind: 'stairs',
+        elevation: 128,
+        rotation: 180,
+      },
+    );
+    // Площадка лежит на высоком торце и перекрывает верхние 190 единиц марша.
+    const landing = {
+      ...element(
+        3,
+        'opening',
+        { type: 'rect', x: 100, y: 100, w: 96, h: 190 },
+        { kind: 'stairs', state: 'open' },
+      ),
+      targetBoardId: 2,
+    };
+    const slope = sceneRampSlope(stairs, [grass, stairs, landing], RESOLUTION);
+
+    // Марш заканчивается на ближней к нему кромке площадки (y = 290), а
+    // верхние 190 единиц — ровная верхняя ступень, а не наклон под доской.
+    expect(slope?.from[0]).toBeCloseTo(148);
+    expect(slope?.from[1]).toBeCloseTo(600);
+    expect(slope?.to[0]).toBeCloseTo(148);
+    expect(slope?.to[1]).toBeCloseTo(290);
+    expect(sceneSlopeElevation(slope!, [148, 150])).toBeCloseTo(128);
+    expect(sceneSlopeElevation(slope!, [148, 290])).toBeCloseTo(128);
+    expect(sceneSlopeElevation(slope!, [148, 600])).toBeCloseTo(0);
+  });
+
   it('поворачивает наклон съезда вместе с опорой', () => {
     const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
     const ramp = element(

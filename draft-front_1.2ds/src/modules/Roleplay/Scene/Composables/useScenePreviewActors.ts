@@ -464,12 +464,11 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     // Площадка лестницы — дверь на другой этаж. Клик по ней ведёт через
     // переход на парную площадку: иначе, чтобы спуститься, пришлось бы ещё
     // раз кликать пол на другом этаже. Если пары или пути нет, остаётся
-    // подход к самой площадке на её полу.
+    // подход к самой площадке на её полу. Сам марш — не дверь: клик по
+    // ступеням ставит на них, иначе лестницу нельзя пройти по шагам.
     if (selected !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
-      const portal =
-        portals.portalAt(options.elements(), targetId, point, tolerance) ??
-        portals.stairsPortalAt(options.elements(), targetId, point, tolerance, options.resolution());
+      const portal = portals.portalAt(options.elements(), targetId, point, tolerance);
       if (portal !== null && (actor === null || actor.id === selected.id)) {
         const optionsOfRoute = { agentRadius: selected.radius };
         const pair = routes.pairLanding(routeModel(), targetId, portal.targetBoardId, portal.center, optionsOfRoute);
@@ -522,6 +521,17 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       (choice, index) => routed.findIndex((other) => other.elevation === choice.elevation) === index,
     );
     if (choices.length === 0) {
+      return;
+    }
+    // Марш — это видимая поверхность под кликом: ставим на него, а не
+    // предлагаем пол под ним. Под ступени можно уйти через Alt.
+    const top = choices[0];
+    if (top !== undefined && (top.surface === 'stairs' || top.surface === 'ramp')) {
+      const only = top.route;
+      if (only !== null) {
+        applyRoute(selected.id, only);
+      }
+
       return;
     }
     if (choices.length === 1) {
@@ -815,6 +825,20 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       observer === null || observerPoint === null || observerBoardId === null
         ? 0
         : levelSurface(observerBoardId, observerPoint, observer.level ?? 0);
+    // Потолок над наблюдателем: на марше под верхним этажом глаз не должен
+    // подниматься выше его пола, иначе обзор уходит поверх стен своего этажа.
+    const ceiling =
+      scene === null || observer === null || observerPoint === null || observerBoardId === null
+        ? null
+        : floorSight.ceiling(scene, {
+            boardId: observerBoardId,
+            point: observerPoint,
+            height: observer.height ?? body,
+            surface: observerSurface,
+          });
+    const baseEye = sceneSightEyeIpari(observer?.height ?? body, resolution);
+    const observerEye =
+      ceiling === null ? baseEye : Math.max(0, Math.min(baseEye, (ceiling - 0.5 - observerSurface) / resolution));
     // Отметки полей: по ним видно, куда смотрит луч — вниз, под плиту фокуса,
     // или вверх, где перекрытие остаётся перекрытием.
     const floorElevation = (boardId: number): number => scene?.levels.get(boardId)?.elevation ?? 0;
@@ -866,7 +890,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
           surface,
           observerPoint,
           [actor.x, actor.y],
-          sceneSightEyeIpari(observer.height ?? body, resolution),
+          observerEye,
           sceneBodyIpari(actor.height ?? body, resolution),
           observer.level ?? 0,
           actor.level ?? 0,

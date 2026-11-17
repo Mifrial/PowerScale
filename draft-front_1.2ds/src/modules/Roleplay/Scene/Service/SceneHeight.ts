@@ -18,6 +18,8 @@ export interface SceneHeightElement {
   kind: SceneElementKind;
   shape: SceneShape;
   props: SceneElementProps;
+  /** Целевое поле проёма-площадки; у опоры всегда null. */
+  targetBoardId?: number | null;
 }
 
 /** Доли длинной стороны настила, по которым ищется поверхность под ним. */
@@ -280,10 +282,102 @@ export function sceneRampSlope(
     : [-Math.sin(radians), Math.cos(radians)];
   const from: ScenePoint = [center[0] - axis[0] * half, center[1] - axis[1] * half];
   const to: ScenePoint = [center[0] + axis[0] * half, center[1] + axis[1] * half];
+  // Площадка перехода на высоком торце — это верхняя ступень марша, а не
+  // отдельная плита над ним. Марш доходит до её ближней кромки, а полоса
+  // площадки остаётся ровной на `high`; иначе ступени уходили бы под доску,
+  // и актор на верхних ступенях стоял бы в перекрытии.
+  const landing = landingEdge(element, elements, from, to);
+  const top = landing ?? to;
   const low = sceneSurfaceUnder(from, elements, resolution, element.id, sceneSurfaceElevation(element));
   const high = sceneSurfaceElevation(element);
 
-  return high > low ? { from, to, low, high } : null;
+  return high > low ? { from, to: top, low, high } : null;
+}
+
+/**
+ * Ближняя к низу марша кромка площадки перехода на его высоком торце.
+ *
+ * Площадка — прямоугольный проём `stairs` с целевым полем. Её ближняя кромка
+ * лежит внутри марша: с неё марш перестаёт быть наклонным и становится
+ * верхней ступенью. Если площадки нет, возвращается null.
+ *
+ * @param stairs Марш или съезд.
+ * @param elements Элементы поля: среди них ищется площадка.
+ * @param from Низкий торец марша.
+ * @param to Высокий торец марша.
+ *
+ * @returns Точка кромки площадки на оси марша или null.
+ */
+function landingEdge(
+  stairs: SceneHeightElement,
+  elements: readonly SceneHeightElement[],
+  from: ScenePoint,
+  to: ScenePoint,
+): ScenePoint | null {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const length = Math.hypot(dx, dy);
+  if (length <= 0) {
+    return null;
+  }
+
+  const axis: ScenePoint = [dx / length, dy / length];
+  const project = (point: ScenePoint): number => point[0] * axis[0] + point[1] * axis[1];
+  const fromProjection = project(from);
+  const toProjection = project(to);
+  const middle = (fromProjection + toProjection) / 2;
+  const stairBounds = sceneGeometryService.bounds(stairs.shape, sceneRotation(stairs));
+  let edge: number | null = null;
+
+  for (const element of elements) {
+    if (
+      element === stairs ||
+      element.kind !== 'opening' ||
+      element.props.kind !== 'stairs' ||
+      element.targetBoardId === null ||
+      element.targetBoardId === undefined ||
+      element.shape.type !== 'rect'
+    ) {
+      continue;
+    }
+
+    const bounds = sceneGeometryService.bounds(element.shape, sceneRotation(element));
+    if (
+      bounds.x >= stairBounds.x + stairBounds.width ||
+      bounds.x + bounds.width <= stairBounds.x ||
+      bounds.y >= stairBounds.y + stairBounds.height ||
+      bounds.y + bounds.height <= stairBounds.y
+    ) {
+      continue;
+    }
+
+    // Площадка должна стоять на высоком торце, а не у подножия.
+    if (project([bounds.x + bounds.width / 2, bounds.y + bounds.height / 2]) <= middle) {
+      continue;
+    }
+
+    // Ближняя к низу кромка прямоугольника — минимальная проекция его углов.
+    const near = Math.min(
+      project([bounds.x, bounds.y]),
+      project([bounds.x + bounds.width, bounds.y]),
+      project([bounds.x, bounds.y + bounds.height]),
+      project([bounds.x + bounds.width, bounds.y + bounds.height]),
+    );
+    if (near <= fromProjection + 0.01 || near >= toProjection - 0.01) {
+      continue;
+    }
+
+    // Ближайшая к верху площадка задаёт самую короткую наклонную часть.
+    edge = edge === null ? near : Math.max(edge, near);
+  }
+
+  if (edge === null) {
+    return null;
+  }
+
+  const share = (edge - fromProjection) / length;
+
+  return [from[0] + dx * share, from[1] + dy * share];
 }
 
 /** Высота наклонной поверхности в точке: проекция на ось съезда. */

@@ -144,6 +144,20 @@ describe('SceneFloorSightService', () => {
     expect(service.sees(scene, { boardId: 1, point: [1000, 1000] }, { boardId: 2, point: [300, 300] })).toBe(false);
   });
 
+  it('видит сквозь площадку перехода, как сквозь колодец', () => {
+    const landingModel: SceneRenderModel = {
+      ...model,
+      elements: elements.map((item) => (item.id === 21 ? { ...item, targetBoardId: 1 } : item)),
+    };
+    const landingScene = service.scene(landingModel);
+
+    // Площадка — верхняя ступень марша: в плите под ней вырез, поэтому луч
+    // проходит так же, как через колодец без целевого поля.
+    expect(
+      service.sees(landingScene, { boardId: 2, point: [200, 140] }, { boardId: 1, point: [900, 900] }),
+    ).toBe(true);
+  });
+
   it('на одном поле не считает: там обзор по сетке', () => {
     expect(service.sees(scene, { boardId: 2, point: [100, 100] }, { boardId: 2, point: [300, 300] })).toBe(true);
   });
