@@ -281,7 +281,7 @@ describe('SceneRouteService', () => {
     expect(climb!.points[climb!.points.length - 1][1]).toBeCloseTo(300, 0);
   });
 
-  it('при клике по лестнице спускается по маршу до нижнего торца', () => {
+  it('при клике по площадке спускается на верх марша, а не к подножию', () => {
     const stack: SceneRenderModel = {
       activeBoardId: 2,
       resolution: 64,
@@ -293,17 +293,21 @@ describe('SceneRouteService', () => {
         stairs(40, 1, 400, 300, 100, 400),
         landing(41, 1, 2, 400, 250, 100, 100),
         landing(42, 2, 1, 200, 50, 100, 100),
+        // Колодец за площадкой: переход идёт через его кромку, а не центр.
+        hole(43, 2, 200, 150, 100, 100),
       ],
       selection: [],
       mode: 'preview',
     };
 
-    // Клик по площадке верхнего этажа ведёт через переход к нижнему торцу
-    // марша, а не просто на площадку.
+    // Клик по площадке верхнего этажа ведёт на парную площадку: она стоит на
+    // верхнем торце марша, на его верхней ступени. К подножию спуск не уводит
+    // — иначе маршрут строился бы до низа лестницы, далеко от точки клика.
     const exit = service.pairLanding(stack, 2, 1, [250, 100], { agentRadius: 16 });
     expect(exit).not.toBeNull();
     expect(exit!.boardId).toBe(1);
-    expect(exit!.point[1]).toBeCloseTo(700, 0);
+    expect(exit!.point[1]).toBeCloseTo(300, 0);
+    expect(exit!.point[0]).toBeCloseTo(450, 0);
 
     const down = service.route(
       stack,
@@ -312,8 +316,9 @@ describe('SceneRouteService', () => {
       { agentRadius: 16 },
     );
     expect(down).not.toBeNull();
-    expect(down!.segments.some((segment) => segment.boardId === 1 && segment.level === 1)).toBe(true);
     const last = down!.segments[down!.segments.length - 1];
-    expect(last.points[last.points.length - 1][1]).toBeCloseTo(700, 0);
+    expect(last.boardId).toBe(1);
+    expect(last.level).toBe(exit!.level);
+    expect(last.points[last.points.length - 1][1]).toBeCloseTo(300, 0);
   });
 });

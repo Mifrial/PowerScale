@@ -109,6 +109,114 @@ export class SceneFloorPlanService {
   }
 
   /**
+   * Проёмы-лестницы в плите поля: места, где пол прорезан.
+   *
+   * Колодец — прямоугольный проём `stairs` без цели: дыра в полу, сквозь неё
+   * видны ступени этажа ниже, и клик по ним принадлежит тому этажу, а не
+   * этому. Площадка с целью — тоже вырез (она верхняя ступень марша), но это
+   * дверь: клик по ней остаётся переходом, а не кликом по настилу под ней.
+   * Поэтому `doors` решает, попадают ли площадки в ответ.
+   *
+   * @param model Модель рендера.
+   * @param boardId Поле этажа.
+   * @param doors true — вместе с площадками перехода; false — только колодцы.
+   *
+   * @returns Прямоугольники проёмов в координатах поля.
+   */
+  slabHoles(model: SceneRenderModel, boardId: number, doors = true): SceneBounds[] {
+    const holes: SceneBounds[] = [];
+    for (const element of model.elements) {
+      if (element.boardId !== boardId || element.kind !== 'opening' || element.shape.type !== 'rect') {
+        continue;
+      }
+
+      if (element.props.kind !== 'stairs') {
+        continue;
+      }
+
+      // Площадка — дверь: её вырез не отдаёт клик этажу ниже.
+      if (!doors && element.targetBoardId !== null) {
+        continue;
+      }
+
+      holes.push({ x: element.shape.x, y: element.shape.y, width: element.shape.w, height: element.shape.h });
+    }
+
+    return holes;
+  }
+
+  /**
+   * Видимый этаж и точка на нём под точкой мира.
+   *
+   * Этажи перебираются сверху вниз: клик принадлежит верхнему нарисованному
+   * полу, накрывающему точку. В колодце срезанной плиты пола нет — сквозь
+   * вырез видны ступени этажа ниже, и клик принадлежит им. Иначе клик по
+   * ступеням с верхнего этажа уходил бы на переход, а не ставил на ступень.
+   *
+   * @param model Модель рендера.
+   * @param world Точка в мире корня.
+   * @param cutaway Плита фокуса прорезана колодцами.
+   *
+   * @returns Поле и локальная точка или null, если этажа под точкой нет.
+   */
+  targetAt(
+    model: SceneRenderModel,
+    world: ScenePoint,
+    cutaway: boolean,
+  ): { point: ScenePoint; boardId: number } | null {
+    const plan = this.plan(model);
+    for (let index = plan.floors.length - 1; index >= 0; index -= 1) {
+      const floor = plan.floors[index];
+      const point = this.toLocal(floor.transform, world);
+      if (point[0] < 0 || point[1] < 0 || point[0] > floor.board.boundWidth || point[1] > floor.board.boundHeight) {
+        continue;
+      }
+
+      if (this.insideSlabHole(model, floor, point, plan.slabBoardId, cutaway)) {
+        continue;
+      }
+
+      return { point, boardId: floor.boardId };
+    }
+
+    return null;
+  }
+
+  /**
+   * Точка в колодце срезанной плиты: сквозь вырез видно этаж ниже.
+   *
+   * Площадка перехода — не колодец: её вырез скрывает верхние ступени марша,
+   * но клик по ней остаётся переходом на другой этаж.
+   *
+   * @param model Модель рендера.
+   * @param floor Этаж, накрывающий точку.
+   * @param point Локальная точка.
+   * @param slabBoardId Поле срезанной плиты.
+   * @param cutaway Плита фокуса прорезана колодцами.
+   *
+   * @returns true — под точкой вырез, видно этаж ниже.
+   */
+  private insideSlabHole(
+    model: SceneRenderModel,
+    floor: SceneFloor,
+    point: ScenePoint,
+    slabBoardId: number | null,
+    cutaway: boolean,
+  ): boolean {
+    if (!cutaway || slabBoardId !== floor.boardId) {
+      return false;
+    }
+
+    return this.slabHoles(model, floor.boardId, false).some(
+      (hole) =>
+        point[0] >= hole.x &&
+        point[1] >= hole.y &&
+        point[0] <= hole.x + hole.width &&
+        point[1] <= hole.y + hole.height,
+    );
+  }
+
+  /**
    * Абсолютные отметки полей: сумма `elevation` по цепочке вложений.
    *
    * @param model Модель рендера.

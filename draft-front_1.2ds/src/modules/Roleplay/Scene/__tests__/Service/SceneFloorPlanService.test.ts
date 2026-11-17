@@ -187,6 +187,42 @@ describe('SceneFloorPlanService', () => {
     expect(plan.floors.every((item) => !item.underCut)).toBe(true);
   });
 
+  it('отдаёт клик в колодце этажу ниже, а площадку оставляет дверью', () => {
+    const root = board(3, 5120, 5120);
+    const upper = board(4, 1408, 1216);
+    const scene = model([root, upper], [enclosure(3, 4, 128, { x: 1983, y: 1614, w: 1408, h: 1216 })], 4);
+    scene.elements = [
+      element(90, 3, { type: 'rect', x: 0, y: 0, w: 5120, h: 5120 }, { kind: 'grass' }),
+      element(91, 4, { type: 'rect', x: 0, y: 0, w: 1408, h: 1216 }, { kind: 'dirt' }),
+      // Площадка перехода наверху и колодец за ней: марш лежит на нижнем поле.
+      { ...element(92, 4, { type: 'rect', x: 1048, y: 286, w: 96, h: 190 }), kind: 'opening', props: { kind: 'stairs', state: 'open' }, targetBoardId: 3 },
+      { ...element(93, 4, { type: 'rect', x: 1056, y: 476, w: 88, h: 310 }), kind: 'opening', props: { kind: 'stairs', state: 'closed' } },
+    ];
+
+    // Колодец: видно ступени нижнего этажа, клик принадлежит им.
+    expect(service.targetAt(scene, [3083, 2200], true)).toEqual({ point: [3083, 2200], boardId: 3 });
+    // Площадка — дверь: она остаётся на верхнем этаже.
+    expect(service.targetAt(scene, [3079, 1995], true)).toEqual({ point: [1096, 381], boardId: 4 });
+    // Без разреза плита непрозрачна: вырез не отдаёт клик вниз.
+    expect(service.targetAt(scene, [3083, 2200], false)).toEqual({ point: [1100, 586], boardId: 4 });
+    // Вне пятна верхнего этажа — общая земля корня.
+    expect(service.targetAt(scene, [500, 500], true)).toEqual({ point: [500, 500], boardId: 3 });
+  });
+
+  it('режет плиту колодцами и площадками, а клику отдаёт только колодцы', () => {
+    const root = board(3, 5120, 5120);
+    const upper = board(4, 1408, 1216);
+    const scene = model([root, upper], [enclosure(3, 4, 128, { x: 1983, y: 1614, w: 1408, h: 1216 })], 4);
+    scene.elements = [
+      { ...element(92, 4, { type: 'rect', x: 1048, y: 286, w: 96, h: 190 }), kind: 'opening', props: { kind: 'stairs', state: 'open' }, targetBoardId: 3 },
+      { ...element(93, 4, { type: 'rect', x: 1056, y: 476, w: 88, h: 310 }), kind: 'opening', props: { kind: 'stairs', state: 'closed' } },
+    ];
+
+    expect(service.slabHoles(scene, 4, false)).toEqual([{ x: 1056, y: 476, width: 88, height: 310 }]);
+    expect(service.slabHoles(scene, 4)).toHaveLength(2);
+    expect(service.slabHoles(scene, 3)).toEqual([]);
+  });
+
   it('берёт пятно плиты по нарисованному полу, а не по всему полю', () => {
     const root = board(3, 5120, 5120);
     const floor = board(4, 1408, 1216);

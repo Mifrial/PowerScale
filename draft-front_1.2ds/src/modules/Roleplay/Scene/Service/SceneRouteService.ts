@@ -2,9 +2,7 @@ import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneNavMesh, SceneNavRoute, SceneNavSegment } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
-import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { SceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/SceneFloorPlanService';
-import { sceneRampSlope } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 
 /** Конечная точка маршрута: поле, локальная точка и уровень поверхности. */
@@ -240,8 +238,10 @@ export class SceneRouteService {
   /**
    * Парная площадка: куда актор выходит после перехода.
    *
-   * Клик по лестнице идёт через неё, а не только до её центра: иначе, чтобы
+   * Клик по площадке идёт через неё, а не только до её центра: иначе, чтобы
    * спуститься или подняться, пришлось бы кликать ещё и пол на другом этаже.
+   * Пара стоит на верхнем торце марша, поэтому переход заканчивается на её
+   * центре и при подъёме, и при спуске.
    *
    * @param model Модель рендера.
    * @param boardId Поле площадки, по которой кликнули.
@@ -276,56 +276,16 @@ export class SceneRouteService {
     }
 
     const pair = source.pair;
-    // Спуск: парная площадка стоит на верхнем торце марша. Ведём не в её
-    // центр, а к нижнему торцу — иначе актор останавливается на верхней
-    // ступени под полом верхнего этажа и кажется, что он не спустился.
-    const elevations = this.floors.elevations(model);
-    const sourceElevation = elevations.get(source.boardId) ?? 0;
-    const pairElevation = elevations.get(pair.boardId) ?? sourceElevation;
-    const exit = sourceElevation > pairElevation ? this.stairsExit(model, pair.boardId, pair.element) : null;
-    const point = exit ?? pair.center;
-    // Спуск заканчивается на полу нижнего этажа, а не на последней ступени.
-    const level = this.levelAt(model, pair.boardId, point, exit === null ? pair.elevation : 0, options);
+    // Переход заканчивается на парной площадке: она стоит на верхнем торце
+    // марша, то есть на верхней ступени. Подъём так же заканчивается на
+    // площадке верхнего этажа: спуск не должен уводить к подножию лестницы,
+    // далеко от точки клика.
+    const level = this.levelAt(model, pair.boardId, pair.center, pair.elevation, options);
     if (level === undefined) {
       return null;
     }
 
-    return { boardId: pair.boardId, point, level };
-  }
-
-  /**
-   * Нижний торец марша, который выходит на площадку.
-   *
-   * Нужен после спуска: актор проходит марш до конца, а не останавливается
-   * на верхней ступени.
-   *
-   * @param model Модель рендера.
-   * @param boardId Поле парной площадки.
-   * @param landing Парная площадка.
-   *
-   * @returns Нижний торец марша в координатах поля или null.
-   */
-  private stairsExit(model: SceneRenderModel, boardId: number, landing: SceneElement): ScenePoint | null {
-    for (const element of model.elements) {
-      if (element.boardId !== boardId || element.kind !== 'support' || element.props.kind !== 'stairs') {
-        continue;
-      }
-      if (element.shape.type !== 'rect') {
-        continue;
-      }
-
-      const slope = sceneRampSlope(element, model.elements, model.resolution);
-      if (slope === null) {
-        continue;
-      }
-      if (!sceneGeometryService.contains(landing.shape, slope.to, 1, 0)) {
-        continue;
-      }
-
-      return slope.from;
-    }
-
-    return null;
+    return { boardId: pair.boardId, point: pair.center, level };
   }
 
   /** Маршрут по одному полю: обычный случай и последний участок. */

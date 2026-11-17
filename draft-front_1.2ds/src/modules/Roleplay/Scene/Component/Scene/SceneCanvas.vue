@@ -1339,22 +1339,18 @@ function screenPointOf(event: PointerEvent | WheelEvent | MouseEvent): { x: numb
  * Поле и точка под курсором в предпросмотре.
  *
  * Клик может прийтись на видимый нижний или верхний этаж: берётся верхний
- * нарисованный этаж, накрывающий точку. Инструменты редактора этим не
- * пользуются — они работают в координатах активного поля.
+ * нарисованный этаж, накрывающий точку. В колодце срезанной плиты верхнего
+ * этажа видно ступени нижнего — клик по ним принадлежит нижнему этажу.
+ * Инструменты редактора этим не пользуются — они работают в координатах
+ * активного поля.
  */
 function previewTarget(event: PointerEvent | MouseEvent): { point: ScenePoint; boardId: number } | null {
   if (viewport === null) return null;
 
   const world = sceneViewportService.screenToScene(viewport, screenPointOf(event));
-  const plan = sceneFloorPlanService.plan(props.model);
-  for (let index = plan.floors.length - 1; index >= 0; index -= 1) {
-    const floor = plan.floors[index];
-    const local = sceneFloorPlanService.toLocal(floor.transform, world);
-    if (local[0] < 0 || local[1] < 0 || local[0] > floor.board.boundWidth || local[1] > floor.board.boundHeight) {
-      continue;
-    }
-
-    return { point: local, boardId: floor.boardId };
+  const target = sceneFloorPlanService.targetAt(props.model, world, props.slabCutaway);
+  if (target !== null) {
+    return target;
   }
 
   const fallback = scenePointOf(event);

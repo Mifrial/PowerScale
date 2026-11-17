@@ -1080,21 +1080,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return [];
     }
 
-    const holes: SceneBounds[] = [];
-    for (const element of this.model.elements) {
-      if (
-        element.boardId !== floor.boardId ||
-        element.kind !== 'opening' ||
-        element.shape.type !== 'rect' ||
-        element.props.kind !== 'stairs'
-      ) {
-        continue;
-      }
-
-      holes.push({ x: element.shape.x, y: element.shape.y, width: element.shape.w, height: element.shape.h });
-    }
-
-    return holes;
+    return sceneFloorPlanService.slabHoles(this.model, floor.boardId);
   }
 
   /**
