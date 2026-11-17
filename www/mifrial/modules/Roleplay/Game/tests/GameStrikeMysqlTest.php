@@ -1818,7 +1818,7 @@ final class GameStrikeMysqlTest extends TestCase
         $body = $this->spellBody($scene);
         $body['spellCode'] = 'blindness-spell';
         $body['parameters'] = [];
-        $body['distanceIpari'] = 1;
+        $body['distance'] = $this->ipariDistance(1);
         $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 1]];
 
         $cast = $this->dispatch('game.castSpell', $body);
@@ -1847,7 +1847,7 @@ final class GameStrikeMysqlTest extends TestCase
         $body = $this->spellBody($scene);
         $body['spellCode'] = 'blindness-spell';
         $body['parameters'] = [];
-        $body['distanceIpari'] = 3;
+        $body['distance'] = $this->ipariDistance(3);
         $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 2]];
 
         $cast = $this->dispatch('game.castSpell', $body);
@@ -1855,6 +1855,63 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertFalse($cast['success'], json_encode($cast));
         self::assertSame('GAME_INVALID', $cast['error']['code']);
         self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Предел дальности сравнивает точное размерное расстояние, а не floor.
+     *
+     * @return void
+     */
+    public function testGazeCurseComparesExactDimensionalDistance(): void
+    {
+        $scene = $this->gazeCurseScene();
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'blindness-spell';
+        $body['parameters'] = [];
+        $body['distance'] = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 5, 'size' => -1]],
+        ];
+        $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 2]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertFalse($cast['success'], json_encode($cast));
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+    }
+
+    /**
+     * Старое целое «distanceIpari» ещё принимается.
+     *
+     * @return void
+     */
+    public function testGazeCurseAcceptsLegacyDistance(): void
+    {
+        $scene = $this->gazeCurseScene();
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'blindness-spell';
+        $body['parameters'] = [];
+        $body['distanceIpari'] = 1;
+        $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 1]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertTrue($cast['success'], json_encode($cast));
+    }
+
+    /**
+     * Размерная дистанция заявки в ипари.
+     *
+     * @param int $ipari Число ипари.
+     *
+     * @return array<string, mixed> Дистанция.
+     */
+    private function ipariDistance(int $ipari): array
+    {
+        return [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => $ipari, 'size' => 0]],
+        ];
     }
 
     /**

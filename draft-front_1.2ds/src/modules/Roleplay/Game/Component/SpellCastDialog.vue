@@ -4,6 +4,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { DistanceValue } from '@/modules/Roleplay/Rule/Dto/Item/DistanceValue';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
@@ -150,8 +151,8 @@ let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 const usedPower = ref<DimensionalNumberValue | null>(null);
 const hasTarget = ref(false);
 const targetKey = ref<CombatEntityKey | null>(null);
-/** Заявленное расстояние до цели при дальнем касте: проверяется по пределу улучшения. */
-const castDistanceIpari = ref(1);
+/** Заявленное расстояние до цели при дальнем касте: размерное число, как у удара. */
+const castDistance = ref<DimensionalNumberValue | null>({ base: 1, size: 0 });
 const parameterPower = ref<DimensionalNumberValue>({ base: 3, size: 0 });
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -583,8 +584,19 @@ const requiredControlDelta = computed(() =>
 const rangeLimit = computed(() =>
   spellCastUpgradeService.rangeLimit(selectedUpgradeOptions.value, appliedUpgradeValues.value),
 );
+/** Точное расстояние до цели: база × 2^размер без округления. */
+function exactDistance(value: DimensionalNumberValue | null | undefined): number | null {
+  return value === null || value === undefined ? null : value.base * 2 ** value.size;
+}
+const castDistanceExact = computed(() => exactDistance(castDistance.value) ?? 0);
 const rangeOutOfLimit = computed(
-  () => rangeLimit.value !== null && castDistanceIpari.value > rangeLimit.value,
+  () => rangeLimit.value !== null && castDistanceExact.value > rangeLimit.value,
+);
+/** Заявка несёт размерную дистанцию: `{ type: 'ipari', value: { base, size } }`. */
+const distanceProposal = computed<DistanceValue | null>(() =>
+  castDistance.value === null
+    ? null
+    : { type: 'ipari', value: { type: 'literal', value: castDistance.value } },
 );
 const resistancePenetration = computed(() =>
   spellCastUpgradeService.resistancePenetration(selectedUpgradeOptions.value, appliedUpgradeValues.value),
@@ -958,17 +970,14 @@ watch(upgradeOptions, (options) => {
 watch(rangeSelected, (range) => {
   if (range) {
     hasTarget.value = true;
-    castDistanceIpari.value = 1;
+    castDistance.value = { base: 1, size: 0 };
   }
 });
 
 watch(rangeLimit, (limit) => {
   if (limit === null) return;
-  if (castDistanceIpari.value > limit) {
-    castDistanceIpari.value = limit;
-  }
-  if (castDistanceIpari.value < 1) {
-    castDistanceIpari.value = 1;
+  if (castDistanceExact.value > limit) {
+    castDistance.value = { base: limit, size: 0 };
   }
 });
 
@@ -1243,7 +1252,7 @@ async function runCast(): Promise<void> {
       touchTargetKey: touchKey,
       touchTargetOverview: touchKey ? overviewOf(touchKey) : null,
       effectTargetOverview: effectKey ? overviewOf(effectKey) : null,
-      distanceIpari: rangeSelected.value ? castDistanceIpari.value : 0,
+      distanceIpari: rangeSelected.value ? castDistanceExact.value : 0,
       sourceKey: sourceKey.value,
       pathCode: pathCode.value || null,
       appliedUpgradeCodes: appliedUpgradeCodes.value,
@@ -1362,7 +1371,7 @@ async function runPhpCast(): Promise<void> {
     ...(target && targetKey.value
       ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value] ?? 1 }
       : {}),
-    distanceIpari: rangeSelected.value ? castDistanceIpari.value : 0,
+    ...(rangeSelected.value && distanceProposal.value ? { distance: distanceProposal.value } : {}),
     upgrades: spellCastUpgradeService.requestOf(selectedUpgradeOptions.value, appliedUpgradeValues.value),
     ...(chargeSustain.value ? { chargeSpellId: chargeSustain.value.id } : {}),
   };
@@ -2481,15 +2490,11 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
               @update:model-value="onSpellTargetChange"
             />
             <template v-if="rangeSelected && hasTarget">
-              <ClampedNumberField
-                :model-value="castDistanceIpari"
+              <DimensionalNumberInput
+                v-model="castDistance"
                 label="Расстояние до цели, ипари"
-                :min="1"
-                :max="rangeLimit ?? 1"
-                density="compact"
-                hide-details
+                :min="0"
                 class="mt-2"
-                @update:model-value="castDistanceIpari = Math.max(1, Math.floor($event ?? 1))"
               />
               <div v-if="rangeLimit !== null" class="text-caption text-medium-emphasis mt-1">
                 Дальность улучшения: до {{ rangeLimit }} ипари.

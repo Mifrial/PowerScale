@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Roleplay\Game\Dto\Action\CastGameSpellInput;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 
 /**
  * Разбор и нормализация тела game.castSpell.
@@ -31,9 +32,11 @@ final class GameSpellCastBody
             throw $this->invalid();
         }
 
-        if ($input->expectedSheetVersion < 0 || $input->distanceIpari < 0) {
+        if ($input->expectedSheetVersion < 0 || ($input->distanceIpari ?? 0) < 0) {
             throw $this->invalid();
         }
+
+        $distance = $this->distance($input);
 
         $chargeSpellId = $input->chargeSpellId;
         if ($chargeSpellId !== null && preg_match('/^\d+$/', $chargeSpellId) !== 1) {
@@ -63,10 +66,32 @@ final class GameSpellCastBody
             'parameters' => $this->parameters($input->parameters),
             'usedPower' => $this->usedPower($input->usedPower),
             'target' => $target,
-            'distanceIpari' => $input->distanceIpari,
+            'distanceIpari' => $distance,
+            'distance' => $input->distance,
             'upgrades' => (new GameSpellCastUpgradeBody())->parse($input->upgrades),
             'chargeSpellId' => $chargeSpellId,
         ];
+    }
+
+    /**
+     * Точная дистанция заявки в ипари.
+     *
+     * @param CastGameSpellInput $input Вход.
+     *
+     * @return int Ипари.
+     *
+     * @throws ActionException INVALID_PARAMS.
+     */
+    private function distance(CastGameSpellInput $input): int
+    {
+        try {
+            return (new GameSpellCastDistance())->value([
+                'distance' => $input->distance,
+                'distanceIpari' => $input->distanceIpari,
+            ])->toInteger();
+        } catch (GameInvalidException $exception) {
+            throw new ActionException('INVALID_PARAMS', 'Game spell cast is invalid', $exception);
+        }
     }
 
     /**

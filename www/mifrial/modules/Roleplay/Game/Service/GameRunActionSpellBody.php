@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Exception\ActionException;
-use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
+use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 
 /**
  * Контекст заклинания в game.runAction.
@@ -69,6 +69,7 @@ final class GameRunActionSpellBody
         }
 
         $distanceIpari = $this->distanceIpari($context);
+        $distance = $context['distance'] ?? null;
 
         $chargeSpellId = $context['chargeSpellId'] ?? null;
         if ($chargeSpellId !== null) {
@@ -89,6 +90,7 @@ final class GameRunActionSpellBody
             'target' => $target,
             'expectedTargetVersion' => $expectedTargetVersion,
             'distanceIpari' => $distanceIpari,
+            'distance' => $distance,
             'upgrades' => (new GameSpellCastUpgradeBody())->parse($context['upgrades'] ?? null),
             'chargeSpellId' => $chargeSpellId,
         ];
@@ -206,87 +208,11 @@ final class GameRunActionSpellBody
      */
     private function distanceIpari(array $holder): int
     {
-        $legacy = $holder['distanceIpari'] ?? null;
-        if ($legacy !== null && (!is_int($legacy) || $legacy < 0)) {
-            throw $this->invalid();
+        try {
+            return (new GameSpellCastDistance())->ipari($holder);
+        } catch (GameInvalidException $exception) {
+            throw new ActionException('INVALID_PARAMS', 'Invalid parameter: spell distance', $exception);
         }
-
-        if (!array_key_exists('distance', $holder) || $holder['distance'] === null) {
-            return $legacy ?? 0;
-        }
-
-        $ipari = $this->distanceValue($holder['distance'])->toInteger();
-        if ($legacy !== null && $legacy !== $ipari) {
-            throw $this->invalid();
-        }
-
-        return $ipari;
-    }
-
-    /**
-     * Размерная дистанция в форме удара.
-     *
-     * @param mixed $distance Значение.
-     *
-     * @return DimensionalNumber Дистанция.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function distanceValue(mixed $distance): DimensionalNumber
-    {
-        if (!is_array($distance)) {
-            throw $this->invalid();
-        }
-
-        $this->fields->assertKeys($distance, ['type', 'value'], 'spell distance');
-        $type = $distance['type'] ?? null;
-        $value = $distance['value'] ?? null;
-        if ($type !== 'ipari' || !is_array($value)) {
-            throw $this->invalid();
-        }
-
-        $node = $value['type'] ?? null;
-        if ($node === 'literal') {
-            $pair = $value['value'] ?? null;
-            if (!is_array($pair) || !is_int($pair['base'] ?? null) || !is_int($pair['size'] ?? null)) {
-                throw $this->invalid();
-            }
-
-            return $this->dimensional((int) $pair['base'], (int) $pair['size']);
-        }
-
-        if ($node === 'dimensional') {
-            if (!is_int($value['base'] ?? null) || !is_int($value['size'] ?? null)) {
-                throw $this->invalid();
-            }
-
-            return $this->dimensional((int) $value['base'], (int) $value['size']);
-        }
-
-        if ($node === 'fixed' && is_int($value['value'] ?? null)) {
-            return $this->dimensional((int) $value['value'], 0);
-        }
-
-        throw $this->invalid();
-    }
-
-    /**
-     * Неотрицательная пара дистанции.
-     *
-     * @param int $base База.
-     * @param int $size Размер.
-     *
-     * @return DimensionalNumber Число.
-     *
-     * @throws ActionException INVALID_PARAMS.
-     */
-    private function dimensional(int $base, int $size): DimensionalNumber
-    {
-        if ($base < 0) {
-            throw $this->invalid();
-        }
-
-        return new DimensionalNumber($base, $size);
     }
 
     /**

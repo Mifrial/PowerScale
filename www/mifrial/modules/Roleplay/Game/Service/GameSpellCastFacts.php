@@ -63,6 +63,8 @@ final class GameSpellCastFacts
 
     private readonly GameSpellMana $mana;
 
+    private readonly GameSpellCastDistance $distance;
+
     /**
      * Создаёт подготовку каста.
      *
@@ -103,6 +105,7 @@ final class GameSpellCastFacts
             new GameSpellSourceBonus(new FormulaEvaluations()),
         );
         $this->mana = new GameSpellMana();
+        $this->distance = new GameSpellCastDistance();
     }
 
     /**
@@ -169,11 +172,15 @@ final class GameSpellCastFacts
             throw new GameInvalidException('Game spell touch is not allowed at range');
         }
 
-        $distanceIpari = $this->int($body, 'distanceIpari', 0);
+        $distance = $this->distance->value([
+            'distance' => $body['distance'] ?? null,
+            'distanceIpari' => $body['distanceIpari'] ?? null,
+        ]);
         $rangeLimit = $upgrades->getRangeLimit();
-        if ($rangeLimit !== null && $distanceIpari > $rangeLimit) {
+        if ($rangeLimit !== null && $distance->compare(new DimensionalNumber($rangeLimit, 0)) > 0) {
             throw new GameInvalidException('Game spell target is out of range');
         }
+        $distanceIpari = $distance->toInteger();
 
         $target = $this->target($game, $slice, $body, $spell, $upgrades->isRange());
         $damageTarget = $target ?? $touchTarget;
@@ -1092,22 +1099,6 @@ final class GameSpellCastFacts
         }
 
         return $value;
-    }
-
-    /**
-     * Неотрицательное целое поля.
-     *
-     * @param array<string, mixed> $body Тело.
-     * @param string $key Ключ.
-     * @param int $default Значение по умолчанию.
-     *
-     * @return int Значение.
-     */
-    private function int(array $body, string $key, int $default): int
-    {
-        $value = $body[$key] ?? null;
-
-        return is_int($value) && $value >= 0 ? $value : $default;
     }
 
     /**

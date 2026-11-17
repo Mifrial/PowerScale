@@ -85,6 +85,40 @@ final class GameSpellCastBodyTest extends TestCase
     }
 
     /**
+     * Размерная дистанция принимается как канон и даёт целое ипари.
+     *
+     * @return void
+     */
+    public function testNormalizesDimensionalDistance(): void
+    {
+        $distance = [
+            'type' => 'ipari',
+            'value' => ['type' => 'literal', 'value' => ['base' => 2, 'size' => 1]],
+        ];
+        $body = (new GameSpellCastBody())->parse($this->input(distanceIpari: null, distance: $distance));
+
+        self::assertSame(4, $body['distanceIpari']);
+        self::assertSame($distance, $body['distance']);
+    }
+
+    /**
+     * Размерная дистанция и старое целое не могут расходиться.
+     *
+     * @return void
+     */
+    public function testRejectsMismatchedDistance(): void
+    {
+        $this->expectException(ActionException::class);
+        (new GameSpellCastBody())->parse($this->input(
+            distanceIpari: 2,
+            distance: [
+                'type' => 'ipari',
+                'value' => ['type' => 'literal', 'value' => ['base' => 4, 'size' => 0]],
+            ],
+        ));
+    }
+
+    /**
      * Список улучшений нормализуется.
      *
      * @return void
@@ -120,8 +154,9 @@ final class GameSpellCastBodyTest extends TestCase
      * @param array<mixed>|null $usedPower Мощь.
      * @param array<mixed>|null $target Цель.
      * @param int|null $expectedTargetVersion Версия цели.
-     * @param int $distanceIpari Дистанция.
+     * @param int|null $distanceIpari Дистанция.
      * @param array<mixed> $upgrades Улучшения.
+     * @param array<mixed>|null $distance Размерная дистанция.
      *
      * @return CastGameSpellInput Вход.
      */
@@ -130,8 +165,9 @@ final class GameSpellCastBodyTest extends TestCase
         ?array $usedPower = null,
         ?array $target = null,
         ?int $expectedTargetVersion = 2,
-        int $distanceIpari = 1,
+        ?int $distanceIpari = 1,
         array $upgrades = [],
+        ?array $distance = null,
     ): CastGameSpellInput {
         return new CastGameSpellInput(
             1,
@@ -151,6 +187,8 @@ final class GameSpellCastBodyTest extends TestCase
             $target ?? ['type' => 'npc', 'id' => 7],
             $distanceIpari,
             $upgrades,
+            null,
+            $distance,
         );
     }
 }

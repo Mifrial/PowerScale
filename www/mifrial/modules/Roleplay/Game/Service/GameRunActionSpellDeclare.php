@@ -61,6 +61,7 @@ final class GameRunActionSpellDeclare
             $context['distanceIpari'],
             $context['upgrades'] ?? [],
             $context['chargeSpellId'] ?? null,
+            $context['distance'] ?? null,
         ));
         $result = ($parsed['phase'] ?? 'declare') === 'check'
             ? $this->cast->check(

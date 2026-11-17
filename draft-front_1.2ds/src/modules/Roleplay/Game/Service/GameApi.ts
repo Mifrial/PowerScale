@@ -1352,7 +1352,7 @@ export class GameApi implements IGameApi {
             parameters: body.parameters,
             usedPower: body.usedPower,
             ...(body.target ? { target: body.target, expectedTargetVersion: body.expectedTargetVersion } : {}),
-            ...(body.distanceIpari ? { distanceIpari: body.distanceIpari } : {}),
+            ...(body.distance ? { distance: body.distance } : {}),
             ...(body.upgrades ? { upgrades: body.upgrades } : {}),
             ...(body.chargeSpellId ? { chargeSpellId: body.chargeSpellId } : {}),
           },
