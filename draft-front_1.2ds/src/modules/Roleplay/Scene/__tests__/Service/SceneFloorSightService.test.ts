@@ -155,6 +155,32 @@ describe('SceneFloorSightService', () => {
     ).toBe(false);
   });
 
+  it('стены нижнего этажа перекрывают луч, ушедший вниз', () => {
+    // Луч с верхнего этажа к воде опускается ниже пола своего этажа и проходит
+    // под его стеной. Стена нижнего этажа на том же месте обязана его
+    // остановить: раньше она отбрасывалась как «ниже наблюдателя», и свет
+    // уходил полосой за дом.
+    const base: SceneElement[] = [
+      element(10, 1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2000, h: 2000 }, { kind: 'grass' }),
+      element(20, 2, 'terrain', { type: 'rect', x: 0, y: 0, w: 400, h: 400 }, { kind: 'dirt' }),
+      element(30, 1, 'terrain', { type: 'rect', x: 700, y: 600, w: 400, h: 200 }, { kind: 'water', depth: 96 }),
+    ];
+    const wall = element(
+      40,
+      1,
+      'obstacle',
+      { type: 'wall', width: 16, points: [[700, 800], [1100, 800]] },
+      { height: 128 },
+    );
+    const sceneWith = service.scene({ ...model, elements: [...base, wall] });
+    const sceneWithout = service.scene({ ...model, elements: base });
+    const from: SceneFloorSightPoint = { boardId: 2, point: [200, 200], height: 96 };
+    const to: SceneFloorSightPoint = { boardId: 1, point: [900, 700], height: 96, surface: -96 };
+
+    expect(service.seesSurface(sceneWith, from, to, { slabs: false })).toBe(false);
+    expect(service.seesSurface(sceneWithout, from, to, { slabs: false })).toBe(true);
+  });
+
   it('видит клетку двора через окно, но не под плитой', () => {
     expect(
       service.seesSurface(scene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [840, 100], height: 96 }),
