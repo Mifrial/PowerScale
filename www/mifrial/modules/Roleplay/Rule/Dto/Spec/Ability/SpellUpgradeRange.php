@@ -12,25 +12,25 @@ final class SpellUpgradeRange
     /**
      * Создаёт форму дальности.
      *
-     * @param int $powerSizePerStep Размеров Требуемой мощи за шаг дистанции.
+     * @param int $powerPerStep Пунктов Требуемой мощи за шаг дистанции.
      * @param int $controlBase Добавка к Требуемому контролю.
      *
      * @return void
      */
     public function __construct(
-        private readonly int $powerSizePerStep,
+        private readonly int $powerPerStep,
         private readonly int $controlBase,
     ) {
     }
 
     /**
-     * Размеров мощи за шаг.
+     * Пунктов мощи за шаг.
      *
      * @return int Число.
      */
-    public function getPowerSizePerStep(): int
+    public function getPowerPerStep(): int
     {
-        return $this->powerSizePerStep;
+        return $this->powerPerStep;
     }
 
     /**

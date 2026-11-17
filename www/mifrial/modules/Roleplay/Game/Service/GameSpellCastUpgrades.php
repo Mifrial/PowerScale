@@ -17,7 +17,6 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgrade;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
 /**
  * Разрешение улучшений каста по форме spell_upgrade.
@@ -440,7 +439,7 @@ final class GameSpellCastUpgrades
     ): GameSpellCastAppliedUpgrade {
         $perStep = $upgrade->getResistancePenetrationPerStep();
         $range = $upgrade->getRange();
-        $rangePower = $range === null ? 0 : $value * $range->getPowerSizePerStep() * CharacteristicNumber::BASE_STEP;
+        $rangePower = $range === null ? 0 : $value * $range->getPowerPerStep();
 
         return new GameSpellCastAppliedUpgrade(
             $rule->getCode(),

@@ -19,10 +19,10 @@ export interface SpellUpgrade {
   /** Источник преимущества: одинаковый у нескольких улучшений даёт одно преимущество, а не сумму. */
   check_advantage_source?: string;
   /**
-   * Дальность вместо касания: цель выбирается на расстоянии `value` ипари.
-   * Требуемая мощь растёт на `power_size_per_step` размеров за шаг, контроль — на `control_base`.
+   * Дальность вместо касания: `value` — предел дальности в ипари.
+   * Требуемая мощь растёт на `power_per_step` пунктов за шаг, контроль — на `control_base`.
    */
-  range?: { power_size_per_step: number; control_base: number };
+  range?: { power_per_step: number; control_base: number };
   /** Состояние остаётся после срока заклинания (постоянно). */
   state_permanence?: boolean;
   chain?: SpellChain;

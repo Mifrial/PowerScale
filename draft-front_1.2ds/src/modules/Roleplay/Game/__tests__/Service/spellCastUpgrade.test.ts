@@ -314,7 +314,7 @@ describe('SpellCastUpgradeService', () => {
         spell_upgrade: {
           action_point_delta: 0,
           keyword_codes: ['nolomancy'],
-          range: { power_size_per_step: 1, control_base: 2 },
+          range: { power_per_step: 1, control_base: 2 },
         },
       },
     };
@@ -349,7 +349,7 @@ describe('SpellCastUpgradeService', () => {
     expect(selected).toHaveLength(1);
     expect(spellCastUpgradeService.hasRange(selected)).toBe(true);
     expect(spellCastUpgradeService.rangeLimit(selected, { 'gaze-curse': 3 })).toBe(3);
-    expect(spellCastUpgradeService.requiredPowerDelta(selected, { 'gaze-curse': 3 })).toBe(9);
+    expect(spellCastUpgradeService.requiredPowerDelta(selected, { 'gaze-curse': 3 })).toBe(3);
     expect(spellCastUpgradeService.requiredControlDelta(selected)).toBe(2);
     expect(spellCastUpgradeService.requestOf(selected, { 'gaze-curse': 3 })).toEqual([
       { code: 'gaze-curse', value: 3 },

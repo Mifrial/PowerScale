@@ -23,7 +23,7 @@ final class SpellUpgradeSpecTest extends TestCase
         $read = RuleSpecs::read('ability', $this->skill([
             'action_point_delta' => 0,
             'keyword_codes' => ['nolomancy'],
-            'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+            'range' => ['power_per_step' => 1, 'control_base' => 2],
         ]));
 
         self::assertFalse($read->isBroken(), (string) $read->getShapeKey());
@@ -31,7 +31,7 @@ final class SpellUpgradeSpecTest extends TestCase
         self::assertInstanceOf(AbilityWithBase::class, $spec);
         $range = $spec->getBase()->getSpellUpgrade()?->getRange();
         self::assertNotNull($range);
-        self::assertSame(1, $range->getPowerSizePerStep());
+        self::assertSame(1, $range->getPowerPerStep());
         self::assertSame(2, $range->getControlBase());
     }
 
@@ -44,11 +44,11 @@ final class SpellUpgradeSpecTest extends TestCase
     {
         $zeroStep = RuleSpecs::read('ability', $this->skill([
             'action_point_delta' => 0,
-            'range' => ['power_size_per_step' => 0, 'control_base' => 2],
+            'range' => ['power_per_step' => 0, 'control_base' => 2],
         ]));
         $negativeControl = RuleSpecs::read('ability', $this->skill([
             'action_point_delta' => 0,
-            'range' => ['power_size_per_step' => 1, 'control_base' => -1],
+            'range' => ['power_per_step' => 1, 'control_base' => -1],
         ]));
 
         self::assertTrue($zeroStep->isBroken());
@@ -65,7 +65,7 @@ final class SpellUpgradeSpecTest extends TestCase
         $read = RuleSpecs::read('ability', $this->skill([
             'action_point_delta' => 1,
             'resistance_penetration_per_step' => 1,
-            'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+            'range' => ['power_per_step' => 1, 'control_base' => 2],
         ]));
 
         self::assertTrue($read->isBroken());

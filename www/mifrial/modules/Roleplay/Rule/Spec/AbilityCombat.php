@@ -243,7 +243,7 @@ final class AbilityCombat
             return null;
         }
 
-        $powerStep = SpecShape::int($range, 'power_size_per_step');
+        $powerStep = SpecShape::int($range, 'power_per_step');
         $control = SpecShape::int($range, 'control_base');
         if ($powerStep < 1 || $control < 0) {
             throw new RuleSpecShapeException('spell_upgrade.range');

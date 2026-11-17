@@ -8834,8 +8834,8 @@
             ],
             "basis": null,
             "date": "2026-11-16",
-            "bytes": 25262,
-            "lines": 326,
+            "bytes": 25514,
+            "lines": 327,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -9553,7 +9553,7 @@
             ],
             "basis": "PHP",
             "date": "2026-11-17",
-            "bytes": 11517,
+            "bytes": 11686,
             "lines": 145,
             "modules": [
                 "Roleplay/Rule"
@@ -9578,7 +9578,7 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 47695,
+            "bytes": 47759,
             "lines": 478,
             "modules": [
                 "Roleplay/Rule"

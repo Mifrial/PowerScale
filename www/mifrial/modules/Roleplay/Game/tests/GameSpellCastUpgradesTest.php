@@ -781,7 +781,7 @@ final class GameSpellCastUpgradesTest extends TestCase
             'spell_upgrade' => [
                 'action_point_delta' => 0,
                 'keyword_codes' => ['nolomancy'],
-                'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+                'range' => ['power_per_step' => 1, 'control_base' => 2],
             ],
         ]));
 
@@ -795,7 +795,7 @@ final class GameSpellCastUpgradesTest extends TestCase
 
         self::assertTrue($resolution->isRange());
         self::assertSame(3, $resolution->getRangeLimit());
-        self::assertSame(9, $resolution->getRequiredPowerDelta());
+        self::assertSame(3, $resolution->getRequiredPowerDelta());
         self::assertSame(2, $resolution->getRequiredControlDelta());
         self::assertFalse($resolution->hasStatePermanence());
     }
@@ -810,7 +810,7 @@ final class GameSpellCastUpgradesTest extends TestCase
         $upgrade = $this->upgradeRule('gaze-curse', $this->skill([
             'spell_upgrade' => [
                 'action_point_delta' => 0,
-                'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+                'range' => ['power_per_step' => 1, 'control_base' => 2],
             ],
         ]));
 

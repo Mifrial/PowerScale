@@ -8,9 +8,6 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/init';
 
-/** Сколько пунктов шкалы характеристик в одном размере. */
-const CHARACTERISTIC_STEP = 3;
-
 /** Какие `spell_upgrade` можно отметить на этот каст. */
 export class SpellCastUpgradeService {
   listApplicable(
@@ -244,7 +241,7 @@ export class SpellCastUpgradeService {
       return 0;
     }
 
-    return this.parameterValue(option, values) * range.power_size_per_step * CHARACTERISTIC_STEP;
+    return this.parameterValue(option, values) * range.power_per_step;
   }
 
   private parameterValue(option: SpellCastUpgradeOption, values: Readonly<Record<string, number>>): number {

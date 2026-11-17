@@ -4372,7 +4372,7 @@ final class GameStrikeMysqlTest extends TestCase
                 'type' => 'skill',
                 'spell_upgrade' => [
                     'action_point_delta' => 0,
-                    'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+                    'range' => ['power_per_step' => 1, 'control_base' => 2],
                 ],
                 'parent_ability_code' => null,
             ],
