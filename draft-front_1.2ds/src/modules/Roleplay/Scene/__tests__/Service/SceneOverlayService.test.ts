@@ -359,6 +359,64 @@ describe('SceneOverlayService', () => {
     expect(fallback.alpha[fineIndex(fallback, [256, 256])]).toBe(0);
   });
 
+  it('с марша под крышей двор за стеной не открывается', () => {
+    const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
+    const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };
+    const enclosure: SceneEnclosure = {
+      id: 1,
+      parentBoardId: 1,
+      childBoardId: 2,
+      footprint: { type: 'rect', x: 128, y: 128, w: 256, h: 256 },
+      elevation: 128,
+      label: null,
+      sortOrder: 0,
+    };
+    const wall = (id: number, shape: SceneShape): SceneElement =>
+      onBoard(2, id, 'obstacle', shape, { height: 128, blocksMovement: true, blocksVision: true });
+    const elements = [
+      onBoard(1, 1, 'terrain', { type: 'rect', x: 0, y: 0, w: 512, h: 512 }, { kind: 'grass' }),
+      onBoard(2, 2, 'terrain', { type: 'rect', x: 0, y: 0, w: 256, h: 256 }, { kind: 'grass' }),
+      onBoard(
+        2,
+        3,
+        'support',
+        { type: 'rect', x: 32, y: 32, w: 192, h: 192 },
+        { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+      ),
+      onBoard(
+        2,
+        4,
+        'support',
+        { type: 'rect', x: 48, y: 112, w: 160, h: 32 },
+        { kind: 'stairs', elevation: 128, height: 16, speed: 100 },
+      ),
+      wall(5, { type: 'rect', x: 32, y: 32, w: 192, h: 16 }),
+      wall(6, { type: 'rect', x: 32, y: 208, w: 192, h: 16 }),
+      wall(7, { type: 'rect', x: 32, y: 32, w: 16, h: 192 }),
+      wall(8, { type: 'rect', x: 208, y: 32, w: 16, h: 192 }),
+    ];
+    const model: SceneRenderModel = {
+      activeBoardId: 2,
+      resolution: 64,
+      boards: [root, upper],
+      elements,
+      enclosures: [enclosure],
+      selection: [],
+      mode: 'preview',
+    };
+    const paints = service.paints(
+      model,
+      { costs: false, visibility: true, observer: null, radius: 400 },
+      { boardId: 2, point: [140, 128], level: 1, onRoof: false, height: 96 },
+    );
+    const rootPaint = paints.find((paint) => paint.boardId === 1);
+    expect(rootPaint?.fog).not.toBeNull();
+
+    // Середина марша: без ограничения глаз был бы выше стены (128+73+86),
+    // а с ним остаётся под крышей и двор за стеной закрыт.
+    expect(rootPaint!.fog!.alpha[fineIndex(rootPaint!.fog!, [64, 256])]).toBeGreaterThan(0);
+  });
+
   it('не отдаёт оверлеев, когда они выключены', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const paint = service.build(1, grid, { costs: false, visibility: false, observer: null, radius: null }, 64, null);

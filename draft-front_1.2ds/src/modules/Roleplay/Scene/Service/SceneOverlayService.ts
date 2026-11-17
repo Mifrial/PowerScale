@@ -178,10 +178,46 @@ export class SceneOverlayService {
         boardId: observer.boardId,
         point: observer.point,
         height: observer.height,
-        surface,
+        // Глаз под потолком: марш под крышей не должен смотреть поверх стен
+        // своего этажа только потому, что он уже поднялся над полом.
+        surface: level === null ? surface : this.belowCeiling(level, observer, surface, scene.resolution),
       },
       { slabs: !onRoof, onRoof },
     );
+  }
+
+  /**
+   * Пол наблюдателя, ограниченный низом потолка.
+   *
+   * Межэтажный луч строит глаз как `пол + рост`; на марше под крышей пол
+   * нельзя поднимать выше зазора, иначе луч начинался бы над крышей и двор
+   * открывался бы кругом. На самой крыше её низ уже под ногами — ограничение
+   * не срабатывает, а на люке полоса снята.
+   */
+  private belowCeiling(
+    grid: SceneSurfaceGrid,
+    observer: SceneOverlayObserver,
+    surface: number,
+    resolution: number,
+  ): number {
+    const index = surfaceIndex(grid, observer.point[0], observer.point[1]);
+    if (index < 0) {
+      return surface;
+    }
+
+    const bottom = grid.sightBottom[index];
+    if (!Number.isFinite(bottom)) {
+      return surface;
+    }
+
+    const ceiling = bottom * Math.max(1, resolution);
+    if (surface >= ceiling) {
+      return surface;
+    }
+
+    const eye = sceneSightEyeIpari(observer.height ?? sceneBodyHeight(resolution), resolution) * Math.max(1, resolution);
+
+    return Math.min(surface, ceiling - eye);
   }
 
   /**
