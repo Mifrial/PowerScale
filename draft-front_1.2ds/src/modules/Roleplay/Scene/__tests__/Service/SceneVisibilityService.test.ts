@@ -163,6 +163,47 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(grid, [80, 320], [320, 320], undefined, undefined, 0, 1)).toBe(true);
   });
 
+  it('видит сквозь окно между подоконником и перемычкой, но не над ней', () => {
+    const grid = surfaces.build(
+      board,
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          {
+            type: 'wall',
+            width: 16,
+            points: [
+              [128, 0],
+              [128, 256],
+            ],
+          },
+          { height: 128 },
+        ),
+        element(
+          3,
+          'opening',
+          {
+            type: 'wall',
+            width: 16,
+            points: [
+              [128, 96],
+              [128, 160],
+            ],
+          },
+          { kind: 'window', state: 'closed', sill: 32, lintel: 88 },
+        ),
+      ],
+      64,
+    );
+
+    // Глаз между подоконником (0.5) и перемычкой (1.375) — проём открыт.
+    expect(service.map(grid, [40, 128], 1200, 0.9).visible[cellOf(grid, 13, 8)]).toBe(1);
+    // Глаз выше перемычки смотрит в стену над окном, а не сквозь неё.
+    expect(service.map(grid, [40, 128], 1200, 1.6).visible[cellOf(grid, 13, 8)]).toBe(0);
+  });
+
   it('не скрывает цель за низким перекрытием: голова остаётся видна', () => {
     const large: SceneBoard = { ...board, boundWidth: 640, boundHeight: 640 };
     const grid = surfaces.build(

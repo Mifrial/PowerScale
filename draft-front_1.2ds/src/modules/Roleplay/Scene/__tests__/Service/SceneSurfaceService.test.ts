@@ -799,12 +799,15 @@ describe('SceneSurfaceService', () => {
     const inWall = cellOf(grid, 6, 6);
 
     // Окно занимает клетку, но не пускает: подоконник перекрывает низ,
-    // выше него обзор открыт.
+    // перемычка — верх, а между ними проём.
     expect(grid.speeds[inWindow]).toBe(0);
     expect(grid.sightBottom[inWindow]).toBe(0);
     expect(grid.sightTop[inWindow]).toBeCloseTo(0.5);
+    expect(grid.sightBottom2[inWindow]).toBeCloseTo(86 / 64);
+    expect(grid.sightTop2[inWindow]).toBe(Number.POSITIVE_INFINITY);
     // Стена рядом с окном непрозрачна на всю высоту.
     expect(grid.sightTop[inWall]).toBe(Number.POSITIVE_INFINITY);
+    expect(grid.sightBottom2[inWall]).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('стеклянная дверь закрыта, но прозрачна', () => {

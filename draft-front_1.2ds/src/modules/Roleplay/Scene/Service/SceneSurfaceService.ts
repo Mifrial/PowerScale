@@ -7,6 +7,7 @@ import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurface
 import type { SceneSurfaceKind } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceKind';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import {
   sceneDecorFootprint,
@@ -159,6 +160,8 @@ export class SceneSurfaceService {
       clearance: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightBottom: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
       sightTop: new Float32Array(size).fill(Number.NEGATIVE_INFINITY),
+      sightBottom2: new Float32Array(size).fill(Number.POSITIVE_INFINITY),
+      sightTop2: new Float32Array(size).fill(Number.NEGATIVE_INFINITY),
     };
 
     const own = elements.filter((element) => element.boardId === board.id);
@@ -487,8 +490,12 @@ export class SceneSurfaceService {
 
       const window = element.props.kind === 'window';
       const open = element.props.state === 'open';
-      // Подоконник хранится в единицах сцены, а полоса обзора — в ипари.
-      const sill = window ? Math.max(0, Math.round(element.props.sill ?? 0)) / Math.max(1, grid.resolution) : 0;
+      // Подоконник и перемычка хранятся в единицах сцены, полосы — в ипари.
+      const base = Math.max(1, grid.resolution);
+      const sill = window ? Math.max(0, Math.round(element.props.sill ?? 0)) / base : 0;
+      const lintel = window
+        ? Math.max(0, Math.round(element.props.lintel ?? SCENE_WALL.windowLintelIpari * base)) / base
+        : 0;
       this.paintShape(
         grid,
         element.shape,
@@ -504,12 +511,16 @@ export class SceneSurfaceService {
 
           grid.speeds[index] = 0;
           if (window) {
-            // Окно: видно выше подоконника, но не пройти. Перемычку держит
-            // сетка батлграунда; в предпросмотре полоса одна — подоконник.
+            // Окно: видно между подоконником и перемычкой, но не пройти.
+            // Две полосы нужны потому, что одной не описать окно: объединение
+            // подоконника и перемычки дало бы глухую стену, а только
+            // подоконник выпускал бы луч выше окна — сквозь стену над ним.
+            this.clearOccluder(grid, index);
             if (sill > 0) {
               this.paintOccluder(grid, index, 0, sill);
-            } else {
-              this.clearOccluder(grid, index);
+            }
+            if (lintel > 0) {
+              this.paintLintel(grid, index, lintel);
             }
 
             return;
@@ -530,10 +541,23 @@ export class SceneSurfaceService {
     }
   }
 
-  /** Убирает перекрытие обзора из клетки. */
+  /** Убирает перекрытие обзора из клетки: обе полосы. */
   private clearOccluder(grid: SceneSurfaceGrid, index: number): void {
     grid.sightBottom[index] = Number.POSITIVE_INFINITY;
     grid.sightTop[index] = Number.NEGATIVE_INFINITY;
+    grid.sightBottom2[index] = Number.POSITIVE_INFINITY;
+    grid.sightTop2[index] = Number.NEGATIVE_INFINITY;
+  }
+
+  /**
+   * Перемычка окна: вторая полоса от её низа до неба.
+   *
+   * Выше перемычки идёт стена, а её верх в сетке не хранится: окно — не
+   * отдельный этаж. Поэтому вторая полоса закрыта до неба.
+   */
+  private paintLintel(grid: SceneSurfaceGrid, index: number, bottom: number): void {
+    grid.sightBottom2[index] = Math.min(grid.sightBottom2[index], bottom);
+    grid.sightTop2[index] = Math.max(grid.sightTop2[index], Number.POSITIVE_INFINITY);
   }
 
   /**

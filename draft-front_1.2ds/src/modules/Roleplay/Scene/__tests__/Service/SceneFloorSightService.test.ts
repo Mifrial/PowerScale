@@ -130,6 +130,31 @@ describe('SceneFloorSightService', () => {
     expect(service.sees(scene, { boardId: 2, point: [300, 200] }, { boardId: 1, point: [1000, 100] })).toBe(false);
   });
 
+  it('видит воду нижнего этажа сквозь окно, а не только сушу', () => {
+    // Вода лежит ниже пола: её поверхность — не плита. Пол над прудом не
+    // должен перекрывать луч, иначе вода с другого этажа всегда в тумане.
+    const waterModel: SceneRenderModel = {
+      ...model,
+      elements: [
+        ...elements,
+        element(30, 1, 'terrain', { type: 'rect', x: 700, y: 300, w: 400, h: 400 }, { kind: 'water', depth: 96 }),
+      ],
+    };
+    const waterScene = service.scene(waterModel);
+
+    expect(
+      service.seesSurface(waterScene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [850, 500], height: 96 }),
+    ).toBe(true);
+    // Берег севернее пруда виден так же: вырез не открывает лишнего.
+    expect(
+      service.seesSurface(waterScene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [850, 250], height: 96 }),
+    ).toBe(true);
+    // За глухой частью той же стены — по-прежнему скрыто.
+    expect(
+      service.seesSurface(waterScene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [1200, 500], height: 96 }),
+    ).toBe(false);
+  });
+
   it('видит клетку двора через окно, но не под плитой', () => {
     expect(
       service.seesSurface(scene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [840, 100], height: 96 }),

@@ -74,6 +74,8 @@ export interface SceneFloorSightLevel {
   elevation: number;
   /** Плита: террейн этажа, кроме воды. */
   slabs: SceneShapeProbe[];
+  /** Вода этажа: поверхность ниже пола, поэтому пола над ней нет. */
+  waters: SceneShapeProbe[];
   /** Колодцы и площадки в плите: проёмы-лестницы. */
   holes: SceneShapeProbe[];
   /** Стены этажа. */
@@ -165,6 +167,7 @@ export class SceneFloorSightService {
         elevation: elevations.get(board.id) ?? 0,
         slabs: [],
         holes: [],
+        waters: [],
         walls: [],
         openings: [],
         bounds,
@@ -177,7 +180,16 @@ export class SceneFloorSightService {
           continue;
         }
 
-        if (element.kind === 'terrain' && element.props.kind !== 'water' && element.shape.type !== 'point') {
+        if (element.kind === 'terrain' && element.shape.type !== 'point') {
+          if (element.props.kind === 'water') {
+            // Вода — не плита: её поверхность лежит ниже пола, и луч к ней
+            // идёт вниз. Если оставить пол над водой, он перекроет луч, и
+            // вода с другого этажа всегда останется в тумане.
+            level.waters.push(this.geometry.probe(element.shape));
+
+            continue;
+          }
+
           level.slabs.push(this.geometry.probe(element.shape));
 
           continue;
@@ -219,7 +231,13 @@ export class SceneFloorSightService {
         bounds,
         cell,
         level.slabs,
-        level.holes.map((probe) => ({ probe, tolerance: cell / 2 })),
+        [
+          ...level.holes.map((probe) => ({ probe, tolerance: cell / 2 })),
+          // Вода — дыра в плите: её поверхность ниже пола. Без выреза пол над
+          // водой перекрывал бы луч к ней, и с другого этажа вода не виднелась
+          // бы никогда.
+          ...level.waters.map((probe) => ({ probe, tolerance: 0 })),
+        ],
         cell / 2,
       );
       if (level.walls.length > 0) {

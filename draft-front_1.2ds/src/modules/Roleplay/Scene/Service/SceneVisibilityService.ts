@@ -150,7 +150,7 @@ export class SceneVisibilityService {
       // Клетка на пути: без вызовов и проверок границ — отрезок между двумя
       // клетками сетки всегда остаётся внутри её прямоугольника.
       const index = row * grid.columns + column;
-      if (eye > grid.sightBottom[index] && eye <= grid.sightTop[index]) {
+      if (this.opaqueAt(grid, index, eye)) {
         return false;
       }
     }
@@ -176,15 +176,24 @@ export class SceneVisibilityService {
    * Клетка перекрывает взгляд на высоте глаз.
    *
    * Луч ровно на верхней кромке тоже перекрыт: глаз, поднятый до верха стены
-   * или потолка, иначе проскакивал бы поверх неё.
+   * или потолка, иначе проскакивал бы поверх неё. Полос у клетки две: у окна
+   * это подоконник и перемычка, между ними — проём.
    */
   private opaqueAt(grid: SceneSurfaceGrid, index: number, eye: number): boolean {
-    const bottom = grid.sightBottom[index];
+    if (this.insideBandOf(grid.sightBottom[index], grid.sightTop[index], eye)) {
+      return true;
+    }
+
+    return this.insideBandOf(grid.sightBottom2[index], grid.sightTop2[index], eye);
+  }
+
+  /** Высота внутри полосы `bottom…top`; пустая полоса не перекрывает. */
+  private insideBandOf(bottom: number, top: number, height: number): boolean {
     if (!Number.isFinite(bottom)) {
       return false;
     }
 
-    return eye > bottom && eye <= grid.sightTop[index];
+    return height > bottom && height <= top;
   }
 
   /**
@@ -240,12 +249,19 @@ export class SceneVisibilityService {
 
   /** Глаз внутри полосы исходной клетки: луч не выйдет наружу. */
   private insideBand(grid: SceneSurfaceGrid, cell: number, height: number): boolean {
-    const bottom = grid.sightBottom[cell];
+    return (
+      this.strictlyInside(grid.sightBottom[cell], grid.sightTop[cell], height) ||
+      this.strictlyInside(grid.sightBottom2[cell], grid.sightTop2[cell], height)
+    );
+  }
+
+  /** Высота строго внутри полосы `bottom…top`; пустая полоса не перекрывает. */
+  private strictlyInside(bottom: number, top: number, height: number): boolean {
     if (!Number.isFinite(bottom)) {
       return false;
     }
 
-    return height > bottom && height < grid.sightTop[cell];
+    return height > bottom && height < top;
   }
 
   /**
@@ -355,14 +371,25 @@ export class SceneVisibilityService {
       if (cell < 0 || cell === origin || cell === target) {
         continue;
       }
-      const bottom = grid.sightBottom[cell];
-      if (!Number.isFinite(bottom)) {
-        continue;
-      }
-      const top = grid.sightTop[cell];
-      this.pushInterval(start + (bottom - start) / t, start + (top - start) / t, min, max);
+      this.pushBand(start, t, grid.sightBottom[cell], grid.sightTop[cell], min, max);
+      // Вторая полоса — перемычка окна: тело закрывает и она.
+      this.pushBand(start, t, grid.sightBottom2[cell], grid.sightTop2[cell], min, max);
     }
 
     return !this.covered(min, max);
+  }
+
+  /** Добавляет в закрытые интервалы полосу клетки, пересчитанную на тело цели. */
+  private pushBand(start: number, t: number, bottom: number, top: number, min: number, max: number): void {
+    if (!Number.isFinite(bottom)) {
+      return;
+    }
+
+    const lo = start + (bottom - start) / t;
+    if (lo >= max) {
+      return;
+    }
+
+    this.pushInterval(lo, start + (top - start) / t, min, max);
   }
 }
