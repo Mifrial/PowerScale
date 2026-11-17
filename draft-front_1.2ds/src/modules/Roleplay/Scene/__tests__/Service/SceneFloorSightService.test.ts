@@ -158,6 +158,17 @@ describe('SceneFloorSightService', () => {
     ).toBe(true);
   });
 
+  it('стены верхнего этажа ограничивают луч с марша', () => {
+    // Наблюдатель стоит на верхней ступени (уровень пола этажа): глаз ниже
+    // верхнего этажа, но выше стен своего. Луч идёт через колодец и упирается
+    // в стену верхнего этажа, а не проходит сквозь неё.
+    const from: SceneFloorSightPoint = { boardId: 1, point: [900, 900], surface: 128 };
+
+    expect(service.sees(scene, from, { boardId: 2, point: [220, 20] })).toBe(false);
+    // В окно той же стены тот же луч проходит.
+    expect(service.sees(scene, from, { boardId: 2, point: [140, 20] })).toBe(true);
+  });
+
   it('на одном поле не считает: там обзор по сетке', () => {
     expect(service.sees(scene, { boardId: 2, point: [100, 100] }, { boardId: 2, point: [300, 300] })).toBe(true);
   });

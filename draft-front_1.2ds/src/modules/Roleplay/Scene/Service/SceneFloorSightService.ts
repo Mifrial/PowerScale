@@ -8,7 +8,7 @@ import {
   type SceneFloorTransform,
 } from '@/modules/Roleplay/Scene/Service/SceneFloorPlanService';
 import { SceneGeometryService, type SceneShapeProbe } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
-import { SceneSightQuery } from '@/modules/Roleplay/Scene/Service/SceneSightQuery';
+import { SceneSightQuery, type SceneSightWall } from '@/modules/Roleplay/Scene/Service/SceneSightQuery';
 import { sceneBodyHeight, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Точка взгляда на этаже: поле, локальная точка и рост тела. */
@@ -116,8 +116,8 @@ const BODY_SHARES = [0.5, 0.75, 0.9] as const;
  * наблюдатель: иначе марш у верха или колодец открывали бы взгляд поверх стен
  * своего этажа.
  *
- * Стена этажа наблюдателя перекрывает луч; проём в ней — дверь, окно, ворота
- * — считается прозрачным целиком. Подоконник и перемычка важны для обзора
+ * Стены своего и верхних этажей перекрывают луч; проём в них — дверь, окно,
+ * ворота — считается прозрачным целиком. Подоконник и перемычка важны для обзора
  * внутри этажа, а не для межэтажной визуализации: сверху окно читается как
  * проём. Стены нижних этажей не мешают — наблюдатель смотрит поверх них, а
  * перекрытие проверяет плита.
@@ -307,9 +307,31 @@ export class SceneFloorSightService {
     const level = scene.levels.get(from.boardId);
     const fromRoot = level === undefined ? from.point : this.floors.toRoot(level.transform, from.point);
     const eye = this.eyeOf(scene, from);
-    const wall = options.onRoof === true ? null : (level?.wall ?? null);
+    const walls: SceneSightWall[] = [];
+    for (const other of scene.levels.values()) {
+      if (other.wall === null) {
+        continue;
+      }
 
-    return new SceneSightQuery(scene, this.floors, from, fromRoot, eye, wall, options.slabs !== false);
+      // Стены ниже наблюдателя не мешают: он смотрит поверх них, а перекрытие
+      // проверяет плита. Свои стены нужны, пока он не на крыше; стены верхних
+      // этажей — всегда, с марша луч идёт выше своего этажа.
+      if (level !== undefined && other.elevation < level.elevation) {
+        continue;
+      }
+
+      if (options.onRoof === true && other.boardId === from.boardId) {
+        continue;
+      }
+
+      walls.push({
+        raster: other.wall,
+        bottom: other.elevation,
+        top: other.walls.reduce((max, wall) => Math.max(max, wall.top), other.elevation),
+      });
+    }
+
+    return new SceneSightQuery(scene, this.floors, from, fromRoot, eye, walls, options.slabs !== false);
   }
 
   /** Глаз наблюдателя в мире корня, не выше потолка над ним. */
@@ -649,11 +671,12 @@ export class SceneFloorSightService {
   }
 
   /**
-   * Стены: стена этажа наблюдателя должна быть прорезана проёмом.
+   * Стены: луч не должен проходить сквозь стены своего и верхних этажей.
    *
-   * Стены ниже этажа наблюдателя не мешают: он смотрит поверх них, а перекрытие
-   * проверяет плита. Поэтому на пути проверяется только этаж, на котором стоит
-   * наблюдатель: из комнаты двор виден через окно, а не через глухую стену.
+   * Стены ниже наблюдателя не мешают: он смотрит поверх них, а перекрытие
+   * проверяет плита. С марша луч идёт выше своего этажа, поэтому стены
+   * верхнего этажа тоже проверяются. На крыше стены своего этажа
+   * пропускаются: наблюдатель выше них.
    *
    * Луч идёт шагами, потому что стена — полоса, а не точка.
    */
@@ -667,39 +690,57 @@ export class SceneFloorSightService {
     cut: SceneFloorSightOptions['cut'],
     onRoof: boolean,
   ): boolean {
-    // С крыши смотрят поверх стен своего этажа: они ниже настила.
-    if (onRoof) {
-      return true;
-    }
-
-    const level = scene.levels.get(fromBoardId);
-    if (level === undefined || level.walls.length === 0) {
-      return true;
-    }
-
     const distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const step = Math.max(1, scene.resolution / 16);
     const steps = Math.max(2, Math.ceil(distance / step));
+    const low = Math.min(eye, target);
+    const high = Math.max(eye, target);
+    const fromLevel = scene.levels.get(fromBoardId);
 
-    for (let index = 1; index < steps; index += 1) {
-      const t = index / steps;
-      const point: ScenePoint = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
-
-      // Стены разрезанного этажа внутри пятна плиты срезаны и в рисунке:
-      // взгляд сквозь них проходит.
-      if (cut !== undefined && cut.boardId === level.boardId && this.insideBounds(cut.bounds, point)) {
+    for (const level of scene.levels.values()) {
+      if (level.walls.length === 0) {
         continue;
       }
 
-      const height = eye + (target - eye) * t;
-      const local = this.floors.toLocal(level.transform, point);
-      if (!level.walls.some((wall) => wall.probe.contains(local, 0) && height < wall.top)) {
+      // Стены ниже наблюдателя не мешают: он смотрит поверх них, а перекрытие
+      // проверяет плита.
+      if (fromLevel !== undefined && level.elevation < fromLevel.elevation) {
         continue;
       }
 
-      // Стена найдена: луч проходит, только если здесь проём.
-      if (!level.openings.some((opening) => opening.probe.contains(local, opening.tolerance))) {
-        return false;
+      // С крыши смотрят поверх стен своего этажа: они ниже настила.
+      if (onRoof && level.boardId === fromBoardId) {
+        continue;
+      }
+
+      const top = level.walls.reduce((max, wall) => Math.max(max, wall.top), level.elevation);
+      if (high < level.elevation || low > top) {
+        continue;
+      }
+
+      for (let index = 1; index < steps; index += 1) {
+        const t = index / steps;
+        const height = eye + (target - eye) * t;
+        if (height < level.elevation) {
+          continue;
+        }
+
+        const point: ScenePoint = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+        // Стены разрезанного этажа внутри пятна плиты срезаны и в рисунке:
+        // взгляд сквозь них проходит.
+        if (cut !== undefined && cut.boardId === level.boardId && this.insideBounds(cut.bounds, point)) {
+          continue;
+        }
+
+        const local = this.floors.toLocal(level.transform, point);
+        if (!level.walls.some((wall) => wall.probe.contains(local, 0) && height < wall.top)) {
+          continue;
+        }
+
+        // Стена найдена: луч проходит, только если здесь проём.
+        if (!level.openings.some((opening) => opening.probe.contains(local, opening.tolerance))) {
+          return false;
+        }
       }
     }
 

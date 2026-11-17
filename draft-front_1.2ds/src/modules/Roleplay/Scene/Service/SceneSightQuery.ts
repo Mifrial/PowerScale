@@ -25,6 +25,15 @@ export interface SceneSightTarget {
   planes: SceneSightPlane[];
 }
 
+/** Стена этажа для луча: растр в мире корня и её вертикальные границы. */
+export interface SceneSightWall {
+  raster: SceneSightRaster;
+  /** Низ стены: пол этажа в мире корня. */
+  bottom: number;
+  /** Верх самой высокой стены этажа: для отсечения растра целиком. */
+  top: number;
+}
+
 /**
  * Видимость клеток чужих этажей за один тик.
  *
@@ -32,6 +41,10 @@ export interface SceneSightTarget {
  * клеток на пути луча, плиты — аффинной пробой точки пересечения плоскости.
  * Поэтому цена тика зависит от клеток в радиусе и стен на пути луча, но не от
  * числа домов в селе.
+ *
+ * Стены проверяются у своего и верхних этажей, а не только у этажа
+ * наблюдателя: с марша луч идёт выше своего этажа, и стены верхнего этажа
+ * должны его ограничивать.
  *
  * Плоскости для поля готовятся один раз (`prepare`), а не перебираются на
  * каждую клетку: у цели между глазом и телом обычно ноль или одна плита.
@@ -43,7 +56,7 @@ export class SceneSightQuery {
     private readonly from: SceneFloorSightPoint,
     private readonly fromRoot: ScenePoint,
     private readonly eye: number,
-    private readonly wall: SceneSightRaster | null,
+    private readonly walls: readonly SceneSightWall[],
     private readonly slabs: boolean,
   ) {}
 
@@ -95,7 +108,7 @@ export class SceneSightQuery {
     const rootX = transform.x + x * transform.scaleX;
     const rootY = transform.y + y * transform.scaleY;
     const targetHeight = target.elevation + surface + Math.max(1, height) * 0.9;
-    if (this.wall !== null && !this.clearWalls(rootX, rootY, targetHeight)) {
+    if (!this.clearWalls(rootX, rootY, targetHeight)) {
       return false;
     }
 
@@ -138,26 +151,47 @@ export class SceneSightQuery {
   }
 
   /**
-   * Отрезок в мире корня не задет стеной этажа наблюдателя.
+   * Отрезок в мире корня не задет стенами этажей.
    *
    * Идём по клеткам растра, которые реально пересекает отрезок (обход
    * Аманатидеса — Ву): в отличие от теневого литья по сетке, узкий проём не
-   * размывается в широкий конус на расстоянии.
+   * размывается в широкий конус на расстоянии. Стены проверяются у каждого
+   * этажа, чья полоса высот пересекает луч: с марша это и свой этаж, и
+   * верхний, стены которого иначе не ограничивали бы взгляд.
    *
    * Высота луча на входе в клетку — `eye + (target − eye) · t`, где `t` —
    * параметр обхода. Низкий забор пропускает взгляд поверх себя: стена
-   * перекрывает, только если луч прошёл ниже её верха.
+   * перекрывает, только если луч прошёл ниже её верха и не ниже её низа.
    *
    * @param rootX Точка цели по X в мире корня.
    * @param rootY Точка цели по Y.
    * @param targetHeight Высота точки тела цели над нулём корня.
    */
   private clearWalls(rootX: number, rootY: number, targetHeight: number): boolean {
-    const raster = this.wall;
-    if (raster === null) {
-      return true;
+    const low = Math.min(this.eye, targetHeight);
+    const high = Math.max(this.eye, targetHeight);
+    for (const wall of this.walls) {
+      // Луч целиком ниже или выше полосы стен этажа: растру его не проверить.
+      if (high < wall.bottom || low > wall.top) {
+        continue;
+      }
+
+      if (!this.clearWall(wall, rootX, rootY, targetHeight)) {
+        return false;
+      }
     }
 
+    return true;
+  }
+
+  /** Один растр стен: отрезок не задет его стенами. */
+  private clearWall(
+    wall: SceneSightWall,
+    rootX: number,
+    rootY: number,
+    targetHeight: number,
+  ): boolean {
+    const raster = wall.raster;
     const cell = raster.cell;
     const fromX = this.fromRoot[0];
     const fromY = this.fromRoot[1];
@@ -195,10 +229,10 @@ export class SceneSightQuery {
         // Луч прошёл ровно через общий угол клеток. Проверяем обе боковые
         // клетки, иначе диагональ проскальзывает между двумя стенами.
         at = nextX;
-        if (this.wallBlocks(raster, column + stepX, row, at, targetHeight)) {
+        if (this.wallBlocks(wall, column + stepX, row, at, targetHeight)) {
           return false;
         }
-        if (this.wallBlocks(raster, column, row + stepY, at, targetHeight)) {
+        if (this.wallBlocks(wall, column, row + stepY, at, targetHeight)) {
           return false;
         }
         column += stepX;
@@ -213,7 +247,7 @@ export class SceneSightQuery {
       if (column === endColumn && row === endRow) {
         break;
       }
-      if (this.wallBlocks(raster, column, row, at, targetHeight)) {
+      if (this.wallBlocks(wall, column, row, at, targetHeight)) {
         return false;
       }
     }
@@ -223,12 +257,13 @@ export class SceneSightQuery {
 
   /** Клетка растра перекрывает луч на его высоте в параметре `at`. */
   private wallBlocks(
-    raster: SceneSightRaster,
+    wall: SceneSightWall,
     column: number,
     row: number,
     at: number,
     targetHeight: number,
   ): boolean {
+    const raster = wall.raster;
     if (column < 0 || row < 0 || column >= raster.columns || row >= raster.rows) {
       return false;
     }
@@ -238,12 +273,16 @@ export class SceneSightQuery {
       return false;
     }
 
+    const height = this.eye + (targetHeight - this.eye) * at;
+    // Стена начинается от пола своего этажа: луч ниже него проходит под ней.
+    if (height < wall.bottom) {
+      return false;
+    }
+
     const top = raster.tops[index];
     if (top === SCENE_SIGHT_SKY) {
       return true;
     }
-
-    const height = this.eye + (targetHeight - this.eye) * at;
 
     return height < top;
   }
