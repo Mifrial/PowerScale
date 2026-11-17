@@ -750,12 +750,26 @@ export class SceneNavigationService {
           continue;
         }
 
-        // Верхний торец съезда продолжает путь, а не обрывается вниз: под ним
-        // пол верхнего этажа, а не край настила. Иначе со ступеней можно было
-        // бы «спрыгнуть» сквозь перекрытие вниз, и маршрут уходил бы в обход.
+        // Верхний торец съезда не обрывается вниз: под ним пол, а не край
+        // настила. Но если прямо над торцом лежит уровень — крыша или настил
+        // выше, — марш в него упирается: лестница внутри дома так выходит на
+        // проходимую крышу.
         if (region.slope !== null) {
           const edgeMid: ScenePoint = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
           if (this.distance(edgeMid, region.slope.to) <= base * 0.5) {
+            const stairs = this.locateLevel(triangles, edgeMid, region.level);
+            const upperTriangle = this.locateAbove(triangles, edgeMid, region.level);
+            if (stairs >= 0 && upperTriangle >= 0) {
+              const lower = this.levelElevation(levels.get(region.level), edgeMid);
+              const upper = this.levelElevation(levels.get(triangles[upperTriangle].level), edgeMid);
+              const delta = upper - lower;
+              const up = this.transitionType(delta, step, climb, drop);
+              const down = this.transitionType(-delta, step, climb, drop);
+              if (up !== null || down !== null) {
+                this.addLevelLink(triangles, upperTriangle, stairs, a, b, up, down, delta);
+              }
+            }
+
             continue;
           }
         }
@@ -849,6 +863,25 @@ export class SceneNavigationService {
     for (let index = 0; index < triangles.length; index += 1) {
       const triangle = triangles[index];
       if (triangle.level >= level || triangle.level <= (best < 0 ? -1 : triangles[best].level)) {
+        continue;
+      }
+      if (this.inTriangle(point, triangle.points)) {
+        best = index;
+      }
+    }
+
+    return best;
+  }
+
+  /** Ближайший уровень выше указанного, содержащий точку. */
+  private locateAbove(triangles: readonly SceneNavTriangle[], point: ScenePoint, level: number): number {
+    let best = -1;
+    for (let index = 0; index < triangles.length; index += 1) {
+      const triangle = triangles[index];
+      if (triangle.level <= level || triangle.rail) {
+        continue;
+      }
+      if (best >= 0 && triangle.level >= triangles[best].level) {
         continue;
       }
       if (this.inTriangle(point, triangle.points)) {

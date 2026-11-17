@@ -404,9 +404,10 @@ describe('SceneNavigationService', () => {
     expect(second?.segments.some((segment) => segment.level === 1)).toBe(true);
   });
 
-  it('ведёт на проходимую крышу по лестнице и оставляет интерьер под ней', () => {
+  it('ведёт на проходимую крышу по внутренней лестнице и оставляет интерьер под ней', () => {
     // Крыша на два ипари: подъём выше порога, поэтому без лестницы на неё не
-    // попасть, а спуститься с кромки можно.
+    // попасть, а спуститься с кромки можно. Марш стоит внутри дома: верхний
+    // торец упирается в крышу, а не в её край.
     const roof = rect(
       2,
       'support',
@@ -420,16 +421,16 @@ describe('SceneNavigationService', () => {
     const stairs = rect(
       3,
       'support',
-      450,
-      320,
-      150,
-      60,
+      640,
+      340,
+      120,
+      40,
       { kind: 'stairs', speed: 100, elevation: 128, height: 16 },
       15,
     );
-    const withoutStairs = service.route(board, [grass(), roof], 64, [300, 350], [700, 350], options);
-    const withStairs = service.route(board, [grass(), roof, stairs], 64, [300, 350], [700, 350], options);
-    const underRoof = service.route(board, [grass(), roof], 64, [300, 350], [700, 350], {
+    const withoutStairs = service.route(board, [grass(), roof], 64, [300, 350], [710, 370], options);
+    const withStairs = service.route(board, [grass(), roof, stairs], 64, [300, 350], [710, 370], options);
+    const underRoof = service.route(board, [grass(), roof], 64, [300, 350], [710, 370], {
       ...options,
       toLevel: 0,
     });
@@ -437,7 +438,7 @@ describe('SceneNavigationService', () => {
     expect(withoutStairs).toBeNull();
     expect(withStairs).not.toBeNull();
     expect(withStairs?.segments.some((segment) => segment.level > 0)).toBe(true);
-    expect(crossesRect(withStairs?.points ?? [], 450, 320, 150, 60)).toBe(true);
+    expect(crossesRect(withStairs?.points ?? [], 640, 340, 120, 40)).toBe(true);
 
     // Интерьер под крышей остаётся проходимым: крыша — настил над полом.
     expect(underRoof).not.toBeNull();

@@ -250,7 +250,7 @@ export function sceneDeckBaseBlockers(
   for (let index = 0; index <= count; index += 1) {
     const offset = -length / 2 + (length * index) / count;
     const point: ScenePoint = [center[0] + axis[0] * offset, center[1] + axis[1] * offset];
-    const blocked = underside - sceneSurfaceUnder(point, elements, resolution, element.id) < body;
+    const blocked = underside - sceneSurfaceUnder(point, elements, resolution, element.id, underside) < body;
     if (blocked && start === null) {
       start = offset;
     }

@@ -132,12 +132,17 @@ export function sceneDeckThickness(element: SceneHeightElement, resolution: numb
  * водой, наоборот, лежит поверх неё: под ногами пол дома, а не вода под ним.
  * Вода может быть ниже нуля поля, поэтому нулём пользуемся только когда под
  * точкой нет ни одной поверхности.
+ *
+ * `below` — потолок поиска: поверхности на этой отметке и выше лежат не под
+ * точкой, а рядом с ней. Проходимая крыша над лестницей не становится её
+ * низким концом.
  */
 export function sceneSurfaceUnder(
   point: ScenePoint,
   elements: readonly SceneHeightElement[],
   resolution: number,
   excludeId = -1,
+  below = Number.POSITIVE_INFINITY,
 ): number {
   let support = Number.NEGATIVE_INFINITY;
   let water = Number.NEGATIVE_INFINITY;
@@ -160,6 +165,11 @@ export function sceneSurfaceUnder(
     }
 
     const elevation = sceneSurfaceElevation(element);
+    // Поверхность не ниже самого настила — не «под» ним, а рядом или выше:
+    // проходимая крыша над лестницей не становится её низким концом.
+    if (elevation >= below) {
+      continue;
+    }
     if (element.kind === 'support') {
       support = Math.max(support, elevation);
     } else if (element.props.kind === 'water') {
@@ -198,8 +208,9 @@ export function sceneDeckBaseElevation(
   resolution: number,
 ): number {
   let base = Number.NEGATIVE_INFINITY;
+  const top = sceneSurfaceElevation(deck);
   for (const point of sceneDeckSamples(deck)) {
-    base = Math.max(base, sceneSurfaceUnder(point, elements, resolution, deck.id));
+    base = Math.max(base, sceneSurfaceUnder(point, elements, resolution, deck.id, top));
   }
 
   return Number.isFinite(base) ? base : 0;
@@ -218,8 +229,9 @@ export function sceneDeckLowestBaseElevation(
   resolution: number,
 ): number {
   let base = Number.POSITIVE_INFINITY;
+  const top = sceneSurfaceElevation(deck);
   for (const point of sceneDeckSamples(deck)) {
-    base = Math.min(base, sceneSurfaceUnder(point, elements, resolution, deck.id));
+    base = Math.min(base, sceneSurfaceUnder(point, elements, resolution, deck.id, top));
   }
 
   return Number.isFinite(base) ? base : 0;
@@ -268,7 +280,7 @@ export function sceneRampSlope(
     : [-Math.sin(radians), Math.cos(radians)];
   const from: ScenePoint = [center[0] - axis[0] * half, center[1] - axis[1] * half];
   const to: ScenePoint = [center[0] + axis[0] * half, center[1] + axis[1] * half];
-  const low = sceneSurfaceUnder(from, elements, resolution, element.id);
+  const low = sceneSurfaceUnder(from, elements, resolution, element.id, sceneSurfaceElevation(element));
   const high = sceneSurfaceElevation(element);
 
   return high > low ? { from, to, low, high } : null;
