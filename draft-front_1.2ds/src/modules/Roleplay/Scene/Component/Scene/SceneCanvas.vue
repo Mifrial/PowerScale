@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SceneActor } from '@/modules/Roleplay/Scene/Dto/SceneActor';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneHandleTarget } from '@/modules/Roleplay/Scene/Dto/SceneHandleTarget';
 import type { SceneLevelMenu } from '@/modules/Roleplay/Scene/Dto/SceneLevelMenu';
 import type { SceneNavRoute } from '@/modules/Roleplay/Scene/Dto/SceneNavMesh';
@@ -30,6 +31,7 @@ import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { sceneVertexService } from '@/modules/Roleplay/Scene/Service/Instance/sceneVertexService';
 import { sceneViewportService } from '@/modules/Roleplay/Scene/Service/Instance/sceneViewportService';
 import { sceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/Instance/sceneFloorPlanService';
+import { isSceneRoof } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 
 const props = withDefaults(
@@ -156,6 +158,7 @@ const COST_LEGEND: LegendEntry[] = [
   { label: 'Луг 100', color: cssColor(SCENE_OVERLAY.cost.grass.color) },
   { label: 'Дорога 150', color: cssColor(SCENE_OVERLAY.cost.dirt.color) },
   { label: 'Мост 150', color: cssColor(SCENE_OVERLAY.cost.bridge.color) },
+  { label: 'Крыша 100', color: cssColor(SCENE_OVERLAY.cost.roof.color) },
   { label: 'Река 20', color: cssColor(SCENE_OVERLAY.cost.water.color) },
   { label: 'Песок 80', color: cssColor(SCENE_OVERLAY.cost.sand.color) },
   { label: 'Грязь 50', color: cssColor(SCENE_OVERLAY.cost.mud.color) },
@@ -177,6 +180,29 @@ const legendEntries = computed<LegendEntry[]>(() => {
 /** Цвет числа Pixi в CSS-строку для легенды. */
 function cssColor(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Верхний элемент под экранной точкой.
+ *
+ * Скрытая крыша не ловится кликом: её картинки нет, значит и цели нет. Данные
+ * при этом целы — навигация и сохранение крышу видят.
+ */
+function hitAt(screenPoint: { x: number; y: number }): SceneElement | null {
+  const currentViewport = localViewport() ?? viewport;
+  if (currentViewport === null) {
+    return null;
+  }
+
+  const hits = sceneHitTestService.hits(
+    props.model,
+    currentViewport,
+    screenPoint,
+    8,
+    (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
+  );
+
+  return hits.find((element) => !(props.roofsHidden && isSceneRoof(element))) ?? null;
 }
 
 const selectedActor = computed(() => (props.actors ?? []).find((actor) => actor.id === props.selectedActorId) ?? null);
@@ -1059,13 +1085,7 @@ function startSelectGesture(event: PointerEvent, scenePoint: ScenePoint): void {
   }
 
   setFocus(null);
-  const hit = sceneHitTestService.hit(
-    props.model,
-    localViewport() ?? viewport,
-    screenPointOf(event),
-    8,
-    (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
-  );
+  const hit = hitAt(screenPointOf(event));
   if (hit === null) {
     gesture = 'pan';
     panMoved = false;
@@ -1241,13 +1261,7 @@ function onPointerUp(event: PointerEvent): void {
     // Выделение элемента живёт на активном поле: клик по другому этажу не
     // должен выбирать то, что на активном оказалось под той же точкой экрана.
     if (target !== null && target.boardId === props.model.activeBoardId) {
-      const hit = sceneHitTestService.hit(
-        props.model,
-        localViewport() ?? viewport,
-        screenPointOf(event),
-        8,
-        (element) => renderer?.assetAspect(element.asset?.publicId ?? null) ?? null,
-      );
+      const hit = hitAt(screenPointOf(event));
       applySelection(hit === null ? [] : [hit.id]);
     }
 

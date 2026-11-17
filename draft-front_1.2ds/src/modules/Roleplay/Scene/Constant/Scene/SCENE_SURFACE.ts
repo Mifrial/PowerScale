@@ -17,6 +17,7 @@ export const SCENE_SURFACE = {
     ice: 70,
     water: 20,
     bridge: 150,
+    roof: 100,
     none: 0,
   },
 

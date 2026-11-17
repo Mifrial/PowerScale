@@ -15,6 +15,7 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import {
   isSceneDeck,
+  isWalkableRoof,
   sceneDeckThickness,
   sceneSurfaceElevation,
   sceneWaterDepth,
@@ -246,7 +247,8 @@ export class SceneSurfaceService {
   }
 
   /**
-   * Мост и съезд — настил: проходим, перекрывает только свою толщину.
+   * Мост, съезд и проходимая крыша — настил: проходим, перекрывает только свою
+   * толщину.
    *
    * Настил — потолок, а не стена: луч с настила идёт над ним, луч из-под
    * настила — под ним, а сквозь настил не видно ни тому, ни другому.
@@ -257,7 +259,10 @@ export class SceneSurfaceService {
         continue;
       }
 
-      const preset = SCENE_SURFACE.speeds.bridge;
+      // Крыша — не мост: клетка должна говорить обзору и карте, что под
+      // ногами настил над домом, а не доски через реку.
+      const roof = isWalkableRoof(element);
+      const preset = SCENE_SURFACE.speeds[roof ? 'roof' : 'bridge'];
       const deckElevation = sceneSurfaceElevation(element);
       const thickness = sceneDeckThickness(element, resolution);
       const base = grid.resolution;
@@ -276,7 +281,7 @@ export class SceneSurfaceService {
           const floor = grid.elevation[index];
           const gap = deckElevation - thickness - floor;
           grid.clearance[index] = Math.min(grid.clearance[index], gap);
-          grid.kinds[index] = 'bridge';
+          grid.kinds[index] = roof ? 'roof' : 'bridge';
           grid.speeds[index] = this.speedOf(element, preset);
           grid.elevation[index] = deckElevation;
           // Настил на уровне пола не перекрывает: его полоса лежит под полом.

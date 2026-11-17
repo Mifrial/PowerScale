@@ -34,6 +34,7 @@ import {
   isSceneDeck,
   isSceneRamp,
   isSceneRoof,
+  isWalkableRoof,
   sceneDeckClearance,
   sceneRampSlope,
   sceneSlopeElevation,
@@ -479,15 +480,18 @@ export class SceneNavigationService {
       }
 
       if (element.kind === 'terrain' || element.kind === 'support') {
-        // Крыша — потолок, а не пол: по ней не ходят, поверхности она не даёт.
-        if (isSceneRoof(element)) {
+        // Обычная крыша — потолок, а не пол: по ней не ходят, поверхности она
+        // не даёт. Проходимая крыша идёт путём настила.
+        if (isSceneRoof(element) && !isWalkableRoof(element)) {
           continue;
         }
 
         const speed = this.speedOf(element);
         const elevation = sceneSurfaceElevation(element);
         const deck = isSceneDeck(element);
-        const deckFrame = deck ? sceneDeckFrame(element) : null;
+        // У крыши нет торцов настила: на неё заходят с любой стороны, где
+        // рядом лестница. Рамка нужна только мосту и съезду.
+        const deckFrame = deck && !isWalkableRoof(element) ? sceneDeckFrame(element) : null;
         // Лестница идёт в клетке стен: перила ей не нужны, а полосы перил
         // отрезали бы марш по краям.
         const railed = element.props.kind === 'bridge' || element.props.kind === 'ramp';

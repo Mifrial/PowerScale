@@ -14,6 +14,13 @@ export interface SceneFloorSightPoint {
   point: ScenePoint;
   /** Рост тела в единицах сцены; без него — стандартный. */
   height?: number;
+  /**
+   * Отметка поверхности под ногами внутри поля, единицы сцены.
+   *
+   * У актора на настиле или крыше глаза выше плиты поля на высоту настила.
+   * Ноль — обычный пол.
+   */
+  surface?: number;
 }
 
 /** Настройки межэтажного луча. */
@@ -34,6 +41,13 @@ export interface SceneFloorSightOptions {
    * исчезает вместе с планом дома.
    */
   cut?: { boardId: number; bounds: SceneBounds };
+  /**
+   * Наблюдатель стоит на проходимой крыше.
+   *
+   * Крыша выше стен своего этажа: с неё двор виден поверх них, и стены этажа
+   * луч не перекрывают.
+   */
+  onRoof?: boolean;
 }
 
 /** Проём, вырезающий стену: дверь, окно, ворота. */
@@ -191,15 +205,17 @@ export class SceneFloorSightService {
     const rootFrom = this.floors.toRoot(fromLevel.transform, from.point);
     const rootTo = this.floors.toRoot(toLevel.transform, to.point);
     const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
-    const eye = fromLevel.elevation + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const eye =
+      fromLevel.elevation + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
     const body = Math.max(1, to.height ?? sceneBodyHeight(scene.resolution));
+    const targetSurface = to.surface ?? 0;
     const slabs = options.slabs !== false;
 
     // Цель видна, если видна любая точка её тела: голова может подниматься над
     // подоконником или краем колодца, когда ноги ещё закрыты.
     for (const share of BODY_SHARES) {
-      const target = toLevel.elevation + body * share;
-      if (this.clear(scene, from.boardId, rootFrom, rootTo, eye, target, slabs, options.cut)) {
+      const target = toLevel.elevation + targetSurface + body * share;
+      if (this.clear(scene, from.boardId, rootFrom, rootTo, eye, target, slabs, options.cut, options.onRoof === true)) {
         return true;
       }
     }
@@ -218,6 +234,7 @@ export class SceneFloorSightService {
    * @param target Высота точки тела над нулём корня.
    * @param slabs Проверять плиты.
    * @param cut Разрез этажа под плитой фокуса.
+   * @param onRoof Наблюдатель на крыше: стены его этажа ниже.
    *
    * @returns true — ни плита, ни стена не перекрыли луч.
    */
@@ -230,12 +247,13 @@ export class SceneFloorSightService {
     target: number,
     slabs: boolean,
     cut: SceneFloorSightOptions['cut'],
+    onRoof: boolean,
   ): boolean {
     if (slabs && !this.clearSlabs(scene, from, to, eye, target)) {
       return false;
     }
 
-    return this.clearWalls(scene, fromBoardId, from, to, cut);
+    return this.clearWalls(scene, fromBoardId, from, to, cut, onRoof);
   }
 
   /**
@@ -299,7 +317,13 @@ export class SceneFloorSightService {
     from: ScenePoint,
     to: ScenePoint,
     cut: SceneFloorSightOptions['cut'],
+    onRoof: boolean,
   ): boolean {
+    // С крыши смотрят поверх стен своего этажа: они ниже настила.
+    if (onRoof) {
+      return true;
+    }
+
     const level = scene.levels.get(fromBoardId);
     if (level === undefined || level.walls.length === 0) {
       return true;

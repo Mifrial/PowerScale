@@ -8,4 +8,6 @@ export type SceneSurfaceKind =
   | 'ice'
   | 'water'
   | 'bridge'
+  /** Проходимая крыша: настил над домом. */
+  | 'roof'
   | 'none';

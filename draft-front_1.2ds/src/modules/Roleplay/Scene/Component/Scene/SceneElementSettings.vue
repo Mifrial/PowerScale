@@ -308,8 +308,11 @@ const isRamp = computed(
 /** Лестница: у неё свои подписи к толщине и подъёму. */
 const isStairs = computed(() => props.element.kind === 'support' && props.element.props.kind === 'stairs');
 
-/** Крыша: накрытие над стенами. По ней не ходят, скорость ей не нужна. */
+/** Крыша: накрытие над стенами. Обычная — потолок, проходимая — настил. */
 const isRoof = computed(() => props.element.kind === 'support' && props.element.props.kind === 'roof');
+
+/** Проходимая крыша: по ней ходят, ей нужна скорость и зазор под ней. */
+const isWalkableRoof = computed(() => isRoof.value && props.element.props.walkable === true);
 
 /** Рост тела, под который проверяется зазор, единицы сцены. */
 const bodyHeight = computed(() => Math.max(1, props.resolution) * SCENE_NAVIGATION.bodyHeightIpari);
@@ -752,7 +755,7 @@ function onAssetCleared(publicId: string | null): void {
         hide-details
         @update:model-value="patchKind"
       />
-      <template v-if="!isRoof">
+      <template v-if="!isRoof || isWalkableRoof">
         <v-text-field
           :model-value="currentSpeed"
           type="number"
@@ -776,6 +779,16 @@ function onAssetCleared(publicId: string | null): void {
           </v-chip>
         </div>
       </template>
+      <v-switch
+        v-if="isRoof"
+        :model-value="isWalkableRoof"
+        label="Проходимая"
+        hint="По крыше можно ходить: вход — лестница или люк с верхнего этажа."
+        persistent-hint
+        density="compact"
+        color="primary"
+        @update:model-value="(value) => patch({ walkable: value === true })"
+      />
       <SceneDistanceField
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"

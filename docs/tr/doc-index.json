@@ -322,7 +322,7 @@
             },
             "layer": {
                 "PHP": 9,
-                "VUE": 10,
+                "VUE": 9,
                 "МОК": 4
             }
         },
@@ -3506,8 +3506,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 37437,
-            "lines": 153,
+            "bytes": 38417,
+            "lines": 154,
             "modules": [],
             "linksCount": 20,
             "brokenLinks": [],
@@ -7960,15 +7960,14 @@
             "kind": "plan",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-16 — F0 (данные и канон), F1 (один мир),",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — F0 (данные и канон), F1 (один мир),",
             "layers": [
-                "PHP",
-                "VUE"
+                "PHP"
             ],
             "basis": null,
-            "date": "2026-11-16",
-            "bytes": 34261,
-            "lines": 346,
+            "date": "2026-11-17",
+            "bytes": 35721,
+            "lines": 358,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -7988,16 +7987,16 @@
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-16 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, рваные границы, вода, трава и декор-спрайты сделаны, акторы — в работе; инстансинг, LOD и fog — в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, рваные границы, вода, трава и декор-спрайты сделаны, акторы — в работе; инстансинг, LOD и fog — в плане.",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "МОК",
-            "date": "2026-11-16",
-            "bytes": 64753,
-            "lines": 694,
+            "date": "2026-11-17",
+            "bytes": 65092,
+            "lines": 696,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8022,16 +8021,16 @@
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-16 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — authoring-слой локаций; `GameScene`, occupancy, LOS и движение остаются `DEFERRED` в [`battleground-system.md`](battleground-system.md).",
             "layers": [
                 "PHP",
                 "VUE",
                 "МОК"
             ],
             "basis": "PHP",
-            "date": "2026-11-16",
-            "bytes": 60667,
-            "lines": 680,
+            "date": "2026-11-17",
+            "bytes": 61473,
+            "lines": 686,
             "modules": [
                 "Roleplay/Scene"
             ],

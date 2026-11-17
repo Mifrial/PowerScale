@@ -23,8 +23,12 @@ import {
 import { SceneNavigationService } from '@/modules/Roleplay/Scene/Service/SceneNavigationService';
 import { ScenePortalService } from '@/modules/Roleplay/Scene/Service/ScenePortalService';
 import { SceneRouteService } from '@/modules/Roleplay/Scene/Service/SceneRouteService';
+import { isWalkableRoof } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
+import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import {
   SceneSurfaceService,
+  surfaceFloor,
   surfaceIndex,
   surfaceUnderDeck,
 } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
@@ -88,8 +92,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   // переносит его на другое. Актор рисуется только на своём поле, иначе на
   // этаже оставалась бы его копия с прошлого визита.
   const actorBoards = new Map<number, number>();
-  let gridKey = '';
-  let grid: SceneSurfaceGrid | null = null;
+  // Сетки поверхностей по полям: обзор между этажами смотрит и с поля
+  // наблюдателя, и с поля цели, а пересобирать их на каждый кадр нельзя.
+  const grids = new Map<number, { key: string; grid: SceneSurfaceGrid }>();
   let sightKey = '';
   let sight: SceneFloorSightScene | null = null;
   let motion: Motion | null = null;
@@ -99,6 +104,29 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   const markerAnchors = new Map<number, ScenePoint>();
 
   const selectedActor = computed(() => actors.value.find((actor) => actor.id === selectedId.value) ?? null);
+
+  /**
+   * Выбранный актор стоит на проходимой крыше.
+   *
+   * В предпросмотре такая крыша показывается и при скрытых крышах: иначе
+   * наблюдатель не увидит, по чему идёт. Признак считается по поверхности:
+   * актор должен быть на верхнем уровне, а его точка — попадать в накрытие.
+   */
+  const selectedOnRoof = computed(() => {
+    const actor = selectedActor.value;
+    if (actor === null || (actor.level ?? 0) <= 0) {
+      return false;
+    }
+
+    return options
+      .elements()
+      .some(
+        (element) =>
+          element.boardId === (actor.boardId ?? options.board()?.id) &&
+          isWalkableRoof(element) &&
+          sceneGeometryService.contains(element.shape, [actor.x, actor.y], 0, sceneRotation(element)),
+      );
+  });
 
   watch(
     [options.enabled, options.board, options.elements, options.resolution, options.boards, options.enclosures],
@@ -289,13 +317,27 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
    *
    * Настил — верхний уровень: маркер, поставленный на мост, стоит на мосту.
    * Под настил актор попадает только выбором в меню уровня, иначе признак
-   * «под настилом» затемнял бы того, кто стоит на досках.
+   * «под настилом» затемнял бы того, кто стоит на досках. Проходимая крыша —
+   * исключение: под ней дом, и маркер в комнате должен стоять на полу, а не
+   * на крыше. На крышу поднимаются кликом и выбором уровня.
    */
   function markerLevel(board: SceneBoard, point: { x: number; y: number }): number {
     const surface = surfaceGrid(board);
     const cell = surfaceIndex(surface, point.x, point.y);
+    if (cell < 0 || surface.kinds[cell] !== 'bridge') {
+      return 0;
+    }
 
-    return cell >= 0 && surface.kinds[cell] === 'bridge' ? 1 : 0;
+    const underRoof = options
+      .elements()
+      .some(
+        (element) =>
+          element.boardId === board.id &&
+          isWalkableRoof(element) &&
+          sceneGeometryService.contains(element.shape, [point.x, point.y], 0, sceneRotation(element)),
+      );
+
+    return underRoof ? 0 : 1;
   }
 
   /** Выбирает актора и сбрасывает маршрут. */
@@ -711,12 +753,17 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     // прячутся за перекрытием. Без разреза плита — настоящая преграда.
     const slabs = !(options.slabCutaway?.() ?? true);
     const cut = slabs ? undefined : cutFloor();
+    const observerSurface =
+      observer === null || observerPoint === null || observerBoardId === null
+        ? 0
+        : levelSurface(observerBoardId, observerPoint, observer.level ?? 0);
     actors.value = actors.value.map((actor) => {
       // Призраки — только на этаже наблюдателя: взаимного «невидения» между
       // NPC на одном этаже нет, а чужие этажи либо видны через проём, либо
       // скрыты плитой или стеной. Призрак — это «скрыт от наблюдателя, но
       // виден ведущему»; на другом этаже он просто не виден.
       if (observer !== null && observerBoardId !== null && (actor.boardId ?? observerBoardId) !== observerBoardId) {
+        const actorPoint: ScenePoint = [actor.x, actor.y];
         const visible =
           scene === null || observerPoint === null
             ? true
@@ -726,13 +773,15 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
                   boardId: observerBoardId,
                   point: observerPoint,
                   height: observer.height ?? body,
+                  surface: observerSurface,
                 },
                 {
                   boardId: actor.boardId ?? observerBoardId,
-                  point: [actor.x, actor.y],
+                  point: actorPoint,
                   height: actor.height ?? body,
+                  surface: levelSurface(actor.boardId ?? observerBoardId, actorPoint, actor.level ?? 0),
                 },
-                { slabs, cut },
+                { slabs, cut, onRoof: selectedOnRoof.value },
               );
 
         return { ...actor, ghost: false, hidden: !visible, underDeck: false };
@@ -763,17 +812,55 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
   }
 
   /**
+   * Отметка поверхности под актором, единицы сцены.
+   *
+   * Базовый уровень — пол, у настила и проходимой крыши берётся верхняя
+   * поверхность. Нужна межэтажному лучу: глаза с крыши выше плиты поля.
+   */
+  function levelSurface(boardId: number, point: ScenePoint, level: number): number {
+    if (level <= 0) {
+      return 0;
+    }
+
+    const actorBoard = options.boards().find((item) => item.id === boardId);
+    if (actorBoard === undefined) {
+      return 0;
+    }
+
+    return surfaceFloor(surfaceGrid(actorBoard), point, level);
+  }
+
+  /**
    * Актор стоит под более высокой поверхностью.
    *
    * Клетка под настилом несёт конечный зазор, но на самом настиле актор тоже
    * стоит в такой клетке. Поэтому признак включается только на базовом уровне.
+   * Крыша — потолок дома, а не мост: под ней актора не затемняем, иначе весь
+   * интерьер выглядел бы «под настилом».
    */
   function isUnderDeck(surface: SceneSurfaceGrid, actor: SceneActor): boolean {
     if ((actor.level ?? 0) > 0) {
       return false;
     }
 
+    const boardId = actor.boardId ?? options.board()?.id;
+    if (boardId !== undefined && roofAbove(boardId, [actor.x, actor.y])) {
+      return false;
+    }
+
     return surfaceUnderDeck(surface, actor.x, actor.y);
+  }
+
+  /** Над точкой лежит проходимая крыша: это потолок дома, а не мост. */
+  function roofAbove(boardId: number, point: ScenePoint): boolean {
+    return options
+      .elements()
+      .some(
+        (element) =>
+          element.boardId === boardId &&
+          isWalkableRoof(element) &&
+          sceneGeometryService.contains(element.shape, point, 0, sceneRotation(element)),
+      );
   }
 
   /** Сетка поверхностей с кэшем: обзор не пересобирает её на каждый клик. */
@@ -808,18 +895,22 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
             JSON.stringify(element.props.silhouette ?? null),
             element.props.blocksMovement ?? '',
             element.props.blocksVision ?? '',
+            element.props.walkable ?? '',
             element.props.state ?? '',
             element.props.sill ?? '',
             JSON.stringify(element.shape),
           ].join(':'),
         ),
     ].join('|');
-    if (grid === null || gridKey !== key) {
-      grid = surfaces.build(board, elements, resolution);
-      gridKey = key;
+    const cached = grids.get(board.id);
+    if (cached === undefined || cached.key !== key) {
+      const built = surfaces.build(board, elements, resolution);
+      grids.set(board.id, { key, grid: built });
+
+      return built;
     }
 
-    return grid;
+    return cached.grid;
   }
 
   /**
@@ -939,6 +1030,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     actors,
     selectedId,
     selectedActor,
+    selectedOnRoof,
     route,
     levelMenu,
     select,

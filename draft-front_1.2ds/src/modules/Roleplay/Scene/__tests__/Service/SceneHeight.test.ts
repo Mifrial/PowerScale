@@ -8,6 +8,7 @@ import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_
 import {
   isSceneDeck,
   isSceneRamp,
+  isWalkableRoof,
   sceneDeckBaseElevation,
   sceneDeckClearance,
   sceneDeckLowestBaseElevation,
@@ -166,6 +167,34 @@ describe('SceneHeight', () => {
     // Накрытие висит над полом: высота под ним — пол, а не крыша.
     expect(sceneSurfaceUnder([200, 200], [grass, floor, roof], RESOLUTION)).toBe(0);
     expect(sceneSurfaceUnder([200, 200], [grass, floor], RESOLUTION)).toBe(0);
+  });
+
+  it('проходимая крыша идёт настилом и даёт поверхность на своей высоте', () => {
+    const grass = element(1, 'terrain', { type: 'rect', x: 0, y: 0, w: 2560, h: 2560 }, { kind: 'grass' });
+    const roof = element(
+      3,
+      'support',
+      { type: 'rect', x: 80, y: 80, w: 440, h: 440 },
+      {
+        kind: 'roof',
+        elevation: 128,
+        height: 16,
+        walkable: true,
+      },
+    );
+
+    expect(isSceneDeck(roof)).toBe(true);
+    expect(isWalkableRoof(roof)).toBe(true);
+    // Под ногами на крыше — её верхняя поверхность, а не луг под домом.
+    expect(sceneSurfaceUnder([200, 200], [grass, roof], RESOLUTION)).toBe(128);
+    expect(sceneDeckClearance(roof, [grass, roof], RESOLUTION)).toBe(112);
+  });
+
+  it('обычная крыша не считается настилом', () => {
+    const roof = element(3, 'support', deckShape, { kind: 'roof', elevation: 128, height: 16 });
+
+    expect(isWalkableRoof(roof)).toBe(false);
+    expect(isSceneDeck(roof)).toBe(false);
   });
 
   it('считает наклон съезда вдоль длинной стороны', () => {

@@ -359,6 +359,46 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Крыша принимает признак проходимости, остальные опоры — нет.
+     *
+     * @return void
+     */
+    public function testRoofWalkable(): void
+    {
+        $walkable = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'roof', 'walkable' => true],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $ceiling = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'roof'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $bridge = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'bridge', 'walkable' => true],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertTrue($walkable['props']['walkable']);
+        self::assertFalse($ceiling['props']['walkable']);
+        self::assertArrayNotHasKey('walkable', $bridge['props']);
+    }
+
+    /**
      * Поворот опоры сохраняется и ограничен 0–359.
      *
      * @return void

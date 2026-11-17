@@ -9,6 +9,8 @@ export type SceneLayerName =
   | 'obstacles'
   | 'openings'
   | 'ground'
+  /** Проходимые крыши: настил над домом, сортируется с акторами. */
+  | 'deckRoofs'
   | 'decor'
   | 'roofs'
   | 'overlay'

@@ -50,9 +50,9 @@
 | [scene-plan-01.md](../../scene-plan-01.md) | план | `~В РАБОТЕ~` | 2026-11-12 |
 | [scene-plan-02-water-shaders.md](../../scene-plan-02-water-shaders.md) | план | `~В РАБОТЕ~` | 2026-11-12 |
 | [scene-plan-04-render-and-nav-fixes.md](../../scene-plan-04-render-and-nav-fixes.md) | план | `~В РАБОТЕ~` | 2026-11-13 |
-| [scene-plan-07-floors.md](../../scene-plan-07-floors.md) | план | `~В РАБОТЕ~` | 2026-11-16 |
-| [scene-renderer.md](../../scene-renderer.md) | канон | `~В РАБОТЕ~` | 2026-11-16 |
-| [scene-system.md](../../scene-system.md) | канон | `~В РАБОТЕ~` | 2026-11-16 |
+| [scene-plan-07-floors.md](../../scene-plan-07-floors.md) | план | `~В РАБОТЕ~` | 2026-11-17 |
+| [scene-renderer.md](../../scene-renderer.md) | канон | `~В РАБОТЕ~` | 2026-11-17 |
+| [scene-system.md](../../scene-system.md) | канон | `~В РАБОТЕ~` | 2026-11-17 |
 | [scene-plan-02-battleground.md](../../scene-plan-02-battleground.md) | план | `~СДЕЛАНО~` | 2026-11-13 |
 | [scene-plan-03-decor-occlusion.md](../../scene-plan-03-decor-occlusion.md) | план | `~СДЕЛАНО~` | 2026-11-13 |
 | [scene-plan-05-bridge-deck.md](../../scene-plan-05-bridge-deck.md) | план | `~СДЕЛАНО~` | 2026-11-15 |

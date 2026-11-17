@@ -56,6 +56,7 @@ const {
   actors: previewActorList,
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
+  selectedOnRoof: previewSelectedOnRoof,
   route: previewRoute,
   levelMenu: previewLevelMenu,
   select: selectPreviewActor,
@@ -157,14 +158,25 @@ function onSelection(ids: number[]): void {
 
 const ROOFS_HIDDEN_KEY = 'scene.roofsHidden';
 
-/** Крыши — настройка обзора, общая с редактором: по умолчанию видны. */
+/**
+ * Крыши — настройка обзора, общая с редактором.
+ *
+ * По умолчанию скрыты: видно интерьер и пол. Показываются тумблером или сами,
+ * когда выбранный актор стоит на проходимой крыше.
+ */
 function readRoofsHidden(): boolean {
   if (typeof window === 'undefined') {
-    return false;
+    return true;
   }
 
-  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) === '1';
+  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) !== '0';
 }
+
+/**
+ * Крыши для холста: настройка обзора, но актор на проходимой крыше важнее —
+ * иначе он стоит на невидимом настиле.
+ */
+const effectiveRoofsHidden = computed(() => roofsHidden.value && !previewSelectedOnRoof.value);
 
 function setRoofsShown(value: boolean | null): void {
   roofsHidden.value = value !== true;
@@ -287,7 +299,7 @@ function zoomLabel(): string {
             :model="model"
             :board="board"
             :overlay="overlay"
-            :roofs-hidden="roofsHidden"
+            :roofs-hidden="effectiveRoofsHidden"
             :preview="true"
             :actors="previewActorList"
             :slab-cutaway="slabCutaway"

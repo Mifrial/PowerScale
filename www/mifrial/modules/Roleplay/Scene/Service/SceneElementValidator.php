@@ -563,21 +563,29 @@ final class SceneElementValidator
             throw new SceneInvalidException($path . '.kind is unknown');
         }
 
+        $normalized = [
+            'kind' => $supportKind,
+            'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
+            'elevation' => $this->intOrDefault($props, 'elevation', $path . '.elevation', 0, 0, 100000),
+            'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
+            'speed' => $this->intOrDefault(
+                $props,
+                'speed',
+                $path . '.speed',
+                self::SUPPORT_SPEEDS[$supportKind],
+                0,
+                10000,
+            ),
+        ];
+
+        // Проходимая крыша — настил над домом, а не потолок. Признак есть
+        // только у крыши: остальные опоры и так проходимы.
+        if ($supportKind === 'roof') {
+            $normalized['walkable'] = $this->boolOrDefault($props, 'walkable', $path . '.walkable', false);
+        }
+
         return [
-            'props' => [
-                'kind' => $supportKind,
-                'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
-                'elevation' => $this->intOrDefault($props, 'elevation', $path . '.elevation', 0, 0, 100000),
-                'rotation' => $this->intOrDefault($props, 'rotation', $path . '.rotation', 0, 0, 359),
-                'speed' => $this->intOrDefault(
-                    $props,
-                    'speed',
-                    $path . '.speed',
-                    self::SUPPORT_SPEEDS[$supportKind],
-                    0,
-                    10000,
-                ),
-            ],
+            'props' => $normalized,
             'assetFileId' => null,
         ];
     }

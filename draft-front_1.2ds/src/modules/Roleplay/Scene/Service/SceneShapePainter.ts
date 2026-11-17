@@ -129,13 +129,15 @@ export class SceneShapePainter {
    *
    * Плоская заливка на виде сверху читается как плита, поэтому объём
    * возвращает конёк — одна линия по центру вдоль длинной стороны.
+   * Проходимая крыша — настил: конька у неё нет, вместо него швы досок.
    */
   private paintRoof(graphics: Graphics, element: SceneElement, zoom: number): void {
+    const walkable = element.props.walkable === true;
     this.paint(
       graphics,
       element.shape,
-      { color: SCENE_ROOF.color, alpha: 0.94 },
-      { color: SCENE_ROOF.edgeColor, width: 2 / zoom, alpha: 1 },
+      { color: walkable ? SCENE_ROOF.deckColor : SCENE_ROOF.color, alpha: 0.94 },
+      { color: walkable ? SCENE_ROOF.deckEdgeColor : SCENE_ROOF.edgeColor, width: 2 / zoom, alpha: 1 },
       zoom,
       sceneRotation(element),
     );
@@ -146,6 +148,38 @@ export class SceneShapePainter {
     }
 
     const horizontal = shape.w >= shape.h;
+    if (walkable) {
+      // Доски идут поперёк длинной стороны: шаг — четверть короткой стороны,
+      // чтобы швы читались на любом размере крыши, но не превращались в
+      // штриховку.
+      const step = Math.max(8, Math.min(shape.w, shape.h) / 4);
+      if (horizontal) {
+        for (let x = shape.x + step; x < shape.x + shape.w; x += step) {
+          this.paintLine(
+            graphics,
+            [x, shape.y],
+            [x, shape.y + shape.h],
+            SCENE_ROOF.deckSeamColor,
+            1 / zoom,
+            SCENE_ROOF.deckSeamAlpha,
+          );
+        }
+      } else {
+        for (let y = shape.y + step; y < shape.y + shape.h; y += step) {
+          this.paintLine(
+            graphics,
+            [shape.x, y],
+            [shape.x + shape.w, y],
+            SCENE_ROOF.deckSeamColor,
+            1 / zoom,
+            SCENE_ROOF.deckSeamAlpha,
+          );
+        }
+      }
+
+      return;
+    }
+
     const from: ScenePoint = horizontal ? [shape.x, shape.y + shape.h / 2] : [shape.x + shape.w / 2, shape.y];
     const to: ScenePoint = horizontal
       ? [shape.x + shape.w, shape.y + shape.h / 2]

@@ -138,6 +138,22 @@ describe('SceneFloorSightService', () => {
     expect(service.sees(scene, { boardId: 2, point: [100, 100] }, { boardId: 2, point: [300, 300] })).toBe(true);
   });
 
+  it('с крыши видно двор поверх стен своего этажа', () => {
+    // Наблюдатель стоит на крыше над вторым этажом: стены этажа ниже него.
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
+    const to: SceneFloorSightPoint = { boardId: 1, point: [1000, 100] };
+
+    // Без признака крыши луч упирается в глухую стену второго этажа.
+    expect(service.sees(scene, from, to)).toBe(false);
+    expect(service.sees(scene, from, to, { onRoof: true })).toBe(true);
+  });
+
+  it('с крыши видно актора нижнего этажа', () => {
+    const from: SceneFloorSightPoint = { boardId: 2, point: [200, 140], surface: 128 };
+
+    expect(service.sees(scene, from, { boardId: 1, point: [900, 900] }, { onRoof: true })).toBe(true);
+  });
+
   it('срезает стены нижнего этажа только под пятном плиты', () => {
     const walled: SceneRenderModel = {
       ...model,

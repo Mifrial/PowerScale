@@ -23,11 +23,19 @@ export interface SceneHeightElement {
 /** Доли длинной стороны настила, по которым ищется поверхность под ним. */
 const DECK_SAMPLES: readonly number[] = [0.5, 0.25, 0.75];
 
-/** Настил: мост, съезд или лестница. */
+/**
+ * Настил: мост, съезд, лестница или проходимая крыша.
+ *
+ * Проходимая крыша — тот же настил, только накрывает дом: у неё есть верхняя
+ * поверхность, зазор под ней и уровень в навигации.
+ */
 export function isSceneDeck(element: SceneHeightElement): boolean {
   return (
     element.kind === 'support' &&
-    (element.props.kind === 'bridge' || element.props.kind === 'ramp' || element.props.kind === 'stairs')
+    (element.props.kind === 'bridge' ||
+      element.props.kind === 'ramp' ||
+      element.props.kind === 'stairs' ||
+      isWalkableRoof(element))
   );
 }
 
@@ -45,10 +53,23 @@ export function isSceneRamp(element: SceneHeightElement): boolean {
  * Крыша — потолок, а не пол.
  *
  * Её нельзя считать поверхностью под ногами: иначе высота внутри дома стала бы
- * высотой крыши, а по самому накрытию пролёг бы маршрут.
+ * высотой крыши, а по самому накрытию пролёг бы маршрут. Исключение —
+ * проходимая крыша.
  */
 export function isSceneRoof(element: SceneHeightElement): boolean {
   return element.kind === 'support' && element.props.kind === 'roof';
+}
+
+/**
+ * Проходимая крыша: накрытие, по которому ходят.
+ *
+ * Это по-прежнему `support` с `kind = 'roof'`, но с `props.walkable`. Она
+ * ведёт себя как настил: верхняя поверхность на `elevation`, зазор под ней до
+ * пола, отдельный уровень в навигации. Интерьер под крышей остаётся
+ * проходимым — крыша не заменяет пол, а лежит над ним.
+ */
+export function isWalkableRoof(element: SceneHeightElement): boolean {
+  return isSceneRoof(element) && element.props.walkable === true;
 }
 
 /**
@@ -130,7 +151,8 @@ export function sceneSurfaceUnder(
       continue;
     }
     // Крыша висит над полом: поверхностью под ногами она не становится.
-    if (isSceneRoof(element)) {
+    // Проходимая — становится: она лежит на своей высоте как настил.
+    if (isSceneRoof(element) && !isWalkableRoof(element)) {
       continue;
     }
     if (!sceneGeometryService.contains(element.shape, point, 0, sceneRotation(element))) {

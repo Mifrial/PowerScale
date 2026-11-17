@@ -40,7 +40,7 @@ import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassSha
 import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
 import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
-import { isSceneRoof, sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { isSceneRoof, isWalkableRoof, sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
@@ -522,9 +522,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
   setRoofsHidden(hidden: boolean): void {
     this.roofsHidden = hidden;
     for (const field of this.fields) {
-      const layer = field.layers.roofs;
-      if (layer !== undefined) {
-        layer.visible = !hidden;
+      for (const name of ['roofs', 'deckRoofs'] as const) {
+        const layer = field.layers[name];
+        if (layer !== undefined) {
+          layer.visible = !hidden;
+        }
       }
     }
 
@@ -803,6 +805,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'obstacles',
       'openings',
       'ground',
+      'deckRoofs',
       'decor',
       'roofs',
       'overlay',
@@ -815,7 +818,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     for (const name of order) {
       const layer = new Container();
       layer.label = name;
-      if (name === 'roofs') {
+      if (name === 'roofs' || name === 'deckRoofs') {
         layer.visible = !this.roofsHidden;
       }
       group.addChild(layer);
@@ -1684,6 +1687,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       'obstacles',
       'openings',
       'ground',
+      'deckRoofs',
       'decor',
       'roofs',
       'overlay',
@@ -1708,7 +1712,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
       // Стены и потолок этажа под плитой срезаны её пятном: сквозь
       // полупрозрачный пол виден план, а не стены первого этажа.
-      if (cut !== null && (name === 'obstacles' || name === 'roofs')) {
+      if (cut !== null && (name === 'obstacles' || name === 'roofs' || name === 'deckRoofs')) {
         mask.rect(cut.x, cut.y, cut.width, cut.height).cut();
       }
 
@@ -2145,7 +2149,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private layerFor(element: SceneElement): SceneLayerName {
     if (element.kind === 'terrain') return 'terrain';
-    // Крыша — накрытие: она лежит над стенами и декором, а не среди опор.
+    // Обычная крыша — накрытие над стенами и декором. Проходимая — настил:
+    // она лежит ниже акторов, чтобы по ней было видно того, кто идёт.
+    if (isWalkableRoof(element)) return 'deckRoofs';
     if (isSceneRoof(element)) return 'roofs';
     if (element.kind === 'support') return 'supports';
     if (element.kind === 'obstacle') return 'obstacles';

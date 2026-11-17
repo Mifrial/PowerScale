@@ -404,6 +404,46 @@ describe('SceneNavigationService', () => {
     expect(second?.segments.some((segment) => segment.level === 1)).toBe(true);
   });
 
+  it('ведёт на проходимую крышу по лестнице и оставляет интерьер под ней', () => {
+    // Крыша на два ипари: подъём выше порога, поэтому без лестницы на неё не
+    // попасть, а спуститься с кромки можно.
+    const roof = rect(
+      2,
+      'support',
+      600,
+      300,
+      200,
+      100,
+      { kind: 'roof', speed: 100, elevation: 128, height: 16, walkable: true },
+      20,
+    );
+    const stairs = rect(
+      3,
+      'support',
+      450,
+      320,
+      150,
+      60,
+      { kind: 'stairs', speed: 100, elevation: 128, height: 16 },
+      15,
+    );
+    const withoutStairs = service.route(board, [grass(), roof], 64, [300, 350], [700, 350], options);
+    const withStairs = service.route(board, [grass(), roof, stairs], 64, [300, 350], [700, 350], options);
+    const underRoof = service.route(board, [grass(), roof], 64, [300, 350], [700, 350], {
+      ...options,
+      toLevel: 0,
+    });
+
+    expect(withoutStairs).toBeNull();
+    expect(withStairs).not.toBeNull();
+    expect(withStairs?.segments.some((segment) => segment.level > 0)).toBe(true);
+    expect(crossesRect(withStairs?.points ?? [], 450, 320, 150, 60)).toBe(true);
+
+    // Интерьер под крышей остаётся проходимым: крыша — настил над полом.
+    expect(underRoof).not.toBeNull();
+    expect(underRoof?.segments.every((segment) => segment.level === 0)).toBe(true);
+  });
+
   it('съезд соединяет землю с высоким настилом', () => {
     // Настил выше порога подъёма: без съезда на него не попасть.
     const deck = rect(2, 'support', 600, 300, 200, 100, { kind: 'bridge', speed: 150, elevation: 100, height: 16 }, 20);

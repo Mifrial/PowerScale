@@ -155,6 +155,7 @@ const {
   actors: previewActorList,
   selectedId: previewSelectedId,
   selectedActor: previewSelectedActor,
+  selectedOnRoof: previewSelectedOnRoof,
   route: previewRoute,
   levelMenu: previewLevelMenu,
   select: selectPreviewActor,
@@ -1370,14 +1371,23 @@ function setWaterAnimation(value: boolean | null): void {
 
 const ROOFS_HIDDEN_KEY = 'scene.roofsHidden';
 
-/** Крыши — настройка обзора: по умолчанию видны. */
+/**
+ * Крыши — настройка обзора: по умолчанию скрыты, чтобы добраться до комнат и
+ * пола.
+ */
 function readRoofsHidden(): boolean {
   if (typeof window === 'undefined') {
-    return false;
+    return true;
   }
 
-  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) === '1';
+  return window.localStorage.getItem(ROOFS_HIDDEN_KEY) !== '0';
 }
+
+/**
+ * Крыши для холста: в редакторе — как в настройке, в предпросмотре — ещё и
+ * сами, когда выбранный актор стоит на проходимой крыше.
+ */
+const effectiveRoofsHidden = computed(() => roofsHidden.value && !(preview.value && previewSelectedOnRoof.value));
 
 function setRoofsShown(value: boolean | null): void {
   roofsHidden.value = value !== true;
@@ -1533,7 +1543,7 @@ function messageOf(exception: unknown): string {
           :path-width="pathWidth"
           :wall-width="wallWidth"
           :water-animation="waterAnimation"
-          :roofs-hidden="roofsHidden"
+          :roofs-hidden="effectiveRoofsHidden"
           :interactive="!preview"
           :preview="preview"
           :overlay="overlay"

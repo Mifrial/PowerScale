@@ -118,6 +118,39 @@ describe('SceneSurfaceService', () => {
     expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('проходимая крыша ложится настилом над полом, обычная — потолком', () => {
+    const floor = element(2, 'terrain', { type: 'rect', x: 64, y: 64, w: 128, h: 128 }, { kind: 'dirt' }, 10);
+    const walkable = element(
+      3,
+      'support',
+      { type: 'rect', x: 48, y: 48, w: 160, h: 160 },
+      { kind: 'roof', elevation: 128, height: 16, walkable: true },
+      20,
+    );
+    const ceiling = element(
+      3,
+      'support',
+      { type: 'rect', x: 48, y: 48, w: 160, h: 160 },
+      { kind: 'roof', elevation: 128, height: 16 },
+      20,
+    );
+
+    const grid = service.build(board(), [grass(), floor, walkable], 64);
+    const cell = cellOf(grid, 8, 8);
+    expect(grid.kinds[cell]).toBe('roof');
+    expect(grid.speeds[cell]).toBe(100);
+    expect(grid.elevation[cell]).toBe(128);
+    // Пол под крышей остаётся полом: интерьер не заменился настилом.
+    expect(grid.ground[cell]).toBe(0);
+    expect(grid.clearance[cell]).toBe(112);
+
+    // Обычная крыша поверхности не даёт: под ней пол, а не крыша.
+    const ceilingGrid = service.build(board(), [grass(), floor, ceiling], 64);
+    expect(ceilingGrid.kinds[cell]).toBe('dirt');
+    expect(ceilingGrid.elevation[cell]).toBe(0);
+    expect(ceilingGrid.clearance[cell]).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it('настил на уровне берега перекрывает толщину над врезанным руслом', () => {
     const grid = service.build(
       board(),
