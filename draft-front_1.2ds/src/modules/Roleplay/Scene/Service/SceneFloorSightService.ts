@@ -3,6 +3,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneSightRaster } from '@/modules/Roleplay/Scene/Dto/SceneSightRaster';
 import { SCENE_SIGHT_SKY } from '@/modules/Roleplay/Scene/Dto/SceneSightRaster';
+import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 import {
   SceneFloorPlanService,
   type SceneFloorTransform,
@@ -58,6 +59,12 @@ export interface SceneFloorSightOpening {
   probe: SceneShapeProbe;
   /** Допуск попадания: проём может быть уже стены. */
   tolerance: number;
+  /** Низ проёма в мире корня: ниже него стена. */
+  bottom: number;
+  /** Верх проёма в мире корня: выше него стена или перемычка. */
+  top: number;
+  /** Окно: у него полоса ограничена и сверху, а не только снизу. */
+  window: boolean;
 }
 
 /** Стена этажа: фигура и её верх от нуля корня. */
@@ -118,12 +125,13 @@ const BODY_SHARES = [0.5, 0.75, 0.9] as const;
  * наблюдатель: иначе марш у верха или колодец открывали бы взгляд поверх стен
  * своего этажа.
  *
- * Стены этажей на пути луча перекрывают его; проём в них — дверь, окно,
- * ворота — считается прозрачным целиком. Подоконник и перемычка важны для обзора
- * внутри этажа, а не для межэтажной визуализации: сверху окно читается как
- * проём. Стены нижних этажей тоже проверяются: луч с верхнего этажа уходит
- * вниз к воде или нижнему актору и может пройти под стеной своего этажа, где
- * его обязана остановить стена нижнего.
+ * Стены этажей на пути луча перекрывают его, а проём прозрачен по своей
+ * высоте: дверь и ворота — от пола до неба, окно — только между подоконником
+ * и перемычкой, как в сетке поверхностей. Иначе окно было бы дырой во всю
+ * стену, и с крыши свет уходил бы сквозь нижнее окно полосой в двор. Стены
+ * нижних этажей тоже проверяются: луч с верхнего этажа уходит вниз к воде или
+ * нижнему актору и может пройти под стеной своего этажа, где его обязана
+ * остановить стена нижнего.
  */
 export class SceneFloorSightService {
   constructor(
@@ -208,9 +216,22 @@ export class SceneFloorSightService {
           }
 
           if (element.shape.type === 'wall') {
+            // Окно — не дыра во всю стену: луч проходит только между
+            // подоконником и перемычкой. Дверь и ворота открыты на всю высоту,
+            // поэтому их полоса — от пола до неба.
+            const window = element.props.kind === 'window';
+            const sill = window
+              ? Math.max(0, Math.round(element.props.sill ?? SCENE_WALL.windowSillIpari * resolution))
+              : 0;
+            const lintel = window
+              ? Math.max(0, Math.round(element.props.lintel ?? SCENE_WALL.windowLintelIpari * resolution))
+              : 0;
             level.openings.push({
               probe: this.geometry.probe(element.shape),
               tolerance: element.shape.width / 2,
+              bottom: level.elevation + sill,
+              top: lintel > 0 ? Math.min(SCENE_SIGHT_SKY, level.elevation + lintel) : SCENE_SIGHT_SKY,
+              window,
             });
           }
 
@@ -247,7 +268,17 @@ export class SceneFloorSightService {
           rootCell,
           level.transform,
           level.walls,
-          level.openings.map((opening) => ({ probe: opening.probe, tolerance: opening.tolerance })),
+          level.openings
+            .filter((opening) => !opening.window)
+            .map((opening) => ({ probe: opening.probe, tolerance: opening.tolerance })),
+          level.openings
+            .filter((opening) => opening.window)
+            .map((opening) => ({
+              probe: opening.probe,
+              tolerance: opening.tolerance,
+              bottom: opening.bottom,
+              top: opening.top,
+            })),
           rootCell / 2,
         );
       }
@@ -372,11 +403,17 @@ export class SceneFloorSightService {
    * проверяется там. Так стена ложится на общую карту без преобразования фигур
    * и её тень продолжается во двор за границей поля.
    *
+   * Дверь и ворота стирают стену целиком, а окно — нет: клетка окна получает
+   * две полосы (подоконник и перемычку), как клетка поверхности. Иначе окно
+   * оставалось бы дырой во всю стену, и с крыши свет проходил бы сквозь него
+   * полосой в двор, хотя подоконник и стена над перемычкой его не пускают.
+   *
    * @param bounds Границы корня.
    * @param cell Размер клетки корня.
    * @param transform Преобразование этажа в мир корня.
    * @param add Стены.
-   * @param erase Проёмы.
+   * @param erase Проёмы на всю высоту: двери, ворота.
+   * @param windows Окна: их дыра ограничена подоконником и перемычкой.
    * @param toleranceRoot Допуск в единицах корня.
    *
    * @returns Растр стен в мире корня.
@@ -387,16 +424,32 @@ export class SceneFloorSightService {
     transform: SceneFloorTransform,
     add: readonly SceneFloorSightWall[],
     erase: readonly { probe: SceneShapeProbe; tolerance: number }[],
+    windows: readonly { probe: SceneShapeProbe; tolerance: number; bottom: number; top: number }[],
     toleranceRoot: number,
   ): SceneSightRaster {
     const raster = this.emptyRaster(bounds, cell);
+    // Полосы окна нужны только там, где окно есть: у стены без окон массивы
+    // не выделяются.
+    const banded =
+      windows.length > 0
+        ? {
+            sills: new Uint16Array(raster.columns * raster.rows),
+            lintels: new Uint16Array(raster.columns * raster.rows),
+          }
+        : null;
     const scaleX = transform.scaleX === 0 ? 1 : Math.abs(transform.scaleX);
     const scaleY = transform.scaleY === 0 ? 1 : Math.abs(transform.scaleY);
     // Допуск попадания один на растр: он не даёт тонкой стене проскочить меж
     // центрами клеток. Габарит обхода у проёма шире — проём должен стереть
     // стену целиком, но не расширить её форму.
     const toleranceLocal = toleranceRoot / Math.max(1e-6, Math.min(scaleX, scaleY));
-    const paint = (probe: SceneShapeProbe, boxTolerance: number, value: number, top = 0): void => {
+    const paint = (
+      probe: SceneShapeProbe,
+      boxTolerance: number,
+      value: number,
+      top = 0,
+      band: { bottom: number; top: number } | null = null,
+    ): void => {
       const box = probe.bounds;
       const left = transform.x + (box.x - boxTolerance) * transform.scaleX;
       const right = transform.x + (box.x + box.width + boxTolerance) * transform.scaleX;
@@ -412,12 +465,29 @@ export class SceneFloorSightService {
         for (let column = minColumn; column <= maxColumn; column += 1) {
           const centerX = raster.x + (column + 0.5) * cell;
           const localX = (centerX - transform.x) / (transform.scaleX === 0 ? 1 : transform.scaleX);
-          if (probe.contains([localX, localY], toleranceLocal)) {
-            const index = row * raster.columns + column;
-            raster.cells[index] = value;
-            if (value === 1) {
-              raster.tops[index] = Math.max(raster.tops[index], top);
+          if (!probe.contains([localX, localY], toleranceLocal)) {
+            continue;
+          }
+
+          const index = row * raster.columns + column;
+          if (value === 2 && band !== null && banded !== null) {
+            // Окно: клетка остаётся стеной, но со сквозной полосой между
+            // подоконником и перемычкой. Верх стены над окном сохраняем; если
+            // стены в клетке нет, выше перемычки ставим «до неба», как в сетке
+            // поверхностей: иначе окно осталось бы дырой наверх.
+            if (raster.cells[index] !== 1) {
+              raster.tops[index] = SCENE_SIGHT_SKY;
             }
+            raster.cells[index] = 2;
+            banded.sills[index] = this.wallTop(band.bottom);
+            banded.lintels[index] = this.wallTop(band.top);
+
+            continue;
+          }
+
+          raster.cells[index] = value;
+          if (value === 1) {
+            raster.tops[index] = Math.max(raster.tops[index], top);
           }
         }
       }
@@ -428,6 +498,16 @@ export class SceneFloorSightService {
     }
     for (const opening of erase) {
       paint(opening.probe, opening.tolerance + toleranceRoot, 0);
+    }
+    for (const window of windows) {
+      paint(window.probe, window.tolerance + toleranceRoot, 2, 0, {
+        bottom: window.bottom,
+        top: window.top,
+      });
+    }
+    if (banded !== null) {
+      raster.sills = banded.sills;
+      raster.lintels = banded.lintels;
     }
 
     return raster;
@@ -749,8 +829,15 @@ export class SceneFloorSightService {
           continue;
         }
 
-        // Стена найдена: луч проходит, только если здесь проём.
-        if (!level.openings.some((opening) => opening.probe.contains(local, opening.tolerance))) {
+        // Стена найдена: луч проходит, только если здесь проём и высота луча
+        // попадает в его полосу. У окна это подоконник и перемычка, у двери —
+        // вся высота.
+        if (
+          !level.openings.some(
+            (opening) =>
+              opening.probe.contains(local, opening.tolerance) && height >= opening.bottom && height < opening.top,
+          )
+        ) {
           return false;
         }
       }

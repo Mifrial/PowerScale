@@ -261,6 +261,47 @@ describe('SceneFloorSightService', () => {
     expect(query.sees(target, 1000, 100, 0, 96)).toBe(true);
   });
 
+  it('с крыши окно нижнего этажа не просвечивает в двор', () => {
+    // Окно нижнего этажа — не дыра во всю стену: подоконник и стена над
+    // перемычкой держат луч. Раньше окно вырезалось целиком, и с крыши свет
+    // уходил сквозь него полосой в двор — будто окно стоит выше крыши.
+    const windowed: SceneRenderModel = {
+      ...model,
+      elements: [
+        ...elements,
+        element(
+          50,
+          1,
+          'obstacle',
+          { type: 'wall', width: 16, points: [[700, 1000], [1300, 1000]] },
+          { height: 128 },
+        ),
+        element(51, 1, 'opening', { type: 'wall', width: 16, points: [[900, 1000], [980, 1000]] }, { kind: 'window' }),
+      ],
+    };
+    const windowedScene = service.scene(windowed);
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
+    // Цель сразу за стеной: луч проходит её на 120 — выше перемычки нижнего
+    // окна (86), но ниже верха стены, то есть сквозь прежнюю «дыру».
+    const to: SceneFloorSightPoint = { boardId: 1, point: [940, 1015], height: 96 };
+
+    expect(service.seesSurface(windowedScene, from, to, { slabs: false, onRoof: true })).toBe(false);
+
+    // Запечённый растр стен знает ту же полосу окна.
+    const query = service.query(windowedScene, from, { slabs: false, onRoof: true });
+    const target = query.prepare(1, 0, 0, 96)!;
+    expect(query.sees(target, 940, 1015, 0, 96)).toBe(false);
+
+    // Дверь в той же стене открыта на всю высоту: сквозь неё луч проходит.
+    const doored: SceneRenderModel = {
+      ...windowed,
+      elements: windowed.elements.map((item) =>
+        item.id === 51 ? { ...item, props: { kind: 'door', sill: 0, lintel: 0, state: 'open' } } : item,
+      ),
+    };
+    expect(service.seesSurface(service.scene(doored), from, to, { slabs: false, onRoof: true })).toBe(true);
+  });
+
   it('с крыши видно двор поверх стен своего этажа', () => {
     // Наблюдатель стоит на крыше над вторым этажом: стены этажа ниже него.
     const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
