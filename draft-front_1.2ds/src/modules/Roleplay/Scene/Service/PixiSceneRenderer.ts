@@ -57,6 +57,7 @@ import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Servi
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
+import { SCENE_ROOF } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ROOF';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
@@ -1018,6 +1019,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     this.drawWallJoints(elements, board.id);
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution);
+    this.drawRoofHatchRims(board);
     this.applyContentClip(board, this.slabHoles(floor), cut);
 
     // Плита выбранного этажа полупрозрачна: сквозь неё виден этаж ниже. Стены,
@@ -1116,6 +1118,32 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     return holes;
+  }
+
+  /**
+   * Рамка вокруг проёма в настиле крыши.
+   *
+   * Вырез маски не даёт края: ступени видны, но сам проём читается плохо.
+   * Рамка рисуется чуть снаружи выреза, поэтому маска её не срезает.
+   *
+   * @param board Поле этажа.
+   */
+  private drawRoofHatchRims(board: SceneBoard): void {
+    const layer = this.layers.deckRoofs;
+    const holes = this.roofHoles(board.id);
+    if (layer === undefined || holes.length === 0) {
+      return;
+    }
+
+    const zoom = this.zoom();
+    const graphics = new Graphics();
+    for (const hole of holes) {
+      const rim = SCENE_ROOF.hatchRim;
+      graphics
+        .rect(hole.x - rim, hole.y - rim, hole.width + rim * 2, hole.height + rim * 2)
+        .stroke({ color: SCENE_ROOF.deckEdgeColor, width: Math.max(1, 2 / zoom), alpha: 0.9 });
+    }
+    layer.addChild(graphics);
   }
 
   /**
