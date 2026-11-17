@@ -107,7 +107,7 @@ export class SceneVisibilityService {
    *
    * @returns Маска видимости, `1` — клетка видна.
    */
-  shadowMask(
+  private shadowMask(
     x: number,
     y: number,
     columns: number,
