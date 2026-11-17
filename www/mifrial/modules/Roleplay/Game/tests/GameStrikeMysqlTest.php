@@ -562,6 +562,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
                     'control' => ['base' => 3, 'size' => 0],
                     'targeting' => 'entity',
+                    'resisted_by_magic' => true,
                     'duration' => ['type' => 'instant'],
                 ],
                 'parameters' => [[
@@ -1780,6 +1781,76 @@ final class GameStrikeMysqlTest extends TestCase
             'sense-vision',
             $this->senseCodesOf($after['data']['version']['sheet']),
             json_encode($after),
+        );
+    }
+
+    /**
+     * Сопротивление магии цели повышает Сложность касательного состояния.
+     *
+     * @return void
+     */
+    public function testTouchStateSpellDifficultyUsesMagicResistance(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist']],
+            array_merge($this->magicResistanceRules(3), [
+                'blindness-test' => $this->blindnessStateCard(),
+                'sense-vision' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'precise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+            ]),
+            [],
+            [
+                'blindness-spell' => $this->blindnessSpellCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
+            npcAbilities: [0 => [['ruleCode' => 'magic-resistance', 'level' => 1]]],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-mr-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'blindness-spell',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-mr-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(
+            ['base' => 4, 'size' => 0],
+            $closed['data']['spellCast']['difficulty'] ?? null,
         );
     }
 
@@ -3455,6 +3526,7 @@ final class GameStrikeMysqlTest extends TestCase
                             'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
                             'control' => ['base' => 3, 'size' => -1],
                             'targeting' => 'entity',
+                            'resisted_by_magic' => true,
                             'duration' => ['type' => 'instant'],
                         ],
                         'parameters' => [[
@@ -3861,6 +3933,7 @@ final class GameStrikeMysqlTest extends TestCase
                     'power' => ['base' => 4, 'size' => -1],
                     'control' => ['base' => 4, 'size' => -1],
                     'targeting' => 'none',
+                    'resisted_by_magic' => true,
                     'duration' => [
                         'type' => 'lingering',
                         'limit' => ['value' => 1, 'unit' => 'turn'],
@@ -5315,6 +5388,7 @@ final class GameStrikeMysqlTest extends TestCase
                             'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
                             'control' => ['base' => 3, 'size' => -1],
                             'targeting' => 'entity',
+                            'resisted_by_magic' => true,
                             'duration' => ['type' => 'instant'],
                             'damage' => [
                                 'damage_type_code' => 'electricity',
@@ -5587,6 +5661,7 @@ final class GameStrikeMysqlTest extends TestCase
                         'power' => ['type' => 'parameter', 'parameter_code' => 'x'],
                         'control' => ['base' => 3, 'size' => -1],
                         'targeting' => 'entity',
+                        'resisted_by_magic' => true,
                         'duration' => ['type' => 'instant'],
                         'damage' => [
                             'damage_type_code' => 'arcane',

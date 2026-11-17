@@ -85,6 +85,7 @@ function spellRule(
   damageType: string,
   power = { base: 4, size: 1 },
   control = { base: 3, size: -1 },
+  resistedByMagic = false,
 ): Rule {
   return {
     mechanics: [],
@@ -105,6 +106,7 @@ function spellRule(
         power,
         control,
         duration: { type: 'instant' },
+        resisted_by_magic: resistedByMagic,
         damage: { damage_type_code: damageType, experience_keyword_code: 'electromancy', power_modify_steps: [] },
       },
     },
@@ -192,7 +194,7 @@ describe('SpellCastDifficultyService', () => {
   });
 
   it('resistance с флагом увеличивает сложность', () => {
-    const spell = spellRule('bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 });
+    const spell = spellRule('bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 }, true);
     const without = spellCastDifficultyService.computeForSpell(
       {
         spellCode: 'bolt',
@@ -208,7 +210,7 @@ describe('SpellCastDifficultyService', () => {
   });
 
   it('пробивание увеличивает Требуемую мощь и уменьшает resistance', () => {
-    const spell = spellRule('piercing-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 });
+    const spell = spellRule('piercing-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 }, true);
     const result = spellCastDifficultyService.computeForSpell(
       {
         spellCode: 'piercing-bolt',
@@ -227,7 +229,7 @@ describe('SpellCastDifficultyService', () => {
     expect(result.difficulty).toEqual({ base: 5, size: 0 });
   });
 
-  it('сопротивление цели влияет на сложность любого целевого заклинания', () => {
+  it('без resisted_by_magic сопротивление цели не влияет на сложность', () => {
     const spell = spellRule('discharge', 'electricity', { base: 3, size: 0 }, { base: 3, size: 0 });
     const result = spellCastDifficultyService.computeForSpell(
       {
@@ -240,11 +242,11 @@ describe('SpellCastDifficultyService', () => {
       },
       [spell, ELECTRICITY],
     );
-    expect(result.difficulty).toEqual({ base: 3, size: 3 });
+    expect(result.difficulty).toEqual({ base: 3, size: 0 });
   });
 
   it('применяет тренировочный бонус после сопротивления', () => {
-    const spell = spellRule('trained-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 });
+    const spell = spellRule('trained-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 }, true);
     const result = spellCastDifficultyService.computeForSpell(
       {
         spellCode: 'trained-bolt',

@@ -43,6 +43,7 @@ final class SpellSpecs
             self::damage($spell),
             self::charge($spell),
             self::effects($spell),
+            SpecShape::bool($spell, 'resisted_by_magic'),
         );
     }
 

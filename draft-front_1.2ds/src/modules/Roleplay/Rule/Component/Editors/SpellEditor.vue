@@ -236,6 +236,10 @@ function setHasDamage(enabled: boolean) {
   );
 }
 
+function setResistedByMagic(value: boolean) {
+  emitSpell(abilitySpecService.withSpellField(inner.value, 'resisted_by_magic', value));
+}
+
 function patchDamage(patch: Partial<SpellDamage>) {
   const current = inner.value.damage ?? abilitySpecService.createEmptySpellDamage();
   emitSpell(abilitySpecService.setSpellDamage(inner.value, { ...current, ...patch }));
@@ -385,6 +389,19 @@ onMounted(() => {
       hide-details
       class="mt-2"
     />
+
+    <div class="mt-3">
+      <v-checkbox
+        :model-value="inner.resisted_by_magic === true"
+        @update:model-value="(v) => setResistedByMagic(!!v)"
+        label="Сопротивление магии цели повышает Сложность"
+        density="compact"
+        hide-details
+      />
+      <div class="text-caption text-medium-emphasis">
+        Для целевых заклинаний и эффектов, магически воздействующих на цель.
+      </div>
+    </div>
 
     <div class="mt-4">
       <div class="text-subtitle-2 mb-1">Продолжительность эффекта</div>

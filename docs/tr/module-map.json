@@ -3372,6 +3372,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-21-magic-resistance.md",
+                    "title": "План M21 — сопротивление магии против эффектов заклинаний",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-17",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",

@@ -36,7 +36,8 @@ export class SpellCastService {
       const outcome = spellCastDifficultyService.controllessOutcome({
         requiredPower: spellCastDifficultyService.resolveSpellValue(spec.spell.power, input.parameterValues),
         usedPower: input.usedPower,
-        resistanceModify: input.hasTarget ? input.targetResistanceAmount : 0,
+        resistanceModify:
+          spec.spell.resisted_by_magic === true ? (input.targetResistanceAmount ?? 0) : 0,
         resistancePenetration: input.resistancePenetration,
         requiredPowerDelta: input.requiredPowerDelta,
         trainingDifficultyDelta: input.trainingDifficultyDelta,

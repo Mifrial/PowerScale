@@ -36,6 +36,13 @@ M2 подключил улучшения каста. M3 подключает к 
 
 ## 0. Срез 3.0 — долг M2: сопротивление магии
 
+> **Актуализация M21 (2026-11-17).** Критерий сопротивления к Сложности —
+> флаг `spell.resisted_by_magic`, а не `targeting: entity`. Целевые карточки
+> получают флаг в контенте, касательные эффекты Ноломансии — тоже.
+> Арканный урон при этом режется сопротивлением как обычное сопротивление,
+> без автоматического повышения Сложности. Подробности —
+> [`spell-real-plan-21-magic-resistance.md`](spell-real-plan-21-magic-resistance.md).
+
 Канон (`spell-inventory-01.md` 187–189, `spell-review-01.md`
 SR-102/106/108/109):
 
@@ -395,3 +402,4 @@ Front (`vitest`):
 | 2026-11-10 | 3.0 реализован: `GameSpellMagicResistance`, сложность только по `prepared->target`, пробитие только для магического типа урона, фронт выбирает типы по `modifies_spell_difficulty`; тесты на «Удар молнии», пробитие, касание и арканный урон. |
 | 2026-11-10 | 3.1–3.3 реализованы: `GameCheckEfficiency` + DTO, уровень блока в `CharacterDonorGrant`, ревизия 47 с `permanent: true` (опубликована, dev-игра переключена), `GameSpellCastPrepared`/`GameSpellCastCheck`, `efficiencySize` в override, `includeEfficiency` в броске, `efficiency`/`efficiencyAdjustments` в результате. |
 | 2026-11-10 | Проверки: `composer stan`, `test:unit` 938, `test:module game` 570, `test:module character` 172, `vitest Game` 824. Полный `tools/test-full.sh` и ручная проверка отложены. |
+| 2026-11-17 | M21: критерий сопротивления к Сложности заменён на `spell.resisted_by_magic`; `targeting: entity` больше не включает сопротивление сам по себе. Арканный урон остаётся обычным сопротивлением. |

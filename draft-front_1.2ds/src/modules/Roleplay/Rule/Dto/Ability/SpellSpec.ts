@@ -10,6 +10,8 @@ export interface SpellSpec {
   duration: SpellDuration;
   /** Кого заклинание выбирает целью; отсутствие поля сохраняет прежнюю infer-модель. */
   targeting?: SpellTargeting;
+  /** Сопротивление магии цели повышает Сложность сотворения. */
+  resisted_by_magic?: boolean;
   damage?: SpellDamage;
   charge?: SpellChargeSpec;
 }

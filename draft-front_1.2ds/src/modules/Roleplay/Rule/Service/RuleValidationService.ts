@@ -1771,6 +1771,23 @@ export class RuleValidationService {
         message: 'сложность сотворения не является свойством заклинания',
       });
     }
+    if (spell.resisted_by_magic !== undefined && typeof spell.resisted_by_magic !== 'boolean') {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'resisted_by_magic должен быть булевым',
+      });
+    }
+    const targeting =
+      spell.targeting ??
+      ('hit_resolution' in spec && spec.hit_resolution?.type === 'auto' ? 'entity' : 'none');
+    if (targeting === 'entity' && spell.resisted_by_magic !== true) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'целевое заклинание требует resisted_by_magic: true',
+      });
+    }
     if (!spell.power) {
       errors.push({ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует мощь' });
     } else {

@@ -13,7 +13,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 
 `doc-index.json` — машинный источник для `show.php`; целиком его не читать.
 Карточки `module-map/` — факты из кода; здесь — заявленные статусы документов.
-Документов: 373, планов: 249.
+Документов: 374, планов: 250.
 
 ## Схема статусов
 
@@ -41,7 +41,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | `review` | 63 | 1 | 0 | 0 | 2 | 0 | 0 | 49 | 11 |
 | `rule` | 8 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 6 |
 | `specs` | 22 | 2 | 0 | 0 | 0 | 4 | 0 | 5 | 11 |
-| `tr` | 275 | 10 | 11 | 40 | 173 | 4 | 1 | 9 | 27 |
+| `tr` | 276 | 10 | 12 | 40 | 173 | 4 | 1 | 9 | 27 |
 | `tz` | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 |
 
 ## Модуль × состояние × слой
@@ -65,7 +65,7 @@ php www/mifrial/tools/doc-index/show.php --broken --limit=0
 | [Roleplay/Keyword](module-map/Roleplay/Keyword.md) | 3 | 0 | 0 | 3 | 0 | 0 | 3 | 2 | 0 |
 | [Roleplay/Map](module-map/Roleplay/Map.md) | 3 | 0 | 1 | 0 | 2 | 0 | 3 | 3 | 3 |
 | [Roleplay/Mechanic](module-map/Roleplay/Mechanic.md) | 9 | 0 | 0 | 2 | 6 | 0 | 6 | 4 | 0 |
-| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 62 | 5 | 2 | 13 | 35 | 3 | 26 | 28 | 2 |
+| [Roleplay/Rule](module-map/Roleplay/Rule.md) | 63 | 5 | 3 | 13 | 35 | 3 | 27 | 29 | 2 |
 | [Roleplay/RuleSpace](module-map/Roleplay/RuleSpace.md) | 8 | 0 | 0 | 8 | 0 | 0 | 6 | 3 | 0 |
 | [Roleplay/Scene](module-map/Roleplay/Scene.md) | 11 | 0 | 7 | 0 | 4 | 0 | 9 | 10 | 4 |
 | [Versioning/Space](module-map/Versioning/Space.md) | 2 | 0 | 0 | 0 | 2 | 0 | 2 | 0 | 0 |

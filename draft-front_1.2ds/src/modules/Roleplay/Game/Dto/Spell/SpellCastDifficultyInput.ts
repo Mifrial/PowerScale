@@ -8,7 +8,7 @@ export interface SpellCastDifficultyInput {
   usedPower: DimensionalNumberValue;
   requiredControl: DimensionalNumberValue;
   availableControl: DimensionalNumberValue;
-  /** Итоговое сопротивление магии цели, если заклинание выбирает цель. */
+  /** Итоговое сопротивление магии цели, если заклинание помечено `resisted_by_magic`. */
   resistanceModify?: number;
   /** Сколько единиц сопротивления игнорируется выбранным модификатором каста. */
   resistancePenetration?: number;

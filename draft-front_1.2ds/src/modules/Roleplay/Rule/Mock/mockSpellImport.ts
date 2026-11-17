@@ -99,7 +99,9 @@ function spellSpec(
   damage?: SpellSpec['damage'],
   targeting: SpellTargeting = 'none',
 ): SpellSpec {
-  return damage ? { power, control, duration, damage, targeting } : { power, control, duration, targeting };
+  const spec = damage ? { power, control, duration, damage, targeting } : { power, control, duration, targeting };
+
+  return targeting === 'entity' ? { ...spec, resisted_by_magic: true } : spec;
 }
 
 const touchComponent = { type: 'somatic' as const, note: 'Касание цели' };

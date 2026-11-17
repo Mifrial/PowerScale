@@ -205,6 +205,21 @@ final class SpellSpecsTest extends TestCase
     }
 
     /**
+     * Флаг сопротивления магии читается, по умолчанию false.
+     *
+     * @return void
+     */
+    public function testResistedByMagicIsParsed(): void
+    {
+        $spell = $this->spell();
+        $spell['spell']['resisted_by_magic'] = true;
+        self::assertTrue(SpellSpecs::read($spell)->isResistedByMagic());
+
+        $plain = $this->spell();
+        self::assertFalse(SpellSpecs::read($plain)->isResistedByMagic());
+    }
+
+    /**
      * Минимальная карточка заклинания.
      *
      * @return array<string, mixed> Документ.

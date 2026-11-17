@@ -730,6 +730,49 @@ describe('validateAbilityStructure', () => {
     expect(errors.some((e) => e.message.includes('отсутствующий предмет «ash»'))).toBe(false);
   });
 
+  it('требует resisted_by_magic у целевого заклинания', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'bolt', 'ability', {
+        type: 'spell',
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+          targeting: 'entity',
+        },
+        hit_resolution: { type: 'auto', rating: 2 },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('resisted_by_magic: true'))).toBe(true);
+  });
+
+  it('принимает целевое заклинание с resisted_by_magic', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'bolt', 'ability', {
+        type: 'spell',
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+          targeting: 'entity',
+          resisted_by_magic: true,
+        },
+        hit_resolution: { type: 'auto', rating: 2 },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('resisted_by_magic'))).toBe(false);
+  });
+
   it('flags a material item whose code matches a keyword but has no item rule', () => {
     const rules: Rule[] = [
       baseRule(null, 'fire-bolt', 'ability', {

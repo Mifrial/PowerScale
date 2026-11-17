@@ -134,7 +134,8 @@ export class SpellCastDifficultyService {
 
     const requiredPower = this.resolveSpellValue(spec.spell.power, input.parameterValues);
     const requiredControl = this.resolveSpellValue(spec.spell.control, input.parameterValues);
-    const resistanceModify = input.hasTarget ? (input.targetResistanceAmount ?? 0) : 0;
+    const resistanceModify =
+      spec.spell.resisted_by_magic === true ? (input.targetResistanceAmount ?? 0) : 0;
 
     return this.compute({
       requiredPower,

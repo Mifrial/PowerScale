@@ -192,7 +192,10 @@ final class GameSpellCastCheck
     }
 
     /**
-     * Сопротивление к сложности по магическим типам урона.
+     * Сопротивление к Сложности по флагу заклинания.
+     *
+     * Повышает Сложность только заклинание с `resisted_by_magic`; цель —
+     * цель заклинания или цель касания. На себя сопротивление не действует.
      *
      * @param GameRecord $game Игра.
      * @param GameSpellCastPrepared $prepared Подготовка.
@@ -203,8 +206,15 @@ final class GameSpellCastCheck
      */
     private function difficultyResistance(GameRecord $game, GameSpellCastPrepared $prepared): int
     {
-        $target = $prepared->target;
-        if ($target === null) {
+        if (!$prepared->spell->getSpell()->isResistedByMagic()) {
+            return 0;
+        }
+
+        $target = $prepared->target ?? $prepared->damageTarget;
+        if (
+            $target === null
+            || ($target['type'] === $prepared->casterKind && $target['id'] === $prepared->casterId)
+        ) {
             return 0;
         }
 

@@ -703,15 +703,24 @@ const castParameters = computed((): Record<string, DimensionalNumberValue> => {
   return values;
 });
 
-const targetResistance = computed(() => {
-  if (!hasTarget.value) {
-    return 0;
+const magicResistanceTarget = computed(() => {
+  if (spellSpec.value?.spell.resisted_by_magic !== true) {
+    return null;
   }
 
-  const targetOverview = targetsSelf.value ? overview.value : targetKey.value ? overviewOf(targetKey.value) : null;
+  const key = hasTarget.value ? targetKey.value : needsTouchAttack.value ? touchTargetKey.value : null;
+  if (!key || key === resolvedCasterKey.value) {
+    return null;
+  }
 
-  return spellCastOptionsService.targetSpellResistanceFromOverview(targetOverview, props.rules);
+  return overviewOf(key);
 });
+
+const targetResistance = computed(() =>
+  magicResistanceTarget.value
+    ? spellCastOptionsService.targetSpellResistanceFromOverview(magicResistanceTarget.value, props.rules)
+    : 0,
+);
 
 const preview = computed(() => {
   if (!spellCode.value || !usedPower.value || !availableControl.value) {
@@ -762,7 +771,7 @@ const castCheckLine = computed(() => {
     const outcome = spellCastDifficultyService.controllessOutcome({
       requiredPower: spellCastDifficultyService.resolveSpellValue(spellSpec.value.spell.power, parameterValues.value),
       usedPower: usedPower.value,
-      resistanceModify: hasTarget.value ? targetResistance.value : 0,
+      resistanceModify: targetResistance.value,
       resistancePenetration: resistancePenetration.value,
       requiredPowerDelta: requiredPowerDelta.value,
       trainingDifficultyDelta: actionEffectService.resolveForSpellCast(pendingSpellEffects.value, actionPointCost.value)

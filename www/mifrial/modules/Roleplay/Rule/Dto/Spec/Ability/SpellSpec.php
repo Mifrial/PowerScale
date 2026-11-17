@@ -19,6 +19,7 @@ final class SpellSpec
      * @param SpellDamage|null $damage Урон.
      * @param SpellCharge|null $charge Заряд.
      * @param array<int, SpellEffect> $effects Эффекты.
+     * @param bool $resistedByMagic Сопротивление магии цели повышает Сложность.
      *
      * @return void
      */
@@ -30,6 +31,7 @@ final class SpellSpec
         private readonly ?SpellDamage $damage,
         private readonly ?SpellCharge $charge,
         private readonly array $effects = [],
+        private readonly bool $resistedByMagic = false,
     ) {
     }
 
@@ -111,5 +113,15 @@ final class SpellSpec
     public function getEffects(): array
     {
         return $this->effects;
+    }
+
+    /**
+     * Сопротивление магии цели повышает Сложность сотворения.
+     *
+     * @return bool Значение.
+     */
+    public function isResistedByMagic(): bool
+    {
+        return $this->resistedByMagic;
     }
 }

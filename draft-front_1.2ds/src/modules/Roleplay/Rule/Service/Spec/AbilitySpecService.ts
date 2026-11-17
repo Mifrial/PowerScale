@@ -405,7 +405,10 @@ export class AbilitySpecService {
 
   setSpellDamage(spell: SpellSpec, damage: SpellDamage | null): SpellSpec {
     if (!damage) {
-      return { power: spell.power, control: spell.control, duration: spell.duration };
+      const next = { ...spell };
+      delete next.damage;
+
+      return next;
     }
 
     return { ...spell, damage };
