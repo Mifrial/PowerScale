@@ -94,6 +94,9 @@ export class SceneOverlayService {
   /** Полосы стоимости: меняются только с данными поля, не с туманом. */
   private readonly costsCache = new Map<number, { grid: SceneSurfaceGrid; bands: SceneOverlayBand[] }>();
 
+  /** Диапазон отметок цели по сетке: считается один раз на сборку сетки. */
+  private readonly targetRanges = new WeakMap<SceneSurfaceGrid, { min: number; max: number }>();
+
   /** Буферы размытия по размеру маски: не аллоцируем их каждый тик. */
   private readonly scratch = new Map<string, OverlayMaskScratch>();
 
@@ -309,7 +312,7 @@ export class SceneOverlayService {
     }
 
     const bodyHeight = sceneBodyHeight(resolution);
-    const range = this.elevationRange(grid);
+    const range = this.targetRange(grid);
     const target = query.prepare(board.id, range.min, range.max, bodyHeight);
     if (target === null) {
       return { columns: grid.columns, rows: grid.rows, visible };
@@ -353,7 +356,7 @@ export class SceneOverlayService {
           continue;
         }
 
-        if (query.sees(target, localX, localY, grid.elevation[index], bodyHeight)) {
+        if (query.sees(target, localX, localY, this.targetSurface(grid, index), bodyHeight)) {
           visible[index] = 1;
         }
       }
@@ -671,12 +674,59 @@ export class SceneOverlayService {
     return target;
   }
 
-  /** Диапазон отметок поверхности поля: сколько плоскостей пересекает луч. */
-  private elevationRange(grid: SceneSurfaceGrid): { min: number; max: number } {
+  /**
+   * Отметка поверхности клетки, по которой межэтажный луч ищет тело цели.
+   *
+   * Туман чужого поля — это план этажа, а не его верхний настил: человек стоит
+   * на полу под проходимой крышей. Если целиться в верх (крышу), луч идёт к
+   * точке над настилом и проскакивает к нему через колодец: люк подсвечивает
+   * пол этажа, хотя наблюдатель снизу его не видит. Поэтому под настилом
+   * берётся поверхность под ним, а на открытом месте — верхняя.
+   *
+   * @param grid Сетка поля.
+   * @param index Клетка.
+   *
+   * @returns Отметка поверхности, единицы сцены.
+   */
+  private targetSurface(grid: SceneSurfaceGrid, index: number): number {
+    // Крыша — потолок плана, а не пол: мост и марш остаются настилом, по
+    // которому идут, а под крышей человек стоит на поверхности под ней.
+    if (grid.kinds[index] !== 'roof') {
+      return grid.elevation[index];
+    }
+
+    const clearance = grid.clearance[index];
+    if (!Number.isFinite(clearance) || clearance <= 0) {
+      return grid.elevation[index];
+    }
+
+    // Под крышей может быть ещё один настил — марш: стоящий человек
+    // опирается на него, а не на землю под домом.
+    const deck = grid.deck[index];
+    if (Number.isFinite(deck) && deck < grid.elevation[index]) {
+      return deck;
+    }
+
+    return grid.ground[index];
+  }
+
+  /**
+   * Диапазон отметок, по которым луч ищет цель чужого поля.
+   *
+   * По нему выбираются плоскости-плиты на пути луча: они лежат между глазом и
+   * телом цели. Считается по тем же отметкам, что и `targetSurface`, иначе
+   * луч проверял бы не тот срез.
+   */
+  private targetRange(grid: SceneSurfaceGrid): { min: number; max: number } {
+    const cached = this.targetRanges.get(grid);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
     for (let index = 0; index < grid.elevation.length; index += 1) {
-      const value = grid.elevation[index];
+      const value = this.targetSurface(grid, index);
       if (value < min) {
         min = value;
       }
@@ -685,7 +735,10 @@ export class SceneOverlayService {
       }
     }
 
-    return Number.isFinite(min) ? { min, max } : { min: 0, max: 0 };
+    const range = Number.isFinite(min) ? { min, max } : { min: 0, max: 0 };
+    this.targetRanges.set(grid, range);
+
+    return range;
   }
 
   /** Сетка поверхностей с кэшем по полю, разрешению и форме элементов. */

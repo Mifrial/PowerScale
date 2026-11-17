@@ -359,6 +359,59 @@ describe('SceneOverlayService', () => {
     expect(fallback.alpha[fineIndex(fallback, [256, 256])]).toBe(0);
   });
 
+  it('не открывает второй этаж через люк по верхней поверхности крыши', () => {
+    const root: SceneBoard = { ...board, id: 1, boundWidth: 1024, boundHeight: 1024 };
+    const upper: SceneBoard = { ...board, id: 2, boundWidth: 512, boundHeight: 512 };
+    const enclosure: SceneEnclosure = {
+      id: 1,
+      parentBoardId: 1,
+      childBoardId: 2,
+      footprint: { type: 'rect', x: 256, y: 256, w: 512, h: 512 },
+      elevation: 128,
+      label: null,
+      sortOrder: 0,
+    };
+    const elements = [
+      onBoard(1, 1, 'terrain', { type: 'rect', x: 0, y: 0, w: 1024, h: 1024 }, { kind: 'grass' }),
+      onBoard(2, 2, 'terrain', { type: 'rect', x: 0, y: 0, w: 512, h: 512 }, { kind: 'dirt' }),
+      onBoard(
+        2,
+        3,
+        'support',
+        { type: 'rect', x: 32, y: 32, w: 448, h: 448 },
+        { kind: 'roof', elevation: 128, height: 16, speed: 100, walkable: true },
+      ),
+      // Колодец в плите — узкая щель над головой наблюдателя.
+      onBoard(2, 4, 'opening', { type: 'rect', x: 80, y: 240, w: 32, h: 24 }, { kind: 'stairs' }),
+    ];
+    const model: SceneRenderModel = {
+      activeBoardId: 2,
+      resolution: 64,
+      boards: [root, upper],
+      elements,
+      enclosures: [enclosure],
+      selection: [],
+      mode: 'preview',
+    };
+    const paint = service
+      .paints(
+        model,
+        { costs: false, visibility: true, observer: null, radius: 1024 },
+        // Наблюдатель на первом этаже, южнее люка.
+        { boardId: 1, point: [352, 556], level: 0, height: 96 },
+      )
+      .find((item) => item.boardId === 2);
+    expect(paint?.fog).not.toBeNull();
+    const mask = paint!.fog!;
+    const full = Math.round(SCENE_OVERLAY.hidden.alpha * 255);
+
+    // Туман этажа — план пола, а не верх крыши: через люк видно пол рядом с
+    // ним, но дальняя часть этажа остаётся скрытой. Иначе люк подсвечивал бы
+    // половину второго этажа, и с первого этажа был бы виден стоящий там актор.
+    expect(mask.alpha[fineIndex(mask, [96, 0])]).toBe(full);
+    expect(mask.alpha[fineIndex(mask, [96, 190])]).toBe(0);
+  });
+
   it('с марша под крышей двор за стеной не открывается', () => {
     const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
     const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };

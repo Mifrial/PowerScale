@@ -807,12 +807,17 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     const scene = observer === null ? null : floorSightScene();
     // В разрезе плита полупрозрачна: нижний этаж виден планом, и его акторы не
     // прячутся за перекрытием. Без разреза плита — настоящая преграда.
-    const slabs = !(options.slabCutaway?.() ?? true);
-    const cut = slabs ? undefined : cutFloor();
+    const cutaway = options.slabCutaway?.() ?? true;
+    // Разрез просвечивает вниз, а не вверх: актора над наблюдателем плита
+    // скрывает в любом случае, иначе с первого этажа видно, кто на втором.
+    const cut = cutaway ? cutFloor() : undefined;
     const observerSurface =
       observer === null || observerPoint === null || observerBoardId === null
         ? 0
         : levelSurface(observerBoardId, observerPoint, observer.level ?? 0);
+    // Отметки полей: по ним видно, куда смотрит луч — вниз, под плиту фокуса,
+    // или вверх, где перекрытие остаётся перекрытием.
+    const floorElevation = (boardId: number): number => scene?.levels.get(boardId)?.elevation ?? 0;
     actors.value = actors.value.map((actor) => {
       // Призраки — только на этаже наблюдателя: взаимного «невидения» между
       // NPC на одном этаже нет, а чужие этажи либо видны через проём, либо
@@ -820,6 +825,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       // виден ведущему»; на другом этаже он просто не виден.
       if (observer !== null && observerBoardId !== null && (actor.boardId ?? observerBoardId) !== observerBoardId) {
         const actorPoint: ScenePoint = [actor.x, actor.y];
+        const actorBoardId = actor.boardId ?? observerBoardId;
+        // Разрез показывает этаж под фокусом, а не над наблюдателем: верхний
+        // этаж закрыт своей плитой, и без колодца его не видно.
+        const above = floorElevation(actorBoardId) > floorElevation(observerBoardId);
         const visible =
           scene === null || observerPoint === null
             ? true
@@ -832,12 +841,12 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
                   surface: observerSurface,
                 },
                 {
-                  boardId: actor.boardId ?? observerBoardId,
+                  boardId: actorBoardId,
                   point: actorPoint,
                   height: actor.height ?? body,
-                  surface: levelSurface(actor.boardId ?? observerBoardId, actorPoint, actor.level ?? 0),
+                  surface: levelSurface(actorBoardId, actorPoint, actor.level ?? 0),
                 },
-                { slabs, cut, onRoof: selectedOnRoof.value },
+                { slabs: !cutaway || above, cut: above ? undefined : cut, onRoof: selectedOnRoof.value },
               );
 
         return { ...actor, ghost: false, hidden: !visible, underDeck: false };
