@@ -172,7 +172,12 @@ export class SceneVisibilityService {
     return Math.min(max, Math.max(min, value));
   }
 
-  /** Клетка перекрывает взгляд на высоте глаз. */
+  /**
+   * Клетка перекрывает взгляд на высоте глаз.
+   *
+   * Луч ровно на верхней кромке тоже перекрыт: глаз, поднятый до верха стены
+   * или потолка, иначе проскакивал бы поверх неё.
+   */
   private opaqueAt(grid: SceneSurfaceGrid, index: number, eye: number): boolean {
     const bottom = grid.sightBottom[index];
     if (!Number.isFinite(bottom)) {
