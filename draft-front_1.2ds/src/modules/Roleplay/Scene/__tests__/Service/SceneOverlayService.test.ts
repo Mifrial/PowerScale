@@ -303,7 +303,7 @@ describe('SceneOverlayService', () => {
     expect(rootPaint!.fog!.alpha[fineIndex(rootPaint!.fog!, [32, 32])]).toBe(0);
   });
 
-  it('с крыши плита не мешает, а с марша под ней — мешает', () => {
+  it('с крыши пол закрывает дом, а двор за краем плиты остаётся видимым', () => {
     const root: SceneBoard = { ...board, id: 1, boundWidth: 512, boundHeight: 512 };
     const upper: SceneBoard = { ...board, id: 2, boundWidth: 256, boundHeight: 256 };
     const enclosure: SceneEnclosure = {
@@ -348,15 +348,19 @@ describe('SceneOverlayService', () => {
       return paint!.fog!;
     };
 
-    // На крыше плита под ногами не перекрывает двор.
+    // На крыше плита проверяется: пол этажа под крышей закрывает землю под
+    // домом, иначе с крыши просвечивал бы и дом, и проёмы нижнего этажа.
     const roof = rootMask(true);
-    expect(roof.alpha[fineIndex(roof, [256, 256])]).toBe(0);
-    // Если наблюдатель на марше под крышей, плита честно перекрывает.
+    expect(roof.alpha[fineIndex(roof, [256, 256])]).toBeGreaterThan(0);
+    // Двор за краем плиты виден: луч обходит её по воздуху.
+    expect(roof.alpha[fineIndex(roof, [32, 32])]).toBe(0);
+    // С марша под крышей плита честно перекрывает.
     const stairs = rootMask(false);
     expect(stairs.alpha[fineIndex(stairs, [256, 256])]).toBeGreaterThan(0);
-    // Без явного флага запасная проверка по сетке видит крышу.
+    // Без явного флага запасная проверка по сетке видит крышу так же.
     const fallback = rootMask();
-    expect(fallback.alpha[fineIndex(fallback, [256, 256])]).toBe(0);
+    expect(fallback.alpha[fineIndex(fallback, [256, 256])]).toBeGreaterThan(0);
+    expect(fallback.alpha[fineIndex(fallback, [32, 32])]).toBe(0);
   });
 
   it('не открывает второй этаж через люк по верхней поверхности крыши', () => {

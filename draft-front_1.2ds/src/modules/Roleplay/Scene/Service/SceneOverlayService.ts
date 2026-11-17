@@ -214,11 +214,18 @@ export class SceneOverlayService {
     });
   }
 
-  /** Общий запрос видимости чужих полей на текущий тик. */
+  /**
+   * Общий запрос видимости чужих полей на текущий тик.
+   *
+   * Плиты проверяются и с крыши: крыша — настил, а не уровень, поэтому её
+   * плоскость в растр не входит, и «плита под ногами» луч не режет. Зато пол
+   * этажа под крышей — единственное, что не даёт лучу нырнуть внутрь дома и
+   * выйти на траву сквозь нижнюю дверь или окно. Без этой проверки с крыши у
+   * окон и дверей нижнего этажа оставались светлые полосы на земле.
+   */
   private queryOf(scene: SceneFloorSightScene, observer: SceneOverlayObserver): SceneSightQuery {
     const level = this.gridOf(observer.boardId);
     const surface = level === null ? 0 : surfaceFloor(level, observer.point, observer.level ?? 0);
-    const onRoof = this.observerOnRoof(observer);
 
     return this.floorSight.query(
       scene,
@@ -230,7 +237,9 @@ export class SceneOverlayService {
         // своего этажа только потому, что он уже поднялся над полом.
         surface: level === null ? surface : this.belowCeiling(level, observer, surface, scene.resolution),
       },
-      { slabs: !onRoof, onRoof },
+      // На крыше пропускаются только стены своего этажа (`onRoof`): они ниже
+      // настила. Плиты остаются: пол этажа под крышей перекрывает луч.
+      { slabs: true, onRoof: this.observerOnRoof(observer) },
     );
   }
   /**

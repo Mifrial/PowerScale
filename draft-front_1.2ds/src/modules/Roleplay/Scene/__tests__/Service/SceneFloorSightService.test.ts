@@ -261,10 +261,11 @@ describe('SceneFloorSightService', () => {
     expect(query.sees(target, 1000, 100, 0, 96)).toBe(true);
   });
 
-  it('с крыши окно нижнего этажа не просвечивает в двор', () => {
-    // Окно нижнего этажа — не дыра во всю стену: подоконник и стена над
-    // перемычкой держат луч. Раньше окно вырезалось целиком, и с крыши свет
-    // уходил сквозь него полосой в двор — будто окно стоит выше крыши.
+  it('с крыши пол этажа закрывает нижнюю дверь и окно', () => {
+    // Проём нижнего этажа не должен светить на траву у стены. Причин две:
+    // окно открыто только между подоконником и перемычкой, а пол этажа под
+    // крышей не пускает луч вниз — иначе луч с крыши ныряет сквозь настил,
+    // проходит нижнюю дверь на всю высоту и выходит наружу светлой полосой.
     const windowed: SceneRenderModel = {
       ...model,
       elements: [
@@ -280,26 +281,33 @@ describe('SceneFloorSightService', () => {
       ],
     };
     const windowedScene = service.scene(windowed);
-    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
-    // Цель сразу за стеной: луч проходит её на 120 — выше перемычки нижнего
-    // окна (86), но ниже верха стены, то есть сквозь прежнюю «дыру».
-    const to: SceneFloorSightPoint = { boardId: 1, point: [940, 1015], height: 96 };
-
-    expect(service.seesSurface(windowedScene, from, to, { slabs: false, onRoof: true })).toBe(false);
-
-    // Запечённый растр стен знает ту же полосу окна.
-    const query = service.query(windowedScene, from, { slabs: false, onRoof: true });
-    const target = query.prepare(1, 0, 0, 96)!;
-    expect(query.sees(target, 940, 1015, 0, 96)).toBe(false);
-
-    // Дверь в той же стене открыта на всю высоту: сквозь неё луч проходит.
     const doored: SceneRenderModel = {
       ...windowed,
       elements: windowed.elements.map((item) =>
         item.id === 51 ? { ...item, props: { kind: 'door', sill: 0, lintel: 0, state: 'open' } } : item,
       ),
     };
-    expect(service.seesSurface(service.scene(doored), from, to, { slabs: false, onRoof: true })).toBe(true);
+    const dooredScene = service.scene(doored);
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
+    // Цель сразу за стеной: луч пересекает плоскость пола под крышей внутри
+    // пятна, а стену — на 120 (выше перемычки окна 86, ниже верха стены).
+    const to: SceneFloorSightPoint = { boardId: 1, point: [940, 1015], height: 96 };
+
+    // С крыши плита проверяется: ни окно, ни дверь наружу не светят.
+    expect(service.seesSurface(windowedScene, from, to, { onRoof: true })).toBe(false);
+    expect(service.seesSurface(dooredScene, from, to, { onRoof: true })).toBe(false);
+
+    // Запечённый растр стен и плит знает то же самое.
+    for (const sceneUnderTest of [windowedScene, dooredScene]) {
+      const query = service.query(sceneUnderTest, from, { onRoof: true });
+      const target = query.prepare(1, 0, 0, 96)!;
+      expect(query.sees(target, 940, 1015, 0, 96)).toBe(false);
+    }
+
+    // Без проверки плиты луч уходит вниз: окно держит полоса, а дверь открыта
+    // на всю высоту — это и были засветы у стены с крыши.
+    expect(service.seesSurface(windowedScene, from, to, { slabs: false, onRoof: true })).toBe(false);
+    expect(service.seesSurface(dooredScene, from, to, { slabs: false, onRoof: true })).toBe(true);
   });
 
   it('с крыши видно двор поверх стен своего этажа', () => {
