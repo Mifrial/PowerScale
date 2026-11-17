@@ -526,9 +526,30 @@ describe('SceneNavigationService', () => {
       throw new Error('ожидалась сетка навигации');
     }
 
-    const levels = service.levelsAt(mesh, [700, 350]);
+    const levels = service.levelsAt(mesh, [620, 350]);
     expect(levels.find((level) => level.surface === 'roof')?.elevation).toBe(128);
-    expect(levels.find((level) => level.surface === 'stairs')?.elevation).toBe(128);
+    // Под люком крыши уже нет: там верхний уровень — марш, иначе с крыши
+    // нельзя было бы спуститься.
+    const hatch = service.levelsAt(mesh, [700, 350]);
+    expect(hatch.some((level) => level.surface === 'roof')).toBe(false);
+    expect(hatch.find((level) => level.surface === 'stairs')?.elevation).toBe(128);
+
+    const roofLevel = levels.find((level) => level.surface === 'roof')?.level ?? 0;
+    const stairsLevel = hatch.find((level) => level.surface === 'stairs')?.level ?? 0;
+    const descent = service.route(board, [grass(), roof, stairs], 64, [620, 350], [700, 350], {
+      ...options,
+      fromLevel: roofLevel,
+      toLevel: stairsLevel,
+    });
+    const ground = service.route(board, [grass(), roof, stairs], 64, [700, 350], [620, 350], {
+      ...options,
+      fromLevel: stairsLevel,
+      toLevel: 0,
+    });
+    expect(descent).not.toBeNull();
+    expect(descent?.segments.some((segment) => segment.level === stairsLevel)).toBe(true);
+    expect(ground).not.toBeNull();
+    expect(ground?.segments[ground.segments.length - 1].level).toBe(0);
   });
 
   it('ведёт по указанному уровню цели', () => {

@@ -30,6 +30,7 @@ import {
   sceneRampBaseBlocker,
 } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import {
   isSceneDeck,
@@ -603,6 +604,7 @@ export class SceneNavigationService {
 
     const regions: SceneNavRegion[] = [];
     let covered: MultiPolygon = [];
+    const roofHatches = sceneRoofHatches(elements, resolution);
     for (const positive of positives) {
       const shape = this.polygonOf(positive.element, resolution, 0);
       if (shape === null) {
@@ -638,6 +640,15 @@ export class SceneNavigationService {
       }
 
       let region: MultiPolygon = [shape];
+      // Люк — настоящая дыра в настиле крыши: с крыши в него спускаются на
+      // марш, а не ходят поверх ступеней.
+      const hatches = roofHatches.filter((hatch) => hatch.roofId === deck.element.id);
+      if (hatches.length > 0) {
+        region = this.subtract(
+          region,
+          hatches.map((hatch) => [hatch.polygon] as Polygon),
+        );
+      }
       if (deck.blockers.length > 0) {
         region = this.subtract(region, this.unionMany(deck.blockers));
       }
@@ -761,107 +772,121 @@ export class SceneNavigationService {
         continue;
       }
 
-      const ring = region.outer;
-      const clockwise = this.signedArea(ring) < 0;
-      for (let edge = 0; edge < ring.length; edge += 1) {
-        const a = ring[edge];
-        const b = ring[(edge + 1) % ring.length];
-        const length = this.distance(a, b);
-        if (length <= SCENE_NAVIGATION.linkEpsilon) {
-          continue;
-        }
+      // Контур региона и его вырезы — одна граница уровня. Люк в проходимой
+      // крыше связывает настил с маршем под ним; у остальных настилов вырезы
+      // (перила, препятствия на настиле) остаются прежними: спрыгивать через
+      // них вниз нельзя.
+      const rings = region.surface === 'roof' ? [region.outer, ...region.holes] : [region.outer];
+      for (const ring of rings) {
+        const hole = ring !== region.outer;
+        const clockwise = this.signedArea(ring) < 0;
+        for (let edge = 0; edge < ring.length; edge += 1) {
+          const a = ring[edge];
+          const b = ring[(edge + 1) % ring.length];
+          const length = this.distance(a, b);
+          if (length <= SCENE_NAVIGATION.linkEpsilon) {
+            continue;
+          }
 
-        // Верхний торец съезда не обрывается вниз: под ним пол, а не край
-        // настила. Но если прямо над торцом лежит уровень — крыша или настил
-        // выше, — марш в него упирается: лестница внутри дома так выходит на
-        // проходимую крышу.
-        if (region.slope !== null) {
-          const edgeMid: ScenePoint = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-          if (this.distance(edgeMid, region.slope.to) <= base * 0.5) {
-            const stairs = this.locateLevel(triangles, edgeMid, region.level);
-            const upperTriangle = this.locateAbove(triangles, edgeMid, region.level);
-            if (stairs >= 0 && upperTriangle >= 0) {
-              const lower = this.levelElevation(levels.get(region.level), edgeMid);
-              const upper = this.levelElevation(levels.get(triangles[upperTriangle].level), edgeMid);
-              const delta = upper - lower;
-              const up = this.transitionType(delta, step, climb, drop);
-              const down = this.transitionType(-delta, step, climb, drop);
-              if (up !== null || down !== null) {
-                this.addLevelLink(triangles, upperTriangle, stairs, a, b, up, down, delta);
+          // Верхний торец съезда не обрывается вниз: под ним пол, а не край
+          // настила. Но если прямо над торцом лежит уровень — крыша или настил
+          // выше, — марш в него упирается: лестница внутри дома так выходит на
+          // проходимую крышу.
+          if (!hole && region.slope !== null) {
+            const edgeMid: ScenePoint = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            if (this.distance(edgeMid, region.slope.to) <= base * 0.5) {
+              const stairs = this.locateLevel(triangles, edgeMid, region.level);
+              const upperTriangle = this.locateAbove(triangles, edgeMid, region.level);
+              if (stairs >= 0 && upperTriangle >= 0) {
+                const lower = this.levelElevation(levels.get(region.level), edgeMid);
+                const upper = this.levelElevation(levels.get(triangles[upperTriangle].level), edgeMid);
+                const delta = upper - lower;
+                const up = this.transitionType(delta, step, climb, drop);
+                const down = this.transitionType(-delta, step, climb, drop);
+                if (up !== null || down !== null) {
+                  this.addLevelLink(triangles, upperTriangle, stairs, a, b, up, down, delta);
+                }
               }
+
+              continue;
+            }
+          }
+
+          // Перила стоят по длинным сторонам, вход — с торцов. Уровень перил
+          // соединяется только длинными сторонами, уровень настила — только
+          // торцами: иначе A* перескочил бы перила как обычный край. У выреза
+          // торцов нет.
+          if (!hole && region.frame !== null) {
+            const end = sceneDeckEndEdge(region.frame, a, b);
+            if (region.rail ? end : !end) {
+              continue;
+            }
+          }
+
+          const dx = (b[0] - a[0]) / length;
+          const dy = (b[1] - a[1]) / length;
+          const sign = clockwise ? -1 : 1;
+          const normal: ScenePoint = [sign * dy, -sign * dx];
+          const inward: ScenePoint = hole ? normal : [-normal[0], -normal[1]];
+          const outward: ScenePoint = [-inward[0], -inward[1]];
+          const samples = Math.max(1, Math.ceil(length / base));
+          let group: { below: number; deckTriangle: number; from: ScenePoint; to: ScenePoint } | null = null;
+          const flush = (): void => {
+            if (group === null) {
+              return;
             }
 
-            continue;
-          }
-        }
+            const mid: ScenePoint = [(group.from[0] + group.to[0]) / 2, (group.from[1] + group.to[1]) / 2];
+            const above = this.levelElevation(levels.get(region.level), mid);
+            const belowLevel = triangles[group.below].level;
+            const below = this.levelElevation(levels.get(belowLevel), mid);
+            const delta = above - below;
+            // Переход направленный: вверх — `climb`, вниз — `drop`. Один и тот
+            // же перепад не может быть одновременно подъёмом и спуском, поэтому
+            // звено пишется в каждую сторону со своим типом и знаком.
+            const up = this.transitionType(delta, step, climb, drop);
+            const down = this.transitionType(-delta, step, climb, drop);
+            if (up !== null || down !== null) {
+              this.addLevelLink(triangles, group.deckTriangle, group.below, group.from, group.to, up, down, delta);
+            }
+            group = null;
+          };
 
-        // Перила стоят по длинным сторонам, вход — с торцов. Уровень перил
-        // соединяется только длинными сторонами, уровень настила — только
-        // торцами: иначе A* перескочил бы перила как обычный край.
-        if (region.frame !== null) {
-          const end = sceneDeckEndEdge(region.frame, a, b);
-          if (region.rail ? end : !end) {
-            continue;
-          }
-        }
-
-        const dx = (b[0] - a[0]) / length;
-        const dy = (b[1] - a[1]) / length;
-        const sign = clockwise ? -1 : 1;
-        const normal: ScenePoint = [sign * dy, -sign * dx];
-        const samples = Math.max(1, Math.ceil(length / base));
-        let group: { below: number; deckTriangle: number; from: ScenePoint; to: ScenePoint } | null = null;
-        const flush = (): void => {
-          if (group === null) {
-            return;
-          }
-
-          const mid: ScenePoint = [(group.from[0] + group.to[0]) / 2, (group.from[1] + group.to[1]) / 2];
-          const above = this.levelElevation(levels.get(region.level), mid);
-          const belowLevel = triangles[group.below].level;
-          const below = this.levelElevation(levels.get(belowLevel), mid);
-          const delta = above - below;
-          // Переход направленный: вверх — `climb`, вниз — `drop`. Один и тот
-          // же перепад не может быть одновременно подъёмом и спуском, поэтому
-          // звено пишется в каждую сторону со своим типом и знаком.
-          const up = this.transitionType(delta, step, climb, drop);
-          const down = this.transitionType(-delta, step, climb, drop);
-          if (up !== null || down !== null) {
-            this.addLevelLink(triangles, group.deckTriangle, group.below, group.from, group.to, up, down, delta);
-          }
-          group = null;
-        };
-
-        for (let sample = 0; sample <= samples; sample += 1) {
-          const t = sample / samples;
-          const point: ScenePoint = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-          const deckTriangle = this.locateLevel(triangles, [point[0] - normal[0], point[1] - normal[1]], region.level);
-          let below = -1;
-          for (const offset of offsets) {
-            below = this.locateBelow(
+          for (let sample = 0; sample <= samples; sample += 1) {
+            const t = sample / samples;
+            const point: ScenePoint = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+            const deckTriangle = this.locateLevel(
               triangles,
-              [point[0] + normal[0] * offset, point[1] + normal[1] * offset],
+              [point[0] + inward[0], point[1] + inward[1]],
               region.level,
             );
-            if (below >= 0) {
-              break;
+            let below = -1;
+            for (const offset of offsets) {
+              below = this.locateBelow(
+                triangles,
+                [point[0] + outward[0] * offset, point[1] + outward[1] * offset],
+                region.level,
+              );
+              if (below >= 0) {
+                break;
+              }
             }
-          }
-          if (deckTriangle < 0 || below < 0) {
-            flush();
-            continue;
-          }
+            if (deckTriangle < 0 || below < 0) {
+              flush();
+              continue;
+            }
 
-          if (group !== null && group.below === below && group.deckTriangle === deckTriangle) {
-            group.to = point;
-            continue;
+            if (group !== null && group.below === below && group.deckTriangle === deckTriangle) {
+              group.to = point;
+              continue;
+            }
+
+            flush();
+            group = { below, deckTriangle, from: point, to: point };
           }
 
           flush();
-          group = { below, deckTriangle, from: point, to: point };
         }
-
-        flush();
       }
     }
   }

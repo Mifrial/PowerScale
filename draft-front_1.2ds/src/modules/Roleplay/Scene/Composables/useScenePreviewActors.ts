@@ -110,8 +110,9 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
    * Выбранный актор стоит на проходимой крыше.
    *
    * В предпросмотре такая крыша показывается и при скрытых крышах: иначе
-   * наблюдатель не увидит, по чему идёт. Признак считается по поверхности:
-   * актор должен быть на верхнем уровне, а его точка — попадать в накрытие.
+   * наблюдатель не увидит, по чему идёт. Признак считается по уровню
+   * навигации: актор должен стоять именно на уровне крыши, а не на марше под
+   * ней — иначе крыша осталась бы видимой и закрыла спускающегося.
    */
   const selectedOnRoof = computed(() => {
     const actor = selectedActor.value;
@@ -119,14 +120,34 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return false;
     }
 
-    return options
+    const boardId = actor.boardId ?? options.board()?.id;
+    const roofs = options
       .elements()
-      .some(
+      .filter(
         (element) =>
-          element.boardId === (actor.boardId ?? options.board()?.id) &&
+          element.boardId === boardId &&
           isWalkableRoof(element) &&
           sceneGeometryService.contains(element.shape, [actor.x, actor.y], 0, sceneRotation(element)),
       );
+    if (roofs.length === 0) {
+      return false;
+    }
+
+    const board = options.boards().find((item) => item.id === boardId);
+    if (board === undefined) {
+      return false;
+    }
+
+    const mesh = navigation.build(board, options.elements(), options.resolution(), {
+      agentRadius: actor.radius,
+    });
+    if (mesh === null) {
+      return false;
+    }
+
+    return navigation
+      .levelsAt(mesh, [actor.x, actor.y])
+      .some((level) => level.level === actor.level && level.surface === 'roof');
   });
 
   watch(
@@ -442,12 +463,14 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
 
     // Площадка лестницы — дверь на другой этаж. Клик по ней только ведёт к
     // ней: переносить актора на другое поле без шага нельзя. Дальше клик по
-    // цели на другом этаже строит маршрут через площадку.
+    // цели на другом этаже строит маршрут через площадку. Идём на пол
+    // площадки, а не на верхний настил: над лестничной клеткой может лежать
+    // крыша, и путь не должен уводить на неё.
     if (selected !== null) {
       const tolerance = Math.max(1, options.resolution() * 0.1);
       const portal = portals.portalAt(options.elements(), targetId, point, tolerance);
       if (portal !== null && (actor === null || actor.id === selected.id)) {
-        moveTo(targetId, portal.center);
+        moveTo(targetId, portal.center, 0);
 
         return;
       }

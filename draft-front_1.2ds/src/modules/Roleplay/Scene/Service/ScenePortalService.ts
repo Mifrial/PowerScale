@@ -55,7 +55,71 @@ export class ScenePortalService {
       }
     }
 
+    if (best !== null) {
+      return best;
+    }
+
+    // Клик по самому колодцу лестницы — это тоже клик по переходу: площадка
+    // стоит вплотную к шахте, и без этого маршрут уходил бы на верхний
+    // настил над ней вместо пола лестничной клетки.
+    for (const element of elements) {
+      if (
+        element.boardId !== boardId ||
+        element.kind !== 'opening' ||
+        element.targetBoardId !== null ||
+        element.props.kind !== 'stairs' ||
+        element.shape.type !== 'rect'
+      ) {
+        continue;
+      }
+      if (!sceneGeometryService.contains(element.shape, point, tolerance, 0)) {
+        continue;
+      }
+
+      const landing = this.adjacentLanding(elements, boardId, element, tolerance);
+      if (landing !== null && landing.targetBoardId !== null) {
+        return { opening: landing, targetBoardId: landing.targetBoardId, center: this.center(landing) };
+      }
+    }
+
+    return null;
+  }
+
+  /** Площадка перехода, стоящая вплотную к колодцу на том же поле. */
+  private adjacentLanding(
+    elements: readonly SceneElement[],
+    boardId: number,
+    hole: SceneElement,
+    tolerance: number,
+  ): SceneElement | null {
+    const box = sceneGeometryService.bounds(hole.shape);
+    let best: SceneElement | null = null;
+    let bestGap = Number.POSITIVE_INFINITY;
+    for (const element of elements) {
+      if (element.boardId !== boardId || element.kind !== 'opening' || element.targetBoardId === null) {
+        continue;
+      }
+
+      const other = sceneGeometryService.bounds(element.shape);
+      const gap = this.gap(box, other);
+      if (gap <= tolerance && gap < bestGap) {
+        best = element;
+        bestGap = gap;
+      }
+    }
+
     return best;
+  }
+
+  /** Расстояние между прямоугольниками; 0 — они соприкасаются. */
+  private gap(
+    first: { x: number; y: number; width: number; height: number },
+    second: { x: number; y: number; width: number; height: number },
+  ): number {
+    const dx = Math.max(0, Math.max(first.x - (second.x + second.width), second.x - (first.x + first.width)));
+    const dy = Math.max(0, Math.max(first.y - (second.y + second.height), second.y - (first.y + first.height)));
+
+    return Math.hypot(dx, dy);
   }
 
   /** Парный проём на целевом поле: ведёт назад и ближе всего к точке. */

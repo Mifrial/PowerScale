@@ -40,12 +40,9 @@ import { SceneGrassShader } from '@/modules/Roleplay/Scene/Service/SceneGrassSha
 import type { SceneGrassShaderHandle } from '@/modules/Roleplay/Scene/Service/SceneGrassShader';
 import { SceneGrassTextureService } from '@/modules/Roleplay/Scene/Service/SceneGrassTextureService';
 import { SceneGrassTrailService } from '@/modules/Roleplay/Scene/Service/SceneGrassTrailService';
-import {
-  isSceneRoof,
-  isWalkableRoof,
-  sceneSurfaceElevation,
-  sceneWaterDepth,
-} from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import { isSceneRoof, isWalkableRoof, sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
+import type { SceneRoofHatch } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
+import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
@@ -56,7 +53,6 @@ import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/scen
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
 import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
-import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_ROOF } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ROOF';
 import { sceneGeometryService } from '@/modules/Roleplay/Scene/Service/Instance/sceneGeometryService';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
@@ -1082,49 +1078,32 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * Колодцы в проходимой крыше: марши, которые выходят на неё.
    *
    * Лестница на крышу не прорезает плиту отдельным проёмом: крыша — настил, а
-   * не перекрытие с заливкой. Поэтому её настил режется по пятну марша, верх
-   * которого совпадает с крышей, — так видно ступени и проход вниз.
+   * не перекрытие с заливкой. Поэтому её настил режется по верхней части марша,
+   * верх которого совпадает с крышей, — так виден люк и проход вниз, а
+   * остальная лестница остаётся под крышей.
    *
    * @param boardId Поле этажа.
    *
-   * @returns Прямоугольники вырезов в координатах поля.
+   * @returns Проёмы в координатах поля.
    */
-  private roofHoles(boardId: number): SceneBounds[] {
+  private roofHoles(boardId: number): SceneRoofHatch[] {
     const model = this.model;
     if (model === null) {
       return [];
     }
 
-    const roofs = model.elements.filter((element) => element.boardId === boardId && isWalkableRoof(element));
-    if (roofs.length === 0) {
-      return [];
-    }
-
-    const step = Math.max(1, model.resolution) * SCENE_NAVIGATION.stepIpari;
-    const holes: SceneBounds[] = [];
-    for (const element of model.elements) {
-      if (element.boardId !== boardId || element.kind !== 'support' || element.props.kind !== 'stairs') {
-        continue;
-      }
-      if (element.shape.type !== 'rect') {
-        continue;
-      }
-      const top = sceneSurfaceElevation(element);
-      if (!roofs.some((roof) => Math.abs(sceneSurfaceElevation(roof) - top) <= step)) {
-        continue;
-      }
-
-      holes.push({ x: element.shape.x, y: element.shape.y, width: element.shape.w, height: element.shape.h });
-    }
-
-    return holes;
+    return sceneRoofHatches(
+      model.elements.filter((element) => element.boardId === boardId),
+      Math.max(1, model.resolution),
+    );
   }
 
   /**
    * Рамка вокруг проёма в настиле крыши.
    *
    * Вырез маски не даёт края: ступени видны, но сам проём читается плохо.
-   * Рамка рисуется чуть снаружи выреза, поэтому маска её не срезает.
+   * Рамка рисуется толстой линией по контуру: наружная половина остаётся,
+   * внутреннюю срезает маска.
    *
    * @param board Поле этажа.
    */
@@ -1135,13 +1114,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    const zoom = this.zoom();
     const graphics = new Graphics();
     for (const hole of holes) {
-      const rim = SCENE_ROOF.hatchRim;
-      graphics
-        .rect(hole.x - rim, hole.y - rim, hole.width + rim * 2, hole.height + rim * 2)
-        .stroke({ color: SCENE_ROOF.deckEdgeColor, width: Math.max(1, 2 / zoom), alpha: 0.9 });
+      graphics.poly(hole.polygon.flat()).stroke({
+        color: SCENE_ROOF.deckEdgeColor,
+        width: Math.max(2, SCENE_ROOF.hatchRim * 2),
+        alpha: 0.9,
+      });
     }
     layer.addChild(graphics);
   }
@@ -1791,7 +1770,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       // куда спускаться, а не глухую заливку поверх ступеней.
       if (name === 'deckRoofs') {
         for (const hole of roofHoles) {
-          mask.rect(hole.x, hole.y, hole.width, hole.height).cut();
+          mask.poly(hole.polygon.flat()).cut();
         }
       }
 
