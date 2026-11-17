@@ -3476,6 +3476,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-23-nolomancy-states.md",
+                    "title": "План M23 — состояния Ноломансии на листе цели",
+                    "kind": "plan",
+                    "state": "ЧАСТИЧНО",
+                    "date": "2026-11-18",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/spell-roadmap.md",
                     "title": "Нарезка магии и заклинаний",
                     "kind": "plan",

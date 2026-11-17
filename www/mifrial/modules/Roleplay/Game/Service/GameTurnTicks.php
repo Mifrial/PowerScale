@@ -82,6 +82,22 @@ final class GameTurnTicks
     }
 
     /**
+     * Ресурс восстанавливается в начале своего хода.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param string $code Код ресурса.
+     *
+     * @return bool true, если пул хода.
+     */
+    private function isTurnRefill(CharacterRuleSlice $slice, string $code): bool
+    {
+        $rule = $slice->findLive($code);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+
+        return $spec instanceof ResourceSpec && $spec->isTurnRefill();
+    }
+
+    /**
      * Раны и их вклад в кровотечение.
      *
      * @param GameRecord $game Игра.
@@ -131,7 +147,12 @@ final class GameTurnTicks
     {
         $operations = [];
         foreach ($this->states->rows($sheet) as $row) {
-            if ($this->states->isWound($row) || !is_string($row['stateRuleCode'] ?? null) || !is_int($row['id'] ?? null)) {
+            if ($this->states->isWound($row) || !is_string($row['stateRuleCode'] ?? null)) {
+                continue;
+            }
+
+            $runtime = ($row['runtime'] ?? false) === true;
+            if (!$runtime && !is_int($row['id'] ?? null)) {
                 continue;
             }
 
@@ -198,10 +219,82 @@ final class GameTurnTicks
         }
 
         if ($pools === 1) {
-            $operations[] = ['kind' => 'refillTurnResource'];
+            $operation = ['kind' => 'refillTurnResource'];
+            $limits = $this->refillLimits($slice, $sheet);
+            if ($limits !== []) {
+                $operation['limits'] = $limits;
+            }
+
+            $operations[] = $operation;
         }
 
         return $operations;
+    }
+
+    /**
+     * Потолки пулов хода с учётом наложенных состояний.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист с состояниями.
+     *
+     * @return array<string, int|array{base: int, size: int}> Потолки по коду ресурса.
+     */
+    private function refillLimits(CharacterRuleSlice $slice, array $sheet): array
+    {
+        $rows = $sheet['resources'] ?? null;
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $limits = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $code = $row['ruleCode'] ?? null;
+            if (!is_string($code) || !$this->isTurnRefill($slice, $code)) {
+                continue;
+            }
+
+            $limit = $this->rowLimit($row);
+            if ($limit !== null) {
+                $limits[$code] = $limit;
+            }
+        }
+
+        return $limits;
+    }
+
+    /**
+     * Потолок одной строки ресурса: база и сумма вкладов.
+     *
+     * @param array<string, mixed> $row Строка ресурса.
+     *
+     * @return int|array{base: int, size: int}|null Потолок или null.
+     */
+    private function rowLimit(array $row): int|array|null
+    {
+        $delta = 0;
+        $bonuses = $row['bonuses'] ?? null;
+        if (is_array($bonuses)) {
+            foreach ($bonuses as $bonus) {
+                if (is_array($bonus) && is_int($bonus['delta'] ?? null)) {
+                    $delta += $bonus['delta'];
+                }
+            }
+        }
+
+        $base = $row['base'] ?? null;
+        if (is_int($base)) {
+            return max(0, $base + $delta);
+        }
+
+        if (is_array($base) && is_int($base['base'] ?? null) && is_int($base['size'] ?? null)) {
+            return ['base' => max(0, $base['base'] + $delta), 'size' => $base['size']];
+        }
+
+        return null;
     }
 
     /**

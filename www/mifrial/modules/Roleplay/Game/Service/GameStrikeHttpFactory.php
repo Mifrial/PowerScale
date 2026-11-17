@@ -341,7 +341,8 @@ final class GameStrikeHttpFactory
         $access = $this->turnAccess($serviceLocator, $gateway);
         $battles = new GameBattleRepository($gateway);
         $cursor = new GameTurnCursor();
-        $snapshot = new GameTurnSnapshot($rules, $this->npcs($gateway));
+        $sheets = $write->sheets($rules);
+        $snapshot = new GameTurnSnapshot($rules, $this->npcs($gateway), $sheets);
         $ports = new GameStrikePorts($serviceLocator);
         $shared = new GameStrikeShared(
             $gateway,

@@ -62,6 +62,7 @@
 | [spell-real-plan-02-spell-upgrades.md](../../spell-real-plan-02-spell-upgrades.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
 | [spell-real-plan-03-check-efficiency.md](../../spell-real-plan-03-check-efficiency.md) | план | `~ЧАСТИЧНО~` | 2026-11-10 |
 | [spell-real-plan-22-nolomancy-skills.md](../../spell-real-plan-22-nolomancy-skills.md) | план | `~ЧАСТИЧНО~` | 2026-11-17 |
+| [spell-real-plan-23-nolomancy-states.md](../../spell-real-plan-23-nolomancy-states.md) | план | `~ЧАСТИЧНО~` | 2026-11-18 |
 | [spell-roadmap.md](../../spell-roadmap.md) | план | `~ЧАСТИЧНО~` | 2026-09-07 |
 | [rule-content-plan-03-senses.md](../../rule-content-plan-03-senses.md) | план | `~ОТЛОЖЕН~` | — |
 | [rule-content-plan-14-future-ability-ideas.md](../../rule-content-plan-14-future-ability-ideas.md) | план | `~ОТЛОЖЕН~` | — |

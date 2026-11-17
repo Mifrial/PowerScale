@@ -57,8 +57,13 @@ final class GameTurnTickDot
             return [];
         }
 
+        $runtime = !is_int($row['id'] ?? null);
         $period = $effect->getPeriodValue();
-        $left = $this->remaining($row, $period);
+        if ($runtime && $period !== null && $period > 1) {
+            throw new GameInvalidException('Game turn effect period is not supported');
+        }
+
+        $left = $runtime ? ['wait' => 0, 'left' => null] : $this->remaining($row, $period);
         if ($left['wait'] > 0) {
             return [['kind' => 'patchState', 'id' => $row['id'], 'dotTurnsLeft' => $left['wait']]];
         }
@@ -67,6 +72,12 @@ final class GameTurnTickDot
         $split = $this->splits->operation($slice, $this->contexts->build($sheet), $injury);
         $effects = $this->consequences->effects($game, $sheet, $injury, 0, $split, $effect->getDamageTypeCode(), false);
         $operations = $effects['operations'];
+        if ($runtime) {
+            // Срок и снятие наложенного эффекта ведёт game_active_effect,
+            // лист его строк не хранит.
+            return $operations;
+        }
+
         $operations[] = $this->after($effect, $row, $left['left'], $period);
 
         return $operations;

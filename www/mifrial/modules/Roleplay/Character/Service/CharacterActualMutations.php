@@ -36,6 +36,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Меняет сохранённый actual операцией каталога и ожидаемой версией.
@@ -736,10 +737,12 @@ final class CharacterActualMutations implements ICharacterActualMutations
      */
     private function refillTurnResources(array $sheet, CharacterRuleSlice $slice, array $operations): array
     {
+        $limits = [];
         $refill = false;
         foreach ($operations as $operation) {
             if (is_array($operation) && ($operation['kind'] ?? null) === 'refillTurnResource') {
                 $refill = true;
+                $limits = is_array($operation['limits'] ?? null) ? $operation['limits'] : [];
             }
         }
 
@@ -755,7 +758,8 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $arithmetic = new CharacterResourceArithmetic();
         $next = [];
         foreach ($this->resourceStorage->parseRows($rows, $slice) as $row) {
-            $next[] = $this->refilledRow($slice, $arithmetic, $row, $sheet);
+            $limit = $limits[$row->getRuleCode()] ?? null;
+            $next[] = $this->refilledRow($slice, $arithmetic, $row, $sheet, is_int($limit) || is_array($limit) ? $limit : null);
         }
 
         return [...$sheet, 'resources' => $this->resourceStorage->serializeRows($next)];
@@ -768,6 +772,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
      * @param CharacterResourceArithmetic $arithmetic Арифметика.
      * @param ResourceRow $row Строка.
      * @param array<string, mixed> $sheet Sheet.
+     * @param int|array{base: int, size: int}|null $limit Потолок из проекции листа или null.
      *
      * @return ResourceRow Строка.
      */
@@ -776,6 +781,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
         CharacterResourceArithmetic $arithmetic,
         ResourceRow $row,
         array $sheet,
+        int|array|null $limit = null,
     ): ResourceRow {
         $rule = $slice->findLive($row->getRuleCode());
         $spec = $rule instanceof CharacterResolvedRule && !$rule->isSpecBroken() ? $rule->getSpec() : null;
@@ -785,7 +791,9 @@ final class CharacterActualMutations implements ICharacterActualMutations
 
         $base = $row->getBase() ?? $arithmetic->getBase($spec, []);
         $bonuses = $this->withLimitAdjustments($spec, $row->getBonuses(), $sheet);
-        $refilled = $arithmetic->value($arithmetic->effective($base, $bonuses));
+        $refilled = $limit === null
+            ? $arithmetic->value($arithmetic->effective($base, $bonuses))
+            : $arithmetic->value($this->nativeLimit($limit));
 
         return new ResourceRow(
             $row->getRuleCode(),
@@ -793,6 +801,22 @@ final class CharacterActualMutations implements ICharacterActualMutations
             $base,
             $row->getBonuses(),
         );
+    }
+
+    /**
+     * Потолок операции в native-значение.
+     *
+     * @param int|array{base: int, size: int} $limit Потолок.
+     *
+     * @return int|DimensionalNumber Native-значение.
+     */
+    private function nativeLimit(int|array $limit): int|DimensionalNumber
+    {
+        if (is_int($limit)) {
+            return max(0, $limit);
+        }
+
+        return new DimensionalNumber(max(0, $limit['base']), $limit['size']);
     }
 
     /**
@@ -874,7 +898,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
     }
 
     /**
-     * Только kind у refill.
+     * Только kind и необязательные потолки у refill.
      *
      * @param mixed $operation Операция.
      *
@@ -886,7 +910,48 @@ final class CharacterActualMutations implements ICharacterActualMutations
     {
         $keys = is_array($operation) ? array_keys($operation) : [];
         sort($keys);
-        if ($keys !== ['kind']) {
+        if ($keys === ['kind']) {
+            return;
+        }
+
+        if ($keys !== ['kind', 'limits'] || !is_array($operation['limits'] ?? null)) {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        foreach ($operation['limits'] as $code => $limit) {
+            $this->assertRefillLimit($code, $limit);
+        }
+    }
+
+    /**
+     * Потолок refill: целое или пара база/размер.
+     *
+     * @param mixed $code Код ресурса.
+     * @param mixed $limit Потолок.
+     *
+     * @return void
+     *
+     * @throws CharacterInvalidException Если форма чужая или значение отрицательное.
+     */
+    private function assertRefillLimit(mixed $code, mixed $limit): void
+    {
+        if (!is_string($code) || $code === '') {
+            throw new CharacterInvalidException('Character patch operation is invalid');
+        }
+
+        if (is_int($limit)) {
+            if ($limit < 0) {
+                throw new CharacterInvalidException('Character patch operation is invalid');
+            }
+
+            return;
+        }
+
+        $keys = is_array($limit) ? array_keys($limit) : [];
+        sort($keys);
+        $base = is_array($limit) ? ($limit['base'] ?? null) : null;
+        $size = is_array($limit) ? ($limit['size'] ?? null) : null;
+        if ($keys !== ['base', 'size'] || !is_int($base) || !is_int($size) || $base < 0) {
             throw new CharacterInvalidException('Character patch operation is invalid');
         }
     }

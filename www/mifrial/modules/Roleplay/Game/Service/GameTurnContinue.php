@@ -168,7 +168,7 @@ final class GameTurnContinue
      * @param array{type: string, id: int} $current Текущий.
      * @param int $expectedSheet Версия листа.
      *
-     * @return array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>}} Подготовка.
+     * @return array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>, choices?: array<string, mixed>}} Подготовка.
      *
      * @throws GameInvalidException Если долга нет.
      * @throws GameBattleConflictException Если версия листа другая.
@@ -230,7 +230,7 @@ final class GameTurnContinue
      * @param int $actorUserId Актор.
      * @param bool $editAll Ключ game.edit_all.
      * @param bool $viewAll Ключ game.view_all.
-     * @param array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>}} $prepared Подготовка.
+     * @param array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>, choices?: array<string, mixed>}} $prepared Подготовка.
      * @param array<string, mixed> $paid Итог доплаты.
      * @param array<string, mixed> $payload Тело сценария.
      *
@@ -437,7 +437,7 @@ final class GameTurnContinue
      * @param GameBattleRecord $battle Бой.
      * @param int $expectedBattle Версия боя.
      * @param int $sheetVersion Версия листа.
-     * @param array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>}} $prepared Подготовка.
+     * @param array{debtMap: array<string, mixed>, key: string, slot: array<string, mixed>, snapshot: array{actualVersion: int, sheet: array<string, mixed>, choices?: array<string, mixed>}} $prepared Подготовка.
      * @param array<string, mixed> $slot Слот.
      * @param GameInvalidException|null $exception Отказ или null.
      *

@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 375,
-        "plans": 251,
+        "documents": 376,
+        "plans": 252,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 8,
             "specs": 22,
-            "tr": 277,
+            "tr": 278,
             "tz": 2
         },
         "byZoneState": {
@@ -73,7 +73,7 @@
                 "нет": 27,
                 "СДЕЛАНО": 174,
                 "ОТЛОЖЕН": 4,
-                "ЧАСТИЧНО": 41,
+                "ЧАСТИЧНО": 42,
                 "ПЛАН": 10,
                 "СНИМОК": 9,
                 "ОТМЕНЁН": 1,
@@ -91,7 +91,7 @@
             "ПЛАН": 13,
             "В РАБОТЕ": 12,
             "ОТЛОЖЕН": 8,
-            "ЧАСТИЧНО": 41,
+            "ЧАСТИЧНО": 42,
             "ОТМЕНЁН": 1
         }
     },
@@ -289,11 +289,11 @@
             }
         },
         "Roleplay/Rule": {
-            "docs": 64,
+            "docs": 65,
             "state": {
                 "нет": 3,
                 "СДЕЛАНО": 36,
-                "ЧАСТИЧНО": 14,
+                "ЧАСТИЧНО": 15,
                 "ОТЛОЖЕН": 3,
                 "ПЛАН": 5,
                 "СНИМОК": 1,
@@ -302,7 +302,7 @@
             "layer": {
                 "VUE": 30,
                 "МОК": 2,
-                "PHP": 28
+                "PHP": 29
             }
         },
         "Roleplay/RuleSpace": {
@@ -8834,8 +8834,8 @@
             ],
             "basis": null,
             "date": "2026-11-16",
-            "bytes": 25571,
-            "lines": 328,
+            "bytes": 27470,
+            "lines": 341,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -8847,6 +8847,7 @@
                 "docs/tr/spell-real-plan-20-target-states.md",
                 "docs/tr/spell-real-plan-21-magic-resistance.md",
                 "docs/tr/spell-real-plan-22-nolomancy-skills.md",
+                "docs/tr/spell-real-plan-23-nolomancy-states.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },
@@ -9561,6 +9562,31 @@
             "linksCount": 4,
             "brokenLinks": [],
             "backlinks": [
+                "docs/tr/spell-real-plan-23-nolomancy-states.md",
+                "docs/tr/spell-real-roadmap.md"
+            ]
+        },
+        {
+            "path": "docs/tr/spell-real-plan-23-nolomancy-states.md",
+            "title": "План M23 — состояния Ноломансии на листе цели",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "ЧАСТИЧНО",
+            "stateSource": "token",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-18. 23.0 и 23.1 закрыты: конец хода видит",
+            "layers": [
+                "PHP"
+            ],
+            "basis": "PHP",
+            "date": "2026-11-18",
+            "bytes": 6913,
+            "lines": 94,
+            "modules": [
+                "Roleplay/Rule"
+            ],
+            "linksCount": 3,
+            "brokenLinks": [],
+            "backlinks": [
                 "docs/tr/spell-real-roadmap.md"
             ]
         },
@@ -9578,12 +9604,12 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 47793,
-            "lines": 478,
+            "bytes": 49457,
+            "lines": 493,
             "modules": [
                 "Roleplay/Rule"
             ],
-            "linksCount": 20,
+            "linksCount": 21,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/game-plan-46-spell-cast.md",
@@ -9609,6 +9635,7 @@
                 "docs/tr/spell-real-plan-20-target-states.md",
                 "docs/tr/spell-real-plan-21-magic-resistance.md",
                 "docs/tr/spell-real-plan-22-nolomancy-skills.md",
+                "docs/tr/spell-real-plan-23-nolomancy-states.md",
                 "docs/tr/spell-roadmap.md"
             ]
         },

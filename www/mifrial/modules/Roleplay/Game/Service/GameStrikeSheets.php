@@ -163,6 +163,30 @@ final class GameStrikeSheets
     }
 
     /**
+     * Лист с наложенными состояниями цели.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид цели.
+     * @param int $id Идентификатор цели.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы.
+     *
+     * @return array<string, mixed> Лист с состояниями.
+     */
+    public function project(GameRecord $game, string $kind, int $id, array $sheet, array $choices): array
+    {
+        return $this->withRuntimeStates(
+            $game->getId(),
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $kind,
+            $id,
+            $sheet,
+            $choices,
+        );
+    }
+
+    /**
      * Добавляет состояния цели из наложенных эффектов.
      *
      * @param int $gameId Игра.

@@ -47,7 +47,8 @@ final class GameTurnEndSheet
         array $cycle,
     ): array {
         $snapshot = $this->snapshot->of($current);
-        $built = $this->ticks->build($game, $slice, $snapshot['sheet']);
+        $projection = $this->snapshot->projection($game, $current, $snapshot);
+        $built = $this->ticks->build($game, $slice, $projection);
         $ended = $this->concentration($slice, $snapshot['sheet'], $cycle, $current);
         $cycle = $ended['cycle'];
         if ($ended['refill']) {

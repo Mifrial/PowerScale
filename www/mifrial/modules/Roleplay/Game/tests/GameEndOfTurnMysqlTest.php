@@ -15,8 +15,11 @@ use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Game\Dto\NewGame;
+use Mifrial\Roleplay\Game\Dto\GameActiveEffectNew;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Service\GameStrikeSheetWrites;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
@@ -382,6 +385,98 @@ final class GameEndOfTurnMysqlTest extends TestCase
         self::assertArrayNotHasKey('dotTurnsLeft', $rows['gash']);
         self::assertArrayHasKey('hurt', $rows);
         self::assertGreaterThan(0, $rows['tired']['value']);
+    }
+
+    /**
+     * Конец хода видит наложенное состояние: пул меньше, лист чист.
+     *
+     * @return void
+     */
+    public function testEndTurnRefillUsesRuntimeStateLimit(): void
+    {
+        $scene = $this->battlePair();
+        $this->addRuntimeState($scene['gameId'], $scene['battleId'], $scene['hero'], 'enfeebling-touch');
+        $version = $this->characterFacade()->get($scene['hero'])->getActualVersion();
+
+        $ended = $this->endTurn($scene['gameId'], $scene['battleId'], 'runtime-limit', 2, $version);
+
+        self::assertTrue($ended['success'], json_encode($ended));
+        self::assertSame(3, $this->apOf($scene['hero']));
+        self::assertArrayNotHasKey('sluggish', $this->rowsByCode($scene['hero']));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+    }
+
+    /**
+     * Периодический урон наложенного эффекта бьёт в конце хода цели.
+     *
+     * @return void
+     */
+    public function testEndTurnHitsRuntimeDamageOverTime(): void
+    {
+        $scene = $this->battlePair();
+        $this->addRuntimeState($scene['gameId'], $scene['battleId'], $scene['hero'], 'fester-touch');
+        $version = $this->characterFacade()->get($scene['hero'])->getActualVersion();
+
+        $ended = $this->endTurn($scene['gameId'], $scene['battleId'], 'runtime-dot', 2, $version);
+
+        self::assertTrue($ended['success'], json_encode($ended));
+        $rows = $this->rowsByCode($scene['hero']);
+        self::assertArrayHasKey('hurt', $rows);
+        self::assertArrayNotHasKey('fester', $rows);
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+    }
+
+    /**
+     * Наложенное состояние героя на один ход.
+     *
+     * @param int $gameId Игра.
+     * @param int $battleId Бой.
+     * @param int $characterId Герой.
+     * @param string $cardCode Карточка-источник.
+     *
+     * @return void
+     */
+    private function addRuntimeState(int $gameId, int $battleId, int $characterId, string $cardCode): void
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+        $sessionId = (new GameSessionRepository($gateway))->findSessionId($gameId);
+        self::assertIsInt($sessionId);
+
+        (new GameActiveEffectRepository($gateway))->add(new GameActiveEffectNew(
+            $gameId,
+            $sessionId,
+            $battleId,
+            'spell',
+            $cardCode,
+            'character',
+            $characterId,
+            'character',
+            $characterId,
+            'lingering',
+            'turn',
+            1,
+            1,
+            ['base' => 1, 'size' => 0],
+            [],
+            0,
+            'character:' . $characterId,
+        ));
+    }
+
+    /**
+     * Строки длительных эффектов боя.
+     *
+     * @param int $battleId Бой.
+     *
+     * @return array<int, \Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord> Строки.
+     */
+    private function activeEffectRows(int $battleId): array
+    {
+        $gateway = $this->smartTableGateway;
+        self::assertInstanceOf(ISmartTableGateway::class, $gateway);
+
+        return (new GameActiveEffectRepository($gateway))->findForBattle($battleId);
     }
 
     /**
@@ -1535,6 +1630,65 @@ final class GameEndOfTurnMysqlTest extends TestCase
                     'damage' => ['kind' => 'fixed', 'amount' => 3],
                     'damage_type_code' => 'crush',
                     'periodicity' => ['value' => 1, 'step' => 'day'],
+                ]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('sluggish', new RuleVersionBody('state', 'Sluggish', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'effects' => [[
+                    'type' => 'resource_limit_modify',
+                    'resource_code' => 'ap',
+                    'amount' => -1,
+                ]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('enfeebling-touch', new RuleVersionBody('ability', 'Enfeebling touch', '', [
+                'type' => 'spell',
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
+                    'effects' => [['type' => 'state', 'state_code' => 'sluggish']],
+                ],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
+                ]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('fester', new RuleVersionBody('state', 'Fester', '', [
+                'value_type' => 'number',
+                'aggregation' => 'independent',
+                'effects' => [[
+                    'type' => 'damage_over_time',
+                    'damage' => ['kind' => 'fixed', 'amount' => 1],
+                    'damage_type_code' => 'crush',
+                    'periodicity' => ['value' => 1, 'step' => 'turn'],
+                ]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('fester-touch', new RuleVersionBody('ability', 'Fester touch', '', [
+                'type' => 'spell',
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
+                    'effects' => [['type' => 'state', 'state_code' => 'fester']],
+                ],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
                 ]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('roll', new RuleVersionBody('simple', 'Roll', '', [], [], [[
