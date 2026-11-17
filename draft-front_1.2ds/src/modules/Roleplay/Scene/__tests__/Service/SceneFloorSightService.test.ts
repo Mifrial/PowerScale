@@ -129,6 +129,15 @@ describe('SceneFloorSightService', () => {
     expect(service.sees(scene, { boardId: 2, point: [300, 200] }, { boardId: 1, point: [1000, 100] })).toBe(false);
   });
 
+  it('видит клетку двора через окно, но не под плитой', () => {
+    expect(
+      service.seesSurface(scene, { boardId: 2, point: [120, 200] }, { boardId: 1, point: [840, 100], height: 96 }),
+    ).toBe(true);
+    expect(
+      service.seesSurface(scene, { boardId: 2, point: [200, 140] }, { boardId: 1, point: [900, 1090], height: 96 }),
+    ).toBe(false);
+  });
+
   it('видит актора сверху только через колодец', () => {
     expect(service.sees(scene, { boardId: 1, point: [900, 900] }, { boardId: 2, point: [200, 200] })).toBe(true);
     expect(service.sees(scene, { boardId: 1, point: [1000, 1000] }, { boardId: 2, point: [300, 300] })).toBe(false);

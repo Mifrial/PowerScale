@@ -2,12 +2,20 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneSurfaceGrid } from '@/modules/Roleplay/Scene/Dto/SceneSurfaceGrid';
 import type { SceneVisibility } from '@/modules/Roleplay/Scene/Dto/SceneVisibility';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
-import { surfaceCenter, surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
-import {
-  sceneBodyHeight,
-  sceneBodyIpari,
-  sceneSightEyeIpari,
-} from '@/modules/Roleplay/Scene/Service/SceneSight';
+import { surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { sceneBodyHeight, sceneBodyIpari, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
+
+/** Октанты тени: `xx`, `xy`, `yx`, `yy` для двух осей обхода. */
+const OCTANTS: readonly [number, number, number, number][] = [
+  [1, 0, 0, 1],
+  [0, 1, 1, 0],
+  [0, -1, 1, 0],
+  [-1, 0, 0, 1],
+  [-1, 0, 0, -1],
+  [0, -1, -1, 0],
+  [0, 1, -1, 0],
+  [1, 0, 0, -1],
+];
 
 /**
  * Видимость клеток поля.
@@ -34,9 +42,14 @@ export class SceneVisibilityService {
   /**
    * Карта видимости из точки.
    *
+   * Теневое литьё по клеткам: непрозрачная клетка помечается видимой и
+   * обрывает тень за собой, поэтому на сцену хватает O(площади обзора), а не
+   * луча на каждую клетку. Для карты тумана достаточно высоты глаз: тело цели
+   * учитывает `sees`, когда важно увидеть голову над низким забором.
+   *
    * @param radius Радиус обзора в единицах сцены; без него — всё поле.
    * @param eye Высота глаз наблюдателя, ипари.
-   * @param body Высота тела цели, ипари.
+   * @param body Высота тела цели, ипари; карта тумана строит срез по глазам.
    * @param level Уровень наблюдателя: 0 — поверхность, выше — настил.
    */
   map(
@@ -47,6 +60,7 @@ export class SceneVisibilityService {
     body = sceneBodyIpari(sceneBodyHeight(grid.resolution), grid.resolution),
     level = 0,
   ): SceneVisibility {
+    void body;
     const visible = new Uint8Array(grid.columns * grid.rows);
     const origin = surfaceIndex(grid, from[0], from[1]);
     if (origin < 0) {
@@ -54,32 +68,123 @@ export class SceneVisibilityService {
     }
 
     const fromFloor = surfaceFloor(grid, from, level) / grid.resolution;
+    const start = fromFloor + this.eyeHeight(grid, origin, eye, level === 0);
+    if (this.insideBand(grid, origin, start)) {
+      return { columns: grid.columns, rows: grid.rows, visible };
+    }
+
+    visible[origin] = 1;
     const originColumn = origin % grid.columns;
     const originRow = Math.floor(origin / grid.columns);
-    const reach = Math.ceil(radius / grid.cell);
-    const minRow = Math.max(0, originRow - reach);
-    const maxRow = Math.min(grid.rows - 1, originRow + reach);
-    const minColumn = Math.max(0, originColumn - reach);
-    const maxColumn = Math.min(grid.columns - 1, originColumn + reach);
+    const diagonal = Math.ceil(Math.hypot(grid.columns, grid.rows));
+    const maxDistance = Number.isFinite(radius) ? Math.min(Math.ceil(radius / grid.cell), diagonal) : diagonal;
 
-    for (let row = minRow; row <= maxRow; row += 1) {
-      for (let column = minColumn; column <= maxColumn; column += 1) {
-        const index = row * grid.columns + column;
-        const center = surfaceCenter(grid, index);
-        if (index !== origin && Math.hypot(center[0] - from[0], center[1] - from[1]) > radius) {
-          continue;
-        }
-
-        if (
-          index === origin ||
-          this.clearAny(grid, from, center, origin, index, eye, body, fromFloor, fromFloor, level, 0)
-        ) {
-          visible[index] = 1;
-        }
-      }
+    // Восемь октантов: каждый обходит свою четверть и передаёт тени дальше.
+    for (const [xx, xy, yx, yy] of OCTANTS) {
+      this.cast(grid, visible, originColumn, originRow, 1, 1, 0, xx, xy, yx, yy, start, radius, maxDistance);
     }
 
     return { columns: grid.columns, rows: grid.rows, visible };
+  }
+
+  /**
+   * Рекурсивный обход одного октанта.
+   *
+   * @param row Текущая строка октанта.
+   * @param start Начальный наклон луча.
+   * @param end Конечный наклон луча.
+   * @param xx Смещение колонки по x.
+   * @param xy Смещение колонки по y.
+   * @param yx Смещение строки по x.
+   * @param yy Смещение строки по y.
+   */
+  private cast(
+    grid: SceneSurfaceGrid,
+    visible: Uint8Array,
+    originColumn: number,
+    originRow: number,
+    row: number,
+    start: number,
+    end: number,
+    xx: number,
+    xy: number,
+    yx: number,
+    yy: number,
+    eye: number,
+    radius: number,
+    maxDistance: number,
+  ): void {
+    if (start < end) {
+      return;
+    }
+
+    let newStart = start;
+    for (let distance = row; distance <= maxDistance; distance += 1) {
+      const dy = -distance;
+      let blocked = false;
+      for (let dx = -distance; dx <= 0; dx += 1) {
+        const left = (dx - 0.5) / (dy + 0.5);
+        const right = (dx + 0.5) / (dy - 0.5);
+        if (start < right) {
+          continue;
+        }
+        if (end > left) {
+          break;
+        }
+
+        const column = originColumn + dx * xx + dy * xy;
+        const line = originRow + dx * yx + dy * yy;
+        if (column < 0 || column >= grid.columns || line < 0 || line >= grid.rows) {
+          continue;
+        }
+
+        const index = line * grid.columns + column;
+        if (!Number.isFinite(radius) || distance * grid.cell <= radius) {
+          visible[index] = 1;
+        }
+
+        if (this.opaqueAt(grid, index, eye)) {
+          if (!blocked) {
+            blocked = true;
+            newStart = right;
+          }
+        } else if (blocked) {
+          this.cast(
+            grid,
+            visible,
+            originColumn,
+            originRow,
+            distance + 1,
+            newStart,
+            left,
+            xx,
+            xy,
+            yx,
+            yy,
+            eye,
+            radius,
+            maxDistance,
+          );
+          blocked = false;
+          newStart = right;
+        }
+      }
+
+      if (blocked) {
+        break;
+      }
+      start = newStart;
+    }
+  }
+
+  /** Клетка перекрывает взгляд на высоте глаз. */
+  private opaqueAt(grid: SceneSurfaceGrid, index: number, eye: number): boolean {
+    const bottom = grid.sightBottom[index];
+    if (!Number.isFinite(bottom)) {
+      return false;
+    }
+
+    return eye > bottom && eye < grid.sightTop[index];
   }
 
   /**

@@ -33,8 +33,8 @@
         "header": "**Статус:**, **Реализация:**, **Опираться на:**"
     },
     "counts": {
-        "documents": 367,
-        "plans": 245,
+        "documents": 368,
+        "plans": 246,
         "brokenLinks": 3,
         "byZone": {
             "old": 1,
@@ -42,7 +42,7 @@
             "review": 63,
             "rule": 7,
             "specs": 22,
-            "tr": 270,
+            "tr": 271,
             "tz": 2
         },
         "byZoneState": {
@@ -76,7 +76,7 @@
                 "ПЛАН": 10,
                 "СНИМОК": 9,
                 "ОТМЕНЁН": 1,
-                "В РАБОТЕ": 9
+                "В РАБОТЕ": 10
             },
             "tz": {
                 "нет": 1,
@@ -91,7 +91,7 @@
             "ОТЛОЖЕН": 8,
             "ЧАСТИЧНО": 40,
             "ОТМЕНЁН": 1,
-            "В РАБОТЕ": 9
+            "В РАБОТЕ": 10
         }
     },
     "modules": {
@@ -315,14 +315,14 @@
             }
         },
         "Roleplay/Scene": {
-            "docs": 10,
+            "docs": 11,
             "state": {
-                "В РАБОТЕ": 6,
+                "В РАБОТЕ": 7,
                 "СДЕЛАНО": 4
             },
             "layer": {
                 "PHP": 9,
-                "VUE": 9,
+                "VUE": 10,
                 "МОК": 4
             }
         },
@@ -3506,10 +3506,10 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 39766,
-            "lines": 154,
+            "bytes": 41017,
+            "lines": 155,
             "modules": [],
-            "linksCount": 20,
+            "linksCount": 21,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/TR.md",
@@ -7811,12 +7811,12 @@
             ],
             "basis": "МОК",
             "date": "2026-11-13",
-            "bytes": 12479,
-            "lines": 158,
+            "bytes": 12595,
+            "lines": 160,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 4,
+            "linksCount": 5,
             "brokenLinks": [],
             "backlinks": [
                 "docs/tr/asset-library-plan-01.md",
@@ -7891,15 +7891,16 @@
             ],
             "basis": "PHP",
             "date": "2026-11-13",
-            "bytes": 10512,
-            "lines": 129,
+            "bytes": 10606,
+            "lines": 130,
             "modules": [
                 "Roleplay/Scene"
             ],
-            "linksCount": 0,
+            "linksCount": 1,
             "brokenLinks": [],
             "backlinks": [
-                "docs/tr/scene-plan-02-battleground.md"
+                "docs/tr/scene-plan-02-battleground.md",
+                "docs/tr/scene-plan-08-fog.md"
             ]
         },
         {
@@ -7981,13 +7982,39 @@
             ]
         },
         {
+            "path": "docs/tr/scene-plan-08-fog.md",
+            "title": "Туман войны витрины: мир, край и скорость",
+            "zone": "tr",
+            "kind": "plan",
+            "state": "В РАБОТЕ",
+            "stateSource": "token",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — G1 (мир), G3 (край) и G4 (скорость)",
+            "layers": [
+                "VUE"
+            ],
+            "basis": null,
+            "date": "2026-11-17",
+            "bytes": 7066,
+            "lines": 89,
+            "modules": [
+                "Roleplay/Scene"
+            ],
+            "linksCount": 3,
+            "brokenLinks": [],
+            "backlinks": [
+                "docs/tr/decisions.md",
+                "docs/tr/scene-plan-02-battleground.md",
+                "docs/tr/scene-plan-04-render-and-nav-fixes.md"
+            ]
+        },
+        {
             "path": "docs/tr/scene-renderer.md",
             "title": "Рендерер локаций сцен",
             "zone": "tr",
             "kind": "canon",
             "state": "В РАБОТЕ",
             "stateSource": "token",
-            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, рваные границы, вода, трава и декор-спрайты сделаны, акторы — в работе; инстансинг, LOD и fog — в плане.",
+            "statusRaw": "~В РАБОТЕ~, 2026-11-17 — просмотр и редактор на PixiJS готовы; материалы террейна, кромка, рваные границы, вода, трава и декор-спрайты сделаны, акторы — в работе; туман витрины — на всех полях, инстансинг и LOD — в плане.",
             "layers": [
                 "PHP",
                 "VUE",
@@ -7995,8 +8022,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-17",
-            "bytes": 65469,
-            "lines": 699,
+            "bytes": 66148,
+            "lines": 705,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8010,6 +8037,7 @@
                 "docs/tr/scene-plan-02-battleground.md",
                 "docs/tr/scene-plan-02-water-shaders.md",
                 "docs/tr/scene-plan-07-floors.md",
+                "docs/tr/scene-plan-08-fog.md",
                 "docs/tr/scene-system.md",
                 "docs/tr/spatial-roadmap.md"
             ]
@@ -8029,8 +8057,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-17",
-            "bytes": 63782,
-            "lines": 704,
+            "bytes": 64537,
+            "lines": 710,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8045,6 +8073,7 @@
                 "docs/tr/scene-plan-02-water-shaders.md",
                 "docs/tr/scene-plan-03-decor-occlusion.md",
                 "docs/tr/scene-plan-07-floors.md",
+                "docs/tr/scene-plan-08-fog.md",
                 "docs/tr/scene-renderer.md",
                 "docs/tr/spatial-roadmap.md"
             ]

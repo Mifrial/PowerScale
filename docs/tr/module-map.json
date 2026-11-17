@@ -4019,6 +4019,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/scene-plan-08-fog.md",
+                    "title": "Туман войны витрины: мир, край и скорость",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-17",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/scene-renderer.md",
                     "title": "Рендерер локаций сцен",
                     "kind": "canon",

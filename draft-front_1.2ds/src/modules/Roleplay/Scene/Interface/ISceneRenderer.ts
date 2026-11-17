@@ -21,8 +21,8 @@ export interface ISceneRenderer {
   setSlabCutaway(enabled: boolean): void;
   /** Режим жеста: на время перетаскивания трава не пересобирается. */
   setEditing(editing: boolean): void;
-  /** Полосы оверлеев предпросмотра; null — выключить. */
-  setOverlayPaint(paint: SceneOverlayPaint | null): void;
+  /** Оверлеи предпросмотра по полям; null — выключить. */
+  setOverlayPaint(paints: readonly SceneOverlayPaint[] | null): void;
   /** Маршрут актора с участками по уровням; null — линия скрыта. */
   setRoute(route: SceneNavRoute | null): void;
   /** Вершина, у которой видны ручки Безье; null — ручки скрыты. */

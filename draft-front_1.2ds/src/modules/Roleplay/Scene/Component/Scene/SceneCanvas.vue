@@ -218,11 +218,10 @@ function observerActor(): SceneActor | null {
   );
 }
 
-/** Готовые полосы оверлеев; расчёт остаётся вне Pixi. */
-function overlayPaint(): SceneOverlayPaint | null {
+/** Готовые оверлеи по полям; расчёт остаётся вне Pixi. */
+function overlayPaint(): readonly SceneOverlayPaint[] | null {
   const overlay = props.overlay;
-  const board = props.board;
-  if (overlay === null || board === null || props.model.mode === 'edit') {
+  if (overlay === null || props.board === null || props.model.mode === 'edit') {
     return null;
   }
 
@@ -230,17 +229,19 @@ function overlayPaint(): SceneOverlayPaint | null {
   const sightRadius = actor?.sightRadius;
   const effective =
     overlay.radius === null && sightRadius !== undefined ? { ...overlay, radius: sightRadius } : overlay;
-  const observer: ScenePoint | null = actor === null ? null : [actor.x, actor.y];
+  // Туман считается на всех видимых полях, поэтому наблюдатель несёт своё
+  // поле: иначе чужие этажи проверялись бы лучом из середины активного поля.
+  const observer =
+    actor === null
+      ? null
+      : {
+          boardId: actor.boardId ?? props.model.activeBoardId,
+          point: [actor.x, actor.y] as ScenePoint,
+          level: actor.level ?? 0,
+          height: actor.height,
+        };
 
-  return overlays.paint(
-    board,
-    props.model.elements,
-    props.model.resolution,
-    effective,
-    observer,
-    actor?.level ?? 0,
-    actor?.height,
-  );
+  return overlays.paints(props.model, effective, observer);
 }
 
 /** Пересобирает оверлей под текущие настройки и данные сцены. */

@@ -207,6 +207,13 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(grid, [320, 300], [320, 320], undefined, undefined, 1, 0)).toBe(false);
   });
 
+  it('без радиуса доходит до дальнего угла поля', () => {
+    const grid = surfaces.build(board, [grass()], 64);
+    const visible = service.map(grid, [8, 8]);
+
+    expect(visible.visible[cellOf(grid, 15, 15)]).toBe(1);
+  });
+
   it('ограничивает обзор радиусом', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const visible = service.map(grid, [128, 128], 32);

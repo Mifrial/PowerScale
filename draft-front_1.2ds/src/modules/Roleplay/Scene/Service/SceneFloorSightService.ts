@@ -224,6 +224,58 @@ export class SceneFloorSightService {
   }
 
   /**
+   * Видна ли клетка другого поля.
+   *
+   * Для тумана достаточно одной точки тела над полом: луч идёт к голове
+   * стоящего в клетке, а не перебирает низ, середину и верх. Так видно
+   * комнату второго этажа через окно, но не видно клетку за плитой: луч к
+   * точке чуть выше пола упирался бы в саму плиту цели.
+   *
+   * @param scene Препятствия этажей.
+   * @param from Точка глаз наблюдателя.
+   * @param to Клетка цели: поверхность и рост тела.
+   * @param options Настройки луча.
+   *
+   * @returns true — клетка видна; на одном поле всегда true.
+   */
+  seesSurface(
+    scene: SceneFloorSightScene,
+    from: SceneFloorSightPoint,
+    to: SceneFloorSightPoint,
+    options: SceneFloorSightOptions = {},
+  ): boolean {
+    if (from.boardId === to.boardId) {
+      return true;
+    }
+
+    const fromLevel = scene.levels.get(from.boardId);
+    const toLevel = scene.levels.get(to.boardId);
+    if (fromLevel === undefined || toLevel === undefined) {
+      return true;
+    }
+
+    const rootFrom = this.floors.toRoot(fromLevel.transform, from.point);
+    const rootTo = this.floors.toRoot(toLevel.transform, to.point);
+    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
+    const eye =
+      fromLevel.elevation + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const target =
+      toLevel.elevation + (to.surface ?? 0) + Math.max(1, to.height ?? sceneBodyHeight(scene.resolution)) * 0.9;
+
+    return this.clear(
+      scene,
+      from.boardId,
+      rootFrom,
+      rootTo,
+      eye,
+      target,
+      options.slabs !== false,
+      options.cut,
+      options.onRoof === true,
+    );
+  }
+
+  /**
    * Свободен ли луч между точками мира корня.
    *
    * @param scene Препятствия этажей.

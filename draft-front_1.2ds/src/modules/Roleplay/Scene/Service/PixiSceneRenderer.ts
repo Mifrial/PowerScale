@@ -169,13 +169,16 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly propY = new Map<Container, number>();
 
-  /** Готовые полосы оверлеев; их считает сервис, рендерер только рисует. */
-  private overlayPaint: SceneOverlayPaint | null = null;
+  /** Готовые оверлеи по полям; их считает сервис, рендерер только рисует. */
+  private readonly overlayPaints = new Map<number, SceneOverlayPaint>();
 
-  /** Маска тумана и её текстура: пересобираются только при новой видимости. */
-  private fogMask: SceneOverlayMask | null = null;
-
-  private fogTexture: Texture | null = null;
+  /**
+   * Текстуры тумана по полям: пересобираются только при новой маске.
+   *
+   * Туман считается на всех видимых этажах, поэтому у каждого поля своя
+   * текстура в его координатах; общая одна не годится.
+   */
+  private readonly fogTextures = new Map<number, { mask: SceneOverlayMask; texture: Texture }>();
 
   /** Маршрут выбранного актора с участками по уровням. */
   private route: SceneNavRoute | null = null;
@@ -453,9 +456,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.requestFrame();
   }
 
-  /** Готовые полосы тактических оверлеев; null — оверлеи выключены. */
-  setOverlayPaint(paint: SceneOverlayPaint | null): void {
-    this.overlayPaint = paint;
+  /** Готовые оверлеи по полям; null — оверлеи выключены. */
+  setOverlayPaint(paints: readonly SceneOverlayPaint[] | null): void {
+    this.overlayPaints.clear();
+    for (const paint of paints ?? []) {
+      this.overlayPaints.set(paint.boardId, paint);
+    }
+
     this.drawOverlay();
     this.requestFrame();
   }
@@ -726,7 +733,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     ++this.sceneToken;
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.stopTickers();
-    this.releaseFogTexture();
+    this.releaseFogTextures();
     this.grassTrail.reset();
     this.waterNodes = [];
     this.textures.destroy();
@@ -1346,22 +1353,54 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * не светиться поверх неё, поэтому он лежит выше стоимости.
    */
   private drawOverlay(): void {
-    const costs = this.layers.overlay;
-    const fog = this.layers.fog;
-    if (costs === undefined || fog === undefined) {
+    for (const field of this.fields) {
+      this.clearFieldLayer(field, 'overlay');
+      this.clearFieldLayer(field, 'fog');
+    }
+
+    if (this.overlayPaints.size === 0 || this.isEdit()) {
+      this.releaseFogTextures();
+
       return;
     }
 
-    this.clearLayer('overlay');
-    this.clearLayer('fog');
-    if (this.overlayPaint === null || this.isEdit()) {
-      this.releaseFogTexture();
+    const painted = new Set<number>();
+    for (const field of this.fields) {
+      const paint = this.overlayPaints.get(field.boardId);
+      if (paint === undefined) {
+        continue;
+      }
 
+      painted.add(field.boardId);
+      const costs = field.layers.overlay;
+      if (costs !== undefined) {
+        this.paintBands(costs, paint.costs);
+      }
+      const fog = field.layers.fog;
+      if (fog !== undefined) {
+        this.paintFog(field.boardId, fog, paint.fog);
+      }
+    }
+
+    for (const boardId of [...this.fogTextures.keys()]) {
+      if (!painted.has(boardId)) {
+        this.releaseFogTexture(boardId);
+      }
+    }
+  }
+
+  /** Чистит слой одного поля: у оверлеев их столько же, сколько этажей. */
+  private clearFieldLayer(field: SceneFieldRender, name: SceneLayerName): void {
+    const layer = field.layers[name];
+    if (layer === undefined) {
       return;
     }
 
-    this.paintBands(costs, this.overlayPaint.costs);
-    this.paintFog(fog, this.overlayPaint.fog);
+    layer.mask = null;
+    const children = layer.removeChildren();
+    for (const child of children) {
+      child.destroy({ children: true, texture: false, textureSource: false });
+    }
   }
 
   /** Полосы заливки одним `Graphics` на слой: один draw call вместо сотен. */
@@ -1385,20 +1424,21 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * и без пересчёта видимости на каждый кадр. Текстура пересобирается только
    * при новой маске: панорама и зум переиспользуют её.
    */
-  private paintFog(layer: Container, mask: SceneOverlayMask | null): void {
+  private paintFog(boardId: number, layer: Container, mask: SceneOverlayMask | null): void {
     if (mask === null) {
-      this.releaseFogTexture();
+      this.releaseFogTexture(boardId);
 
       return;
     }
 
-    if (this.fogTexture === null || this.fogMask !== mask) {
-      this.releaseFogTexture();
-      this.fogTexture = this.createFogTexture(mask);
-      this.fogMask = mask;
+    let cached = this.fogTextures.get(boardId);
+    if (cached === undefined || cached.mask !== mask) {
+      this.releaseFogTexture(boardId);
+      cached = { mask, texture: this.createFogTexture(mask) };
+      this.fogTextures.set(boardId, cached);
     }
 
-    const sprite = new Sprite(this.fogTexture);
+    const sprite = new Sprite(cached.texture);
     sprite.position.set(mask.x, mask.y);
     sprite.width = mask.columns * mask.cell;
     sprite.height = mask.rows * mask.cell;
@@ -1434,15 +1474,22 @@ export class PixiSceneRenderer implements ISceneRenderer {
     return texture;
   }
 
-  /** Освобождает текстуру тумана: спрайты слоя уже сняты. */
-  private releaseFogTexture(): void {
-    this.fogMask = null;
-    if (this.fogTexture === null) {
+  /** Освобождает текстуры тумана всех полей: спрайты слоёв уже сняты. */
+  private releaseFogTextures(): void {
+    for (const boardId of [...this.fogTextures.keys()]) {
+      this.releaseFogTexture(boardId);
+    }
+  }
+
+  /** Освобождает текстуру тумана одного поля. */
+  private releaseFogTexture(boardId: number): void {
+    const cached = this.fogTextures.get(boardId);
+    if (cached === undefined) {
       return;
     }
 
-    this.fogTexture.destroy(true);
-    this.fogTexture = null;
+    this.fogTextures.delete(boardId);
+    cached.texture.destroy(true);
   }
 
   /** Линия маршрута: над миром и туманом, под ручками редактирования. */
@@ -1688,6 +1735,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       field.group.removeFromParent();
       field.group.destroy({ children: true, texture: false, textureSource: false });
     }
+    this.releaseFogTextures();
 
     this.fields = [];
     this.activeField = null;
