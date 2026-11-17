@@ -890,7 +890,7 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     }
 
     const resolution = options.resolution();
-    const plan = sceneFloorPlanService.plan({
+    const model: SceneRenderModel = {
       activeBoardId: board.id,
       resolution,
       boards: options.boards(),
@@ -898,10 +898,18 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       enclosures: options.enclosures(),
       selection: [],
       mode: 'preview',
-    });
+    };
+    const plan = sceneFloorPlanService.plan(model);
     const below = plan.floors.find((floor) => floor.underCut);
     const active = plan.floors.find((floor) => floor.active);
     if (below === undefined || active === undefined) {
+      return undefined;
+    }
+
+    // Режется нарисованный пол, а не всё поле: поля обзора вокруг плана — не
+    // плита, и стены двора под ними остаются.
+    const slab = sceneFloorPlanService.slabBounds(model, active.boardId);
+    if (slab === null) {
       return undefined;
     }
 
@@ -910,10 +918,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
     return {
       boardId: below.boardId,
       bounds: {
-        x: active.transform.x - margin,
-        y: active.transform.y - margin,
-        width: active.board.boundWidth * active.transform.scaleX + margin * 2,
-        height: active.board.boundHeight * active.transform.scaleY + margin * 2,
+        x: active.transform.x + slab.x * active.transform.scaleX - margin,
+        y: active.transform.y + slab.y * active.transform.scaleY - margin,
+        width: slab.width * active.transform.scaleX + margin * 2,
+        height: slab.height * active.transform.scaleY + margin * 2,
       },
     };
   }

@@ -1,7 +1,9 @@
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 
 /** Преобразование координат поля в мир корня. */
 export interface SceneFloorTransform {
@@ -58,6 +60,54 @@ const IDENTITY: SceneFloorTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1 };
  * поля видны при текущем фокусе и как их точки перевести в мир корня.
  */
 export class SceneFloorPlanService {
+  constructor(private readonly geometry: SceneGeometryService = new SceneGeometryService()) {}
+
+  /**
+   * Пятно плиты этажа: габарит его террейна, кроме воды.
+   *
+   * Поле шире плана на поля обзора (`SCENE_FLOOR.contextMarginIpari`): пустота
+   * за ними — не пол. Резать нижний этаж и искать стену под плитой нужно по
+   * нарисованному полу, иначе вместе с планом исчезает всё, что стоит во дворе
+   * вокруг дома, — забор и ворота в нём.
+   *
+   * @param model Модель рендера.
+   * @param boardId Поле этажа.
+   *
+   * @returns Прямоугольник плиты в координатах поля или null, если пола нет.
+   */
+  slabBounds(model: SceneRenderModel, boardId: number): SceneBounds | null {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const element of model.elements) {
+      if (
+        element.boardId !== boardId ||
+        element.kind !== 'terrain' ||
+        element.props.kind === 'water' ||
+        element.shape.type === 'point'
+      ) {
+        continue;
+      }
+
+      const box = this.geometry.bounds(element.shape);
+      if (box.width <= 0 || box.height <= 0) {
+        continue;
+      }
+
+      minX = Math.min(minX, box.x);
+      minY = Math.min(minY, box.y);
+      maxX = Math.max(maxX, box.x + box.width);
+      maxY = Math.max(maxY, box.y + box.height);
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return null;
+    }
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
   /**
    * Абсолютные отметки полей: сумма `elevation` по цепочке вложений.
    *

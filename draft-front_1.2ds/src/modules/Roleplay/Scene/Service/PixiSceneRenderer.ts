@@ -993,8 +993,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
 
       // Дверь и окно — часть срезанной стены: отдельной полосой они торчали бы
-      // из-под полупрозрачной плиты.
-      if (cut !== null && element.kind === 'opening' && element.shape.type === 'wall') {
+      // из-под полупрозрачной плиты. За пятном реза стена остаётся, поэтому
+      // проём ворот в заборе двора рисуется.
+      if (
+        cut !== null &&
+        element.kind === 'opening' &&
+        element.shape.type === 'wall' &&
+        this.insideCut(cut, element.shape)
+      ) {
         continue;
       }
 
@@ -1121,12 +1127,19 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return null;
     }
 
+    // Режется только нарисованный пол, а не всё поле: поля обзора вокруг
+    // плана — не плита, и стены двора под ними остаются.
+    const slab = sceneFloorPlanService.slabBounds(this.model, active.id);
+    if (slab === null) {
+      return null;
+    }
+
     const transform = sceneFloorPlanService.transform(this.model, active.id);
     const margin = Math.max(0, this.model.resolution * SCENE_FLOOR.cutMarginIpari);
-    const left = transform.x - margin;
-    const top = transform.y - margin;
-    const right = transform.x + active.boundWidth * transform.scaleX + margin;
-    const bottom = transform.y + active.boundHeight * transform.scaleY + margin;
+    const left = transform.x + slab.x * transform.scaleX - margin;
+    const top = transform.y + slab.y * transform.scaleY - margin;
+    const right = transform.x + (slab.x + slab.width) * transform.scaleX + margin;
+    const bottom = transform.y + (slab.y + slab.height) * transform.scaleY + margin;
     const start = sceneFloorPlanService.toLocal(floor.transform, [left, top]);
     const end = sceneFloorPlanService.toLocal(floor.transform, [right, bottom]);
     // Вырез обязан лежать внутри поля: иначе маска не режет вовсе. Пятно
@@ -1140,6 +1153,28 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     return { x, y, width, height };
+  }
+
+  /**
+   * Проём на срезанной стене: его габарит целиком внутри пятна реза.
+   *
+   * За пятном стена остаётся, и её дверь или окно тоже: иначе ворота в заборе
+   * вокруг дома исчезли бы вместе с планом первого этажа.
+   *
+   * @param cut Пятно реза в координатах поля.
+   * @param shape Фигура проёма.
+   *
+   * @returns true — проём лежит на срезанной части стены.
+   */
+  private insideCut(cut: SceneBounds, shape: SceneShape): boolean {
+    const box = sceneGeometryService.bounds(shape);
+
+    return (
+      box.x >= cut.x &&
+      box.y >= cut.y &&
+      box.x + box.width <= cut.x + cut.width &&
+      box.y + box.height <= cut.y + cut.height
+    );
   }
 
   /**

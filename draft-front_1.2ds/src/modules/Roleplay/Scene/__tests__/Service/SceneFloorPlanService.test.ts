@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
+import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SceneFloorPlanService } from '@/modules/Roleplay/Scene/Service/SceneFloorPlanService';
 
 const service = new SceneFloorPlanService();
@@ -46,6 +49,19 @@ function model(boards: SceneBoard[], enclosures: SceneEnclosure[], activeBoardId
     enclosures,
     selection: [],
     mode: 'preview',
+  };
+}
+
+function element(id: number, boardId: number, shape: SceneShape, props: SceneElementProps = {}): SceneElement {
+  return {
+    id,
+    boardId,
+    kind: 'terrain',
+    shape,
+    props,
+    sortOrder: id,
+    targetBoardId: null,
+    asset: null,
   };
 }
 
@@ -169,5 +185,22 @@ describe('SceneFloorPlanService', () => {
     const plan = service.plan(model([root, second], [enclosure(3, 4, 128)], 3));
 
     expect(plan.floors.every((item) => !item.underCut)).toBe(true);
+  });
+
+  it('берёт пятно плиты по нарисованному полу, а не по всему полю', () => {
+    const root = board(3, 5120, 5120);
+    const floor = board(4, 1408, 1216);
+    const scene = model([root, floor], [enclosure(3, 4, 128)], 4);
+    scene.elements = [
+      element(79, 4, { type: 'rect', x: 256, y: 256, w: 896, h: 704 }, { kind: 'dirt' }),
+      // Вода — не плита: под ней пол не лежит.
+      element(80, 4, { type: 'rect', x: 0, y: 0, w: 1408, h: 1216 }, { kind: 'water' }),
+      element(81, 4, { type: 'rect', x: 1200, y: 1000, w: 100, h: 100 }, { kind: 'grass' }),
+    ];
+
+    // Поля обзора вокруг плана (1408×1216) в пятно не входят: иначе под рез
+    // попал бы забор двора, стоящий за домом.
+    expect(service.slabBounds(scene, 4)).toEqual({ x: 256, y: 256, width: 1044, height: 844 });
+    expect(service.slabBounds(scene, 3)).toBeNull();
   });
 });
