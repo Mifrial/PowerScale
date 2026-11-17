@@ -344,7 +344,6 @@ function onSpellPathSelect(name: string, code: string | null): void {
 function studyPathNotice(ability: EditorAbility): string | null {
   if (!isSpellCatalogRow() || ability.derived) return null;
   if (displayLevel(ability) > 0) return null;
-  if (!(ability.levels[0]?.met ?? true)) return null;
 
   return canLearnSpell() ? null : spellLearnBlockedReason(ability);
 }

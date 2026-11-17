@@ -196,6 +196,8 @@ export class CharacterHttpSaveService {
     if (ability.targets !== undefined) row.targets = ability.targets;
     if (ability.domain !== undefined) row.domain = ability.domain;
     if (ability.domainCode !== undefined) row.domainCode = ability.domainCode;
+    if (ability.fieldCode !== undefined) row.fieldCode = ability.fieldCode;
+    if (ability.slots !== undefined) row.slots = ability.slots;
 
     return row;
   }

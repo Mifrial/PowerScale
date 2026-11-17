@@ -16,6 +16,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\Rule\Value\RequirementNumbers;
+use Mifrial\Roleplay\Rule\Value\RequirementKnowledge;
 use Mifrial\Roleplay\Rule\Value\RequirementTraits;
 use Mifrial\Roleplay\Rule\Value\RequirementUnmodelled;
 use Mifrial\Roleplay\Rule\Value\RequirementValues;
@@ -75,6 +76,7 @@ final class CharacterRequirementFacts
                 $this->magicPaths($slice, $choices, $levels),
                 $this->paths->experience($slice, $choices, $levels),
             ),
+            $this->knowledge($choices),
         );
     }
 
@@ -96,6 +98,28 @@ final class CharacterRequirementFacts
             $this->characteristicsOf($sheet),
             $this->resourceLimitsOf($sheet),
         );
+    }
+
+    /**
+     * Уровни знаний по типам: максимальный уровень экземпляра `znanie` каждого типа.
+     *
+     * @param CharacterChoices $choices Выборы.
+     *
+     * @return RequirementKnowledge Знания.
+     */
+    private function knowledge(CharacterChoices $choices): RequirementKnowledge
+    {
+        $levels = [];
+        foreach ($choices->getAbilities() as $ability) {
+            $field = $ability->getFieldCode();
+            if ($field === null || $field === '') {
+                continue;
+            }
+
+            $levels[$field] = max($levels[$field] ?? 0, $ability->getLevel());
+        }
+
+        return new RequirementKnowledge($levels);
     }
 
     /**

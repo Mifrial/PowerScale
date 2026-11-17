@@ -6,6 +6,8 @@ export interface CharacterSnapshot {
   abilityLevels: Map<string, number>;
   /** Признаки (ключевые слова) каждой способности по её коду (для has_ability_keyword). */
   abilityKeywords: Map<string, Set<string>>;
+  /** Уровни знаний по типам (fieldCode) для has_knowledge. */
+  knowledgeLevels?: Map<string, number>;
   /**
    * Экземпляры множественных навыков по кодам правил (для домен-скоупированных has_ability).
    * Пусто, если экземпляров нет.

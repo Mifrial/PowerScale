@@ -10,6 +10,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\CurrentSpeedRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKnowledgeRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
@@ -19,6 +20,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\ResourceLimitRequirement;
 use Mifrial\Roleplay\Rule\Service\AbilityRequirementCheck;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use Mifrial\Roleplay\Rule\Value\RequirementNumbers;
+use Mifrial\Roleplay\Rule\Value\RequirementKnowledge;
 use Mifrial\Roleplay\Rule\Value\RequirementTraits;
 use Mifrial\Roleplay\Rule\Value\RequirementUnmodelled;
 use Mifrial\Roleplay\Rule\Value\RequirementValues;
@@ -235,6 +237,24 @@ final class AbilityRequirementCheckTest extends TestCase
         self::assertNull($check->check(new MagicPathExperienceRequirement('psionic', 1), $empty));
         self::assertTrue($check->check(new MagicPathExperienceRequirement('psionic', 6), $filled));
         self::assertFalse($check->check(new MagicPathExperienceRequirement('psionic', 7), $filled));
+    }
+
+    /**
+     * has_knowledge: максимальный уровень знания нужного типа.
+     *
+     * @return void
+     */
+    public function testHasKnowledgeLevels(): void
+    {
+        $check = new AbilityRequirementCheck();
+        $values = new RequirementValues(
+            knowledge: new RequirementKnowledge(['physiology' => 2]),
+        );
+
+        self::assertTrue($check->check(new HasKnowledgeRequirement('physiology', null), $values));
+        self::assertTrue($check->check(new HasKnowledgeRequirement('physiology', 2), $values));
+        self::assertFalse($check->check(new HasKnowledgeRequirement('physiology', 3), $values));
+        self::assertFalse($check->check(new HasKnowledgeRequirement('diseases', null), $values));
     }
 
     /**

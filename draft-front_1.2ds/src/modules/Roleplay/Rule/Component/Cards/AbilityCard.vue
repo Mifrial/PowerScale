@@ -19,6 +19,7 @@ import { SPELL_DURATION_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability
 import { spellDurationLabelService } from '@/modules/Roleplay/Rule/Service/Instance/spellDurationLabelService';
 import { spellDamageService } from '@/modules/Roleplay/Rule/Service/Instance/spellDamageService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { KNOWLEDGE_FIELDS } from '@/modules/Roleplay/Rule/Constant/Knowledge/KNOWLEDGE_FIELDS';
 
 const props = defineProps<{
   rule: Rule;
@@ -264,6 +265,8 @@ function reqText(req: Requirement): string {
       return `${req.min_count} способность(ей) с признаком «${ruleViewLabelService.keywordName(props.keywords, req.keyword_code)}»`;
     case 'has_keyword':
       return `признак «${ruleViewLabelService.keywordName(props.keywords, req.keyword_code)}»`;
+    case 'has_knowledge':
+      return `знание «${KNOWLEDGE_FIELDS.find((field) => field.code === req.field_code)?.name ?? req.field_code}» ≥${req.min_level ?? 1}`;
     case 'characteristic_value':
       return `${ruleViewLabelService.ruleName(props.rules, req.characteristic_code)} ≥ ${ruleViewLabelService.dimensional(req.min)}`;
     case 'has_magic_path':

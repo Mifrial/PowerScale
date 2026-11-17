@@ -11,6 +11,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\CurrentSpeedRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityKeywordRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasAbilityRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKeywordRequirement;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasKnowledgeRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\HasMagicPathRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MagicPathExperienceRequirement;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Requirement\MinWeaponMasteryRequirement;
@@ -66,6 +67,7 @@ final class AbilityRequirementCheck
     ): ?bool {
         return match (true) {
             $requirement instanceof HasAbilityRequirement => $this->hasAbility($requirement, $values, $domainContext),
+            $requirement instanceof HasKnowledgeRequirement => $this->hasKnowledge($requirement, $values),
             $requirement instanceof CharacteristicValueRequirement => $this->characteristicPasses(
                 $requirement,
                 $values,
@@ -107,6 +109,21 @@ final class AbilityRequirementCheck
         $covers = $values->traits->pathCovers[$domainContext] ?? [$domainContext];
 
         return array_intersect($domains, $covers) !== [];
+    }
+
+    /**
+     * Уровень знания нужного типа не ниже минимума.
+     *
+     * @param HasKnowledgeRequirement $requirement Требование.
+     * @param RequirementValues $values Факты.
+     *
+     * @return bool Результат.
+     */
+    private function hasKnowledge(HasKnowledgeRequirement $requirement, RequirementValues $values): bool
+    {
+        $level = $values->knowledge->fieldLevels[$requirement->getFieldCode()] ?? 0;
+
+        return $level >= ($requirement->getMinLevel() ?? 1);
     }
 
     /**

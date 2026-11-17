@@ -116,6 +116,8 @@ final class CharacterChoiceAssembler
             is_string($ability['studyPairRole'] ?? null) ? $ability['studyPairRole'] : null,
             $this->abilityParameters($ability['parameters'] ?? null),
             $this->targets($ability['targets'] ?? null),
+            is_string($ability['fieldCode'] ?? null) ? $ability['fieldCode'] : null,
+            is_array($ability['slots'] ?? null) ? $ability['slots'] : [],
         );
     }
 

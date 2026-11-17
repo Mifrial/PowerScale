@@ -30,6 +30,8 @@ final class CharacterSaveKeys
         'studyPairId',
         'studyPairRole',
         'targets',
+        'fieldCode',
+        'slots',
     ];
 
     /**

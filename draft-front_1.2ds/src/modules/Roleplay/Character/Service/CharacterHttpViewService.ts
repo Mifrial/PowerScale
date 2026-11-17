@@ -1,5 +1,6 @@
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
+import type { CharacterKnowledgeSlot } from '@/modules/Roleplay/Character/Dto/CharacterKnowledgeSlot';
 import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
@@ -352,6 +353,10 @@ export class CharacterHttpViewService {
       const domainCode = this.stringOf(record.domainCode);
       if (domain) ability.domain = domain;
       if (domainCode) ability.domainCode = domainCode;
+      const fieldCode = this.stringOf(record.fieldCode);
+      if (fieldCode) ability.fieldCode = fieldCode;
+      const slots = this.knowledgeSlotsOf(record.slots);
+      if (slots) ability.slots = slots;
       if (typeof record.zone === 'string') ability.zone = record.zone;
       if (record.gifted === true) ability.gifted = true;
       const parameters = this.parametersOf(record.parameters);
@@ -361,6 +366,21 @@ export class CharacterHttpViewService {
 
       return [ability];
     });
+  }
+
+  private knowledgeSlotsOf(raw: unknown): Record<string, CharacterKnowledgeSlot> | null {
+    if (raw === null || raw === undefined) return null;
+    const record = this.recordOf(raw);
+    const slots: Record<string, CharacterKnowledgeSlot> = {};
+    for (const [key, value] of Object.entries(record)) {
+      const slot = this.recordOf(value);
+      const code = this.nullableStringOf(slot.code);
+      const text = this.stringOf(slot.text);
+      if (code === null && text === '') continue;
+      slots[key] = { code, text };
+    }
+
+    return Object.keys(slots).length > 0 ? slots : null;
   }
 
   private inventoryOf(raw: unknown): InventoryItem[] {

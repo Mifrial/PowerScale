@@ -59,6 +59,24 @@ describe('RequirementEvaluator', () => {
     expect(evaluator.evaluate({ type: 'has_ability', ability_code: 'missing' }, snapshot)).toBe(false);
   });
 
+  it('has_knowledge: уровень знания типа и подпись', () => {
+    const withKnowledge: CharacterSnapshot = { ...snapshot, knowledgeLevels: new Map([['physiology', 2]]) };
+
+    expect(evaluator.evaluate({ type: 'has_knowledge', field_code: 'physiology', min_level: 2 }, withKnowledge)).toBe(
+      true,
+    );
+    expect(evaluator.evaluate({ type: 'has_knowledge', field_code: 'physiology', min_level: 3 }, withKnowledge)).toBe(
+      false,
+    );
+    expect(
+      evaluator.firstFailure([{ type: 'has_knowledge', field_code: 'physiology', min_level: 3 }], withKnowledge),
+    ).toBe('требуется знание «Физиология» уровня 3');
+    expect(evaluator.evaluate({ type: 'has_knowledge', field_code: 'diseases' }, withKnowledge)).toBe(false);
+    expect(evaluator.unmetAbilities([{ type: 'has_knowledge', field_code: 'physiology' }], snapshot)[0]?.abilityCode).toBe(
+      'znanie',
+    );
+  });
+
   it('has_keyword: признак у персонажа (раса/способности)', () => {
     expect(evaluator.evaluate({ type: 'has_keyword', keyword_code: 'combat' }, snapshot)).toBe(true);
     expect(evaluator.evaluate({ type: 'has_keyword', keyword_code: 'stealth' }, snapshot)).toBe(false);

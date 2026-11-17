@@ -4,6 +4,8 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { PISMENNOST_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/PISMENNOST_ABILITY_CODE';
+import { KNOWLEDGE_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/KNOWLEDGE_ABILITY_CODE';
+import { KNOWLEDGE_FIELDS } from '@/modules/Roleplay/Rule/Constant/Knowledge/KNOWLEDGE_FIELDS';
 
 /** Невыполненное требование-способность: код, нужный уровень и подпись. */
 export interface UnmetAbility {
@@ -74,6 +76,13 @@ export class RequirementEvaluator {
           }
           continue;
         }
+        if (requirement.type === 'has_knowledge') {
+          if (!this.evaluate(requirement, snapshot, domainContext)) {
+            // Цепочка ведёт к карточке «Знание о…»: экземпляр типа знания покупается в каталоге.
+            add(KNOWLEDGE_ABILITY_CODE, requirement.min_level ?? 1);
+          }
+          continue;
+        }
         if (requirement.type === 'or') {
           if (requirement.children.some((child) => this.evaluate(child, snapshot, domainContext))) continue;
           visit(requirement.children);
@@ -127,6 +136,13 @@ export class RequirementEvaluator {
         if (level >= minLevel) return null;
 
         return `требуется способность ${label}`;
+      }
+      case 'has_knowledge': {
+        const minLevel = requirement.min_level ?? 1;
+        const level = snapshot.knowledgeLevels?.get(requirement.field_code) ?? 0;
+        if (level >= minLevel) return null;
+
+        return `требуется знание «${this.knowledgeFieldName(requirement.field_code)}» уровня ${minLevel}`;
       }
       case 'has_ability_keyword': {
         const excluded = new Set(requirement.exclude_keyword_codes ?? []);
@@ -242,6 +258,10 @@ export class RequirementEvaluator {
 
   private abilityName(code: string, snapshot: CharacterSnapshot): string {
     return snapshot.abilityNames?.get(code) ?? code;
+  }
+
+  private knowledgeFieldName(code: string): string {
+    return KNOWLEDGE_FIELDS.find((field) => field.code === code)?.name ?? code;
   }
 
   private keywordName(code: string, snapshot: CharacterSnapshot): string {

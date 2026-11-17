@@ -45,6 +45,36 @@ describe('CharacterHttpViewService.versionFromStored', () => {
     expect(version?.raceRuleCode).toBe('human');
   });
 
+  it('сохраняет тип и слоты знания из choices', () => {
+    const version = characterHttpViewService.versionFromStored({
+      name: 'Герой',
+      rulesRevision: 1,
+      choices: {
+        name: 'Герой',
+        abilities: [
+          {
+            ruleCode: 'znanie',
+            level: 2,
+            domain: 'Знание о физиологии · Эльфы',
+            domainCode: 'elf',
+            fieldCode: 'physiology',
+            slots: { species: { code: 'elf', text: 'Эльфы' } },
+          },
+        ],
+      },
+      sheet: {},
+    });
+
+    expect(version?.abilities).toContainEqual({
+      ruleCode: 'znanie',
+      level: 2,
+      domain: 'Знание о физиологии · Эльфы',
+      domainCode: 'elf',
+      fieldCode: 'physiology',
+      slots: { species: { code: 'elf', text: 'Эльфы' } },
+    });
+  });
+
   it('сохраняет авторитетное value и delta характеристики из sheet PHP', () => {
     const version = characterHttpViewService.versionFromStored({
       name: 'Герой',

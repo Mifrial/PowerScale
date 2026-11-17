@@ -1769,6 +1769,7 @@ export class CharacterEditorService {
     const abilityLevels = new Map<string, number>();
     const abilityKeywords = new Map<string, Set<string>>();
     const abilityInstances = new Map<string, { domain: string; domainCode: string | null; level: number }[]>();
+    const knowledgeLevels = new Map<string, number>();
     const keywordCodes = new Set<string>();
 
     const addKeywords = (rule: Rule | null | undefined): void => {
@@ -1794,6 +1795,11 @@ export class CharacterEditorService {
       }
       abilityKeywords.set(rule.code, set);
       addKeywords(rule);
+      // Знания: требования has_knowledge смотрят максимальный уровень по типу.
+      if (ability.fieldCode) {
+        const currentKnowledge = knowledgeLevels.get(ability.fieldCode) ?? 0;
+        if (ability.level > currentKnowledge) knowledgeLevels.set(ability.fieldCode, ability.level);
+      }
       // Экземпляры множественных навыков (для домен-скоупированных требований «того же языка»).
       if (ability.domain != null) {
         const list = abilityInstances.get(rule.code) ?? [];
@@ -1885,6 +1891,7 @@ export class CharacterEditorService {
       abilityLevels,
       abilityKeywords,
       abilityInstances,
+      knowledgeLevels,
       weaponProficiencyLevels: proficiencyLevels,
       weaponMasteryValues: masteryValues,
       weaponFamilyTags: familyTags,

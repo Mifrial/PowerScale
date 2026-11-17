@@ -121,6 +121,31 @@ final class CharacterRequirementFactsTest extends TestCase
     }
 
     /**
+     * Уровни знаний по типам попадают в факты.
+     *
+     * @return void
+     */
+    public function testForModelCollectsKnowledgeLevels(): void
+    {
+        $slice = $this->slice([
+            $this->rule('znanie', 'ability', ['type' => 'skill', 'multiple' => true, 'zones' => []]),
+        ]);
+        $facts = (new CharacterRequirementFacts())->forModel(
+            $slice,
+            $this->choices([
+                ['ruleCode' => 'znanie', 'level' => 1, 'fieldCode' => 'physiology', 'domain' => 'Физиология · Люди'],
+                ['ruleCode' => 'znanie', 'level' => 3, 'fieldCode' => 'physiology', 'domain' => 'Физиология · Эльфы'],
+                ['ruleCode' => 'znanie', 'level' => 2, 'fieldCode' => 'laws', 'domain' => 'Законы · Север'],
+            ]),
+            ['znanie' => 3],
+            [],
+            [],
+        );
+
+        self::assertSame(['physiology' => 3, 'laws' => 2], $facts->knowledge->fieldLevels);
+    }
+
+    /**
      * withLevels меняет только уровни.
      *
      * @return void

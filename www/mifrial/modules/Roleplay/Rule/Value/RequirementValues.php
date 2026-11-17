@@ -15,6 +15,7 @@ final class RequirementValues
      * @param RequirementNumbers $numbers Уровни, характеристики и лимиты.
      * @param RequirementTraits $traits Признаки и владение оружием.
      * @param RequirementUnmodelled $unmodelled Скорость и магия.
+     * @param RequirementKnowledge $knowledge Знания по типам.
      *
      * @return void
      */
@@ -22,6 +23,7 @@ final class RequirementValues
         public readonly RequirementNumbers $numbers = new RequirementNumbers(),
         public readonly RequirementTraits $traits = new RequirementTraits(),
         public readonly RequirementUnmodelled $unmodelled = new RequirementUnmodelled(),
+        public readonly RequirementKnowledge $knowledge = new RequirementKnowledge(),
     ) {
     }
 
@@ -34,6 +36,6 @@ final class RequirementValues
      */
     public function withLevels(array $levels): self
     {
-        return new self($this->numbers->withLevels($levels), $this->traits, $this->unmodelled);
+        return new self($this->numbers->withLevels($levels), $this->traits, $this->unmodelled, $this->knowledge);
     }
 }

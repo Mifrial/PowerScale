@@ -38,6 +38,14 @@ describe('CharacterHttpSaveService documentOf', () => {
         abilities: [
           { ruleCode: 'magic-core-capacity', level: 1, parameters: { x: { base: 4, size: 0 } } },
           { ruleCode: 'discharge', level: 1, zone: 'or', targets: { core: 5 } },
+          {
+            ruleCode: 'znanie',
+            level: 2,
+            domain: 'Знание о физиологии · Эльфы',
+            domainCode: 'elf',
+            fieldCode: 'physiology',
+            slots: { species: { code: 'elf', text: 'Эльфы' } },
+          },
         ],
         points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: 0 },
         money: 0,
@@ -75,6 +83,14 @@ describe('CharacterHttpSaveService documentOf', () => {
       level: 1,
       zone: 'or',
       targets: { core: 5 },
+    });
+    expect(body.abilities).toContainEqual({
+      ruleCode: 'znanie',
+      level: 2,
+      domain: 'Знание о физиологии · Эльфы',
+      domainCode: 'elf',
+      fieldCode: 'physiology',
+      slots: { species: { code: 'elf', text: 'Эльфы' } },
     });
   });
 
