@@ -309,6 +309,9 @@ export class SceneSurfaceService {
     const cutters = openings
       .filter((opening) => opening.shape.type === 'wall')
       .map((opening) => this.geometry.probe(opening.shape, 0));
+    // Тонкая стена (забор толщиной меньше клетки) не должна проскакивать меж
+    // центрами клеток: допуск в полклетки гарантирует ей хотя бы одну клетку.
+    const tolerance = grid.cell / 2;
 
     for (const element of elements) {
       if (element.kind !== 'obstacle') {
@@ -318,21 +321,31 @@ export class SceneSurfaceService {
       const cut = element.shape.type === 'wall' && cutters.length > 0;
       const blocksMovement = element.props.blocksMovement !== false;
       const blocksVision = element.props.blocksVision !== false;
-      this.paintShape(grid, element.shape, (index) => {
-        if (cut) {
-          const center = surfaceCenter(grid, index);
-          if (cutters.some((cutter) => cutter.contains(center, 0))) {
-            return;
+      const toleranceOf = element.shape.type === 'wall' ? tolerance : 0;
+      // Высота стены — верх её полосы обзора: низкий забор видно поверх, а
+      // стена дома (выше глаз) закрывает. Без высоты стена по-прежнему до неба.
+      const top = this.occluderTop(element, grid.resolution);
+      this.paintShape(
+        grid,
+        element.shape,
+        (index) => {
+          if (cut) {
+            const center = surfaceCenter(grid, index);
+            if (cutters.some((cutter) => cutter.contains(center, tolerance))) {
+              return;
+            }
           }
-        }
 
-        if (blocksMovement) {
-          grid.speeds[index] = 0;
-        }
-        if (blocksVision) {
-          this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
-        }
-      });
+          if (blocksMovement) {
+            grid.speeds[index] = 0;
+          }
+          if (blocksVision) {
+            this.paintOccluder(grid, index, 0, top);
+          }
+        },
+        0,
+        toleranceOf,
+      );
     }
   }
 
@@ -404,6 +417,16 @@ export class SceneSurfaceService {
     grid.sightTop[index] = Math.max(grid.sightTop[index], top);
   }
 
+  /** Верх перекрытия препятствия в ипари; без высоты — до неба. */
+  private occluderTop(element: SceneElement, resolution: number): number {
+    const height = element.props.height;
+    if (typeof height !== 'number' || !Number.isFinite(height)) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    return Math.max(0, height) / Math.max(1, resolution);
+  }
+
   /** Скорость декора: явная или непроходимость по умолчанию. */
   private decorSpeed(element: SceneElement): number {
     const speed = element.props.speed;
@@ -425,38 +448,44 @@ export class SceneSurfaceService {
       const open = element.props.state === 'open';
       // Подоконник хранится в единицах сцены, а полоса обзора — в ипари.
       const sill = window ? Math.max(0, Math.round(element.props.sill ?? 0)) / Math.max(1, grid.resolution) : 0;
-      this.paintShape(grid, element.shape, (index) => {
-        // Открытое окно — не дверь: створка распахнута, но пролезть в неё
-        // нельзя. Ход открывает только дверь, ворота и лестница.
-        if (open && !window) {
-          grid.speeds[index] = Math.max(grid.speeds[index], SCENE_SURFACE.speeds.grass);
-          this.clearOccluder(grid, index);
-
-          return;
-        }
-
-        grid.speeds[index] = 0;
-        if (window) {
-          // Окно: видно выше подоконника, но не пройти. Перемычку держит
-          // сетка батлграунда; в предпросмотре полоса одна — подоконник.
-          if (sill > 0) {
-            this.paintOccluder(grid, index, 0, sill);
-          } else {
+      this.paintShape(
+        grid,
+        element.shape,
+        (index) => {
+          // Открытое окно — не дверь: створка распахнута, но пролезть в неё
+          // нельзя. Ход открывает только дверь, ворота и лестница.
+          if (open && !window) {
+            grid.speeds[index] = Math.max(grid.speeds[index], SCENE_SURFACE.speeds.grass);
             this.clearOccluder(grid, index);
+
+            return;
           }
 
-          return;
-        }
+          grid.speeds[index] = 0;
+          if (window) {
+            // Окно: видно выше подоконника, но не пройти. Перемычку держит
+            // сетка батлграунда; в предпросмотре полоса одна — подоконник.
+            if (sill > 0) {
+              this.paintOccluder(grid, index, 0, sill);
+            } else {
+              this.clearOccluder(grid, index);
+            }
 
-        // Стеклянная дверь: закрыта, но прозрачна. Стена под ней уже вырезана.
-        if (element.props.blocksVision === false) {
-          this.clearOccluder(grid, index);
+            return;
+          }
 
-          return;
-        }
+          // Стеклянная дверь: закрыта, но прозрачна. Стена под ней уже вырезана.
+          if (element.props.blocksVision === false) {
+            this.clearOccluder(grid, index);
 
-        this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
-      });
+            return;
+          }
+
+          this.paintOccluder(grid, index, 0, Number.POSITIVE_INFINITY);
+        },
+        0,
+        element.shape.type === 'wall' ? grid.cell / 2 : 0,
+      );
     }
   }
 
@@ -480,10 +509,27 @@ export class SceneSurfaceService {
   }
 
   /** Заливает клетки, чей центр попал в фигуру; `rotation` — поворот опоры. */
-  private paintShape(grid: SceneSurfaceGrid, shape: SceneShape, apply: (index: number) => void, rotation = 0): void {
+  private paintShape(
+    grid: SceneSurfaceGrid,
+    shape: SceneShape,
+    apply: (index: number) => void,
+    rotation = 0,
+    tolerance = 0,
+  ): void {
     const probe = this.geometry.probe(shape, rotation);
-    this.forEachCell(grid, probe.bounds, (index, center) => {
-      if (probe.contains(center, 0)) {
+    // Допуск расширяет и габарит обхода: иначе клетка, чей центр попал в
+    // допуск у тонкой диагональной стены, осталась бы за пределами обхода.
+    const bounds =
+      tolerance === 0
+        ? probe.bounds
+        : {
+            x: probe.bounds.x - tolerance,
+            y: probe.bounds.y - tolerance,
+            width: probe.bounds.width + tolerance * 2,
+            height: probe.bounds.height + tolerance * 2,
+          };
+    this.forEachCell(grid, bounds, (index, center) => {
+      if (probe.contains(center, tolerance)) {
         apply(index);
       }
     });

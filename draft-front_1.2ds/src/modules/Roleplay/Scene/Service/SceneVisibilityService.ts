@@ -5,18 +5,6 @@ import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUR
 import { surfaceFloor, surfaceIndex } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { sceneBodyHeight, sceneBodyIpari, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
-/** Октанты тени: `xx`, `xy`, `yx`, `yy` для двух осей обхода. */
-const OCTANTS: readonly [number, number, number, number][] = [
-  [1, 0, 0, 1],
-  [0, 1, 1, 0],
-  [0, -1, 1, 0],
-  [-1, 0, 0, 1],
-  [-1, 0, 0, -1],
-  [0, -1, -1, 0],
-  [0, 1, -1, 0],
-  [1, 0, 0, -1],
-];
-
 /**
  * Видимость клеток поля.
  *
@@ -42,10 +30,10 @@ export class SceneVisibilityService {
   /**
    * Карта видимости из точки.
    *
-   * Теневое литьё по клеткам: непрозрачная клетка помечается видимой и
-   * обрывает тень за собой, поэтому на сцену хватает O(площади обзора), а не
-   * луча на каждую клетку. Для карты тумана достаточно высоты глаз: тело цели
-   * учитывает `sees`, когда важно увидеть голову над низким забором.
+   * Каждая клетка в радиусе проверяется своим лучом: обход клеток по отрезку
+   * (DDA) останавливается на первой непрозрачной клетке на высоте глаз.
+   * Поэтому луч не «протекает» вбок от кромки проёма, как теневое литьё по
+   * октантам, и своё поле считается той же геометрией, что и чужие этажи.
    *
    * @param radius Радиус обзора в единицах сцены; без него — всё поле.
    * @param eye Высота глаз наблюдателя, ипари.
@@ -73,192 +61,115 @@ export class SceneVisibilityService {
       return { columns: grid.columns, rows: grid.rows, visible };
     }
 
-    // Непрозрачность зависит только от высоты глаз, поэтому её можно снять
-    // битовой маской и отдать общему теневому литью.
-    const opaque = new Uint8Array(grid.columns * grid.rows);
-    for (let index = 0; index < opaque.length; index += 1) {
-      if (this.opaqueAt(grid, index, eye)) {
-        opaque[index] = 1;
-      }
-    }
+    const finite = Number.isFinite(radius);
+    const reach = finite ? Math.max(0, radius) : Number.POSITIVE_INFINITY;
+    const minColumn = finite ? this.clamp(Math.floor((from[0] - reach - grid.x) / grid.cell), 0, grid.columns - 1) : 0;
+    const maxColumn = finite
+      ? this.clamp(Math.floor((from[0] + reach - grid.x) / grid.cell), 0, grid.columns - 1)
+      : grid.columns - 1;
+    const minRow = finite ? this.clamp(Math.floor((from[1] - reach - grid.y) / grid.cell), 0, grid.rows - 1) : 0;
+    const maxRow = finite
+      ? this.clamp(Math.floor((from[1] + reach - grid.y) / grid.cell), 0, grid.rows - 1)
+      : grid.rows - 1;
+    const radiusSquared = finite ? reach * reach : Number.POSITIVE_INFINITY;
 
-    return {
-      columns: grid.columns,
-      rows: grid.rows,
-      visible: this.shadowMask(grid.x, grid.y, grid.columns, grid.rows, grid.cell, from, radius, opaque),
-    };
-  }
-
-  /**
-   * Теневое литьё по битовой маске непрозрачности.
-   *
-   * Одна и та же механика считает и своё поле (непрозрачность по высоте глаз),
-   * и тень стен для чужих этажей (непрозрачность по растру стен). Поэтому
-   * формула обзора у всех полей одинаковая, а стены не перебираются лучом.
-   *
-   * @param x Левый верхний угол сетки в единицах сцены.
-   * @param y Верхний край сетки.
-   * @param columns Ширина сетки.
-   * @param rows Высота сетки.
-   * @param cell Размер клетки.
-   * @param from Точка обзора.
-   * @param radius Радиус обзора; `Infinity` — до края поля.
-   * @param opaque Маска непрозрачности, `1` — клетка перекрывает взгляд.
-   *
-   * @returns Маска видимости, `1` — клетка видна.
-   */
-  private shadowMask(
-    x: number,
-    y: number,
-    columns: number,
-    rows: number,
-    cell: number,
-    from: ScenePoint,
-    radius: number,
-    opaque: Uint8Array,
-  ): Uint8Array {
-    const visible = new Uint8Array(columns * rows);
-    const origin = this.indexAt(x, y, columns, rows, cell, from[0], from[1]);
-    if (origin < 0) {
-      return visible;
-    }
-
-    visible[origin] = 1;
-    const originColumn = origin % columns;
-    const originRow = Math.floor(origin / columns);
-    const diagonal = Math.ceil(Math.hypot(columns, rows));
-    const maxDistance = Number.isFinite(radius) ? Math.min(Math.ceil(radius / cell), diagonal) : diagonal;
-
-    // Восемь октантов: каждый обходит свою четверть и передаёт тени дальше.
-    for (const [xx, xy, yx, yy] of OCTANTS) {
-      this.castMask(
-        columns,
-        rows,
-        cell,
-        visible,
-        opaque,
-        originColumn,
-        originRow,
-        1,
-        1,
-        0,
-        xx,
-        xy,
-        yx,
-        yy,
-        radius,
-        maxDistance,
-      );
-    }
-
-    return visible;
-  }
-
-  /** Индекс клетки по точке; `-1` — точка вне сетки. */
-  private indexAt(x: number, y: number, columns: number, rows: number, cell: number, pointX: number, pointY: number): number {
-    const column = Math.floor((pointX - x) / cell);
-    const row = Math.floor((pointY - y) / cell);
-    if (column < 0 || row < 0 || column >= columns || row >= rows) {
-      return -1;
-    }
-
-    return row * columns + column;
-  }
-
-  /**
-   * Рекурсивный обход одного октанта по маске непрозрачности.
-   *
-   * @param row Текущая строка октанта.
-   * @param start Начальный наклон луча.
-   * @param end Конечный наклон луча.
-   * @param xx Смещение колонки по x.
-   * @param xy Смещение колонки по y.
-   * @param yx Смещение строки по x.
-   * @param yy Смещение строки по y.
-   */
-  private castMask(
-    columns: number,
-    rows: number,
-    cell: number,
-    visible: Uint8Array,
-    opaque: Uint8Array,
-    originColumn: number,
-    originRow: number,
-    row: number,
-    start: number,
-    end: number,
-    xx: number,
-    xy: number,
-    yx: number,
-    yy: number,
-    radius: number,
-    maxDistance: number,
-  ): void {
-    if (start < end) {
-      return;
-    }
-
-    let newStart = start;
-    for (let distance = row; distance <= maxDistance; distance += 1) {
-      const dy = -distance;
-      let blocked = false;
-      for (let dx = -distance; dx <= 0; dx += 1) {
-        const left = (dx - 0.5) / (dy + 0.5);
-        const right = (dx + 0.5) / (dy - 0.5);
-        if (start < right) {
-          continue;
-        }
-        if (end > left) {
-          break;
-        }
-
-        const column = originColumn + dx * xx + dy * xy;
-        const line = originRow + dx * yx + dy * yy;
-        if (column < 0 || column >= columns || line < 0 || line >= rows) {
+    for (let row = minRow; row <= maxRow; row += 1) {
+      const centerY = grid.y + (row + 0.5) * grid.cell;
+      const dy = centerY - from[1];
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const centerX = grid.x + (column + 0.5) * grid.cell;
+        const dx = centerX - from[0];
+        if (dx * dx + dy * dy > radiusSquared) {
           continue;
         }
 
-        const index = line * columns + column;
-        // Радиус — круг, а не квадрат: `distance` в октанте чебышёвское,
-        // для границы обзора нужна евклидова длина до центра клетки.
-        if (!Number.isFinite(radius) || Math.hypot(dx, dy) * cell <= radius) {
+        const index = row * grid.columns + column;
+        if (index === origin || this.rayClear(grid, from, centerX, centerY, start)) {
           visible[index] = 1;
         }
-
-        if (opaque[index] === 1) {
-          if (!blocked) {
-            blocked = true;
-            newStart = right;
-          }
-        } else if (blocked) {
-          this.castMask(
-            columns,
-            rows,
-            cell,
-            visible,
-            opaque,
-            originColumn,
-            originRow,
-            distance + 1,
-            newStart,
-            left,
-            xx,
-            xy,
-            yx,
-            yy,
-            radius,
-            maxDistance,
-          );
-          blocked = false;
-          newStart = right;
-        }
       }
+    }
 
-      if (blocked) {
+    return { columns: grid.columns, rows: grid.rows, visible };
+  }
+
+  /**
+   * Отрезок из точки обзора свободен на высоте глаз.
+   *
+   * Обход Аманатидеса — Ву: проверяются только клетки, которые реально
+   * пересекает луч. Клетка цели не проверяется — стену видно с её стороны,
+   * даже если сама она непрозрачна.
+   */
+  private rayClear(grid: SceneSurfaceGrid, from: ScenePoint, toX: number, toY: number, eye: number): boolean {
+    const cell = grid.cell;
+    let column = Math.floor((from[0] - grid.x) / cell);
+    let row = Math.floor((from[1] - grid.y) / cell);
+    const endColumn = Math.floor((toX - grid.x) / cell);
+    const endRow = Math.floor((toY - grid.y) / cell);
+    if (column === endColumn && row === endRow) {
+      return true;
+    }
+
+    const dx = toX - from[0];
+    const dy = toY - from[1];
+    const stepX = dx < 0 ? -1 : 1;
+    const stepY = dy < 0 ? -1 : 1;
+    const deltaX = dx === 0 ? Number.POSITIVE_INFINITY : Math.abs(cell / dx);
+    const deltaY = dy === 0 ? Number.POSITIVE_INFINITY : Math.abs(cell / dy);
+    const borderX = grid.x + (column + (stepX > 0 ? 1 : 0)) * cell;
+    const borderY = grid.y + (row + (stepY > 0 ? 1 : 0)) * cell;
+    let nextX = dx === 0 ? Number.POSITIVE_INFINITY : (borderX - from[0]) / dx;
+    let nextY = dy === 0 ? Number.POSITIVE_INFINITY : (borderY - from[1]) / dy;
+    let guard = grid.columns + grid.rows;
+
+    while (guard > 0 && (column !== endColumn || row !== endRow)) {
+      if (nextX < nextY) {
+        column += stepX;
+        nextX += deltaX;
+      } else if (nextY < nextX) {
+        row += stepY;
+        nextY += deltaY;
+      } else {
+        // Луч прошёл ровно через общий угол клеток: проверяем обе боковые
+        // клетки, иначе диагональ проскальзывает между двумя стенами.
+        if (this.blockedCell(grid, column + stepX, row, eye) || this.blockedCell(grid, column, row + stepY, eye)) {
+          return false;
+        }
+        column += stepX;
+        row += stepY;
+        nextX += deltaX;
+        nextY += deltaY;
+      }
+      guard -= 1;
+      if (column < 0 || row < 0 || column >= grid.columns || row >= grid.rows) {
+        return true;
+      }
+      if (column === endColumn && row === endRow) {
         break;
       }
-      start = newStart;
+      // Клетка на пути: без вызовов и проверок границ — отрезок между двумя
+      // клетками сетки всегда остаётся внутри её прямоугольника.
+      const index = row * grid.columns + column;
+      if (eye > grid.sightBottom[index] && eye < grid.sightTop[index]) {
+        return false;
+      }
     }
+
+    return true;
+  }
+
+  /** Клетка перекрывает луч на высоте глаз; вне сетки — нет. */
+  private blockedCell(grid: SceneSurfaceGrid, column: number, row: number, eye: number): boolean {
+    if (column < 0 || row < 0 || column >= grid.columns || row >= grid.rows) {
+      return false;
+    }
+
+    return this.opaqueAt(grid, row * grid.columns + column, eye);
+  }
+
+  /** Ограничение в диапазоне. */
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
   }
 
   /** Клетка перекрывает взгляд на высоте глаз. */

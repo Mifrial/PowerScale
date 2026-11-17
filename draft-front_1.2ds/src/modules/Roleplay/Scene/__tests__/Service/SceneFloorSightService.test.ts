@@ -201,6 +201,33 @@ describe('SceneFloorSightService', () => {
     expect(service.sees(scene, from, { boardId: 1, point: [900, 900] }, { onRoof: true })).toBe(true);
   });
 
+  it('со второго этажа видно поверх низкой стены', () => {
+    const lowWall: SceneRenderModel = {
+      ...model,
+      elements: model.elements.map((item) =>
+        item.id === 22 ? { ...item, props: { ...item.props, height: 48 } } : item,
+      ),
+    };
+    const lowScene = service.scene(lowWall);
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200] };
+    const to: SceneFloorSightPoint = { boardId: 1, point: [1000, 100] };
+
+    // Без высоты стена закрывает взгляд: старые сцены не меняются.
+    expect(service.sees(scene, from, to)).toBe(false);
+    // Низкая стена ниже луча: двор виден поверх неё.
+    expect(service.sees(lowScene, from, to)).toBe(true);
+
+    // Запечённый растр стен знает ту же высоту.
+    const lowQuery = service.query(lowScene, from);
+    const lowTarget = lowQuery.prepare(1, 0, 0, 96);
+    expect(lowTarget).not.toBeNull();
+    expect(lowQuery.sees(lowTarget!, 1000, 100, 0, 96)).toBe(true);
+
+    const query = service.query(scene, from);
+    const target = query.prepare(1, 0, 0, 96);
+    expect(query.sees(target!, 1000, 100, 0, 96)).toBe(false);
+  });
+
   it('срезает стены нижнего этажа только под пятном плиты', () => {
     const walled: SceneRenderModel = {
       ...model,

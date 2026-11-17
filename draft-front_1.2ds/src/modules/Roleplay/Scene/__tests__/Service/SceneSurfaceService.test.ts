@@ -452,6 +452,77 @@ describe('SceneSurfaceService', () => {
     expect(transparent.sightBottom[cellOf(transparent, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
   });
 
+  it('пишет высоту препятствия в полосу обзора', () => {
+    const low = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          { type: 'rect', x: 64, y: 64, w: 32, h: 32 },
+          { height: 48, blocksMovement: true, blocksVision: true },
+        ),
+      ],
+      64,
+    );
+    const lowCell = cellOf(low, 4, 4);
+    expect(low.sightBottom[lowCell]).toBe(0);
+    expect(low.sightTop[lowCell]).toBeCloseTo(0.75);
+
+    // Без высоты стена по-прежнему до неба: старые сцены не меняются.
+    const tall = service.build(
+      board(),
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          { type: 'rect', x: 64, y: 64, w: 32, h: 32 },
+          { blocksMovement: true, blocksVision: true },
+        ),
+      ],
+      64,
+    );
+    expect(tall.sightTop[cellOf(tall, 4, 4)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('тонкая стена попадает в сетку, а проём в ней не закрывается', () => {
+    const wallShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [32, 128],
+        [224, 128],
+      ],
+      width: 8,
+    };
+    const gateShape: SceneShape = {
+      type: 'wall',
+      points: [
+        [112, 128],
+        [144, 128],
+      ],
+      width: 8,
+    };
+    const grid = service.build(
+      board(),
+      [
+        grass(),
+        element(2, 'obstacle', wallShape, { height: 128, blocksMovement: true, blocksVision: true }),
+        element(3, 'opening', gateShape, { kind: 'gate', state: 'open' }),
+      ],
+      64,
+    );
+
+    // Забор толщиной 8 при клетке 16: центры клеток в 8 единицах от осевой,
+    // без допуска в полклетки он исчезал бы из сетки целиком.
+    expect(grid.speeds[cellOf(grid, 5, 8)]).toBe(0);
+    expect(grid.sightBottom[cellOf(grid, 5, 8)]).toBe(0);
+    // Калитка вырезается тем же допуском: проход открыт.
+    expect(grid.speeds[cellOf(grid, 8, 8)]).toBe(100);
+    expect(grid.sightBottom[cellOf(grid, 8, 8)]).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it('декор перекрывает ход основанием и обзор силуэтом', () => {
     const tree = service.build(
       board(),

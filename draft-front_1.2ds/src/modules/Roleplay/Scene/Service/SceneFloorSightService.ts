@@ -2,6 +2,7 @@ import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
 import type { SceneSightRaster } from '@/modules/Roleplay/Scene/Dto/SceneSightRaster';
+import { SCENE_SIGHT_SKY } from '@/modules/Roleplay/Scene/Dto/SceneSightRaster';
 import {
   SceneFloorPlanService,
   type SceneFloorTransform,
@@ -59,6 +60,13 @@ export interface SceneFloorSightOpening {
   tolerance: number;
 }
 
+/** Стена этажа: фигура и её верх от нуля корня. */
+export interface SceneFloorSightWall {
+  probe: SceneShapeProbe;
+  /** Верх стены в единицах сцены; `SCENE_SIGHT_SKY` — без высоты, до неба. */
+  top: number;
+}
+
 /** Этаж в мире корня: плита с колодцами, стены и проёмы. */
 export interface SceneFloorSightLevel {
   boardId: number;
@@ -69,7 +77,7 @@ export interface SceneFloorSightLevel {
   /** Колодцы в плите: проёмы-лестницы без целевого поля. */
   holes: SceneShapeProbe[];
   /** Стены этажа. */
-  walls: SceneShapeProbe[];
+  walls: SceneFloorSightWall[];
   /** Проёмы стен: сквозь них взгляд проходит. */
   openings: SceneFloorSightOpening[];
   /** Границы поля в локальных координатах. */
@@ -192,7 +200,10 @@ export class SceneFloorSightService {
         }
 
         if (element.kind === 'obstacle' && element.shape.type === 'wall' && element.props.blocksVision !== false) {
-          level.walls.push(this.geometry.probe(element.shape));
+          const height = element.props.height;
+          const top =
+            typeof height === 'number' && Number.isFinite(height) ? level.elevation + Math.max(0, height) : SCENE_SIGHT_SKY;
+          level.walls.push({ probe: this.geometry.probe(element.shape), top: Math.min(SCENE_SIGHT_SKY, top) });
         }
       }
 
@@ -273,7 +284,7 @@ export class SceneFloorSightService {
     bounds: SceneBounds,
     cell: number,
     transform: SceneFloorTransform,
-    add: readonly SceneShapeProbe[],
+    add: readonly SceneFloorSightWall[],
     erase: readonly { probe: SceneShapeProbe; tolerance: number }[],
     toleranceRoot: number,
   ): SceneSightRaster {
@@ -284,16 +295,16 @@ export class SceneFloorSightService {
     // центрами клеток. Габарит обхода у проёма шире — проём должен стереть
     // стену целиком, но не расширить её форму.
     const toleranceLocal = toleranceRoot / Math.max(1e-6, Math.min(scaleX, scaleY));
-    const paint = (probe: SceneShapeProbe, boxTolerance: number, value: number): void => {
+    const paint = (probe: SceneShapeProbe, boxTolerance: number, value: number, top = 0): void => {
       const box = probe.bounds;
       const left = transform.x + (box.x - boxTolerance) * transform.scaleX;
       const right = transform.x + (box.x + box.width + boxTolerance) * transform.scaleX;
-      const top = transform.y + (box.y - boxTolerance) * transform.scaleY;
+      const topEdge = transform.y + (box.y - boxTolerance) * transform.scaleY;
       const bottom = transform.y + (box.y + box.height + boxTolerance) * transform.scaleY;
       const minColumn = Math.max(0, Math.floor((Math.min(left, right) - raster.x) / cell));
       const maxColumn = Math.min(raster.columns - 1, Math.floor((Math.max(left, right) - raster.x) / cell));
-      const minRow = Math.max(0, Math.floor((Math.min(top, bottom) - raster.y) / cell));
-      const maxRow = Math.min(raster.rows - 1, Math.floor((Math.max(top, bottom) - raster.y) / cell));
+      const minRow = Math.max(0, Math.floor((Math.min(topEdge, bottom) - raster.y) / cell));
+      const maxRow = Math.min(raster.rows - 1, Math.floor((Math.max(topEdge, bottom) - raster.y) / cell));
       for (let row = minRow; row <= maxRow; row += 1) {
         const centerY = raster.y + (row + 0.5) * cell;
         const localY = (centerY - transform.y) / (transform.scaleY === 0 ? 1 : transform.scaleY);
@@ -301,20 +312,33 @@ export class SceneFloorSightService {
           const centerX = raster.x + (column + 0.5) * cell;
           const localX = (centerX - transform.x) / (transform.scaleX === 0 ? 1 : transform.scaleX);
           if (probe.contains([localX, localY], toleranceLocal)) {
-            raster.cells[row * raster.columns + column] = value;
+            const index = row * raster.columns + column;
+            raster.cells[index] = value;
+            if (value === 1) {
+              raster.tops[index] = Math.max(raster.tops[index], top);
+            }
           }
         }
       }
     };
 
-    for (const probe of add) {
-      paint(probe, toleranceRoot, 1);
+    for (const wall of add) {
+      paint(wall.probe, toleranceRoot, 1, this.wallTop(wall.top));
     }
     for (const opening of erase) {
       paint(opening.probe, opening.tolerance + toleranceRoot, 0);
     }
 
     return raster;
+  }
+
+  /** Верх стены в единицах `Uint16Array`; без высоты — сентинел «до неба». */
+  private wallTop(top: number): number {
+    if (!Number.isFinite(top)) {
+      return SCENE_SIGHT_SKY;
+    }
+
+    return Math.min(SCENE_SIGHT_SKY, Math.max(0, Math.ceil(top)));
   }
 
   /**
@@ -329,7 +353,15 @@ export class SceneFloorSightService {
     const columns = Math.max(1, Math.ceil(bounds.width / cell));
     const rows = Math.max(1, Math.ceil(bounds.height / cell));
 
-    return { x: bounds.x, y: bounds.y, cell, columns, rows, cells: new Uint8Array(columns * rows) };
+    return {
+      x: bounds.x,
+      y: bounds.y,
+      cell,
+      columns,
+      rows,
+      cells: new Uint8Array(columns * rows),
+      tops: new Uint16Array(columns * rows),
+    };
   }
 
   /**
@@ -510,7 +542,7 @@ export class SceneFloorSightService {
       return false;
     }
 
-    return this.clearWalls(scene, fromBoardId, from, to, cut, onRoof);
+    return this.clearWalls(scene, fromBoardId, from, to, eye, target, cut, onRoof);
   }
 
   /**
@@ -573,6 +605,8 @@ export class SceneFloorSightService {
     fromBoardId: number,
     from: ScenePoint,
     to: ScenePoint,
+    eye: number,
+    target: number,
     cut: SceneFloorSightOptions['cut'],
     onRoof: boolean,
   ): boolean {
@@ -600,8 +634,9 @@ export class SceneFloorSightService {
         continue;
       }
 
+      const height = eye + (target - eye) * t;
       const local = this.floors.toLocal(level.transform, point);
-      if (!level.walls.some((probe) => probe.contains(local, 0))) {
+      if (!level.walls.some((wall) => wall.probe.contains(local, 0) && height < wall.top)) {
         continue;
       }
 

@@ -207,6 +207,114 @@ describe('SceneVisibilityService', () => {
     expect(service.sees(grid, [320, 300], [320, 320], undefined, undefined, 1, 0)).toBe(false);
   });
 
+  it('не скрывает за низким забором, но скрывает за стеной выше глаз', () => {
+    const build = (height?: number) =>
+      surfaces.build(
+        board,
+        [
+          grass(),
+          element(
+            2,
+            'obstacle',
+            { type: 'rect', x: 80, y: 0, w: 16, h: 256 },
+            { height, blocksMovement: true, blocksVision: true },
+          ),
+        ],
+        64,
+      );
+
+    // Забор 48 (0.75 ипари) ниже глаз: двор за ним виден.
+    const low = build(48);
+    expect(service.map(low, [40, 128]).visible[cellOf(low, 12, 8)]).toBe(1);
+    // Стена 128 (2 ипари) выше глаз: клетка за ней скрыта.
+    const tall = build(128);
+    expect(service.map(tall, [40, 128]).visible[cellOf(tall, 12, 8)]).toBe(0);
+  });
+
+  it('не протекает вбок от двери и не выпускает сквозь глухую стену', () => {
+    const grid = surfaces.build(
+      board,
+      [
+        grass(),
+        element(
+          2,
+          'obstacle',
+          {
+            type: 'wall',
+            width: 8,
+            points: [
+              [64, 64],
+              [192, 64],
+              [192, 192],
+              [64, 192],
+              [64, 64],
+            ],
+          },
+          { height: 128, blocksMovement: true, blocksVision: true },
+        ),
+        element(
+          3,
+          'opening',
+          {
+            type: 'wall',
+            width: 8,
+            points: [
+              [112, 192],
+              [144, 192],
+            ],
+          },
+          { kind: 'door', state: 'open' },
+        ),
+      ],
+      64,
+    );
+
+    const map = service.map(grid, [128, 120], 256);
+    const at = (x: number, y: number): number => cellOf(grid, Math.floor(x / 16), Math.floor(y / 16));
+
+    // Прямо в дверь видно, сбоку от проёма — нет: тень не размывается конусом.
+    expect(map.visible[at(128, 230)]).toBe(1);
+    expect(map.visible[at(88, 208)]).toBe(0);
+    expect(map.visible[at(40, 230)]).toBe(0);
+    expect(map.visible[at(200, 230)]).toBe(0);
+  });
+
+  it('на проходимой крыше стены своего этажа не прячут настил', () => {
+    const grid = surfaces.build(
+      board,
+      [
+        grass(),
+        element(
+          2,
+          'support',
+          { type: 'rect', x: 48, y: 48, w: 160, h: 160 },
+          { kind: 'roof', walkable: true, elevation: 128, height: 8 },
+        ),
+        element(
+          3,
+          'obstacle',
+          {
+            type: 'wall',
+            width: 8,
+            points: [
+              [48, 128],
+              [208, 128],
+            ],
+          },
+          { height: 128, blocksMovement: true, blocksVision: true },
+        ),
+      ],
+      64,
+    );
+
+    // Изнутри дома стена выше глаз закрывает настил за ней.
+    const inside = service.map(grid, [128, 100], 256, undefined, undefined, 0);
+    expect(inside.visible[cellOf(grid, 8, 12)]).toBe(0);
+    // С крыши глаза выше верха стены: весь настил виден.
+    const roof = service.map(grid, [128, 100], 256, undefined, undefined, 1);
+    expect(roof.visible[cellOf(grid, 8, 12)]).toBe(1);
+  });
+
   it('без радиуса доходит до дальнего угла поля', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const visible = service.map(grid, [8, 8]);
