@@ -73,22 +73,100 @@ export class SceneVisibilityService {
       return { columns: grid.columns, rows: grid.rows, visible };
     }
 
-    visible[origin] = 1;
-    const originColumn = origin % grid.columns;
-    const originRow = Math.floor(origin / grid.columns);
-    const diagonal = Math.ceil(Math.hypot(grid.columns, grid.rows));
-    const maxDistance = Number.isFinite(radius) ? Math.min(Math.ceil(radius / grid.cell), diagonal) : diagonal;
-
-    // Восемь октантов: каждый обходит свою четверть и передаёт тени дальше.
-    for (const [xx, xy, yx, yy] of OCTANTS) {
-      this.cast(grid, visible, originColumn, originRow, 1, 1, 0, xx, xy, yx, yy, start, radius, maxDistance);
+    // Непрозрачность зависит только от высоты глаз, поэтому её можно снять
+    // битовой маской и отдать общему теневому литью.
+    const opaque = new Uint8Array(grid.columns * grid.rows);
+    for (let index = 0; index < opaque.length; index += 1) {
+      if (this.opaqueAt(grid, index, eye)) {
+        opaque[index] = 1;
+      }
     }
 
-    return { columns: grid.columns, rows: grid.rows, visible };
+    return {
+      columns: grid.columns,
+      rows: grid.rows,
+      visible: this.shadowMask(grid.x, grid.y, grid.columns, grid.rows, grid.cell, from, radius, opaque),
+    };
   }
 
   /**
-   * Рекурсивный обход одного октанта.
+   * Теневое литьё по битовой маске непрозрачности.
+   *
+   * Одна и та же механика считает и своё поле (непрозрачность по высоте глаз),
+   * и тень стен для чужих этажей (непрозрачность по растру стен). Поэтому
+   * формула обзора у всех полей одинаковая, а стены не перебираются лучом.
+   *
+   * @param x Левый верхний угол сетки в единицах сцены.
+   * @param y Верхний край сетки.
+   * @param columns Ширина сетки.
+   * @param rows Высота сетки.
+   * @param cell Размер клетки.
+   * @param from Точка обзора.
+   * @param radius Радиус обзора; `Infinity` — до края поля.
+   * @param opaque Маска непрозрачности, `1` — клетка перекрывает взгляд.
+   *
+   * @returns Маска видимости, `1` — клетка видна.
+   */
+  shadowMask(
+    x: number,
+    y: number,
+    columns: number,
+    rows: number,
+    cell: number,
+    from: ScenePoint,
+    radius: number,
+    opaque: Uint8Array,
+  ): Uint8Array {
+    const visible = new Uint8Array(columns * rows);
+    const origin = this.indexAt(x, y, columns, rows, cell, from[0], from[1]);
+    if (origin < 0) {
+      return visible;
+    }
+
+    visible[origin] = 1;
+    const originColumn = origin % columns;
+    const originRow = Math.floor(origin / columns);
+    const diagonal = Math.ceil(Math.hypot(columns, rows));
+    const maxDistance = Number.isFinite(radius) ? Math.min(Math.ceil(radius / cell), diagonal) : diagonal;
+
+    // Восемь октантов: каждый обходит свою четверть и передаёт тени дальше.
+    for (const [xx, xy, yx, yy] of OCTANTS) {
+      this.castMask(
+        columns,
+        rows,
+        cell,
+        visible,
+        opaque,
+        originColumn,
+        originRow,
+        1,
+        1,
+        0,
+        xx,
+        xy,
+        yx,
+        yy,
+        radius,
+        maxDistance,
+      );
+    }
+
+    return visible;
+  }
+
+  /** Индекс клетки по точке; `-1` — точка вне сетки. */
+  indexAt(x: number, y: number, columns: number, rows: number, cell: number, pointX: number, pointY: number): number {
+    const column = Math.floor((pointX - x) / cell);
+    const row = Math.floor((pointY - y) / cell);
+    if (column < 0 || row < 0 || column >= columns || row >= rows) {
+      return -1;
+    }
+
+    return row * columns + column;
+  }
+
+  /**
+   * Рекурсивный обход одного октанта по маске непрозрачности.
    *
    * @param row Текущая строка октанта.
    * @param start Начальный наклон луча.
@@ -98,9 +176,12 @@ export class SceneVisibilityService {
    * @param yx Смещение строки по x.
    * @param yy Смещение строки по y.
    */
-  private cast(
-    grid: SceneSurfaceGrid,
+  private castMask(
+    columns: number,
+    rows: number,
+    cell: number,
     visible: Uint8Array,
+    opaque: Uint8Array,
     originColumn: number,
     originRow: number,
     row: number,
@@ -110,7 +191,6 @@ export class SceneVisibilityService {
     xy: number,
     yx: number,
     yy: number,
-    eye: number,
     radius: number,
     maxDistance: number,
   ): void {
@@ -134,26 +214,29 @@ export class SceneVisibilityService {
 
         const column = originColumn + dx * xx + dy * xy;
         const line = originRow + dx * yx + dy * yy;
-        if (column < 0 || column >= grid.columns || line < 0 || line >= grid.rows) {
+        if (column < 0 || column >= columns || line < 0 || line >= rows) {
           continue;
         }
 
-        const index = line * grid.columns + column;
+        const index = line * columns + column;
         // Радиус — круг, а не квадрат: `distance` в октанте чебышёвское,
         // для границы обзора нужна евклидова длина до центра клетки.
-        if (!Number.isFinite(radius) || Math.hypot(dx, dy) * grid.cell <= radius) {
+        if (!Number.isFinite(radius) || Math.hypot(dx, dy) * cell <= radius) {
           visible[index] = 1;
         }
 
-        if (this.opaqueAt(grid, index, eye)) {
+        if (opaque[index] === 1) {
           if (!blocked) {
             blocked = true;
             newStart = right;
           }
         } else if (blocked) {
-          this.cast(
-            grid,
+          this.castMask(
+            columns,
+            rows,
+            cell,
             visible,
+            opaque,
             originColumn,
             originRow,
             distance + 1,
@@ -163,7 +246,6 @@ export class SceneVisibilityService {
             xy,
             yx,
             yy,
-            eye,
             radius,
             maxDistance,
           );

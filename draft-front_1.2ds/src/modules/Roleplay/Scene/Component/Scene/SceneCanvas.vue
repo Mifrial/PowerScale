@@ -249,43 +249,36 @@ function refreshOverlay(): void {
   renderer?.setOverlayPaint(overlayPaint());
 }
 
-/** Точка наблюдателя, от которой считается обзор. */
-function observerPoint(): ScenePoint | null {
-  const actor = observerActor();
-
-  return actor === null ? null : [actor.x, actor.y];
-}
-
 /**
- * Пересобирает туман по смене грубой клетки наблюдателя.
+ * Пересобирает туман по каденции.
  *
- * Пока актор идёт, `props.actors` меняется каждый кадр. Точный расчёт видимости
- * на каждое такое изменение — это микро-фризы: луч на каждую клетку обзора
- * стоит десятки миллисекунд, а сдвиг внутри клетки меняет маску на считанные
- * тексели.
+ * Пока актор идёт, `props.actors` меняется каждый кадр. Маска считается от
+ * точной позиции, но не чаще `fogIntervalMs`: за это время она сдвигается на
+ * доли клетки, и туман идёт за моделью плавно, без прыжков.
  */
 function refreshFog(): void {
   if (!props.overlay?.visibility) {
     return;
   }
 
-  const now = performance.now();
-  if (fogRefresh.isDue(observerPoint(), props.model.resolution, now)) {
+  if (fogRefresh.isDue(performance.now())) {
+    if (fogTimer !== 0) {
+      window.clearTimeout(fogTimer);
+      fogTimer = 0;
+    }
     refreshOverlay();
 
     return;
   }
 
-  if (fogRefresh.isCellChanged(observerPoint(), props.model.resolution)) {
-    scheduleFogRefresh();
-  }
+  scheduleFogRefresh();
 }
 
 /**
  * Досчитывает туман после остановки.
  *
- * Если актор перешёл в новую клетку раньше минимального интервала, расчёт
- * откладывается: иначе после остановки маска осталась бы сдвинутой на клетку.
+ * Если актор остановился раньше каденции, расчёт откладывается: иначе маска
+ * осталась бы на позиции последнего тика, пока наблюдатель уже сдвинулся.
  */
 function scheduleFogRefresh(): void {
   if (fogTimer !== 0) {

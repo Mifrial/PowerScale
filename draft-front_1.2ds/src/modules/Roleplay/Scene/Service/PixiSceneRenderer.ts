@@ -76,6 +76,17 @@ interface SceneFieldRender {
   scale: number;
 }
 
+/** Спрайт тумана поля: текстура и её канва переиспользуются между тиками. */
+interface FogSpriteHandle {
+  sprite: Sprite;
+  texture: Texture;
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D | null;
+  image: ImageData | null;
+  columns: number;
+  rows: number;
+}
+
 /**
  * PixiJS-рендерер локаций: подложка, сетка, фигуры, декор и выделение.
  *
@@ -173,12 +184,15 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private readonly overlayPaints = new Map<number, SceneOverlayPaint>();
 
   /**
-   * Текстуры тумана по полям: пересобираются только при новой маске.
+   * Спрайты тумана по полям: живут между тиками, меняется только альфа.
    *
    * Туман считается на всех видимых этажах, поэтому у каждого поля своя
    * текстура в его координатах; общая одна не годится.
    */
-  private readonly fogTextures = new Map<number, { mask: SceneOverlayMask; texture: Texture }>();
+  private readonly fogSprites = new Map<number, FogSpriteHandle>();
+
+  /** Полосы стоимости, уже нарисованные на слое поля. */
+  private readonly costPaints = new Map<number, readonly SceneOverlayBand[]>();
 
   /** Маршрут выбранного актора с участками по уровням. */
   private route: SceneNavRoute | null = null;
@@ -733,7 +747,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     ++this.sceneToken;
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.stopTickers();
-    this.releaseFogTextures();
+    this.releaseFogSprites();
+    this.costPaints.clear();
     this.grassTrail.reset();
     this.waterNodes = [];
     this.textures.destroy();
@@ -1353,13 +1368,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * не светиться поверх неё, поэтому он лежит выше стоимости.
    */
   private drawOverlay(): void {
-    for (const field of this.fields) {
-      this.clearFieldLayer(field, 'overlay');
-      this.clearFieldLayer(field, 'fog');
-    }
-
     if (this.overlayPaints.size === 0 || this.isEdit()) {
-      this.releaseFogTextures();
+      this.releaseFogSprites();
+      for (const field of this.fields) {
+        this.clearFieldLayer(field, 'overlay');
+        this.clearFieldLayer(field, 'fog');
+      }
+      this.costPaints.clear();
 
       return;
     }
@@ -1367,25 +1382,45 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const painted = new Set<number>();
     for (const field of this.fields) {
       const paint = this.overlayPaints.get(field.boardId);
-      if (paint === undefined) {
+      const costs = field.layers.overlay;
+      const fog = field.layers.fog;
+      if (paint === undefined || costs === undefined || fog === undefined) {
+        if (costs !== undefined && this.costPaints.has(field.boardId)) {
+          this.clearFieldLayer(field, 'overlay');
+          this.costPaints.delete(field.boardId);
+        }
+        this.hideFog(field.boardId);
+
         continue;
       }
 
       painted.add(field.boardId);
-      const costs = field.layers.overlay;
-      if (costs !== undefined) {
+      // Стоимость меняется только с данными поля, туман — каждый тик.
+      if (this.costPaints.get(field.boardId) !== paint.costs) {
+        this.clearFieldLayer(field, 'overlay');
         this.paintBands(costs, paint.costs);
+        this.costPaints.set(field.boardId, paint.costs);
       }
-      const fog = field.layers.fog;
-      if (fog !== undefined) {
-        this.paintFog(field.boardId, fog, paint.fog);
-      }
+      this.paintFog(field.boardId, fog, paint.fog);
     }
 
-    for (const boardId of [...this.fogTextures.keys()]) {
+    for (const boardId of [...this.fogSprites.keys()]) {
       if (!painted.has(boardId)) {
-        this.releaseFogTexture(boardId);
+        this.releaseFogSprite(boardId);
       }
+    }
+    for (const boardId of [...this.costPaints.keys()]) {
+      if (!painted.has(boardId)) {
+        this.costPaints.delete(boardId);
+      }
+    }
+  }
+
+  /** Прячет туман поля: маска пропала, спрайт остаётся для следующего тика. */
+  private hideFog(boardId: number): void {
+    const handle = this.fogSprites.get(boardId);
+    if (handle !== undefined) {
+      handle.sprite.visible = false;
     }
   }
 
@@ -1417,79 +1452,122 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /**
-   * Туман одной текстурой: один тексель на клетку и линейная фильтрация.
+   * Туман одной текстурой: тексель мельче клетки и линейная фильтрация.
    *
-   * Полосы из прямоугольников давали явные ступеньки на косых тенях. Маска
-   * растягивается на сетку с `linear`, поэтому край сглаживается без шейдера
-   * и без пересчёта видимости на каждый кадр. Текстура пересобирается только
-   * при новой маске: панорама и зум переиспользуют её.
+   * Маска растягивается на сетку с `linear`, поэтому край сглаживается без
+   * шейдера. Текстура и спрайт живут между тиками: обновляется только альфа
+   * через `source.update()`, а не создаётся новая текстура и новый спрайт.
    */
   private paintFog(boardId: number, layer: Container, mask: SceneOverlayMask | null): void {
     if (mask === null) {
-      this.releaseFogTexture(boardId);
+      this.hideFog(boardId);
 
       return;
     }
 
-    let cached = this.fogTextures.get(boardId);
-    if (cached === undefined || cached.mask !== mask) {
-      this.releaseFogTexture(boardId);
-      cached = { mask, texture: this.createFogTexture(mask) };
-      this.fogTextures.set(boardId, cached);
+    let handle = this.fogSprites.get(boardId);
+    if (handle === undefined || handle.columns !== mask.columns || handle.rows !== mask.rows) {
+      if (handle !== undefined) {
+        this.releaseFogSprite(boardId);
+      }
+      handle = this.createFogSprite(mask);
+      this.fogSprites.set(boardId, handle);
+      layer.addChild(handle.sprite);
+    } else {
+      this.writeFogTexture(handle, mask);
     }
 
-    const sprite = new Sprite(cached.texture);
-    sprite.position.set(mask.x, mask.y);
-    sprite.width = mask.columns * mask.cell;
-    sprite.height = mask.rows * mask.cell;
-    layer.addChild(sprite);
+    handle.sprite.visible = true;
+    handle.sprite.position.set(mask.x, mask.y);
+    handle.sprite.width = mask.columns * mask.cell;
+    handle.sprite.height = mask.rows * mask.cell;
+    if (handle.sprite.parent !== layer) {
+      layer.addChild(handle.sprite);
+    }
   }
 
-  /** Маска в текстуру: цвет тумана и альфа по клеткам. */
-  private createFogTexture(mask: SceneOverlayMask): Texture {
+  /** Спрайт и текстура тумана; контекст канвы переиспользуется между тиками. */
+  private createFogSprite(mask: SceneOverlayMask): FogSpriteHandle {
     const canvas = document.createElement('canvas');
     canvas.width = mask.columns;
     canvas.height = mask.rows;
     const context = canvas.getContext('2d');
     if (context === null) {
-      return Texture.EMPTY;
+      const texture = Texture.EMPTY;
+      const handle: FogSpriteHandle = {
+        sprite: new Sprite(texture),
+        texture,
+        canvas,
+        context: null,
+        image: null,
+        columns: mask.columns,
+        rows: mask.rows,
+      };
+
+      return handle;
     }
 
     const image = context.createImageData(mask.columns, mask.rows);
     const red = (mask.color >> 16) & 0xff;
     const green = (mask.color >> 8) & 0xff;
     const blue = mask.color & 0xff;
-    for (let index = 0; index < mask.alpha.length; index += 1) {
-      const offset = index * 4;
-      image.data[offset] = red;
-      image.data[offset + 1] = green;
-      image.data[offset + 2] = blue;
-      image.data[offset + 3] = mask.alpha[index];
+    for (let index = 0; index < image.data.length; index += 4) {
+      image.data[index] = red;
+      image.data[index + 1] = green;
+      image.data[index + 2] = blue;
     }
-    context.putImageData(image, 0, 0);
 
     const texture = Texture.from(canvas);
     texture.source.scaleMode = 'linear';
+    const handle: FogSpriteHandle = {
+      sprite: new Sprite(texture),
+      texture,
+      canvas,
+      context,
+      image,
+      columns: mask.columns,
+      rows: mask.rows,
+    };
+    this.writeFogTexture(handle, mask);
 
-    return texture;
+    return handle;
   }
 
-  /** Освобождает текстуры тумана всех полей: спрайты слоёв уже сняты. */
-  private releaseFogTextures(): void {
-    for (const boardId of [...this.fogTextures.keys()]) {
-      this.releaseFogTexture(boardId);
-    }
-  }
-
-  /** Освобождает текстуру тумана одного поля. */
-  private releaseFogTexture(boardId: number): void {
-    const cached = this.fogTextures.get(boardId);
-    if (cached === undefined) {
+  /** Переносит альфу маски в канву спрайта и обновляет текстуру. */
+  private writeFogTexture(handle: FogSpriteHandle, mask: SceneOverlayMask): void {
+    if (handle.image === null || handle.context === null) {
       return;
     }
 
-    this.fogTextures.delete(boardId);
-    cached.texture.destroy(true);
+    const data = handle.image.data;
+    const alpha = mask.alpha;
+    for (let index = 0; index < alpha.length; index += 1) {
+      data[index * 4 + 3] = alpha[index];
+    }
+    handle.context.putImageData(handle.image, 0, 0);
+    handle.texture.source.update();
+  }
+
+  /** Освобождает спрайты тумана всех полей. */
+  private releaseFogSprites(): void {
+    for (const boardId of [...this.fogSprites.keys()]) {
+      this.releaseFogSprite(boardId);
+    }
+  }
+
+  /** Освобождает спрайт и текстуру тумана одного поля. */
+  private releaseFogSprite(boardId: number): void {
+    const handle = this.fogSprites.get(boardId);
+    if (handle === undefined) {
+      return;
+    }
+
+    this.fogSprites.delete(boardId);
+    handle.sprite.removeFromParent();
+    handle.sprite.destroy();
+    if (handle.texture !== Texture.EMPTY) {
+      handle.texture.destroy(true);
+    }
   }
 
   /** Линия маршрута: над миром и туманом, под ручками редактирования. */
@@ -1731,11 +1809,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.actorNodes.clear();
     this.draftGraphics = null;
     this.hoverGraphics = null;
+    this.releaseFogSprites();
+    this.costPaints.clear();
     for (const field of this.fields) {
       field.group.removeFromParent();
       field.group.destroy({ children: true, texture: false, textureSource: false });
     }
-    this.releaseFogTextures();
 
     this.fields = [];
     this.activeField = null;

@@ -1,11 +1,13 @@
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { SceneSightRaster } from '@/modules/Roleplay/Scene/Dto/SceneSightRaster';
 import {
   SceneFloorPlanService,
   type SceneFloorTransform,
 } from '@/modules/Roleplay/Scene/Service/SceneFloorPlanService';
 import { SceneGeometryService, type SceneShapeProbe } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
+import { SceneSightQuery } from '@/modules/Roleplay/Scene/Service/SceneSightQuery';
 import { sceneBodyHeight, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
 
 /** Точка взгляда на этаже: поле, локальная точка и рост тела. */
@@ -51,14 +53,14 @@ export interface SceneFloorSightOptions {
 }
 
 /** Проём, вырезающий стену: дверь, окно, ворота. */
-interface SceneFloorSightOpening {
+export interface SceneFloorSightOpening {
   probe: SceneShapeProbe;
   /** Допуск попадания: проём может быть уже стены. */
   tolerance: number;
 }
 
 /** Этаж в мире корня: плита с колодцами, стены и проёмы. */
-interface SceneFloorSightLevel {
+export interface SceneFloorSightLevel {
   boardId: number;
   transform: SceneFloorTransform;
   elevation: number;
@@ -70,6 +72,12 @@ interface SceneFloorSightLevel {
   walls: SceneShapeProbe[];
   /** Проёмы стен: сквозь них взгляд проходит. */
   openings: SceneFloorSightOpening[];
+  /** Границы поля в локальных координатах. */
+  bounds: SceneBounds;
+  /** Плита без колодцев в локальных координатах: источник перекрытия этажа. */
+  slab: SceneSightRaster;
+  /** Стены без проёмов в мире корня: источник тени стен; null — стен нет. */
+  wall: SceneSightRaster | null;
 }
 
 /** Готовые препятствия этажей для межэтажного луча. */
@@ -118,8 +126,26 @@ export class SceneFloorSightService {
     const resolution = Math.max(1, model.resolution);
     const elevations = this.floors.elevations(model);
     const levels = new Map<number, SceneFloorSightLevel>();
+    const rootBoardId = this.floors.rootBoardId(model);
+    const rootBoard = model.boards.find((item) => item.id === rootBoardId) ?? model.boards[0] ?? null;
+    // Тень стен нужна в мире корня: она ложится и за пределами своего поля,
+    // во дворе. Поэтому растр стен — корневой, а плиты остаются локальными.
+    const rootBounds: SceneBounds = {
+      x: 0,
+      y: 0,
+      width: Math.max(1, rootBoard?.boundWidth ?? 1),
+      height: Math.max(1, rootBoard?.boundHeight ?? 1),
+    };
+    const rootCell = Math.max(1, rootBoard?.occupancyCell ?? 1);
 
     for (const board of model.boards) {
+      const bounds: SceneBounds = {
+        x: 0,
+        y: 0,
+        width: Math.max(1, board.boundWidth),
+        height: Math.max(1, board.boundHeight),
+      };
+      const cell = Math.max(1, board.occupancyCell);
       const level: SceneFloorSightLevel = {
         boardId: board.id,
         transform: this.floors.transform(model, board.id),
@@ -128,6 +154,9 @@ export class SceneFloorSightService {
         holes: [],
         walls: [],
         openings: [],
+        bounds,
+        slab: this.emptyRaster(bounds, cell),
+        wall: null,
       };
 
       for (const element of model.elements) {
@@ -167,6 +196,26 @@ export class SceneFloorSightService {
         }
       }
 
+      // Запекаем препятствия в байты один раз: на тике тумана стены и плиты
+      // читаются как маска, а не как фигуры. Допуск в полклетки не даёт
+      // тонкой стене проскочить между центрами клеток.
+      level.slab = this.bakeRaster(
+        bounds,
+        cell,
+        level.slabs,
+        level.holes.map((probe) => ({ probe, tolerance: cell / 2 })),
+        cell / 2,
+      );
+      if (level.walls.length > 0) {
+        level.wall = this.bakeRootRaster(
+          rootBounds,
+          rootCell,
+          level.transform,
+          level.walls,
+          level.openings.map((opening) => ({ probe: opening.probe, tolerance: opening.tolerance })),
+          rootCell / 2,
+        );
+      }
       levels.set(board.id, level);
     }
 
@@ -174,6 +223,162 @@ export class SceneFloorSightService {
       resolution,
       levels,
     };
+  }
+
+  /**
+   * Видимость другого этажа по запечённым маскам.
+   *
+   * Стены читаются из корневого растра обходом клеток на пути луча, плиты —
+   * аффинной пробой точки пересечения плоскости. Тяжёлой части нет: луч идёт
+   * по клеткам растра, а не по фигурам, и не зависит от числа домов в селе.
+   *
+   * @param scene Препятствия этажей.
+   * @param from Наблюдатель: поле, точка, рост.
+   * @param options Настройки лучей.
+   *
+   * @returns Готовый запрос видимости целевых клеток.
+   */
+  query(
+    scene: SceneFloorSightScene,
+    from: SceneFloorSightPoint,
+    options: SceneFloorSightOptions = {},
+  ): SceneSightQuery {
+    const level = scene.levels.get(from.boardId);
+    const fromRoot = level === undefined ? from.point : this.floors.toRoot(level.transform, from.point);
+    const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
+    const eye =
+      (level?.elevation ?? 0) + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+    const wall = options.onRoof === true ? null : (level?.wall ?? null);
+
+    return new SceneSightQuery(scene, this.floors, from, fromRoot, eye, wall, options.slabs !== false);
+  }
+
+  /**
+   * Запекает стены этажа в растр мира корня.
+   *
+   * Проба задана в координатах поля, поэтому клетка корня переводится в поле и
+   * проверяется там. Так стена ложится на общую карту без преобразования фигур
+   * и её тень продолжается во двор за границей поля.
+   *
+   * @param bounds Границы корня.
+   * @param cell Размер клетки корня.
+   * @param transform Преобразование этажа в мир корня.
+   * @param add Стены.
+   * @param erase Проёмы.
+   * @param toleranceRoot Допуск в единицах корня.
+   *
+   * @returns Растр стен в мире корня.
+   */
+  private bakeRootRaster(
+    bounds: SceneBounds,
+    cell: number,
+    transform: SceneFloorTransform,
+    add: readonly SceneShapeProbe[],
+    erase: readonly { probe: SceneShapeProbe; tolerance: number }[],
+    toleranceRoot: number,
+  ): SceneSightRaster {
+    const raster = this.emptyRaster(bounds, cell);
+    const scaleX = transform.scaleX === 0 ? 1 : Math.abs(transform.scaleX);
+    const scaleY = transform.scaleY === 0 ? 1 : Math.abs(transform.scaleY);
+    // Допуск попадания один на растр: он не даёт тонкой стене проскочить меж
+    // центрами клеток. Габарит обхода у проёма шире — проём должен стереть
+    // стену целиком, но не расширить её форму.
+    const toleranceLocal = toleranceRoot / Math.max(1e-6, Math.min(scaleX, scaleY));
+    const paint = (probe: SceneShapeProbe, boxTolerance: number, value: number): void => {
+      const box = probe.bounds;
+      const left = transform.x + (box.x - boxTolerance) * transform.scaleX;
+      const right = transform.x + (box.x + box.width + boxTolerance) * transform.scaleX;
+      const top = transform.y + (box.y - boxTolerance) * transform.scaleY;
+      const bottom = transform.y + (box.y + box.height + boxTolerance) * transform.scaleY;
+      const minColumn = Math.max(0, Math.floor((Math.min(left, right) - raster.x) / cell));
+      const maxColumn = Math.min(raster.columns - 1, Math.floor((Math.max(left, right) - raster.x) / cell));
+      const minRow = Math.max(0, Math.floor((Math.min(top, bottom) - raster.y) / cell));
+      const maxRow = Math.min(raster.rows - 1, Math.floor((Math.max(top, bottom) - raster.y) / cell));
+      for (let row = minRow; row <= maxRow; row += 1) {
+        const centerY = raster.y + (row + 0.5) * cell;
+        const localY = (centerY - transform.y) / (transform.scaleY === 0 ? 1 : transform.scaleY);
+        for (let column = minColumn; column <= maxColumn; column += 1) {
+          const centerX = raster.x + (column + 0.5) * cell;
+          const localX = (centerX - transform.x) / (transform.scaleX === 0 ? 1 : transform.scaleX);
+          if (probe.contains([localX, localY], toleranceLocal)) {
+            raster.cells[row * raster.columns + column] = value;
+          }
+        }
+      }
+    };
+
+    for (const probe of add) {
+      paint(probe, toleranceRoot, 1);
+    }
+    for (const opening of erase) {
+      paint(opening.probe, opening.tolerance + toleranceRoot, 0);
+    }
+
+    return raster;
+  }
+
+  /**
+   * Пустой растр этажа.
+   *
+   * @param bounds Границы поля.
+   * @param cell Размер клетки.
+   *
+   * @returns Растр без перекрытий.
+   */
+  private emptyRaster(bounds: SceneBounds, cell: number): SceneSightRaster {
+    const columns = Math.max(1, Math.ceil(bounds.width / cell));
+    const rows = Math.max(1, Math.ceil(bounds.height / cell));
+
+    return { x: bounds.x, y: bounds.y, cell, columns, rows, cells: new Uint8Array(columns * rows) };
+  }
+
+  /**
+   * Запекает пробы в растр.
+   *
+   * Обход идёт по габаритам проб, а не по всему полю: большой корень с одной
+   * травой стоит столько же, сколько её площадь, а не поле целиком.
+   *
+   * @param bounds Границы поля.
+   * @param cell Размер клетки.
+   * @param add Пробы, которые перекрывают.
+   * @param erase Пробы-проёмы, которые вырезают перекрытие.
+   * @param tolerance Допуск попадания для `add`, единицы сцены.
+   *
+   * @returns Запечённый растр.
+   */
+  private bakeRaster(
+    bounds: SceneBounds,
+    cell: number,
+    add: readonly SceneShapeProbe[],
+    erase: readonly { probe: SceneShapeProbe; tolerance: number }[],
+    tolerance: number,
+  ): SceneSightRaster {
+    const raster = this.emptyRaster(bounds, cell);
+    const paint = (probe: SceneShapeProbe, toleranceOf: number, value: number): void => {
+      const box = probe.bounds;
+      const minColumn = Math.max(0, Math.floor((box.x - toleranceOf - raster.x) / cell));
+      const maxColumn = Math.min(raster.columns - 1, Math.floor((box.x + box.width + toleranceOf - raster.x) / cell));
+      const minRow = Math.max(0, Math.floor((box.y - toleranceOf - raster.y) / cell));
+      const maxRow = Math.min(raster.rows - 1, Math.floor((box.y + box.height + toleranceOf - raster.y) / cell));
+      for (let row = minRow; row <= maxRow; row += 1) {
+        const centerY = raster.y + (row + 0.5) * cell;
+        for (let column = minColumn; column <= maxColumn; column += 1) {
+          const centerX = raster.x + (column + 0.5) * cell;
+          if (probe.contains([centerX, centerY], toleranceOf)) {
+            raster.cells[row * raster.columns + column] = value;
+          }
+        }
+      }
+    };
+
+    for (const probe of add) {
+      paint(probe, tolerance, 1);
+    }
+    for (const opening of erase) {
+      paint(opening.probe, opening.tolerance, 0);
+    }
+
+    return raster;
   }
 
   /**

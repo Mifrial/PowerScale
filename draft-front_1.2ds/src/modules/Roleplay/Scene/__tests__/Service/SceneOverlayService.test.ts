@@ -136,6 +136,82 @@ describe('SceneOverlayService', () => {
     expect(alphas.size).toBeGreaterThan(3);
   });
 
+  it('делает край обзора ровным кругом, а не квадратом', () => {
+    const grid = surfaces.build(board, [grass()], 64);
+    const visible = new Uint8Array(grid.columns * grid.rows);
+    const center: [number, number] = [128, 128];
+    const radius = 64;
+    for (let row = 0; row < grid.rows; row += 1) {
+      for (let column = 0; column < grid.columns; column += 1) {
+        const x = grid.x + (column + 0.5) * grid.cell;
+        const y = grid.y + (row + 0.5) * grid.cell;
+        if (Math.hypot(x - center[0], y - center[1]) <= radius) {
+          visible[row * grid.columns + column] = 1;
+        }
+      }
+    }
+    const mask = service.hiddenMask(
+      grid,
+      { columns: grid.columns, rows: grid.rows, visible },
+      { edge: { center, radiusX: radius, radiusY: radius } },
+    );
+    // Контур одинаково далёк от центра по оси и по диагонали: кромка — круг.
+    const at = (column: number, row: number): number =>
+      mask.alpha[
+        Math.min(mask.rows - 1, Math.max(0, row)) * mask.columns + Math.min(mask.columns - 1, Math.max(0, column))
+      ];
+    const sample = (x: number, y: number): number => {
+      const fx = (x - mask.x) / mask.cell - 0.5;
+      const fy = (y - mask.y) / mask.cell - 0.5;
+      const x0 = Math.floor(fx);
+      const y0 = Math.floor(fy);
+      const tx = fx - x0;
+      const ty = fy - y0;
+
+      return (
+        (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
+        (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty
+      );
+    };
+    const contour = (dirX: number, dirY: number): number => {
+      for (let distance = radius; distance <= radius + 64; distance += 1) {
+        if (sample(center[0] + dirX * distance, center[1] + dirY * distance) >= 60) {
+          return distance;
+        }
+      }
+
+      return Number.POSITIVE_INFINITY;
+    };
+    const axis = contour(1, 0);
+    const diagonal = contour(Math.SQRT1_2, Math.SQRT1_2);
+
+    expect(axis).toBeGreaterThan(radius);
+    expect(Math.abs(axis - diagonal)).toBeLessThanOrEqual(4);
+  });
+
+  it('наращивает плотность тумана по расстоянию, без полок', () => {
+    const grid = surfaces.build(board, [grass()], 64);
+    const visible = new Uint8Array(grid.columns * grid.rows).fill(1);
+    for (let row = 4; row <= 12; row += 1) {
+      for (let column = 4; column <= 12; column += 1) {
+        visible[row * grid.columns + column] = 0;
+      }
+    }
+    const mask = service.hiddenMask(grid, { columns: grid.columns, rows: grid.rows, visible }, { scale: 1 });
+    const row = 8;
+    const profile: number[] = [];
+    for (let column = 2; column <= 9; column += 1) {
+      profile.push(mask.alpha[row * mask.columns + column]);
+    }
+
+    // Профиль по строке только растёт: у кромки светлее, в глубине плотнее.
+    for (let index = 1; index < profile.length; index += 1) {
+      expect(profile[index]).toBeGreaterThanOrEqual(profile[index - 1]);
+    }
+    expect(new Set(profile).size).toBeGreaterThanOrEqual(4);
+    expect(profile[profile.length - 1]).toBe(Math.round(SCENE_OVERLAY.hidden.alpha * 255));
+  });
+
   it('не прячет клетки без поверхности: поля этажа остаются видимыми', () => {
     const grid = surfaces.build(
       board,

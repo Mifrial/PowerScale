@@ -5,6 +5,7 @@ import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElemen
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { SceneEnclosure } from '@/modules/Roleplay/Scene/Dto/SceneEnclosure';
 import type { SceneRenderModel } from '@/modules/Roleplay/Scene/Dto/SceneRenderModel';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import {
   SceneFloorSightService,
@@ -145,6 +146,43 @@ describe('SceneFloorSightService', () => {
 
   it('на одном поле не считает: там обзор по сетке', () => {
     expect(service.sees(scene, { boardId: 2, point: [100, 100] }, { boardId: 2, point: [300, 300] })).toBe(true);
+  });
+
+  it('запрос по запечённым растрам повторяет лучевую видимость', () => {
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200] };
+    const query = service.query(scene, from);
+    const targets: ScenePoint[] = [
+      [1000, 100],
+      [100, 100],
+      [200, 260],
+      [600, 900],
+      [900, 1090],
+      [400, 1000],
+    ];
+    const target = query.prepare(1, 0, 0, 96);
+    expect(target).not.toBeNull();
+    for (const point of targets) {
+      expect(query.sees(target!, point[0], point[1], 0, 96)).toBe(
+        service.seesSurface(scene, from, { boardId: 1, point, height: 96 }),
+      );
+    }
+
+    const windowed: SceneFloorSightPoint = { boardId: 2, point: [120, 200] };
+    const windowQuery = service.query(scene, windowed);
+    const windowTarget = windowQuery.prepare(1, 0, 0, 96);
+    for (const point of targets) {
+      expect(windowQuery.sees(windowTarget!, point[0], point[1], 0, 96)).toBe(
+        service.seesSurface(scene, windowed, { boardId: 1, point, height: 96 }),
+      );
+    }
+  });
+
+  it('с крыши запрос не смотрит на стены своего этажа', () => {
+    const from: SceneFloorSightPoint = { boardId: 2, point: [300, 200], surface: 128 };
+    const query = service.query(scene, from, { onRoof: true });
+    const target = query.prepare(1, 0, 0, 96)!;
+
+    expect(query.sees(target, 1000, 100, 0, 96)).toBe(true);
   });
 
   it('с крыши видно двор поверх стен своего этажа', () => {
