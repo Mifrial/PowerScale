@@ -139,7 +139,9 @@ export class SceneVisibilityService {
         }
 
         const index = line * grid.columns + column;
-        if (!Number.isFinite(radius) || distance * grid.cell <= radius) {
+        // Радиус — круг, а не квадрат: `distance` в октанте чебышёвское,
+        // для границы обзора нужна евклидова длина до центра клетки.
+        if (!Number.isFinite(radius) || Math.hypot(dx, dy) * grid.cell <= radius) {
           visible[index] = 1;
         }
 

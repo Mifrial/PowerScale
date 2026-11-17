@@ -214,13 +214,15 @@ describe('SceneVisibilityService', () => {
     expect(visible.visible[cellOf(grid, 15, 15)]).toBe(1);
   });
 
-  it('ограничивает обзор радиусом', () => {
+  it('ограничивает обзор кругом, а не квадратом', () => {
     const grid = surfaces.build(board, [grass()], 64);
     const visible = service.map(grid, [128, 128], 32);
 
     expect(visible.visible[cellOf(grid, 8, 8)]).toBe(1);
     expect(visible.visible[cellOf(grid, 9, 8)]).toBe(1);
     expect(visible.visible[cellOf(grid, 12, 8)]).toBe(0);
+    // Угол квадрата дальше радиуса: по диагонали клетка (10, 10) не видна.
+    expect(visible.visible[cellOf(grid, 10, 10)]).toBe(0);
   });
 
   it('не видит ничего из точки вне поля', () => {
