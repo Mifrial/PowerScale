@@ -38,6 +38,9 @@ export class SpellCastUpgradeService {
       if (!this.matchesKeywords(spec, spellCode, rules, keywords)) {
         continue;
       }
+      if (spec.spell_upgrade.range && !this.isTouchSpell(spellCode, rules)) {
+        continue;
+      }
       if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
         continue;
       }
@@ -81,6 +84,7 @@ export class SpellCastUpgradeService {
       const parent = spec.parent_ability_code;
       if (parent && parent !== spellCode) continue;
       if (!this.matchesKeywords(spec, spellCode, rules, keywords)) continue;
+      if (spec.spell_upgrade.range && !this.isTouchSpell(spellCode, rules)) continue;
       if (spec.spell_upgrade.resistance_penetration_per_step && !this.spellUsesMagicResistance(spellCode, rules)) {
         continue;
       }
@@ -214,6 +218,18 @@ export class SpellCastUpgradeService {
     return selected.some((option) => option.upgrade.range !== undefined);
   }
 
+  /** Предел дальности выбранного улучшения: максимальное N среди дальних. */
+  rangeLimit(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number | null {
+    let limit: number | null = null;
+    for (const option of selected) {
+      if (!option.upgrade.range) continue;
+      const value = this.parameterValue(option, values);
+      limit = limit === null ? value : Math.max(limit, value);
+    }
+
+    return limit;
+  }
+
   resistancePenetration(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number {
     return selected.reduce(
       (sum, option) =>
@@ -237,6 +253,17 @@ export class SpellCastUpgradeService {
     }
 
     return Math.max(0, Math.floor(values[option.ruleCode] ?? 1));
+  }
+
+  /** Дальность заменяет касание, поэтому нужен касательный способ доставки. */
+  private isTouchSpell(spellCode: string, rules: Rule[]): boolean {
+    const rule = rules.find((entry) => entry.code === spellCode && entry.type === 'ability');
+    const spec = rule?.spec;
+    if (!spec || typeof spec !== 'object' || !('type' in spec) || spec.type !== 'spell') return false;
+
+    const targeting = spec.spell.targeting ?? (spec.hit_resolution?.type === 'auto' ? 'entity' : 'none');
+
+    return targeting === 'none' && spec.hit_resolution?.type === 'attack';
   }
 
   /** Улучшение применимо только к заклинанию со всеми его признаками. */

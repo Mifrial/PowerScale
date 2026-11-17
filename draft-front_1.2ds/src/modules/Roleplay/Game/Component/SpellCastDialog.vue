@@ -150,6 +150,8 @@ let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 const usedPower = ref<DimensionalNumberValue | null>(null);
 const hasTarget = ref(false);
 const targetKey = ref<CombatEntityKey | null>(null);
+/** Заявленное расстояние до цели при дальнем касте: проверяется по пределу улучшения. */
+const castDistanceIpari = ref(1);
 const parameterPower = ref<DimensionalNumberValue>({ base: 3, size: 0 });
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -577,6 +579,13 @@ const requiredPowerDelta = computed(() =>
 const requiredControlDelta = computed(() =>
   spellCastUpgradeService.requiredControlDelta(selectedUpgradeOptions.value),
 );
+/** Максимальная дальность выбранного улучшения; null — дальности нет. */
+const rangeLimit = computed(() =>
+  spellCastUpgradeService.rangeLimit(selectedUpgradeOptions.value, appliedUpgradeValues.value),
+);
+const rangeOutOfLimit = computed(
+  () => rangeLimit.value !== null && castDistanceIpari.value > rangeLimit.value,
+);
 const resistancePenetration = computed(() =>
   spellCastUpgradeService.resistancePenetration(selectedUpgradeOptions.value, appliedUpgradeValues.value),
 );
@@ -949,6 +958,17 @@ watch(upgradeOptions, (options) => {
 watch(rangeSelected, (range) => {
   if (range) {
     hasTarget.value = true;
+    castDistanceIpari.value = 1;
+  }
+});
+
+watch(rangeLimit, (limit) => {
+  if (limit === null) return;
+  if (castDistanceIpari.value > limit) {
+    castDistanceIpari.value = limit;
+  }
+  if (castDistanceIpari.value < 1) {
+    castDistanceIpari.value = 1;
   }
 });
 
@@ -1077,6 +1097,11 @@ async function runCast(): Promise<void> {
       return;
     }
     if (!assertHandsAvailable()) return;
+    if (rangeOutOfLimit.value) {
+      error.value = `Цель дальше предела улучшения: максимум ${rangeLimit.value} ипари`;
+
+      return;
+    }
     if (resolvedCasterKey.value && committedSessions.value[resolvedCasterKey.value]) {
       error.value = 'Сначала закончи или сорви текущее действие';
 
@@ -1218,7 +1243,7 @@ async function runCast(): Promise<void> {
       touchTargetKey: touchKey,
       touchTargetOverview: touchKey ? overviewOf(touchKey) : null,
       effectTargetOverview: effectKey ? overviewOf(effectKey) : null,
-      distanceIpari: 0,
+      distanceIpari: rangeSelected.value ? castDistanceIpari.value : 0,
       sourceKey: sourceKey.value,
       pathCode: pathCode.value || null,
       appliedUpgradeCodes: appliedUpgradeCodes.value,
@@ -1292,6 +1317,11 @@ async function runPhpCast(): Promise<void> {
 
     return;
   }
+  if (rangeOutOfLimit.value) {
+    error.value = `Цель дальше предела улучшения: максимум ${rangeLimit.value} ипари`;
+
+    return;
+  }
   if (!assertHandsAvailable()) return;
   if (actionPointCost.value > casterAp.value.base) {
     if (needsTouchAttack.value) {
@@ -1332,7 +1362,7 @@ async function runPhpCast(): Promise<void> {
     ...(target && targetKey.value
       ? { target, expectedTargetVersion: gamePhpBattleContext.sheetVersionByKey[targetKey.value] ?? 1 }
       : {}),
-    distanceIpari: 0,
+    distanceIpari: rangeSelected.value ? castDistanceIpari.value : 0,
     upgrades: spellCastUpgradeService.requestOf(selectedUpgradeOptions.value, appliedUpgradeValues.value),
     ...(chargeSustain.value ? { chargeSpellId: chargeSustain.value.id } : {}),
   };
@@ -2450,6 +2480,21 @@ async function stopPhpChain(castId: string, version: number): Promise<void> {
               class="mt-2"
               @update:model-value="onSpellTargetChange"
             />
+            <template v-if="rangeSelected && hasTarget">
+              <ClampedNumberField
+                :model-value="castDistanceIpari"
+                label="Расстояние до цели, ипари"
+                :min="1"
+                :max="rangeLimit ?? 1"
+                density="compact"
+                hide-details
+                class="mt-2"
+                @update:model-value="castDistanceIpari = Math.max(1, Math.floor($event ?? 1))"
+              />
+              <div v-if="rangeLimit !== null" class="text-caption text-medium-emphasis mt-1">
+                Дальность улучшения: до {{ rangeLimit }} ипари.
+              </div>
+            </template>
             <template v-if="needsTouchAttack">
               <v-select
                 v-model="touchActionCode"

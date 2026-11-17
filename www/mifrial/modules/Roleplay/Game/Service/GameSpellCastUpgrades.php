@@ -13,7 +13,9 @@ use Mifrial\Roleplay\Game\Dto\GameSpellCastAppliedUpgrade;
 use Mifrial\Roleplay\Game\Dto\GameSpellCastUpgradeResolution;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Mechanic\Dto\RollAdvantage;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityWithBase;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\Hit\AttackHit;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellUpgrade;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 
@@ -95,7 +97,7 @@ final class GameSpellCastUpgrades
                     $pathCode,
                 );
             } else {
-                $this->assertRecorded($recordedCodes, $code, $parent, $spellCode);
+                $this->assertRecorded($slice, $upgrade, $recordedCodes, $code, $parent, $spellCode);
             }
 
             $value = $this->valueOf($upgrade, $row['value'] ?? null);
@@ -205,6 +207,8 @@ final class GameSpellCastUpgrades
     /**
      * Улучшение записано в источнике и принадлежит этому заклинанию.
      *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param SpellUpgrade $upgrade Улучшение.
      * @param array<int, string> $recordedCodes Коды записи.
      * @param string $code Код улучшения.
      * @param string|null $parent Родитель заклинания.
@@ -214,8 +218,14 @@ final class GameSpellCastUpgrades
      *
      * @throws GameInvalidException Если улучшения нет в записи или оно чужое.
      */
-    private function assertRecorded(array $recordedCodes, string $code, ?string $parent, string $spellCode): void
-    {
+    private function assertRecorded(
+        CharacterRuleSlice $slice,
+        SpellUpgrade $upgrade,
+        array $recordedCodes,
+        string $code,
+        ?string $parent,
+        string $spellCode,
+    ): void {
         if (!in_array($code, $recordedCodes, true)) {
             throw new GameInvalidException('Game spell upgrade is not recorded');
         }
@@ -223,6 +233,9 @@ final class GameSpellCastUpgrades
         if ($parent !== null && $parent !== '' && $parent !== $spellCode) {
             throw new GameInvalidException('Game spell upgrade belongs to another spell');
         }
+
+        $this->assertSpellKeywords($slice, $upgrade, $spellCode);
+        $this->assertRangeApplicable($slice, $upgrade, $spellCode);
     }
 
     /**
@@ -273,6 +286,7 @@ final class GameSpellCastUpgrades
         string $pathCode,
     ): void {
         $this->assertSpellKeywords($slice, $upgrade, $spellCode);
+        $this->assertRangeApplicable($slice, $upgrade, $spellCode);
         if ($parent !== null && $parent !== '') {
             if ($parent !== $spellCode) {
                 throw new GameInvalidException('Game spell upgrade belongs to another spell');
@@ -324,6 +338,34 @@ final class GameSpellCastUpgrades
         $keywords = $rule === null ? [] : $rule->getKeywordCodes();
         if (array_diff($required, $keywords) !== []) {
             throw new GameInvalidException('Game spell upgrade belongs to another school');
+        }
+    }
+
+    /**
+     * Дальность заменяет компонент касания: у заклинания он должен быть.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param SpellUpgrade $upgrade Улучшение.
+     * @param string $spellCode Заклинание.
+     *
+     * @return void
+     *
+     * @throws GameInvalidException Если заклинание не доставляется касанием.
+     */
+    private function assertRangeApplicable(CharacterRuleSlice $slice, SpellUpgrade $upgrade, string $spellCode): void
+    {
+        if ($upgrade->getRange() === null) {
+            return;
+        }
+
+        $rule = $slice->findLive($spellCode);
+        $spec = $rule === null || $rule->isSpecBroken() ? null : $rule->getSpec();
+        if (
+            !$spec instanceof AbilitySpellSpec
+            || $spec->getSpell()->getTargeting() !== 'none'
+            || !$spec->getBase()->getHitResolution() instanceof AttackHit
+        ) {
+            throw new GameInvalidException('Game spell upgrade range is not applicable');
         }
     }
 

@@ -786,7 +786,7 @@ final class GameSpellCastUpgradesTest extends TestCase
         ]));
 
         $resolution = $this->resolve(
-            [$upgrade, $this->spellRule('living-blindness', ['nolomancy'])],
+            [$upgrade, $this->spellRule('living-blindness', ['nolomancy'], true)],
             [$this->ability('gaze-curse', 'arcanist')],
             'arcanist',
             [['code' => 'gaze-curse', 'value' => 3]],
@@ -794,9 +794,34 @@ final class GameSpellCastUpgradesTest extends TestCase
         );
 
         self::assertTrue($resolution->isRange());
+        self::assertSame(3, $resolution->getRangeLimit());
         self::assertSame(9, $resolution->getRequiredPowerDelta());
         self::assertSame(2, $resolution->getRequiredControlDelta());
         self::assertFalse($resolution->hasStatePermanence());
+    }
+
+    /**
+     * Дальность применима только к заклинанию с компонентом касания.
+     *
+     * @return void
+     */
+    public function testRangeRequiresTouchSpell(): void
+    {
+        $upgrade = $this->upgradeRule('gaze-curse', $this->skill([
+            'spell_upgrade' => [
+                'action_point_delta' => 0,
+                'range' => ['power_size_per_step' => 1, 'control_base' => 2],
+            ],
+        ]));
+
+        $this->expectException(GameInvalidException::class);
+        $this->resolve(
+            [$upgrade, $this->spellRule('discharge', [], false)],
+            [$this->ability('gaze-curse', 'arcanist')],
+            'arcanist',
+            [['code' => 'gaze-curse', 'value' => 1]],
+            'discharge',
+        );
     }
 
     /**
@@ -828,8 +853,13 @@ final class GameSpellCastUpgradesTest extends TestCase
      *
      * @return CharacterResolvedRule Карточка.
      */
-    private function spellRule(string $code, array $keywords): CharacterResolvedRule
+    private function spellRule(string $code, array $keywords, bool $touch = false): CharacterResolvedRule
     {
+        $spec = ['type' => 'spell', 'spell' => ['targeting' => 'none']];
+        if ($touch) {
+            $spec['hit_resolution'] = ['type' => 'attack'];
+        }
+
         return new CharacterResolvedRule(
             new RuleVersionRecord(
                 1,
@@ -839,7 +869,7 @@ final class GameSpellCastUpgradesTest extends TestCase
                 'ability',
                 'Spell',
                 '',
-                ['type' => 'spell', 'spell' => ['targeting' => 'none']],
+                $spec,
                 [],
                 [],
                 'ready',

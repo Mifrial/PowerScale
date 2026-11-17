@@ -98,6 +98,25 @@ final class GameSpellCastUpgradeResolution
     }
 
     /**
+     * Предел дальности выбранного улучшения: максимальное N среди дальних.
+     *
+     * @return int|null Ипари или null, если дальности нет.
+     */
+    public function getRangeLimit(): ?int
+    {
+        $limit = null;
+        foreach ($this->applied as $upgrade) {
+            if (!$upgrade->isRange()) {
+                continue;
+            }
+
+            $limit = $limit === null ? $upgrade->getValue() : max($limit, $upgrade->getValue());
+        }
+
+        return $limit;
+    }
+
+    /**
      * Есть улучшение, оставляющее состояние навсегда.
      *
      * @return bool true, если состояние постоянное.

@@ -169,6 +169,12 @@ final class GameSpellCastFacts
             throw new GameInvalidException('Game spell touch is not allowed at range');
         }
 
+        $distanceIpari = $this->int($body, 'distanceIpari', 0);
+        $rangeLimit = $upgrades->getRangeLimit();
+        if ($rangeLimit !== null && $distanceIpari > $rangeLimit) {
+            throw new GameInvalidException('Game spell target is out of range');
+        }
+
         $target = $this->target($game, $slice, $body, $spell, $upgrades->isRange());
         $damageTarget = $target ?? $touchTarget;
         $parameters = $this->parameterMap($body, $spell);
@@ -260,7 +266,7 @@ final class GameSpellCastFacts
             $upgrades,
             $spends,
             $spent,
-            $this->int($body, 'distanceIpari', 0),
+            $distanceIpari,
             $saturationSource,
             $nextCastSources,
             $charge['spellId'] ?? null,

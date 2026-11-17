@@ -207,16 +207,22 @@ final class AbilityCombat
             return null;
         }
 
+        $penetration = SpecShape::optionalInt($row, 'resistance_penetration_per_step');
+        $range = self::upgradeRange($row);
+        if ($penetration !== null && $range !== null) {
+            throw new RuleSpecShapeException('spell_upgrade.range');
+        }
+
         return new SpellUpgrade(
             SpecShape::int($row, 'action_point_delta'),
             self::chargeCap($row),
             SpecShape::optionalInt($row, 'check_advantage'),
             SpecShape::bool($row, 'any_path'),
-            SpecShape::optionalInt($row, 'resistance_penetration_per_step'),
+            $penetration,
             self::chain($row),
             SpecShape::stringList($row, 'keyword_codes'),
             SpecShape::optionalString($row, 'check_advantage_source'),
-            self::upgradeRange($row),
+            $range,
             SpecShape::bool($row, 'state_permanence'),
         );
     }
@@ -228,7 +234,7 @@ final class AbilityCombat
      *
      * @return SpellUpgradeRange|null Форма или null.
      *
-     * @throws RuleSpecShapeException Если форма чужая.
+     * @throws RuleSpecShapeException Если форма чужая или шаги вырождены.
      */
     private static function upgradeRange(array $row): ?SpellUpgradeRange
     {
@@ -237,10 +243,13 @@ final class AbilityCombat
             return null;
         }
 
-        return new SpellUpgradeRange(
-            SpecShape::int($range, 'power_size_per_step'),
-            SpecShape::int($range, 'control_base'),
-        );
+        $powerStep = SpecShape::int($range, 'power_size_per_step');
+        $control = SpecShape::int($range, 'control_base');
+        if ($powerStep < 1 || $control < 0) {
+            throw new RuleSpecShapeException('spell_upgrade.range');
+        }
+
+        return new SpellUpgradeRange($powerStep, $control);
     }
 
     /**

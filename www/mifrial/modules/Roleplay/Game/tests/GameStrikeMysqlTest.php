@@ -1818,6 +1818,7 @@ final class GameStrikeMysqlTest extends TestCase
         $body = $this->spellBody($scene);
         $body['spellCode'] = 'blindness-spell';
         $body['parameters'] = [];
+        $body['distanceIpari'] = 1;
         $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 1]];
 
         $cast = $this->dispatch('game.castSpell', $body);
@@ -1832,6 +1833,100 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertIsArray(
             $this->runtimeStateOf($npc['data']['version']['sheet'], 'blindness-test'),
             json_encode($npc),
+        );
+    }
+
+    /**
+     * «Проклятие взглядом» не пропускает цель дальше выбранного предела.
+     *
+     * @return void
+     */
+    public function testGazeCurseRejectsTargetOutOfRange(): void
+    {
+        $scene = $this->gazeCurseScene();
+        $body = $this->spellBody($scene);
+        $body['spellCode'] = 'blindness-spell';
+        $body['parameters'] = [];
+        $body['distanceIpari'] = 3;
+        $body['upgrades'] = [['code' => 'gaze-curse', 'value' => 2]];
+
+        $cast = $this->dispatch('game.castSpell', $body);
+
+        self::assertFalse($cast['success'], json_encode($cast));
+        self::assertSame('GAME_INVALID', $cast['error']['code']);
+        self::assertSame($scene['heroVersion'], $this->characterFacade()->get($scene['hero'])->getActualVersion());
+    }
+
+    /**
+     * Дальность и касание в одном касте несовместимы.
+     *
+     * @return void
+     */
+    public function testGazeCurseRejectsTouchDelivery(): void
+    {
+        $scene = $this->gazeCurseScene();
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'gaze-touch-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'blindness-spell',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'upgrades' => [['code' => 'gaze-curse', 'value' => 1]],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+
+        self::assertFalse($opened['success'], json_encode($opened));
+        self::assertSame('GAME_INVALID', $opened['error']['code']);
+    }
+
+    /**
+     * Сцена дальнего каста «Проклятия взглядом».
+     *
+     * @return array<string, mixed> Сцена.
+     */
+    private function gazeCurseScene(): array
+    {
+        return $this->spellScene(
+            10,
+            null,
+            [
+                ['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist'],
+                ['ruleCode' => 'gaze-curse', 'level' => 1, 'domainCode' => 'arcanist'],
+            ],
+            [
+                'blindness-test' => $this->blindnessStateCard(),
+                'sense-vision' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'precise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+            ],
+            [],
+            [
+                'blindness-spell' => $this->blindnessSpellCard(),
+                'gaze-curse' => $this->gazeCurseCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
         );
     }
 

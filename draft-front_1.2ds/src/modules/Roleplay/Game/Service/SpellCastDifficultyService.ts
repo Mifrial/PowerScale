@@ -143,7 +143,6 @@ export class SpellCastDifficultyService {
       requiredPower,
       usedPower: input.usedPower,
       requiredControl,
-      requiredControlDelta: input.requiredControlDelta,
       availableControl: input.availableControl,
       resistanceModify,
       requiredPowerDelta: input.requiredPowerDelta,

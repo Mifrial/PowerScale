@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
 
@@ -322,7 +323,12 @@ describe('SpellCastUpgradeService', () => {
       code: 'living-blindness',
       spec: {
         type: 'spell',
-        spell: { power: { base: 4, size: -1 }, control: { base: 4, size: -1 } },
+        spell: {
+          power: { base: 4, size: -1 },
+          control: { base: 4, size: -1 },
+          duration: { type: 'instant' },
+        },
+        action_components: [],
         zones: { or: { kind: 'array', levels_cost: [2] } },
         requirements: [],
         grants: [],
@@ -331,7 +337,9 @@ describe('SpellCastUpgradeService', () => {
       },
       keywordIds: [7],
     };
-    const keywords = [{ id: 7, code: 'nolomancy', name: 'Ноломансия' }];
+    const keywords: Keyword[] = [
+      { id: 7, code: 'nolomancy', name: 'Ноломансия', description: '', active: true },
+    ];
     const abilities = [{ ruleCode: 'gaze-curse', level: 1, domainCode: 'arcanist' }];
     const selected = spellCastUpgradeService.selectedOf(
       spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'living-blindness', [range, spell], keywords),
@@ -340,14 +348,49 @@ describe('SpellCastUpgradeService', () => {
 
     expect(selected).toHaveLength(1);
     expect(spellCastUpgradeService.hasRange(selected)).toBe(true);
+    expect(spellCastUpgradeService.rangeLimit(selected, { 'gaze-curse': 3 })).toBe(3);
     expect(spellCastUpgradeService.requiredPowerDelta(selected, { 'gaze-curse': 3 })).toBe(9);
     expect(spellCastUpgradeService.requiredControlDelta(selected)).toBe(2);
     expect(spellCastUpgradeService.requestOf(selected, { 'gaze-curse': 3 })).toEqual([
       { code: 'gaze-curse', value: 3 },
     ]);
     expect(spellCastUpgradeService.chipLabel(selected[0]!, 3)).toContain('дальность 3 ипари');
+    const nonTouchSpell: Rule = {
+      ...spell,
+      code: 'discharge',
+      spec: {
+        type: 'spell',
+        spell: {
+          power: { base: 4, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+        },
+        action_components: [],
+        zones: { or: { kind: 'array', levels_cost: [2] } },
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        hit_resolution: { type: 'auto', rating: 3 },
+      },
+      keywordIds: [7],
+    };
     expect(
-      spellCastUpgradeService.listApplicable(abilities, 'arcanist', 'discharge', [range, spell], keywords),
+      spellCastUpgradeService.listApplicable(
+        abilities,
+        'arcanist',
+        'living-blindness',
+        [range, spell],
+        keywords,
+      ),
+    ).toHaveLength(1);
+    expect(
+      spellCastUpgradeService.listApplicable(
+        abilities,
+        'arcanist',
+        'discharge',
+        [range, nonTouchSpell],
+        keywords,
+      ),
     ).toEqual([]);
   });
 

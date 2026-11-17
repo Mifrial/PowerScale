@@ -105,7 +105,7 @@ function chipLabel(option: SpellCastUpgradeOption): string {
                 (option.upgrade.resistance_penetration_per_step || option.upgrade.range) && isOn(option.ruleCode)
               "
               :model-value="parameterValue(option.ruleCode)"
-              :label="option.upgrade.range ? 'Дистанция, ипари' : 'х'"
+              :label="option.upgrade.range ? 'Дальность (макс.), ипари' : 'х'"
               :min="option.upgrade.range ? 1 : 0"
               :max="999"
               density="compact"
