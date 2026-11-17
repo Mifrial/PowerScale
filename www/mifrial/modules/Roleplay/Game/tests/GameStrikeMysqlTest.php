@@ -1679,7 +1679,17 @@ final class GameStrikeMysqlTest extends TestCase
             10,
             null,
             [['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist']],
-            ['blindness-test' => $this->blindnessStateCard()],
+            [
+                'blindness-test' => $this->blindnessStateCard(),
+                'sense-vision' => [
+                    'type' => 'sense',
+                    'spec' => [
+                        'status' => 'precise',
+                        'radius' => ['base' => 30, 'size' => 0],
+                        'auto_add' => true,
+                    ],
+                ],
+            ],
             [],
             [
                 'blindness-spell' => $this->blindnessSpellCard(),
@@ -1733,7 +1743,12 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($npc['success'], json_encode($npc));
         $state = $this->runtimeStateOf($npc['data']['version']['sheet'], 'blindness-test');
         self::assertIsArray($state, json_encode($npc));
-        self::assertSame(4, $state['value'] ?? null);
+        self::assertSame(1, $state['value'] ?? null);
+        self::assertNotContains(
+            'sense-vision',
+            $this->senseCodesOf($npc['data']['version']['sheet']),
+            json_encode($npc),
+        );
 
         $heroEnd = $this->dispatch('game.endTurn', [
             'gameId' => $scene['gameId'],
@@ -1745,53 +1760,12 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertTrue($heroEnd['success'], json_encode($heroEnd));
         self::assertCount(1, $this->activeEffectRows($scene['battleId']));
 
-        $npcAttack = $this->dispatch('game.runAction', [
-            'gameId' => $scene['gameId'],
-            'battleId' => $scene['battleId'],
-            'idempotencyKey' => 'blindness-npc-attack',
-            'expectedVersion' => $heroEnd['data']['version'],
-            'action' => $this->strikeEnvelope([
-                'attacker' => ['type' => 'npc', 'id' => $scene['npcId']],
-                'defender' => ['type' => 'character', 'id' => $scene['hero']],
-                'actionRuleCode' => 'swing',
-                'itemInventoryId' => 1,
-                'itemRuleCode' => 'sword',
-                'profileType' => 'strike',
-                'profileIndex' => 0,
-            ]),
-        ]);
-        self::assertTrue($npcAttack['success'], json_encode($npcAttack));
-
-        $npcStrikeClose = $this->dispatch('game.runAction', [
-            'gameId' => $scene['gameId'],
-            'battleId' => $scene['battleId'],
-            'idempotencyKey' => 'blindness-npc-attack-d',
-            'expectedVersion' => $npcAttack['data']['version'],
-            'action' => $this->strikeDefenseEnvelope(
-                ['reaction' => 'ignore'],
-                $this->characterFacade()->get($scene['hero'])->getActualVersion(),
-            ),
-        ]);
-        self::assertTrue($npcStrikeClose['success'], json_encode($npcStrikeClose));
-        $advantages = $npcStrikeClose['data']['strikes'][0]['roll']['advantages'] ?? null;
-        $deltas = array_map(
-            static fn (array $row): int => (int) ($row['delta'] ?? 0),
-            is_array($advantages) ? $advantages : [],
-        );
-        self::assertContains(-4, $deltas, json_encode($npcStrikeClose));
-
-        $npcAfterAttack = $this->dispatch('game.getNpc', [
-            'gameId' => $scene['gameId'],
-            'npcId' => $scene['npcId'],
-        ]);
-        self::assertTrue($npcAfterAttack['success'], json_encode($npcAfterAttack));
-
         $npcEnd = $this->dispatch('game.endTurn', [
             'gameId' => $scene['gameId'],
             'battleId' => $scene['battleId'],
             'idempotencyKey' => 'blindness-npc-end',
-            'expectedBattleVersion' => $npcStrikeClose['data']['version'],
-            'expectedSheetVersion' => $npcAfterAttack['data']['actualVersion'],
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
         ]);
         self::assertTrue($npcEnd['success'], json_encode($npcEnd));
         self::assertCount(0, $this->activeEffectRows($scene['battleId']));
@@ -1802,6 +1776,32 @@ final class GameStrikeMysqlTest extends TestCase
         ]);
         self::assertTrue($after['success'], json_encode($after));
         self::assertNull($this->runtimeStateOf($after['data']['version']['sheet'], 'blindness-test'));
+        self::assertContains(
+            'sense-vision',
+            $this->senseCodesOf($after['data']['version']['sheet']),
+            json_encode($after),
+        );
+    }
+
+    /**
+     * Коды активных чувств листа.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     *
+     * @return array<int, string> Коды.
+     */
+    private function senseCodesOf(array $sheet): array
+    {
+        $rows = is_array($sheet['senses'] ?? null) ? $sheet['senses'] : [];
+        $codes = [];
+        foreach ($rows as $row) {
+            $code = is_array($row) ? ($row['ruleCode'] ?? null) : null;
+            if (is_string($code)) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 
     /**
@@ -3894,15 +3894,12 @@ final class GameStrikeMysqlTest extends TestCase
             'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
             'spec' => [
                 'effects' => [[
-                    'type' => 'check_advantage',
-                    'amount' => -1,
-                    'per_unit' => true,
-                    'includes_hit' => true,
-                    'characteristic_codes' => ['perception'],
-                    'source_code' => 'blindness-test',
+                    'type' => 'sense_status',
+                    'sense_code' => 'sense-vision',
+                    'status' => 'absent',
                 ]],
-                'value_type' => 'number',
-                'aggregation' => 'max',
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
             ],
         ];
     }

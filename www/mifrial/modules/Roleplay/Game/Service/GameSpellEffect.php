@@ -96,13 +96,14 @@ final class GameSpellEffect
         SpellStateEffect $item,
     ): array {
         $code = $item->getStateCode();
-        if (!$slice->findLive($code)?->getSpec() instanceof StateSpec) {
+        $spec = $slice->findLive($code)?->getSpec();
+        if (!$spec instanceof StateSpec) {
             throw new GameInvalidException('Game spell state is invalid');
         }
 
         return [
             'stateRuleCode' => $code,
-            'value' => $this->stateUnits($effect, $item),
+            'value' => $this->stateUnits($effect, $item, $spec),
             'sourceRuleCode' => $effect->getSourceRuleCode(),
             'runtimeId' => $effect->getId() . ':' . $code,
             'runtime' => true,
@@ -114,13 +115,21 @@ final class GameSpellEffect
      *
      * @param GameActiveEffectRecord $effect Строка эффекта.
      * @param SpellStateEffect $item Эффект карточки.
+     * @param StateSpec $spec Спека состояния.
      *
      * @return int Единицы.
      *
      * @throws GameInvalidException Если источник не поддержан.
      */
-    private function stateUnits(GameActiveEffectRecord $effect, SpellStateEffect $item): int
-    {
+    private function stateUnits(
+        GameActiveEffectRecord $effect,
+        SpellStateEffect $item,
+        StateSpec $spec,
+    ): int {
+        if ($spec->getValueType() === 'flag') {
+            return 1;
+        }
+
         $source = $item->getValue();
         $from = $source?->getFrom() ?? 'power';
         if ($from === 'power') {

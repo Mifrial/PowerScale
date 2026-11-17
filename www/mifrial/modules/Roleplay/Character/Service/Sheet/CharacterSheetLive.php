@@ -133,6 +133,7 @@ final class CharacterSheetLive
             $validation,
             $levels,
             $runtimeSenses,
+            $this->stateRows($sheet),
         );
         $sheet['weaponFamilyMastery'] = $this->weaponFamilies->compute($slice, $model, $live);
         $sheet['racialAbilityCodes'] = $validation->getRacialAbilityCodes();
@@ -193,6 +194,23 @@ final class CharacterSheetLive
     }
 
     /**
+     * Строки состояний листа.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function stateRows(array $sheet): array
+    {
+        $rows = $sheet['states'] ?? null;
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_values(array_filter($rows, static fn (mixed $row): bool => is_array($row)));
+    }
+
+    /**
      * Выборы из документа. Неполный документ — пустая раса.
      *
      * @param array<string, mixed> $choices Документ.
@@ -239,7 +257,15 @@ final class CharacterSheetLive
         $live = [];
         $resourceLimits = [];
         for ($pass = 0; $pass < 3; $pass++) {
-            $rows = $this->characteristics->compute($slice, $model, $validation, $sheet, $levels, $runtimeSenses);
+            $rows = $this->characteristics->compute(
+                $slice,
+                $model,
+                $validation,
+                $sheet,
+                $levels,
+                $runtimeSenses,
+                $this->stateRows($sheet),
+            );
             $live = $this->indexCharacteristics($rows);
             $levels = $this->withDerived(
                 $slice,

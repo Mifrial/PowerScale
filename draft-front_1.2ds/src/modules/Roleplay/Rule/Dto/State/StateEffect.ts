@@ -58,4 +58,11 @@ export type StateEffect =
       source_code?: string;
       /** Модуль итогового преимущества/помехи (Неустойчивость: помех не больше 3). */
       max_abs?: number;
+    }
+  | {
+      type: 'sense_status';
+      /** Код чувства правила типа `sense`. */
+      sense_code: string;
+      /** Новый статус чувства; `absent` — лишение. */
+      status?: 'precise' | 'imprecise' | 'vague' | 'absent';
     };

@@ -1347,6 +1347,9 @@ export class RuleValidationService {
               collect({ code, type: 'check' });
             }
           }
+          if (effect.type === 'sense_status' && effect.sense_code) {
+            collect({ code: effect.sense_code, type: 'sense' });
+          }
           if (effect.type === 'damage_over_time') {
             if (effect.damage_type_code) {
               collect({ code: effect.damage_type_code, type: 'damage_type' });

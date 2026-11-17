@@ -49,6 +49,7 @@ final class CharacterLiveCharacteristics
      * @param array<string, mixed> $sheet Документ sheet.
      * @param array<string, int> $abilityLevels Эффективные уровни.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $states Состояния листа.
      *
      * @return array<int, array<string, mixed>> Строки characteristics.
      */
@@ -59,10 +60,11 @@ final class CharacterLiveCharacteristics
         array $sheet,
         array $abilityLevels,
         array $runtimeSenses = [],
+        array $states = [],
     ): array {
         $bases = $this->bases->compute($slice, $choices, $validation, $abilityLevels);
         $senseDelta = $this->senses->bestDelta(
-            $this->senses->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses),
+            $this->senses->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses, $states),
         );
         $deltas = $this->deltas->compute($slice, $choices, $sheet, $abilityLevels, $bases, $senseDelta);
         $bases = $this->baseFrom($slice, $bases, $deltas);
@@ -82,6 +84,7 @@ final class CharacterLiveCharacteristics
      * @param CharacterValidation $validation Снимок.
      * @param array<string, int> $abilityLevels Уровни.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $states Состояния листа.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -91,6 +94,7 @@ final class CharacterLiveCharacteristics
         CharacterValidation $validation,
         array $abilityLevels,
         array $runtimeSenses = [],
+        array $states = [],
     ): array {
         return $this->senses->active(
             $slice,
@@ -98,6 +102,7 @@ final class CharacterLiveCharacteristics
             $abilityLevels,
             $this->bases->compute($slice, $choices, $validation, $abilityLevels),
             $runtimeSenses,
+            $states,
         );
     }
 

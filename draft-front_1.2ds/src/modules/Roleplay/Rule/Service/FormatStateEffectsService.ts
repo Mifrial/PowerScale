@@ -74,6 +74,13 @@ export class FormatStateEffectsService {
 
       return `Помехи/преимущества на ${parts.join(', ')} ${amount}${per}`;
     }
+    if (effect.type === 'sense_status') {
+      const status = effect.status ?? 'absent';
+      const label =
+        status === 'absent' ? 'лишение' : status === 'vague' ? 'смутное' : status === 'imprecise' ? 'неточное' : 'точное';
+
+      return `Чувство ${nameByCode(effect.sense_code)}: ${label}`;
+    }
 
     return this.dotEffectLabel(effect, nameByCode);
   }

@@ -88,6 +88,15 @@ const aggregationOptions: { title: string; value: StateAggregation }[] = [
 const checkOptions = computed(() =>
   props.rules.filter((rule) => rule.type === 'check').map((rule) => ({ title: rule.name, value: rule.code })),
 );
+const senseOptions = computed(() =>
+  props.rules.filter((rule) => rule.type === 'sense').map((rule) => ({ title: rule.name, value: rule.code })),
+);
+const senseStatusOptions: { title: string; value: 'precise' | 'imprecise' | 'vague' | 'absent' }[] = [
+  { title: 'Точное', value: 'precise' },
+  { title: 'Неточное', value: 'imprecise' },
+  { title: 'Смутное', value: 'vague' },
+  { title: 'Отсутствует', value: 'absent' },
+];
 const stateOptions = computed(() =>
   props.rules
     .filter((rule) => rule.type === 'state' && rule.spaceId === props.spaceId && rule.code !== props.code)
@@ -169,6 +178,11 @@ function addCheckAdvantageEffect(): void {
   innerSpec.value.effects.push({ type: 'check_advantage', amount: -1 });
 }
 
+function addSenseStatusEffect(): void {
+  innerSpec.value.effects = innerSpec.value.effects ?? [];
+  innerSpec.value.effects.push({ type: 'sense_status', sense_code: '', status: 'absent' });
+}
+
 function removeEffect(index: number): void {
   innerSpec.value.effects?.splice(index, 1);
 }
@@ -204,11 +218,16 @@ function isCheckAdvantageEffect(effect: StateEffect): effect is Extract<StateEff
   return effect.type === 'check_advantage';
 }
 
+function isSenseStatusEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'sense_status' }> {
+  return effect.type === 'sense_status';
+}
+
 function effectTitle(effect: StateEffect): string {
   if (effect.type === 'characteristic_modify') return 'Модификатор характеристики';
   if (effect.type === 'resource_limit_modify') return 'Модификатор лимита ресурса';
   if (effect.type === 'resource_limit_set') return 'Зафиксировать лимит ресурса';
   if (effect.type === 'check_advantage') return 'Помехи / преимущества на проверки';
+  if (effect.type === 'sense_status') return 'Статус чувства';
 
   return 'Урон со временем';
 }
@@ -363,6 +382,9 @@ function effectTitle(effect: StateEffect): string {
               <v-btn size="small" variant="text" prepend-icon="mdi-lock" @click="addLimitSetEffect">Лимит =</v-btn>
               <v-btn size="small" variant="text" prepend-icon="mdi-dice-d6" @click="addCheckAdvantageEffect">
                 Помехи
+              </v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-eye-off-outline" @click="addSenseStatusEffect">
+                Чувство
               </v-btn>
             </div>
           </div>
@@ -535,6 +557,32 @@ function effectTitle(effect: StateEffect): string {
               <div class="text-caption text-medium-emphasis mt-1">
                 Пустой список и без «попадание» — все проверки. Иначе только попадание и выбранные характеристики
                 (включая производные min/max).
+              </div>
+            </template>
+
+            <template v-else-if="isSenseStatusEffect(effect)">
+              <v-row dense>
+                <v-col cols="7">
+                  <v-select
+                    v-model="effect.sense_code"
+                    :items="senseOptions"
+                    label="Чувство"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="5">
+                  <v-select
+                    v-model="effect.status"
+                    :items="senseStatusOptions"
+                    label="Статус"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+              </v-row>
+              <div class="text-caption text-medium-emphasis mt-1">
+                Отсутствующее чувство убирается из активных чувств листа и карточки.
               </div>
             </template>
           </v-sheet>

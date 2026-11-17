@@ -13,6 +13,8 @@ use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterGrantParameters;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SenseModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\State\SenseStatusEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
@@ -50,6 +52,7 @@ final class CharacterLiveSenses
      * @param array<string, int> $abilityLevels Уровни.
      * @param array<string, CharacteristicNumber> $bases Базы.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $states Состояния листа.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -59,9 +62,10 @@ final class CharacterLiveSenses
         array $abilityLevels,
         array $bases,
         array $runtimeSenses = [],
+        array $states = [],
     ): array {
         $active = [];
-        foreach ($this->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses) as $row) {
+        foreach ($this->rows($slice, $choices, $abilityLevels, $bases, $runtimeSenses, $states) as $row) {
             if ($row['status'] === 'absent') {
                 continue;
             }
@@ -80,6 +84,7 @@ final class CharacterLiveSenses
      * @param array<string, int> $abilityLevels Уровни.
      * @param array<string, CharacteristicNumber> $bases Базы.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $states Состояния листа.
      *
      * @return array<int, array<string, mixed>> Строки.
      */
@@ -89,6 +94,7 @@ final class CharacterLiveSenses
         array $abilityLevels,
         array $bases,
         array $runtimeSenses = [],
+        array $states = [],
     ): array {
         $rows = $this->autoRows($slice);
         foreach ($this->grantReader->grants($slice, $choices, $abilityLevels) as $grant) {
@@ -99,7 +105,70 @@ final class CharacterLiveSenses
             $rows = $this->applyRuntime($rows, $slice, $runtime);
         }
 
-        return array_values($rows);
+        return array_values($this->applyStates($rows, $slice, $states));
+    }
+
+    /**
+     * Накладывает статусы чувств из состояний листа.
+     *
+     * @param array<string, array<string, mixed>> $rows Код → строка.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, mixed> $states Состояния листа.
+     *
+     * @return array<string, array<string, mixed>> Код → строка.
+     */
+    private function applyStates(array $rows, CharacterRuleSlice $slice, array $states): array
+    {
+        foreach ($states as $state) {
+            if (!is_array($state)) {
+                continue;
+            }
+
+            $stateCode = $state['stateRuleCode'] ?? null;
+            $spec = is_string($stateCode) ? $slice->findLive($stateCode)?->getSpec() : null;
+            if (!$spec instanceof StateSpec) {
+                continue;
+            }
+
+            foreach ($spec->getEffects() as $effect) {
+                if (!$effect instanceof SenseStatusEffect) {
+                    continue;
+                }
+
+                $rows = $this->applySenseStatus($rows, $slice, $effect);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Один статус чувства из состояния.
+     *
+     * @param array<string, array<string, mixed>> $rows Код → строка.
+     * @param CharacterRuleSlice $slice Срез.
+     * @param SenseStatusEffect $effect Эффект.
+     *
+     * @return array<string, array<string, mixed>> Код → строка.
+     */
+    private function applySenseStatus(
+        array $rows,
+        CharacterRuleSlice $slice,
+        SenseStatusEffect $effect,
+    ): array {
+        $code = $effect->getSenseCode();
+        $spec = $slice->findLive($code)?->getSpec();
+        if (!$spec instanceof SenseSpec) {
+            return $rows;
+        }
+
+        if (!isset($rows[$code])) {
+            $rows[$code] = $this->emptySense($code, $spec);
+        }
+
+        $rows[$code]['status'] = $this->raisedStatus($rows[$code]['status'], $effect->getStatus());
+
+        return $rows;
     }
 
     /**

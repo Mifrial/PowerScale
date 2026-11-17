@@ -13,6 +13,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\State\DimensionalDecay;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\FixedDecay;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\ResourceLimitModifyEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\ResourceLimitSetEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\State\SenseStatusEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\StateDecay;
 use Mifrial\Roleplay\Rule\Dto\Spec\State\StateEffect;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
@@ -87,6 +88,7 @@ final class StateEffects
                 SpecShape::int($row, 'value'),
             ),
             'check_advantage' => self::check($row),
+            'sense_status' => self::senseStatus($row),
             default => throw new RuleSpecShapeException('effects'),
         };
     }
@@ -137,6 +139,30 @@ final class StateEffects
             SpecShape::optionalString($row, 'source_code'),
             SpecShape::optionalInt($row, 'max_abs'),
         );
+    }
+
+    /**
+     * Статус чувства.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return SenseStatusEffect Эффект.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function senseStatus(array $row): SenseStatusEffect
+    {
+        $senseCode = SpecShape::string($row, 'sense_code');
+        if ($senseCode === '') {
+            throw new RuleSpecShapeException('sense_code');
+        }
+
+        $status = SpecShape::optionalString($row, 'status') ?? 'absent';
+        if (!in_array($status, ['precise', 'imprecise', 'vague', 'absent'], true)) {
+            throw new RuleSpecShapeException('status');
+        }
+
+        return new SenseStatusEffect($senseCode, $status);
     }
 
     /**

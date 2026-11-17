@@ -109,6 +109,29 @@ final class CharacterLiveSensesRuntimeTest extends TestCase
     }
 
     /**
+     * Состояние со sense_status лишает чувства.
+     *
+     * @return void
+     */
+    public function testStateRemovesSense(): void
+    {
+        $slice = $this->stateSlice();
+        $states = [['stateRuleCode' => 'blindness', 'value' => 1]];
+        $rows = $this->senses()->rows($slice, $this->choices(), [], [], [], $states);
+        $vision = null;
+        foreach ($rows as $row) {
+            if ($row['ruleCode'] === 'sense-vision') {
+                $vision = $row;
+            }
+        }
+
+        self::assertIsArray($vision);
+        self::assertSame('absent', $vision['status']);
+        self::assertSame([], $this->senses()->active($slice, $this->choices(), [], [], [], $states));
+        self::assertNull($this->senses()->bestDelta($rows));
+    }
+
+    /**
      * Сервис чувств на пустых формулах.
      *
      * @return CharacterLiveSenses Сервис.
@@ -140,6 +163,61 @@ final class CharacterLiveSensesRuntimeTest extends TestCase
                     'Ощущение магии',
                     '',
                     ['type' => 'sense', 'status' => 'imprecise', 'radius' => ['base' => 0, 'size' => 0]],
+                    [],
+                    [],
+                    'needs_work',
+                    '',
+                    DateTime::now(),
+                ),
+                [],
+            ),
+        ], []);
+    }
+
+    /**
+     * Срез со зрением и состоянием слепоты.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function stateSlice(): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(1, 1, 'world', [
+            new CharacterResolvedRule(
+                new RuleVersionRecord(
+                    11,
+                    2,
+                    'sense-vision',
+                    true,
+                    'sense',
+                    'Зрение',
+                    '',
+                    ['type' => 'sense', 'status' => 'precise', 'radius' => ['base' => 30, 'size' => 0], 'auto_add' => true],
+                    [],
+                    [],
+                    'needs_work',
+                    '',
+                    DateTime::now(),
+                ),
+                [],
+            ),
+            new CharacterResolvedRule(
+                new RuleVersionRecord(
+                    12,
+                    3,
+                    'blindness',
+                    true,
+                    'state',
+                    'Слепота',
+                    '',
+                    [
+                        'value_type' => 'flag',
+                        'aggregation' => 'independent',
+                        'effects' => [[
+                            'type' => 'sense_status',
+                            'sense_code' => 'sense-vision',
+                            'status' => 'absent',
+                        ]],
+                    ],
                     [],
                     [],
                     'needs_work',
