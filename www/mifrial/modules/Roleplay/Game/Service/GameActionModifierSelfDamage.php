@@ -204,6 +204,7 @@ final class GameActionModifierSelfDamage
             $context->attackCharacteristicModifier($input->game, $fields, $slice, 1, null),
             0,
             $grip,
+            $this->ports->rules->states->rowsOf($input->game, $input->attackerKind, $input->attackerId),
         );
     }
 

@@ -15,16 +15,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheetEngines;
 final class GameNpcSheetRefresh
 {
     /**
-     * Ключи листа, которые живут только в сохранённом снимке.
-     *
-     * Пересборка из `choices` их не знает: состояния боя (заряды, отклонение)
-     * пишутся операциями листа, а не выбором персонажа.
-     *
-     * @var array<int, string>
-     */
-    private const RUNTIME_KEYS = ['states'];
-
-    /**
      * Создаёт пересчёт.
      *
      * @param ICharacterSheetEngines $sheetEngines Сборка листа.
@@ -83,12 +73,29 @@ final class GameNpcSheetRefresh
             return $sheet;
         }
 
-        foreach (self::RUNTIME_KEYS as $key) {
-            if (array_key_exists($key, $previousSheet) && !array_key_exists($key, $sheet)) {
-                $sheet[$key] = $previousSheet[$key];
-            }
+        if (array_key_exists('states', $previousSheet) && !array_key_exists('states', $sheet)) {
+            $sheet['states'] = self::storedStates($previousSheet['states']);
         }
 
         return $sheet;
+    }
+
+    /**
+     * Сохранённые состояния без временных строк эффектов.
+     *
+     * @param mixed $states Состояния предыдущего снимка.
+     *
+     * @return array<int, mixed> Состояния.
+     */
+    private static function storedStates(mixed $states): array
+    {
+        if (!is_array($states)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $states,
+            static fn (mixed $row): bool => !is_array($row) || ($row['runtime'] ?? false) !== true,
+        ));
     }
 }

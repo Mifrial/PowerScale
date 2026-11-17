@@ -120,6 +120,7 @@ final class CharacterSheets implements ICharacterSheets
      * @param array<string, mixed> $choices Документ choices.
      * @param array<string, mixed> $sheet Документ sheet.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $runtimeStates Временные состояния цели из игры.
      *
      * @return array<string, mixed> Sheet после compute.
      */
@@ -128,8 +129,9 @@ final class CharacterSheets implements ICharacterSheets
         array $choices,
         array $sheet,
         array $runtimeSenses = [],
+        array $runtimeStates = [],
     ): array {
-        return (new CharacterSheetLive($this))->compute($slice, $choices, $sheet, $runtimeSenses);
+        return (new CharacterSheetLive($this))->compute($slice, $choices, $sheet, $runtimeSenses, $runtimeStates);
     }
 
     /**

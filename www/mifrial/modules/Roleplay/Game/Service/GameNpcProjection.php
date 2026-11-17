@@ -27,6 +27,7 @@ final class GameNpcProjection
      * @param ICharacterSheets $sheets Пересчёт с временными чувствами.
      * @param GameActiveSpellRepository $spells Поддерживаемые заклинания.
      * @param GameSpellEffect $effects Временные эффекты заклинаний.
+     * @param GameActiveEffectStates $states Состояния цели из наложенных эффектов.
      *
      * @return void
      */
@@ -39,6 +40,7 @@ final class GameNpcProjection
         private readonly ICharacterSheets $sheets,
         private readonly GameActiveSpellRepository $spells,
         private readonly GameSpellEffect $effects,
+        private readonly GameActiveEffectStates $states,
     ) {
     }
 
@@ -139,7 +141,7 @@ final class GameNpcProjection
     }
 
     /**
-     * Добавляет временные чувства от поддерживаемых заклинаний NPC.
+     * Добавляет временные чувства кастера и состояния цели из игры.
      *
      * @param GameRecord $game Игра.
      * @param GameNpcRecord $record Строка NPC.
@@ -163,11 +165,12 @@ final class GameNpcProjection
             $this->spells->findForGameCaster($game->getId(), 'npc', $record->getId()),
             $sheet,
         );
-        if ($runtimeSenses === []) {
+        $runtimeStates = $this->states->rowsOf($game, 'npc', $record->getId());
+        if ($runtimeSenses === [] && $runtimeStates === []) {
             return $version;
         }
 
-        $version['sheet'] = $this->sheets->compute($slice, $choices, $sheet, $runtimeSenses);
+        $version['sheet'] = $this->sheets->compute($slice, $choices, $sheet, $runtimeSenses, $runtimeStates);
 
         return $version;
     }

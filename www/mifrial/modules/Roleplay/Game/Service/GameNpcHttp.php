@@ -58,7 +58,7 @@ final class GameNpcHttp
         $this->assertEditor($input->gameId);
         $record = $this->npcs->add($input->gameId, $input->name, $this->npcVisibility->normalize($input->visibility));
 
-        return $this->npcView->detail($record, true);
+        return $this->npcView->detail(null, $record, true);
     }
 
     /**
@@ -78,7 +78,7 @@ final class GameNpcHttp
         $this->assertReader($game, $actorUserId);
         $record = $this->npcs->get($input->gameId, $input->npcId);
 
-        return $this->npcView->detail($record, $this->allows($game, $record, $actorUserId));
+        return $this->npcView->detail($game, $record, $this->allows($game, $record, $actorUserId));
     }
 
     /**
@@ -132,7 +132,7 @@ final class GameNpcHttp
             $input->expectedNpcActualVersion,
         );
 
-        return $this->changed($changed, true);
+        return $this->changed($changed, true, $game);
     }
 
     /**
@@ -161,7 +161,7 @@ final class GameNpcHttp
             $input->sheet,
         );
 
-        return $this->changed($changed, true);
+        return $this->changed($changed, true, $game);
     }
 
     /**
@@ -169,16 +169,17 @@ final class GameNpcHttp
      *
      * @param array{record: GameNpcRecord|null, report: array<string, mixed>} $changed Результат.
      * @param bool $fullSheet Ведущий пишет и видит лист.
+     * @param GameRecord|null $game Игра или null.
      *
      * @return array<string, mixed> JSON.
      */
-    private function changed(array $changed, bool $fullSheet): array
+    private function changed(array $changed, bool $fullSheet, ?GameRecord $game = null): array
     {
         if (!$changed['record'] instanceof GameNpcRecord) {
             return $changed['report'];
         }
 
-        return $this->npcView->detail($changed['record'], $fullSheet);
+        return $this->npcView->detail($game, $changed['record'], $fullSheet);
     }
 
     /**

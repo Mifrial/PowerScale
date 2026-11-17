@@ -59,6 +59,7 @@ final class GameStrikeRules
      * @param GameStrikeSlices $slices Срезы ревизии.
      * @param ICharacters $characters Листы персонажей.
      * @param GameStrikeParticipants $participants Участники удара.
+     * @param GameActiveEffectStates $states Состояния цели из наложенных эффектов.
      *
      * @return void
      */
@@ -66,9 +67,10 @@ final class GameStrikeRules
         private readonly IFormulaEvaluations $formulaEvaluations,
         private readonly GameCheckRoll $hitRoll,
         private readonly GameStrikeLayers $layers,
-        private readonly GameStrikeSlices $slices,
+        public readonly GameStrikeSlices $slices,
         private readonly ICharacters $characters,
-        private readonly GameStrikeParticipants $participants,
+        public readonly GameStrikeParticipants $participants,
+        public readonly GameActiveEffectStates $states,
     ) {
         $this->soaks = new GameStrikeSoaks();
         $this->splits = new GameStrikeSplits();

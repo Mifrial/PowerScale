@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Tests;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSenseEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellStateEffect;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Spec\SpellSpecs;
 use PHPUnit\Framework\TestCase;
@@ -52,6 +53,50 @@ final class SpellSpecsTest extends TestCase
         self::assertSame('control', $effect->getValue()?->getFrom());
         self::assertSame(4, $effect->getValue()?->getReference()?->getBase());
         self::assertSame(1, $effect->getValue()?->getReference()?->getSize());
+    }
+
+    /**
+     * Эффект состояния разбирается с источником единиц.
+     *
+     * @return void
+     */
+    public function testStateEffectIsParsed(): void
+    {
+        $spec = SpellSpecs::read([
+            'spell' => [
+                'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
+                'effects' => [[
+                    'type' => 'state',
+                    'state_code' => 'blindness',
+                    'value' => ['from' => 'power'],
+                    'max' => 3,
+                ]],
+            ],
+        ]);
+
+        $effect = $spec->getEffects()[0];
+        self::assertInstanceOf(SpellStateEffect::class, $effect);
+        self::assertSame('state', $effect->getType());
+        self::assertSame('blindness', $effect->getStateCode());
+        self::assertSame('power', $effect->getValue()?->getFrom());
+        self::assertSame(3, $effect->getMax());
+    }
+
+    /**
+     * Пустой код состояния — отказ.
+     *
+     * @return void
+     */
+    public function testEmptyStateCodeIsRejected(): void
+    {
+        $this->expectException(RuleSpecShapeException::class);
+
+        SpellSpecs::read([
+            'spell' => [
+                'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
+                'effects' => [['type' => 'state', 'state_code' => '']],
+            ],
+        ]);
     }
 
     /**

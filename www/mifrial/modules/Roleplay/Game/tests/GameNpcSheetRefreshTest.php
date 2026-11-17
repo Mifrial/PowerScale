@@ -44,6 +44,35 @@ final class GameNpcSheetRefreshTest extends TestCase
     }
 
     /**
+     * Временные состояния эффектов не переносятся в сохранённый снимок.
+     *
+     * @return void
+     */
+    public function testDropsRuntimeEffectStates(): void
+    {
+        $previous = [[
+            'stateRuleCode' => 'blindness',
+            'value' => 4,
+            'runtimeId' => '9:blindness',
+            'runtime' => true,
+        ], [
+            'stateRuleCode' => 'electrocharge',
+            'value' => 1,
+        ]];
+
+        $version = (new GameNpcSheetRefresh($this->engine([
+            'sheet' => ['characteristics' => [], 'money' => 0],
+        ])))->apply([
+            'spaceId' => 13,
+            'rulesRevision' => 50,
+            'choices' => ['name' => 'Колдунец'],
+            'sheet' => ['states' => $previous, 'money' => 0],
+        ]);
+
+        self::assertSame([$previous[1]], $version['sheet']['states']);
+    }
+
+    /**
      * Движок, возвращающий заданный лист.
      *
      * @param array<string, mixed> $report Отчёт.

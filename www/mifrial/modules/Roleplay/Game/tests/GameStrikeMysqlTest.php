@@ -1669,6 +1669,161 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Длительное состояние касания попадает в лист цели и снимается сроком.
+     *
+     * @return void
+     */
+    public function testLingeringStateEffectReachesTargetSheet(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'blindness-spell', 'level' => 1, 'domainCode' => 'arcanist']],
+            ['blindness-test' => $this->blindnessStateCard()],
+            [],
+            [
+                'blindness-spell' => $this->blindnessSpellCard(),
+                'simple-touch' => $this->simpleTouchCard(),
+            ],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $opened = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+                'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'actionRuleCode' => 'simple-touch',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+                'spellCast' => [
+                    'spellCode' => 'blindness-spell',
+                    'pathCode' => 'arcanist',
+                    'parameters' => [],
+                    'usedPower' => [
+                        'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                        'value' => ['base' => 4, 'size' => 0],
+                    ],
+                ],
+            ]),
+        ]);
+        self::assertTrue($opened['success'], json_encode($opened));
+
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-d',
+            'expectedVersion' => $opened['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $scene['targetVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertSame(
+            'npc:' . $scene['npcId'],
+            $closed['data']['activeEffect']['targetKey'] ?? null,
+        );
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        $state = $this->runtimeStateOf($npc['data']['version']['sheet'], 'blindness-test');
+        self::assertIsArray($state, json_encode($npc));
+        self::assertSame(4, $state['value'] ?? null);
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-hero-end',
+            'expectedBattleVersion' => $closed['data']['version'],
+            'expectedSheetVersion' => $closed['data']['casterSheetVersion']['sheetVersion'],
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $npcAttack = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-npc-attack',
+            'expectedVersion' => $heroEnd['data']['version'],
+            'action' => $this->strikeEnvelope([
+                'attacker' => ['type' => 'npc', 'id' => $scene['npcId']],
+                'defender' => ['type' => 'character', 'id' => $scene['hero']],
+                'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
+                'itemRuleCode' => 'sword',
+                'profileType' => 'strike',
+                'profileIndex' => 0,
+            ]),
+        ]);
+        self::assertTrue($npcAttack['success'], json_encode($npcAttack));
+
+        $npcStrikeClose = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-npc-attack-d',
+            'expectedVersion' => $npcAttack['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(
+                ['reaction' => 'ignore'],
+                $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+            ),
+        ]);
+        self::assertTrue($npcStrikeClose['success'], json_encode($npcStrikeClose));
+        $advantages = $npcStrikeClose['data']['strikes'][0]['roll']['advantages'] ?? null;
+        $deltas = array_map(
+            static fn (array $row): int => (int) ($row['delta'] ?? 0),
+            is_array($advantages) ? $advantages : [],
+        );
+        self::assertContains(-4, $deltas, json_encode($npcStrikeClose));
+
+        $npcAfterAttack = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npcAfterAttack['success'], json_encode($npcAfterAttack));
+
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'blindness-npc-end',
+            'expectedBattleVersion' => $npcStrikeClose['data']['version'],
+            'expectedSheetVersion' => $npcAfterAttack['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+
+        $after = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($after['success'], json_encode($after));
+        self::assertNull($this->runtimeStateOf($after['data']['version']['sheet'], 'blindness-test'));
+    }
+
+    /**
+     * Состояние листа по коду runtime-эффекта.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     * @param string $code Код состояния.
+     *
+     * @return array<string, mixed>|null Строка или null.
+     */
+    private function runtimeStateOf(array $sheet, string $code): ?array
+    {
+        foreach (is_array($sheet['states'] ?? null) ? $sheet['states'] : [] as $row) {
+            if (is_array($row) && ($row['stateRuleCode'] ?? null) === $code) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Касание платит max(удар, заклинание + улучшение) и не списывает дважды.
      *
      * @return void
@@ -3686,6 +3841,68 @@ final class GameStrikeMysqlTest extends TestCase
                     'amount' => 3,
                 ]],
                 'spell_touch' => ['weapon_damage' => false, 'attack_sr_bonus' => 1],
+            ],
+        ];
+    }
+
+    /**
+     * Карточка касания, накладывающего состояние.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function blindnessSpellCard(): array
+    {
+        return [
+            'type' => 'spell',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => [
+                        'type' => 'lingering',
+                        'limit' => ['value' => 1, 'unit' => 'turn'],
+                    ],
+                    'effects' => [['type' => 'state', 'state_code' => 'blindness-test']],
+                ],
+                'parameters' => [],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'action-points',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Состояние слепоты: помеха проверкам Восприятия и попаданию.
+     *
+     * @return array<string, mixed> Правило.
+     */
+    private function blindnessStateCard(): array
+    {
+        return [
+            'type' => 'state',
+            'effects' => [],
+            'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+            'spec' => [
+                'effects' => [[
+                    'type' => 'check_advantage',
+                    'amount' => -1,
+                    'per_unit' => true,
+                    'includes_hit' => true,
+                    'characteristic_codes' => ['perception'],
+                    'source_code' => 'blindness-test',
+                ]],
+                'value_type' => 'number',
+                'aggregation' => 'max',
             ],
         ];
     }

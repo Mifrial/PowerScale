@@ -151,6 +151,7 @@ final class GameStrikeSingleDefender
             $run->modifier,
             0,
             0,
+            $this->sheets->runtimeStates($run->input->game, $run->attackerKind, $run->attackerId),
         );
     }
 

@@ -171,6 +171,9 @@ final class GameStrikeRolls
             $target->actor->npcSheet,
             $target->actor->npcChoices,
             $target->actor->sheetVersion,
+            $target->actor->runtimeStates,
+            $target->actor->spaceId,
+            $target->actor->rulesRevision,
         );
     }
 

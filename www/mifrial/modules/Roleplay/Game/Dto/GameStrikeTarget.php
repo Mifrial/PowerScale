@@ -46,6 +46,7 @@ final class GameStrikeTarget
      * @param int|null $actionCharacteristicModifier Сдвиг характеристики.
      * @param int $strengthDrop Штраф силы броска.
      * @param int $gripBonus Бонус удержания.
+     * @param array<int, array<string, mixed>> $actorRuntimeStates Состояния атакующего.
      *
      * @return self Запрос.
      */
@@ -64,10 +65,20 @@ final class GameStrikeTarget
         ?int $actionCharacteristicModifier = null,
         int $strengthDrop = 0,
         int $gripBonus = 0,
+        array $actorRuntimeStates = [],
     ): self {
         return new self(
             self::profile($spaceId, $rulesRevision, $itemRuleCode, $profileType, $profileIndex, $itemInventoryId),
-            new GameStrikeActorRef($actorKind, $actorId, $npcSheet, $npcChoices, $sheetVersion),
+            new GameStrikeActorRef(
+                $actorKind,
+                $actorId,
+                $npcSheet,
+                $npcChoices,
+                $sheetVersion,
+                $actorRuntimeStates,
+                $spaceId,
+                $rulesRevision,
+            ),
             $actionCharacteristicModifier,
             $strengthDrop,
             $gripBonus,

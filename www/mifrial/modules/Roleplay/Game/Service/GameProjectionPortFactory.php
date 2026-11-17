@@ -20,6 +20,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGameProjections;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameActiveSpellRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
@@ -62,6 +63,7 @@ final class GameProjectionPortFactory
             $this->characterSheets($serviceLocator),
             new GameActiveSpellRepository($gateway),
             new GameSpellEffect(),
+            $this->activeEffectStates($gateway, $serviceLocator),
         );
 
         return new GameProjections(
@@ -112,6 +114,7 @@ final class GameProjectionPortFactory
             $access,
             new GameActiveSpellRepository($gateway),
             new GameSpellEffect(),
+            $this->activeEffectStates($gateway, $serviceLocator),
         );
     }
 
@@ -277,6 +280,26 @@ final class GameProjectionPortFactory
         }
 
         return $sheets;
+    }
+
+    /**
+     * Состояния цели из наложенных эффектов.
+     *
+     * @param ISmartTableGateway $gateway Шлюз таблиц.
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameActiveEffectStates Чтение.
+     */
+    private function activeEffectStates(
+        ISmartTableGateway $gateway,
+        IServiceLocator $serviceLocator,
+    ): GameActiveEffectStates {
+        return new GameActiveEffectStates(
+            new GameSessionRepository($gateway),
+            new GameActiveEffectRepository($gateway),
+            new GameStrikeSlices($this->ruleSlices($serviceLocator)),
+            $this->characterSheets($serviceLocator),
+        );
     }
 
     /**

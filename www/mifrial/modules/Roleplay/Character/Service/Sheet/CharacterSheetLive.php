@@ -99,6 +99,7 @@ final class CharacterSheetLive
      * @param array<string, mixed> $choices Документ choices.
      * @param array<string, mixed> $sheet Документ sheet.
      * @param array<int, array<string, mixed>> $runtimeSenses Временные чувства из игры.
+     * @param array<int, array<string, mixed>> $runtimeStates Временные состояния цели из игры.
      *
      * @return array<string, mixed> Sheet.
      */
@@ -107,7 +108,9 @@ final class CharacterSheetLive
         array $choices,
         array $sheet,
         array $runtimeSenses = [],
+        array $runtimeStates = [],
     ): array {
+        $sheet = $this->withRuntimeStates($sheet, $runtimeStates);
         $model = $this->model($choices);
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
@@ -142,6 +145,49 @@ final class CharacterSheetLive
         if (isset($choices['money']) && is_int($choices['money'])) {
             $sheet['money'] = $choices['money'];
         }
+
+        return $sheet;
+    }
+
+    /**
+     * Добавляет временные состояния цели в лист, не записывая их в хранилище.
+     *
+     * Строки с одинаковым `runtimeId` не дублируются: пересчёт листа может
+     * идти повторно по уже дополненному листу.
+     *
+     * @param array<string, mixed> $sheet Документ листа.
+     * @param array<int, array<string, mixed>> $runtimeStates Временные состояния.
+     *
+     * @return array<string, mixed> Лист.
+     */
+    private function withRuntimeStates(array $sheet, array $runtimeStates): array
+    {
+        if ($runtimeStates === []) {
+            return $sheet;
+        }
+
+        $states = is_array($sheet['states'] ?? null) ? $sheet['states'] : [];
+        $known = [];
+        foreach ($states as $row) {
+            $id = is_array($row) ? ($row['runtimeId'] ?? null) : null;
+            if (is_string($id)) {
+                $known[$id] = true;
+            }
+        }
+
+        foreach ($runtimeStates as $row) {
+            $id = $row['runtimeId'] ?? null;
+            if (is_string($id) && isset($known[$id])) {
+                continue;
+            }
+
+            $states[] = $row;
+            if (is_string($id)) {
+                $known[$id] = true;
+            }
+        }
+
+        $sheet['states'] = array_values($states);
 
         return $sheet;
     }

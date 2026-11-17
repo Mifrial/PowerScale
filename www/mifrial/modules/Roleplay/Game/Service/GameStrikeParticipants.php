@@ -56,6 +56,7 @@ final class GameStrikeParticipants
      * Свежий счётчик и лист персонажа.
      *
      * @param int $characterId Персонаж.
+     * @param array<int, array<string, mixed>> $runtimeStates Состояния цели из наложенных эффектов.
      *
      * @return array{
      *     actualVersion: int,
@@ -66,7 +67,7 @@ final class GameStrikeParticipants
      *
      * @throws GameNotFoundException Если персонажа нет.
      */
-    public function characterSnapshot(int $characterId): array
+    public function characterSnapshot(int $characterId, array $runtimeStates = []): array
     {
         try {
             $record = $this->characters->get($characterId);
@@ -78,7 +79,7 @@ final class GameStrikeParticipants
             'actualVersion' => $record->getActualVersion(),
             'rulesRevision' => $record->getRulesRevision(),
             'choices' => $record->getChoices(),
-            'sheet' => $this->liveSheet($record),
+            'sheet' => $this->liveSheet($record, $runtimeStates),
         ];
     }
 
@@ -177,6 +178,9 @@ final class GameStrikeParticipants
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param array<int, array<string, mixed>> $runtimeStates Состояния участника.
+     * @param int|null $spaceId Мир листа.
+     * @param int|null $rulesRevision Ревизия листа.
      *
      * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
      *
@@ -189,12 +193,24 @@ final class GameStrikeParticipants
         ?array $npcSheet,
         ?array $npcChoices,
         ?int $sheetVersion = null,
+        array $runtimeStates = [],
+        ?int $spaceId = null,
+        ?int $rulesRevision = null,
     ): array {
         if ($kind === 'character') {
-            return $this->characterAttackerDocuments($id);
+            return $this->characterAttackerDocuments($id, $runtimeStates);
         }
 
-        return $this->npcAttackerDocuments($kind, $id, $npcSheet, $npcChoices, $sheetVersion);
+        return $this->npcAttackerDocuments(
+            $kind,
+            $id,
+            $npcSheet,
+            $npcChoices,
+            $sheetVersion,
+            $runtimeStates,
+            $spaceId,
+            $rulesRevision,
+        );
     }
 
     /**
@@ -214,6 +230,30 @@ final class GameStrikeParticipants
         }
 
         return $this->sheets->compute($slice, $choices, $sheet);
+    }
+
+    /**
+     * Посчитанный лист с состояниями цели из наложенных эффектов.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы.
+     * @param array<int, array<string, mixed>> $runtimeStates Строки состояний.
+     *
+     * @return array<string, mixed> Sheet.
+     */
+    public function applyRuntimeStates(
+        CharacterRuleSlice $slice,
+        array $sheet,
+        array $choices,
+        array $runtimeStates,
+    ): array {
+        if (is_array($sheet['sheet'] ?? null) && is_array($sheet['choices'] ?? null)) {
+            $choices = $sheet['choices'];
+            $sheet = $sheet['sheet'];
+        }
+
+        return $this->sheets->compute($slice, $choices, $sheet, [], $runtimeStates);
     }
 
     /**
@@ -262,7 +302,8 @@ final class GameStrikeParticipants
         array $choices,
         ?string $participantKey = null,
     ): FormulaContext {
-        if ($participantKey !== null && isset($this->contextCache[$participantKey])) {
+        $runtime = $this->hasRuntimeStates($sheet);
+        if (!$runtime && $participantKey !== null && isset($this->contextCache[$participantKey])) {
             return $this->contextCache[$participantKey];
         }
 
@@ -273,12 +314,34 @@ final class GameStrikeParticipants
 
         $computed = $this->sheets->compute($slice, $choices, $sheet);
         $context = $this->formulaContexts->build($computed);
-        if ($participantKey !== null) {
+        if (!$runtime && $participantKey !== null) {
             $this->sheetCache[$participantKey] = $computed;
             $this->contextCache[$participantKey] = $context;
         }
 
         return $context;
+    }
+
+    /**
+     * В листе есть временные состояния цели.
+     *
+     * @param array<string, mixed> $sheet Лист или документ.
+     *
+     * @return bool true, если состояние помечено runtime.
+     */
+    private function hasRuntimeStates(array $sheet): bool
+    {
+        $rows = is_array($sheet['states'] ?? null)
+            ? $sheet['states']
+            : (is_array($sheet['sheet']['states'] ?? null) ? $sheet['sheet']['states'] : []);
+
+        foreach ($rows as $row) {
+            if (is_array($row) && ($row['runtime'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -290,9 +353,9 @@ final class GameStrikeParticipants
      *
      * @throws GameNotFoundException Если персонажа нет.
      */
-    private function characterAttackerDocuments(int $id): array
+    private function characterAttackerDocuments(int $id, array $runtimeStates = []): array
     {
-        $snapshot = $this->characterSnapshot($id);
+        $snapshot = $this->characterSnapshot($id, $runtimeStates);
 
         return [
             'sheet' => $snapshot['sheet'],
@@ -309,6 +372,9 @@ final class GameStrikeParticipants
      * @param array<string, mixed>|null $npcSheet Снимок sheet NPC.
      * @param array<string, mixed>|null $npcChoices Снимок choices NPC.
      * @param int|null $sheetVersion Версия листа NPC.
+     * @param array<int, array<string, mixed>> $runtimeStates Состояния участника.
+     * @param int|null $spaceId Мир листа.
+     * @param int|null $rulesRevision Ревизия листа.
      *
      * @return array{sheet: array<string, mixed>, choices: array<string, mixed>, key: string|null} Документы.
      *
@@ -320,9 +386,21 @@ final class GameStrikeParticipants
         ?array $npcSheet,
         ?array $npcChoices,
         ?int $sheetVersion,
+        array $runtimeStates = [],
+        ?int $spaceId = null,
+        ?int $rulesRevision = null,
     ): array {
-        if ($kind !== 'npc' || !is_array($npcSheet)) {
+        if ($kind !== 'npc' || !is_array($npcSheet) || !is_array($npcChoices)) {
             throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        if ($runtimeStates !== [] && $spaceId !== null && $rulesRevision !== null) {
+            $npcSheet = $this->applyRuntimeStates(
+                $this->slices->slice($spaceId, $rulesRevision),
+                $npcSheet,
+                $npcChoices,
+                $runtimeStates,
+            );
         }
 
         return [
@@ -385,13 +463,14 @@ final class GameStrikeParticipants
      * Посчитанный sheet actual.
      *
      * @param CharacterRecord $record Строка.
+     * @param array<int, array<string, mixed>> $runtimeStates Состояния цели.
      *
      * @return array<string, mixed> Sheet.
      */
-    private function liveSheet(CharacterRecord $record): array
+    private function liveSheet(CharacterRecord $record, array $runtimeStates = []): array
     {
         $key = $this->makeParticipantKey('character', $record->getId(), $record->getActualVersion());
-        if (isset($this->sheetCache[$key])) {
+        if ($runtimeStates === [] && isset($this->sheetCache[$key])) {
             return $this->sheetCache[$key];
         }
 
@@ -399,9 +478,13 @@ final class GameStrikeParticipants
             $this->slices->slice($record->getSpaceId(), $record->getRulesRevision()),
             $record->getChoices(),
             $record->getSheet(),
+            [],
+            $runtimeStates,
         );
-        $this->sheetCache[$key] = $sheet;
-        $this->contextCache[$key] = $this->formulaContexts->build($sheet);
+        if ($runtimeStates === []) {
+            $this->sheetCache[$key] = $sheet;
+            $this->contextCache[$key] = $this->formulaContexts->build($sheet);
+        }
 
         return $sheet;
     }

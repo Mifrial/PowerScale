@@ -29,6 +29,7 @@ final class GameCharacterProjection
      * @param GameProjectionAccess $access Доступ читателя.
      * @param GameActiveSpellRepository $spells Поддерживаемые заклинания.
      * @param GameSpellEffect $effects Временные эффекты заклинаний.
+     * @param GameActiveEffectStates $states Состояния цели из наложенных эффектов.
      *
      * @return void
      */
@@ -40,6 +41,7 @@ final class GameCharacterProjection
         private readonly GameProjectionAccess $access,
         private readonly GameActiveSpellRepository $spells,
         private readonly GameSpellEffect $effects,
+        private readonly GameActiveEffectStates $states,
     ) {
     }
 
@@ -104,8 +106,15 @@ final class GameCharacterProjection
             $this->spells->findForGameCaster($game->getId(), 'character', $row->getCharacterId()),
             $sheet,
         );
-        if ($runtimeSenses !== []) {
-            $sheet = $this->sheets->compute($slice, $actual->getChoices(), $actual->getSheet(), $runtimeSenses);
+        $runtimeStates = $this->states->rowsOf($game, 'character', $row->getCharacterId());
+        if ($runtimeSenses !== [] || $runtimeStates !== []) {
+            $sheet = $this->sheets->compute(
+                $slice,
+                $actual->getChoices(),
+                $actual->getSheet(),
+                $runtimeSenses,
+                $runtimeStates,
+            );
         }
 
         $masked = $this->mask->apply(

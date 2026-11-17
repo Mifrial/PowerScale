@@ -100,6 +100,9 @@ final class GameStrikeAttackFactory
             $actor->npcSheet,
             $actor->npcChoices,
             $actor->sheetVersion,
+            $actor->runtimeStates,
+            $actor->spaceId,
+            $actor->rulesRevision,
         );
     }
 

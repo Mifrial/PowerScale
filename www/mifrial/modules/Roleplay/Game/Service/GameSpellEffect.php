@@ -5,44 +5,140 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord;
 use Mifrial\Roleplay\Game\Dto\GameActiveSpellRecord;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpellSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellEffectSource;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSenseEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellStateEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\MagicPath\MagicPathSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\SenseSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\StateSpec;
 use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
- * Временные эффекты поддерживаемого заклинания на лист кастера.
+ * Временные эффекты заклинания: чувства кастера и состояния цели.
  *
- * Эффект читается из спеки карточки и текущей строки `game_active_spell`;
- * в лист он не пишется. Пока строка жива, чувство есть; строка удалена —
- * эффект исчез.
+ * Эффект читается из спеки карточки и строки `game_active_spell` или
+ * `game_active_effect`; в лист он не пишется. Пока строка жива, эффект есть;
+ * строка удалена — эффект исчез.
  */
 final class GameSpellEffect
 {
     /**
-     * Эффекты карточки допустимы только у поддержания.
+     * Эффекты карточки допустимы только у своей длительности.
      *
      * @param AbilitySpellSpec $card Карточка.
      *
      * @return void
      *
-     * @throws GameInvalidException Если эффект есть, а длительность не sustained.
+     * @throws GameInvalidException Если эффект есть, а длительность чужая.
      */
     public function assertSupported(AbilitySpellSpec $card): void
     {
-        if ($card->getSpell()->getEffects() === []) {
-            return;
-        }
+        $duration = $card->getSpell()->getDurationType();
+        foreach ($card->getSpell()->getEffects() as $effect) {
+            if ($effect instanceof SpellSenseEffect && $duration !== 'sustained') {
+                throw new GameInvalidException('Game spell effects are not supported for this duration');
+            }
 
-        if ($card->getSpell()->getDurationType() !== 'sustained') {
-            throw new GameInvalidException('Game spell effects are not supported for this duration');
+            if ($effect instanceof SpellStateEffect && $duration !== 'lingering') {
+                throw new GameInvalidException('Game spell state is not supported for this duration');
+            }
         }
     }
+
+    /**
+     * Строки состояний цели от наложенных заклинаний.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param array<int, GameActiveEffectRecord> $effects Строки цели.
+     *
+     * @return array<int, array<string, mixed>> Строки для пересчёта листа.
+     *
+     * @throws GameInvalidException Если карточка, состояние или источник битые.
+     */
+    public function runtimeStates(CharacterRuleSlice $slice, array $effects): array
+    {
+        $rows = [];
+        foreach ($effects as $effect) {
+            if ($effect->getSourceType() !== 'spell') {
+                continue;
+            }
+
+            $card = $this->card($slice, $effect->getSourceRuleCode());
+            foreach ($card->getSpell()->getEffects() as $item) {
+                if ($item instanceof SpellStateEffect) {
+                    $rows[] = $this->stateRow($slice, $effect, $item);
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Строка одного состояния цели.
+     *
+     * @param CharacterRuleSlice $slice Срез.
+     * @param GameActiveEffectRecord $effect Строка эффекта.
+     * @param SpellStateEffect $item Эффект карточки.
+     *
+     * @return array<string, mixed> Строка состояния.
+     *
+     * @throws GameInvalidException Если состояния или источника нет.
+     */
+    private function stateRow(
+        CharacterRuleSlice $slice,
+        GameActiveEffectRecord $effect,
+        SpellStateEffect $item,
+    ): array {
+        $code = $item->getStateCode();
+        if (!$slice->findLive($code)?->getSpec() instanceof StateSpec) {
+            throw new GameInvalidException('Game spell state is invalid');
+        }
+
+        return [
+            'stateRuleCode' => $code,
+            'value' => $this->stateUnits($effect, $item),
+            'sourceRuleCode' => $effect->getSourceRuleCode(),
+            'runtimeId' => $effect->getId() . ':' . $code,
+            'runtime' => true,
+        ];
+    }
+
+    /**
+     * Единицы состояния из строки эффекта.
+     *
+     * @param GameActiveEffectRecord $effect Строка эффекта.
+     * @param SpellStateEffect $item Эффект карточки.
+     *
+     * @return int Единицы.
+     *
+     * @throws GameInvalidException Если источник не поддержан.
+     */
+    private function stateUnits(GameActiveEffectRecord $effect, SpellStateEffect $item): int
+    {
+        $source = $item->getValue();
+        $from = $source?->getFrom() ?? 'power';
+        if ($from === 'power') {
+            $strength = $effect->getStrength() ?? ['base' => 1, 'size' => 0];
+            $units = $strength['base'];
+        } elseif ($from === 'parameter') {
+            $code = $source?->getParameterCode();
+            $value = $code === null ? null : ($effect->getContext()['parameterValues'][$code] ?? null);
+            $units = is_int($value) ? $value : 1;
+        } else {
+            throw new GameInvalidException('Game spell state source is invalid');
+        }
+
+        $units = max(1, $units);
+
+        return $item->getMax() === null ? $units : min($item->getMax(), $units);
+    }
+
 
     /**
      * Строки временных чувств от набора поддерживаемых заклинаний.

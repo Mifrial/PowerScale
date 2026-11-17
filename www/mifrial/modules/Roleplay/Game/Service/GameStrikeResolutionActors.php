@@ -23,11 +23,13 @@ final class GameStrikeResolutionActors
      * Создаёт сборку запросов.
      *
      * @param GameNpcRepository $npcs NPC.
+     * @param GameActiveEffectStates $states Состояния цели из наложенных эффектов.
      *
      * @return void
      */
     public function __construct(
         private readonly GameNpcRepository $npcs,
+        private readonly GameActiveEffectStates $states,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class GameStrikeResolutionActors
         int $gripBonus = 0,
     ): GameStrikeTarget {
         $npc = $row['kind'] === 'npc' ? $this->npcData($game->getId(), $row['attackerId']) : null;
+        $runtimeStates = $this->states->rowsOf($game, (string) $row['kind'], (int) $row['attackerId']);
 
         return GameStrikeTarget::of(
             $game->getSpaceId(),
@@ -69,6 +72,7 @@ final class GameStrikeResolutionActors
             $characteristicModifier,
             $strengthDrop,
             $gripBonus,
+            $runtimeStates,
         );
     }
 

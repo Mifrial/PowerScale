@@ -21,6 +21,7 @@ use Mifrial\Roleplay\Game\Interface\Service\IGameAdmissions;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Repository\GameActionRepository;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
@@ -249,7 +250,16 @@ final class GamePortFactory
                 $this->smartTableGateway($serviceLocator),
             ),
             $visibility,
-            new GameNpcView($visibility, new GameNpcSheetRefresh($this->sheetEngines($serviceLocator))),
+            new GameNpcView(
+                $visibility,
+                new GameNpcSheetRefresh($this->sheetEngines($serviceLocator)),
+                new GameActiveEffectStates(
+                    new GameSessionRepository($this->smartTableGateway($serviceLocator)),
+                    new GameActiveEffectRepository($this->smartTableGateway($serviceLocator)),
+                    new GameStrikeSlices((new GameStrikeCharacterPorts($serviceLocator))->ruleSlices()),
+                    $this->sheets($serviceLocator),
+                ),
+            ),
         );
     }
 

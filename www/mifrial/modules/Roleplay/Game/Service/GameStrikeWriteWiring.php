@@ -67,6 +67,7 @@ final class GameStrikeWriteWiring
             new GameCharacterRepository($gateway),
             new GameMemberRepository($gateway),
             $this->projection(),
+            $rules->states,
         );
     }
 

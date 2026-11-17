@@ -12,6 +12,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellEffectSource;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSenseEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellSpec;
+use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellStateEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\SpellValue;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
@@ -201,6 +202,7 @@ final class SpellSpecs
             $type = SpecShape::string($row, 'type');
             $effects[] = match ($type) {
                 'sense' => self::senseEffect($row),
+                'state' => self::stateEffect($row),
                 default => throw new RuleSpecShapeException('type'),
             };
         }
@@ -229,6 +231,29 @@ final class SpellSpecs
             SpecShape::optionalString($row, 'status'),
             self::effectSource($row, 'radius'),
             self::effectSource($row, 'value'),
+        );
+    }
+
+    /**
+     * Эффект состояния на цели.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return SpellStateEffect Эффект.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function stateEffect(array $row): SpellStateEffect
+    {
+        $stateCode = SpecShape::string($row, 'state_code');
+        if ($stateCode === '') {
+            throw new RuleSpecShapeException('state_code');
+        }
+
+        return new SpellStateEffect(
+            $stateCode,
+            self::effectSource($row, 'value'),
+            SpecShape::optionalInt($row, 'max'),
         );
     }
 

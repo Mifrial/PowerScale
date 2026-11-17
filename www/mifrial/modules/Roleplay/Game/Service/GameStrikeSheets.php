@@ -26,6 +26,7 @@ final class GameStrikeSheets
      * @param GameCharacterRepository $characters Персонажи игры.
      * @param GameMemberRepository $members Участники.
      * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
+     * @param GameActiveEffectStates $states Состояния цели из наложенных эффектов.
      *
      * @return void
      */
@@ -35,6 +36,7 @@ final class GameStrikeSheets
         private readonly GameCharacterRepository $characters,
         private readonly GameMemberRepository $members,
         private readonly ConflictSheetProjection $conflictProjection,
+        private readonly GameActiveEffectStates $states,
     ) {
         $this->conflicts = new GameStrikeSheetConflicts(
             $this,
@@ -65,13 +67,24 @@ final class GameStrikeSheets
         }
 
         if ($kind === 'character') {
-            return $this->rules->data->characterSnapshot($id)['sheet'];
+            $snapshot = $this->rules->data->characterSnapshot($id);
+
+            return $this->withRuntimeStates(
+                $game->getId(),
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                'character',
+                $id,
+                $snapshot['sheet'],
+                $snapshot['choices'],
+            );
         }
 
-        $wrapped = $this->getNpcSnapshot($game->getId(), $id)['sheet'];
-        $inner = is_array($wrapped) ? ($wrapped['sheet'] ?? null) : null;
+        $snapshot = $this->getNpcSnapshot($game->getId(), $id);
+        $document = $snapshot['sheet'];
+        $sheet = is_array($document['sheet'] ?? null) ? $document['sheet'] : $document;
 
-        return is_array($inner) ? $inner : $wrapped;
+        return $this->getNpcSheet($game->getId(), $id, $sheet);
     }
 
     /**
@@ -88,32 +101,100 @@ final class GameStrikeSheets
     public function getTargetSheet(GameRecord $game, array $target): array
     {
         if ($target['type'] === 'character') {
-            return $this->rules->data->characterSnapshot($target['id'])['sheet'];
+            $snapshot = $this->rules->data->characterSnapshot($target['id']);
+
+            return $this->withRuntimeStates(
+                $game->getId(),
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                'character',
+                $target['id'],
+                $snapshot['sheet'],
+                $snapshot['choices'],
+            );
         }
 
         return $this->getNpcSheet($game->getId(), $target['id']);
     }
 
     /**
-     * Лист NPC этой игры.
+     * Лист NPC этой игры с состояниями цели.
      *
      * @param int $gameId Игра.
      * @param int $npcId NPC.
+     * @param array<string, mixed>|null $sheet Лист из снимка или null.
      *
      * @return array<string, mixed> Лист.
      *
      * @throws GameInvalidException Если строка чужая или снимка нет.
      * @throws GameNotFoundException Если строки нет.
      */
-    public function getNpcSheet(int $gameId, int $npcId): array
+    public function getNpcSheet(int $gameId, int $npcId, ?array $sheet = null): array
     {
         $npc = $this->npcs->getById($npcId);
-        $sheet = $npc->getGameId() === $gameId ? ($npc->getVersion()['sheet'] ?? null) : null;
-        if (!is_array($sheet)) {
+        $version = $npc->getVersion();
+        $sheet ??= $version['sheet'] ?? null;
+        if ($npc->getGameId() !== $gameId || !is_array($sheet)) {
             throw new GameInvalidException('Game strike npc sheet is missing');
         }
 
-        return $sheet;
+        $spaceId = $version['spaceId'] ?? null;
+        $revision = $version['rulesRevision'] ?? null;
+        $choices = $version['choices'] ?? null;
+        if (!is_int($spaceId) || !is_int($revision) || !is_array($choices)) {
+            return $sheet;
+        }
+
+        return $this->withRuntimeStates($gameId, $spaceId, $revision, 'npc', $npcId, $sheet, $choices);
+    }
+
+    /**
+     * Строки состояний участника из наложенных эффектов.
+     *
+     * @param GameRecord $game Игра.
+     * @param string $kind Вид участника.
+     * @param int $id Идентификатор.
+     *
+     * @return array<int, array<string, mixed>> Строки состояний.
+     */
+    public function runtimeStates(GameRecord $game, string $kind, int $id): array
+    {
+        return $this->states->rowsOf($game, $kind, $id);
+    }
+
+    /**
+     * Добавляет состояния цели из наложенных эффектов.
+     *
+     * @param int $gameId Игра.
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $kind Вид цели.
+     * @param int $id Идентификатор цели.
+     * @param array<string, mixed> $sheet Лист.
+     * @param array<string, mixed> $choices Выборы.
+     *
+     * @return array<string, mixed> Лист.
+     */
+    private function withRuntimeStates(
+        int $gameId,
+        int $spaceId,
+        int $rulesRevision,
+        string $kind,
+        int $id,
+        array $sheet,
+        array $choices,
+    ): array {
+        $rows = $this->states->rows($gameId, $spaceId, $rulesRevision, $kind, $id);
+        if ($rows === []) {
+            return $sheet;
+        }
+
+        return $this->rules->participants->applyRuntimeStates(
+            $this->rules->data->ruleSlice($spaceId, $rulesRevision),
+            $sheet,
+            $choices,
+            $rows,
+        );
     }
 
     /**

@@ -35,7 +35,7 @@ final class GameStrikeResolution
         GameStrikeConsequences $consequences,
     ) {
         $context = new GameStrikeResolutionContext($rules, $sheets, $npcs);
-        $actors = new GameStrikeResolutionActors($npcs);
+        $actors = new GameStrikeResolutionActors($npcs, $rules->states);
         $this->rolls = new GameStrikeResolutionRolls($rules, $sheets, $context, $actors);
         $this->defense = new GameStrikeResolutionDefense($rules, $context, $actors);
         $this->damage = new GameStrikeResolutionDamage($rules, $sheets, $context, $actors, $consequences);

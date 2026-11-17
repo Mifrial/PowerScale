@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Tests;
 
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
+use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
+use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
@@ -13,6 +16,9 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
+use Mifrial\Roleplay\Game\Service\GameActiveEffectStates;
 use Mifrial\Roleplay\Game\Service\GameCheckRoll;
 use Mifrial\Roleplay\Game\Service\GameStrikeAmounts;
 use Mifrial\Roleplay\Game\Service\GameStrikeLayers;
@@ -385,6 +391,16 @@ final class GameStrikeRulesTest extends TestCase
         );
         $strikeSlices = new GameStrikeSlices($slices);
         $participants = new GameStrikeParticipants($characters, $formulaContexts, $sheets, $strikeSlices);
+        $opened = $this->createMock(IOpenedTable::class);
+        $opened->method('records')->willReturn($this->createMock(IOpenedRecords::class));
+        $gateway = $this->createMock(ISmartTableGateway::class);
+        $gateway->method('open')->willReturn($opened);
+        $states = new GameActiveEffectStates(
+            new GameSessionRepository($gateway),
+            new GameActiveEffectRepository($gateway),
+            $strikeSlices,
+            $sheets,
+        );
 
         return new GameStrikeRules(
             $this->createMock(IFormulaEvaluations::class),
@@ -393,6 +409,7 @@ final class GameStrikeRulesTest extends TestCase
             $strikeSlices,
             $characters,
             $participants,
+            $states,
         );
     }
 

@@ -3364,6 +3364,14 @@
                     "hasStatus": true
                 },
                 {
+                    "path": "docs/tr/spell-real-plan-20-target-states.md",
+                    "title": "План M20 — эффект на лист цели: состояния",
+                    "kind": "plan",
+                    "state": "В РАБОТЕ",
+                    "date": "2026-11-17",
+                    "hasStatus": true
+                },
+                {
                     "path": "docs/tr/rule-content-plan-02-concentration.md",
                     "title": "C2 — план реализации концентрации",
                     "kind": "plan",

@@ -106,6 +106,7 @@ final class GameStrikeShared
                 new GameCharacterProjectionMask(),
                 new GameNpcVisibility(),
             ),
+            $rules->states,
         );
     }
 

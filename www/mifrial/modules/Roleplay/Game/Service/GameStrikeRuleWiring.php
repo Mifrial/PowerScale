@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Game\Service;
 
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
+use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
 /**
  * Сборка правил, броска, проверок и последствий удара.
@@ -46,6 +48,12 @@ final class GameStrikeRuleWiring
             $this->characters->characterSheets(),
             $slices,
         );
+        $states = new GameActiveEffectStates(
+            new GameSessionRepository($this->ports->gateway()),
+            new GameActiveEffectRepository($this->ports->gateway()),
+            $slices,
+            $this->characters->characterSheets(),
+        );
 
         return new GameStrikeRules(
             $this->mechanics->formulaEvaluations(),
@@ -54,6 +62,7 @@ final class GameStrikeRuleWiring
             $slices,
             $characters,
             $participants,
+            $states,
         );
     }
 

@@ -182,6 +182,7 @@ final class GameStrikeOpenTargets
             $this->modifier($game, $context, $row),
             0,
             0,
+            $this->rules->states->rowsOf($game, $row->attackerKind, $row->attackerId),
         );
     }
 
