@@ -1,4 +1,5 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { GameActiveEffect } from '@/modules/Roleplay/Game/Dto/GameActiveEffect';
 import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -65,6 +66,11 @@ export class GameManualSheetClient {
     }
 
     return { stateRuleCode: state.stateRuleCode, id: state.id };
+  }
+
+  /** Снятие наложенного эффекта: строка `game_active_effect`, не лист. */
+  removeEffectDetails(effect: GameActiveEffect): Record<string, unknown> {
+    return { effectId: Number(effect.id), expectedVersion: effect.version };
   }
 
   equippedDetails(inventoryId: number, equipped: boolean): Record<string, unknown> {

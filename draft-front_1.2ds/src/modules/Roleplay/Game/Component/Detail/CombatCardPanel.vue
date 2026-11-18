@@ -217,20 +217,47 @@ const targetActiveEffects = computed(() =>
   props.entityKey === null ? [] : activeEffectService.ofTarget(activeEffects.value, props.entityKey),
 );
 
-const activeEffectLabels = computed(() => [
-  ...targetActiveEffects.value.map((effect) => activeEffectService.labelOf(effect, props.rules)),
-  ...pendingEffects.value.map((pending) => {
+type ActiveEffectRow = {
+  key: string;
+  label: string;
+  /** Наложенный эффект; null — ожидающий эффект или метка боя. */
+  effect: GameActiveEffect | null;
+};
+
+const activeEffectRows = computed<ActiveEffectRow[]>(() => [
+  ...targetActiveEffects.value.map((effect) => ({
+    key: `effect-${effect.id}`,
+    label: activeEffectService.labelOf(effect, props.rules),
+    effect,
+  })),
+  ...pendingEffects.value.map((pending, index) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
     if (pending.effect.type === 'last_strike_snapshot') {
-      return `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`;
+      return {
+        key: `pending-${index}`,
+        label: `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`,
+        effect: null,
+      };
     }
     if (pending.effect.type === 'prepared_defense_counter') {
-      return `${source}: ${defenseCounterService.describe(pending.effect, entityName)}`;
+      return {
+        key: `pending-${index}`,
+        label: `${source}: ${defenseCounterService.describe(pending.effect, entityName)}`,
+        effect: null,
+      };
     }
 
-    return `${source}: ${actionEffectService.describe(pending.effect)}`;
+    return {
+      key: `pending-${index}`,
+      label: `${source}: ${actionEffectService.describe(pending.effect)}`,
+      effect: null,
+    };
   }),
-  ...entityMarks.value.map((mark) => markText(mark)),
+  ...entityMarks.value.map((mark, index) => ({
+    key: `mark-${index}`,
+    label: markText(mark),
+    effect: null,
+  })),
 ]);
 
 onMounted(() => {
@@ -344,6 +371,8 @@ type CombatStateTileModel = {
   woundInternal: boolean;
   woundHeld: boolean;
   linkedActions: CombatStateLinkedAction[];
+  /** Строка наложенного эффекта: правится и снимается только через эффект. */
+  runtime: boolean;
 };
 
 const poisoningCode = computed(() => attackDamageService.poisoningRule(props.rules)?.code ?? '');
@@ -466,6 +495,7 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         woundInternal: state ? woundInstanceService.payload(state).internal : false,
         woundHeld: state ? woundInstanceService.isHeld(state) : false,
         linkedActions: row.linkedActions,
+        runtime: state?.runtime === true,
       });
     }
   }
@@ -895,6 +925,25 @@ async function removeState(index: number): Promise<void> {
   }
 }
 
+/** Снимает наложенный эффект: вместе с ним уходит и его состояние из листа. */
+async function removeActiveEffect(effect: GameActiveEffect): Promise<void> {
+  if (!model.value) return;
+  error.value = null;
+  try {
+    await gameManualSheetClient.apply(
+      getGameApi(),
+      props.gameId,
+      model.value.entityKey,
+      'removeEffect',
+      gameManualSheetClient.removeEffectDetails(effect),
+    );
+    await loadOverlays();
+    notifyMutation();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось убрать эффект';
+  }
+}
+
 function stateValue(state: CharacterStateValue): string {
   if (state.value !== undefined) return String(state.value);
   if (state.dimensionalValue) return new DimensionalNumber(state.dimensionalValue).toString();
@@ -1316,9 +1365,23 @@ function onSheetToggleEquipped(itemId: number): void {
                 Бой
               </button>
               <div v-show="isSectionOpen('combat')">
-                <v-alert v-if="activeEffectLabels.length" type="info" variant="tonal" density="compact" class="mb-3">
+                <v-alert v-if="activeEffectRows.length" type="info" variant="tonal" density="compact" class="mb-3">
                   <div class="text-subtitle-2 mb-1">Активные эффекты</div>
-                  <div v-for="(label, index) in activeEffectLabels" :key="`${index}-${label}`">{{ label }}</div>
+                  <div
+                    v-for="row in activeEffectRows"
+                    :key="row.key"
+                    class="d-flex align-center justify-space-between ga-3"
+                  >
+                    <span>{{ row.label }}</span>
+                    <v-btn
+                      v-if="canEdit && row.effect"
+                      icon="mdi-close"
+                      size="x-small"
+                      variant="text"
+                      title="Снять эффект"
+                      @click.stop="removeActiveEffect(row.effect)"
+                    />
+                  </div>
                 </v-alert>
                 <template
                   v-for="(section, sectionKey) in { melee: overview.combat.melee, ranged: overview.combat.ranged }"
@@ -1400,7 +1463,8 @@ function onSheetToggleEquipped(itemId: number): void {
                     :left-label="tile.leftLabel"
                     :value-label="tile.valueLabel"
                     :details="tile.details"
-                    :can-edit="model.canEdit"
+                    :can-edit="model.canEdit && !tile.runtime"
+                    :removable="!tile.runtime"
                     :edit-kind="tile.editKind"
                     :current="tile.current"
                     :min-value="tile.minValue"

@@ -5,7 +5,14 @@ export interface GameManualSheetRequest {
   gameId: number;
   idempotencyKey: string;
   operation:
-    'setResource' | 'addState' | 'patchState' | 'removeState' | 'setEquipped' | 'setOccupyHands' | 'setItemMana';
+    | 'setResource'
+    | 'addState'
+    | 'patchState'
+    | 'removeState'
+    | 'removeEffect'
+    | 'setEquipped'
+    | 'setOccupyHands'
+    | 'setItemMana';
   target: GamePhpWoundParty;
   expectedSheetVersion: number;
   details: Record<string, unknown>;

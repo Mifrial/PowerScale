@@ -19,6 +19,21 @@ const rule = (code: string, type: Rule['type'], name: string, spec?: Rule['spec'
   spec,
 });
 
+describe('CharacterHttpViewService.statesFromSheet', () => {
+  it('сохраняет метку временной строки эффекта', () => {
+    expect(
+      characterHttpViewService.statesFromSheet([
+        {
+          stateRuleCode: 'sharpened-senses',
+          runtime: true,
+          runtimeId: '12:sharpened-senses',
+          sourceRuleCode: 'heightened-senses',
+        },
+      ]),
+    ).toEqual([{ stateRuleCode: 'sharpened-senses', runtime: true, runtimeId: '12:sharpened-senses' }]);
+  });
+});
+
 describe('CharacterHttpViewService.versionFromStored', () => {
   it('PHP-снимок membership даёт CharacterVersion с массивами', () => {
     const version = characterHttpViewService.versionFromStored({

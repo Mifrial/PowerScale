@@ -9,6 +9,8 @@ import type { GameCombatCommand } from '@/modules/Roleplay/Game/Dto/GameCombatCo
 import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
 import type { GameRuntimeMutationCommand } from '@/modules/Roleplay/Game/Dto/GameRuntimeMutationCommand';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
+import type { GameManualSheetRequest } from '@/modules/Roleplay/Game/Dto/GameManualSheetRequest';
+import type { GameManualSheetResult } from '@/modules/Roleplay/Game/Dto/GameManualSheetResult';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
 import type { UpdateGameMemberData } from '@/modules/Roleplay/Game/Dto/UpdateGameMemberData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
@@ -74,7 +76,6 @@ import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/
 import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
 import type { GamePhpCheckResult } from '@/modules/Roleplay/Game/Dto/GamePhpCheckResult';
-import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
 import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionRequest';
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
@@ -1536,18 +1537,8 @@ export class GameApi implements IGameApi {
     return result;
   }
 
-  async manualSheet(
-    body: {
-      gameId: number;
-      idempotencyKey: string;
-      operation: 'setResource' | 'addState' | 'patchState' | 'removeState';
-      target: GamePhpWoundParty;
-      expectedSheetVersion: number;
-      details: Record<string, unknown>;
-    },
-    signal?: AbortSignal,
-  ): Promise<{ actualVersion: number }> {
-    return this.requireData<{ actualVersion: number }>('game.manualSheet', body, signal);
+  async manualSheet(body: GameManualSheetRequest, signal?: AbortSignal): Promise<GameManualSheetResult> {
+    return this.requireData<GameManualSheetResult>('game.manualSheet', body, signal);
   }
 
   async endTurn(

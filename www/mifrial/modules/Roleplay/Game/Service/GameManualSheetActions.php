@@ -12,11 +12,13 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
+use Mifrial\Roleplay\Game\Dto\GameActiveEffectRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameActiveEffectRepository;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameCommandRepository;
@@ -42,6 +44,8 @@ final class GameManualSheetActions
     private readonly GameSessionRepository $sessions;
 
     private readonly GameBattleRepository $battles;
+
+    private readonly GameActiveEffectRepository $effects;
 
     private readonly GameStrikeSheetWrites $sheetWrites;
 
@@ -85,6 +89,7 @@ final class GameManualSheetActions
         $this->members = new GameMemberRepository($smartTableGateway);
         $this->sessions = new GameSessionRepository($smartTableGateway);
         $this->battles = new GameBattleRepository($smartTableGateway);
+        $this->effects = new GameActiveEffectRepository($smartTableGateway);
         $this->sheetWrites = new GameStrikeSheetWrites($mutations, $this->npcs);
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
         $this->operations = new GameManualSheetOperations();
@@ -123,6 +128,9 @@ final class GameManualSheetActions
         }
 
         $this->assertTargetWriter($game, $actorUserId, $editAll, $body);
+        if (($body['operation'] ?? null) === 'removeEffect') {
+            $this->assertEffectRemover($game, $actorUserId, $editAll);
+        }
         $sessionId = $this->sessions->findSessionId($gameId);
         $key = $body['idempotencyKey'] ?? null;
         if ($sessionId === null || !is_string($key) || $key === '') {
@@ -214,6 +222,10 @@ final class GameManualSheetActions
             throw new GameInvalidException('Game manual sheet action is invalid');
         }
 
+        if ($operation === 'removeEffect') {
+            return $this->removeEffect($game, $actorUserId, $sessionId, $target, $expected, $details);
+        }
+
         $slice = $this->rules->data->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
         $before = $this->document($game, $target['kind'], $target['id']);
         $effects = $this->operations->effects($operation, $details, $slice, $before['sheet']);
@@ -229,6 +241,62 @@ final class GameManualSheetActions
         $this->announceChange($game, $actorUserId, $subject, $operation, $details, $slice, $before['sheet'], $planned['rolls']);
 
         return $this->result($sessionId, $target, $version);
+    }
+
+    /**
+     * Снимает наложенный длительный эффект с цели.
+     *
+     * Эффект не лежит в листе: снятие строки `game_active_effect` убирает и
+     * состояние из проекции. Версия листа не меняется, но ответ несёт
+     * ожидаемую версию, чтобы фронт не перечитывал карточку зря.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Автор.
+     * @param int $sessionId Сессия.
+     * @param array{kind: string, id: int} $target Цель.
+     * @param int $expectedSheetVersion Версия листа из запроса.
+     * @param array<string, mixed> $details Поля: `effectId`, `expectedVersion`.
+     *
+     * @return array<string, mixed> Итог.
+     *
+     * @throws GameInvalidException Если форма чужая.
+     * @throws GameNotFoundException Если эффекта нет.
+     * @throws GameBattleConflictException Если версия эффекта другая.
+     */
+    private function removeEffect(
+        GameRecord $game,
+        int $actorUserId,
+        int $sessionId,
+        array $target,
+        int $expectedSheetVersion,
+        array $details,
+    ): array {
+        $effectId = $details['effectId'] ?? null;
+        $expectedVersion = $details['expectedVersion'] ?? null;
+        if (!is_int($effectId) || $effectId < 1 || !is_int($expectedVersion)) {
+            throw new GameInvalidException('Game manual sheet action is invalid');
+        }
+
+        $effect = $this->effects->findById($effectId);
+        if (
+            !$effect instanceof GameActiveEffectRecord
+            || $effect->getGameId() !== $game->getId()
+            || $effect->getSessionId() !== $sessionId
+            || $effect->getTargetKind() !== $target['kind']
+            || $effect->getTargetId() !== $target['id']
+        ) {
+            throw new GameNotFoundException('Game active effect was not found');
+        }
+
+        $this->effects->deleteWithVersion($effect->getId(), $expectedVersion);
+        $before = $this->document($game, $target['kind'], $target['id']);
+        $this->chat->say(
+            $game,
+            $actorUserId,
+            'Эффект [[rule:' . $effect->getSourceRuleCode() . ']] снят с ' . $this->subject($target, $before) . '.',
+        );
+
+        return $this->result($sessionId, $target, $expectedSheetVersion);
     }
 
     /**
@@ -364,6 +432,27 @@ final class GameManualSheetActions
         if ($membership->getCharacterOwnerId() !== $actorUserId || $membership->getStatus() !== 'active') {
             throw new ActionException('AUTH_DENIED', 'Permission denied');
         }
+    }
+
+    /**
+     * Снимать наложенный эффект может только ведущий: владелец игры, роль gm
+     * или право править чужое. Владелец персонажа эффект не снимает.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $actorUserId Актор.
+     * @param bool $editAll Право править чужое.
+     *
+     * @return void
+     *
+     * @throws ActionException AUTH_DENIED.
+     */
+    private function assertEffectRemover(GameRecord $game, int $actorUserId, bool $editAll): void
+    {
+        if ($game->getOwnerId() === $actorUserId || $editAll || $this->isGm($game->getId(), $actorUserId)) {
+            return;
+        }
+
+        throw new ActionException('AUTH_DENIED', 'Permission denied');
     }
 
     /**

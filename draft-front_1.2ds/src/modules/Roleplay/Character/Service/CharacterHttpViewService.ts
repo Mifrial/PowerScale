@@ -580,6 +580,8 @@ export class CharacterHttpViewService {
         ? { poison: record.poison as CharacterStateValue['poison'] }
         : {}),
       ...(typeof record.dotTurnsLeft === 'number' ? { dotTurnsLeft: record.dotTurnsLeft } : {}),
+      ...(record.runtime === true ? { runtime: true } : {}),
+      ...(typeof record.runtimeId === 'string' ? { runtimeId: record.runtimeId } : {}),
       ...(typeof record.boundSustainId === 'string' ? { boundSustainId: record.boundSustainId } : {}),
       ...(typeof record.boundSourceKey === 'string' ? { boundSourceKey: record.boundSourceKey } : {}),
       ...(record.maim && typeof record.maim === 'object' ? { maim: record.maim as CharacterStateValue['maim'] } : {}),

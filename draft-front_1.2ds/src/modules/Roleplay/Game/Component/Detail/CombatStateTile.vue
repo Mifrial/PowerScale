@@ -19,6 +19,8 @@ const props = withDefaults(
     valueLabel: string;
     details?: CombatStateDetailRow[];
     canEdit?: boolean;
+    /** Снятие строки разрешено; эфемерная строка эффекта снимается самим эффектом. */
+    removable?: boolean;
     editKind?: CombatStateEditKind;
     current?: number;
     minValue?: number;
@@ -39,6 +41,7 @@ const props = withDefaults(
     iconCode: null,
     details: () => [],
     canEdit: false,
+    removable: true,
     editKind: 'none',
     current: 0,
     minValue: 0,
@@ -348,7 +351,15 @@ function submitRemove(): void {
         >
           {{ actionLabel }}
         </v-btn>
-        <v-btn v-if="canEdit" class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">
+        <v-btn
+          v-if="canEdit && removable"
+          class="mt-2"
+          color="error"
+          variant="tonal"
+          size="small"
+          block
+          @click="submitRemove"
+        >
           Убрать
         </v-btn>
       </v-card-text>

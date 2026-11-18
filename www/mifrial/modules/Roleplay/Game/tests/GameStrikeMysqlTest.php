@@ -1356,6 +1356,57 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Ведущий снимает наложенный эффект вручную: строка уходит, повтор идемпотентен.
+     *
+     * @return void
+     */
+    public function testGmRemovesActiveEffect(): void
+    {
+        $scene = $this->spellScene(
+            10,
+            null,
+            [['ruleCode' => 'lingering-self-test', 'level' => 1, 'domainCode' => 'arcanist']],
+            extraCards: ['lingering-self-test' => $this->lingeringSelfCard()],
+        );
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $cast = $this->dispatch('game.castSpell', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'remove-effect-cast',
+            'expectedVersion' => $battleVersion,
+            'expectedSheetVersion' => $scene['heroVersion'],
+            'actor' => ['type' => 'character', 'id' => $scene['hero']],
+            'spellCode' => 'lingering-self-test',
+            'pathCode' => 'arcanist',
+            'parameters' => [],
+            'usedPower' => [
+                'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                'value' => ['base' => 4, 'size' => 0],
+            ],
+        ]);
+        self::assertTrue($cast['success'], json_encode($cast));
+        $effect = $cast['data']['activeEffect'] ?? null;
+        self::assertIsArray($effect);
+        self::assertCount(1, $this->activeEffectRows($scene['battleId']));
+
+        $body = [
+            'gameId' => $scene['gameId'],
+            'idempotencyKey' => 'remove-effect-1',
+            'operation' => 'removeEffect',
+            'target' => ['kind' => 'character', 'id' => $scene['hero']],
+            'expectedSheetVersion' => $cast['data']['caster']['sheetVersion'],
+            'details' => ['effectId' => (int) $effect['id'], 'expectedVersion' => $effect['version']],
+        ];
+        $removed = $this->dispatch('game.manualSheet', $body);
+        self::assertTrue($removed['success'], json_encode($removed));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+
+        $replay = $this->dispatch('game.manualSheet', $body);
+        self::assertTrue($replay['success'], json_encode($replay));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+    }
+
+    /**
      * Длительный эффект касания хранит цель и тикает в конце её хода.
      *
      * @return void

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { gameManualSheetClient } from '@/modules/Roleplay/Game/Service/Instance/gameManualSheetClient';
 import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
+import type { GameActiveEffect } from '@/modules/Roleplay/Game/Dto/GameActiveEffect';
 
 describe('gameManualSheetClient', () => {
   it('шлёт абсолютный current и запоминает actualVersion', async () => {
@@ -33,6 +34,28 @@ describe('gameManualSheetClient', () => {
       id: 9,
       value: 4,
     });
+  });
+
+  it('шлёт removeEffect с id и версией эффекта', async () => {
+    gamePhpBattleContext.clear();
+    gamePhpBattleContext.rememberSheet('npc:5', 3);
+    const manualSheet = vi.fn(async () => ({ actualVersion: 3 }));
+
+    await gameManualSheetClient.apply(
+      { manualSheet } as unknown as IGameApi,
+      2,
+      'npc:5',
+      'removeEffect',
+      gameManualSheetClient.removeEffectDetails({ id: '12', version: 4 } as GameActiveEffect),
+    );
+
+    expect(manualSheet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: 'removeEffect',
+        expectedSheetVersion: 3,
+        details: { effectId: 12, expectedVersion: 4 },
+      }),
+    );
   });
 
   it('шлёт setEquipped и setOccupyHands по id строки', async () => {

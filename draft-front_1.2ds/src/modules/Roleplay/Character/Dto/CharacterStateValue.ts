@@ -9,6 +9,10 @@ import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterW
 export interface CharacterStateValue {
   /** Id строки листа PHP; на mock-пути нет. */
   id?: number;
+  /** Строка пришла из наложенного эффекта, а не из листа: её правят через эффект. */
+  runtime?: boolean;
+  /** Ключ временной строки (`<эффект>:<состояние>`); только для `runtime`. */
+  runtimeId?: string;
   stateRuleCode: string;
   /** flag: не заполняется; number: целое значение. */
   value?: number;
