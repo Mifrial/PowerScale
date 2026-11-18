@@ -76,6 +76,41 @@ final class CharacterPathStudyTest extends TestCase
     }
 
     /**
+     * Потолок от Интеллекта — числовое значение, а не база среднего размера.
+     *
+     * @return void
+     */
+    public function testDynamicIntellectCapUsesNumericValue(): void
+    {
+        $sheet = [
+            'abilityLevels' => ['construction' => 1, 'heightened' => 1],
+            'characteristics' => [[
+                'characteristicCode' => 'intellect',
+                'value' => ['base' => 4, 'size' => 2],
+            ]],
+        ];
+        $problems = $this->study(
+            [
+                $this->rule('arcanist', 'magic_path', []),
+                $this->rule('construction', 'ability', ['grants' => [$this->studyGrant(['arcanist'], [
+                    'type' => 'characteristic_floor_div',
+                    'characteristic_code' => 'intellect',
+                    'divisor' => 1,
+                ])]]),
+                $this->studyCard('heightened', 5),
+            ],
+            [
+                $this->ability('construction', 1),
+                $this->ability('heightened', 1, 'arcanist'),
+            ],
+            $sheet,
+        );
+
+        // Интеллект 4² = 16; карточка Стоимости 5 открыта.
+        self::assertSame([], $this->codes($problems));
+    }
+
+    /**
      * Без гранта изучения карточка не покупается.
      *
      * @return void

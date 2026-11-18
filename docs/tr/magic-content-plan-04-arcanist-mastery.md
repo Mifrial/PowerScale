@@ -115,6 +115,10 @@ type MagicStudyMaxCost = number | Formula;
 использовать строковую арифметику. Вычисление должно применять
 `DimensionalNumber.from(value).toNumber()`.
 
+Для Конструирования это выражено существующим
+`characteristic_floor_div` с `divisor: 1`: `to_scalar` даёт базу среднего
+размера, а не числовое значение (при Интеллекте `{4|2}` — 4 вместо 16).
+
 Не дублировать грант отдельными spell/non-spell хардкодами в
 `MagicStudyUnlockService`.
 
@@ -279,3 +283,9 @@ ability is learned
 - `mastery +2` не складывается с `mastery +1`;
 - существующие spell-flow и проверки не регрессировали;
 - точечные тесты и lint зелёные.
+
+## 9. Журнал
+
+| Дата | Что |
+| --- | --- |
+| 2026-11-18 | Ревизия 71: `magic-structure-construction` — `max_cost` выражен `characteristic_floor_div` (`divisor: 1`), то есть числовым значением Интеллекта. `to_scalar` давал базу среднего размера: при Интеллекте `{4|2}` потолок был 4 вместо 16, и заклинание стоимости 5 не открывалось. |

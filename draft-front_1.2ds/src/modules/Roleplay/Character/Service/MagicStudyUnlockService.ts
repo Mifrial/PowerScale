@@ -289,7 +289,30 @@ export class MagicStudyUnlockService {
     });
     if (open) return null;
 
-    return 'изучение этой карточки в рамках пути ещё не открыто';
+    const exhausted = unlocks.some((grant) => {
+      if (this.sameDonor(grant, currentRuleCode) || !this.costWithinLimit(grant, cost, snapshot)) return false;
+
+      return grant.max_instances != null && this.usedByGrant(grant, learned).length >= grant.max_instances;
+    });
+    if (exhausted) return 'лимит экземпляров изучения исчерпан';
+
+    const caps = unlocks
+      .filter((grant) => !this.sameDonor(grant, currentRuleCode))
+      .map((grant) => {
+        if (typeof grant.max_cost !== 'number' && !snapshot) return null;
+
+        try {
+          return this.maxCostOf(grant, snapshot);
+        } catch {
+          return null;
+        }
+      })
+      .filter((value): value is number => value !== null);
+    if (caps.length > 0) {
+      return `стоимость ${cost} выше потолка изучения ${Math.max(...caps)}`;
+    }
+
+    return 'нет активного гранта изучения в рамках пути';
   }
 
   /**

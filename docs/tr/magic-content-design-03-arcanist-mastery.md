@@ -77,6 +77,9 @@ magic_study(scope: non_spell, path_code: arcanist, max_cost: currentIntellect)
 необходимого уровня. Это должно быть отдельным runtime-состоянием
 доступности, а не удалением экземпляра способности.
 
+Потолок — числовое значение характеристики (`toNumber`), не база среднего
+размера. В контенте это `characteristic_floor_div` с `divisor: 1`.
+
 Предлагаемое направление реализации:
 
 ```text

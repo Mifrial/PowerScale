@@ -30,7 +30,9 @@ function skill(cost: number, grants: { level: number; grants: Grant[] }[] = [], 
   };
 }
 
-function grant(overrides: Partial<Extract<Grant, { type: 'magic_study' }>> = {}): Grant {
+function grant(
+  overrides: Partial<Extract<Grant, { type: 'magic_study' }>> = {},
+): Extract<Grant, { type: 'magic_study' }> {
   return { type: 'magic_study', paths: ['arcanist'], max_cost: 2, ...overrides };
 }
 
@@ -56,6 +58,21 @@ describe('MagicStudyUnlockService', () => {
     const unlocks = [{ ...grant({ max_cost: 2 }), donor_code: 'opener' }];
     expect(service.failureReason(spell(2), new Set(), unlocks)).toBeNull();
     expect(service.failureReason(spell(3), new Set(), unlocks)).not.toBeNull();
+  });
+
+  it('сообщает стоимость и потолок, когда цена выше', () => {
+    const unlocks = [{ ...grant({ max_cost: 2 }), donor_code: 'opener' }];
+    expect(service.failureReason(spell(3), new Set(), unlocks)).toBe('стоимость 3 выше потолка изучения 2');
+  });
+
+  it('сообщает об исчерпанном лимите экземпляров', () => {
+    const unlocks = [{ ...grant({ max_cost: 2, max_instances: 1 }), donor_code: 'opener' }];
+    const learned = [{ ruleCode: 'discharge', domainCode: 'arcanist', spec: spell(1) }];
+    expect(service.failureReason(spell(1), new Set(), unlocks, learned)).toBe('лимит экземпляров изучения исчерпан');
+  });
+
+  it('сообщает об отсутствии гранта изучения', () => {
+    expect(service.failureReason(spell(1), new Set(), [])).toBe('нет активного гранта изучения в рамках пути');
   });
 
   it('оплата из гранта перекрывает каталожную стоимость', () => {
@@ -111,6 +128,30 @@ describe('MagicStudyUnlockService', () => {
 
     expect(service.failureReason(spell(4), new Set(), unlocks, [], undefined, snapshot)).toBeNull();
     expect(service.failureReason(spell(5), new Set(), unlocks, [], undefined, snapshot)).not.toBeNull();
+  });
+
+  it('числовой потолок от Интеллекта не теряет размер', () => {
+    const unlocks = [
+      {
+        ...grant({
+          max_cost: {
+            type: 'characteristic_floor_div' as const,
+            characteristic_code: 'intellect',
+            divisor: 1,
+          },
+        }),
+        donor_code: 'construction',
+      },
+    ];
+    const snapshot = {
+      abilityLevels: new Map<string, number>(),
+      abilityKeywords: new Map<string, Set<string>>(),
+      characteristicValues: new Map([['intellect', { base: 4, size: 2 }]]),
+      resourceLimits: new Map<string, number | { base: number; size: number }>(),
+      keywordCodes: new Set<string>(),
+    };
+
+    expect(service.failureReason(spell(5), new Set(), unlocks, [], undefined, snapshot)).toBeNull();
   });
 
   it('runtime-доступность следует текущему Интеллекту и пути', () => {
