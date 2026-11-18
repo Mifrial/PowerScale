@@ -4,7 +4,7 @@ import type { SceneFillStyle } from '@/modules/Roleplay/Scene/Dto/SceneFillStyle
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneStrokeStyle } from '@/modules/Roleplay/Scene/Dto/SceneStrokeStyle';
-import type { SceneWallChain } from '@/modules/Roleplay/Scene/Service/SceneWallService';
+import type { SceneWallBand, SceneWallOutline } from '@/modules/Roleplay/Scene/Service/SceneWallService';
 import { Graphics } from 'pixi.js';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
@@ -189,75 +189,35 @@ export class SceneShapePainter {
   }
 
   /**
-   * Стена-лента: материал верхней грани, обводка, фаска, швы и тень.
+   * Верхняя грань стен: плоская заливка и швы материала.
    *
-   * Стена видна сверху, поэтому объём читается не второй линией, а светом:
-   * по краю идёт тонкая тёмная обводка, со стороны света — фаска, с
-   * противоположной — тень внутри полосы, а на пол падает мягкая тень. Полоса
-   * рисуется целиком на цепь, поэтому угол сходится митрой и стена читается
-   * монолитом, а не набором наезжающих прямоугольников.
+   * Заливка идёт по отдельным полосам, но цвет у всех полос материала один,
+   * поэтому нахлёст соседних стен не виден: в углу получается одна заливка,
+   * а не два прямоугольника. Силуэт и обводку рисует `paintWallOutline`.
    */
-  paintWallChain(chain: SceneWallChain, resolution: number, zoom: number): Graphics {
+  paintWallTop(bands: readonly SceneWallBand[], resolution: number, zoom: number): Graphics {
     const graphics = new Graphics();
-    const palette = this.wallPalette(this.wallMaterialKey(chain.material));
-    const thickness = Math.max(1, chain.thickness);
-    if (chain.points.length < 2) {
-      return graphics;
-    }
-
-    const widths = chain.points.map(() => thickness);
-    const geometry = sceneRibbonService.geometry(chain.points, [], widths, sceneCurveService.toleranceFor(zoom));
-    if (geometry.center.length < 2) {
-      return graphics;
-    }
-
-    const outline = [...geometry.left, ...[...geometry.right].reverse()];
-
-    // Тень: сдвинутые копии полосы с падающей прозрачностью. Лежит под стеной,
-    // поэтому на пол попадает только наружная часть.
-    const shadow = this.shadowDirection();
-    for (const layer of SCENE_WALL_MATERIAL.shadow.layers) {
-      const dx = shadow[0] * thickness * layer.shift;
-      const dy = shadow[1] * thickness * layer.shift;
-      const shifted = outline.map((point): ScenePoint => [point[0] + dx, point[1] + dy]);
-      graphics.poly(shifted.flat()).fill({ color: SHADOW_COLOR, alpha: layer.alpha });
-    }
-
-    graphics.poly(outline.flat()).fill({ color: palette.base, alpha: 1 });
-
-    // Обводка: только длинные стороны. Торцы рисуются у свободных концов, а у
-    // стыка их нет — иначе на углу остаётся след второй стены.
-    // Минимум в пиксель: иначе на отдалении обводка тоньше пикселя и стена
-    // растворяется в полу.
-    const edgeWidth = Math.max(1, thickness * SCENE_WALL_MATERIAL.edgeShare, 1 / zoom);
-    this.strokePolyline(graphics, geometry.left, palette.edge, edgeWidth, 0.8);
-    this.strokePolyline(graphics, geometry.right, palette.edge, edgeWidth, 0.8);
-    if (!chain.closed) {
-      const cap = edgeWidth;
-      if (chain.startFree) {
-        this.paintLine(graphics, geometry.left[0], geometry.right[0], palette.edge, cap, 0.8);
+    for (const band of bands) {
+      if (band.polygon.length < 3) {
+        continue;
       }
 
-      if (chain.endFree) {
-        this.paintLine(
-          graphics,
-          geometry.left[geometry.left.length - 1],
-          geometry.right[geometry.right.length - 1],
-          palette.edge,
-          cap,
-          0.8,
-        );
-      }
+      const palette = this.wallPalette(this.wallMaterialKey(band.material));
+      graphics.poly(band.polygon.flat()).fill({ color: palette.base, alpha: 1 });
     }
 
-    this.paintWallBevel(graphics, geometry, thickness, palette.edge);
+    // Швы — вторым проходом: заливка соседней полосы не должна их стирать.
+    for (const band of bands) {
+      const palette = this.wallPalette(this.wallMaterialKey(band.material));
+      if (palette.seamStepIpari <= 0) {
+        continue;
+      }
 
-    if (palette.seamStepIpari > 0) {
       this.paintWallSeams(
         graphics,
-        chain.elementId,
-        geometry,
-        thickness,
+        band.elementId,
+        band.center,
+        band.thickness,
         palette.seam,
         palette.seamStepIpari,
         resolution,
@@ -269,30 +229,53 @@ export class SceneShapePainter {
   }
 
   /**
-   * Уголок стыка.
+   * Обводка силуэта стен.
    *
-   * Две отдельные ленты встречаются прямоугольными торцами и оставляют
-   * квадратную щель на внешнем углу. Квадрат по толщине закрывает её и
-   * совпадает с рёбрами стен на прямом угле. Рисуется до стен, чтобы не
-   * перекрывать их фаску; материал берётся у самой широкой из сходящихся стен.
+   * Кольца уже сведены булевой геометрией (`SceneWallService.layout`), поэтому
+   * линия одна на всю сеть: внешний край и край со стороны комнаты. Обводки
+   * каждой ленты и торцов на стыках нет — именно они и превращали угол в два
+   * наезжающих прямоугольника.
    */
-  paintWallJoint(point: ScenePoint, width: number, _zoom: number, material: string | undefined): Graphics {
+  paintWallOutline(outlines: readonly SceneWallOutline[], zoom: number): Graphics {
     const graphics = new Graphics();
-    const palette = this.wallPalette(this.wallMaterialKey(material));
-    const size = Math.max(1, width);
-    graphics
-      .rect(point[0] - size / 2, point[1] - size / 2, size, size)
-      .fill({ color: palette.base, alpha: 1 });
+    for (const outline of outlines) {
+      const palette = this.wallPalette(this.wallMaterialKey(outline.material));
+      const width = Math.max(1, outline.thickness * SCENE_WALL_MATERIAL.edgeShare, 1 / zoom);
+      for (const polygon of outline.polygons) {
+        for (const ring of polygon) {
+          this.strokeRing(graphics, ring, palette.edge, width);
+        }
+      }
+    }
+
+    return graphics;
+  }
+
+  /**
+   * Тень стены.
+   *
+   * Кольца приходят уже как сдвинутая копия силуэта без него самого, поэтому
+   * тень не ложится под стену и не двоится на углах. Дырок в них не бывает:
+   * разность тонкого кольца с самим собой даёт серпы, а не замкнутые контуры.
+   */
+  paintWallShadow(polygons: readonly ScenePoint[][][], alpha: number): Graphics {
+    const graphics = new Graphics();
+    for (const polygon of polygons) {
+      const outer = polygon[0];
+      if (outer === undefined || outer.length < 3) {
+        continue;
+      }
+
+      graphics.poly(outer.flat()).fill({ color: SHADOW_COLOR, alpha });
+    }
 
     return graphics;
   }
 
   /** Палитра материала стены; неизвестный материал получает умолчание. */
   private wallPalette(material: string) {
-    const materials: Record<
-      string,
-      { base: number; edge: number; top: number; seam: number; seamStepIpari: number }
-    > = SCENE_WALL_MATERIAL.materials;
+    const materials: Record<string, { base: number; edge: number; seam: number; seamStepIpari: number }> =
+      SCENE_WALL_MATERIAL.materials;
 
     return materials[material] ?? materials[SCENE_WALL_MATERIAL.default];
   }
@@ -302,75 +285,19 @@ export class SceneShapePainter {
     return material !== undefined && material in SCENE_WALL_MATERIAL.materials ? material : SCENE_WALL_MATERIAL.default;
   }
 
-  /** Направление тени: противоположное свету, единичной длины. */
-  private shadowDirection(): ScenePoint {
-    const [lightX, lightY] = SCENE_WALL_MATERIAL.light;
-    const length = Math.hypot(lightX, lightY) || 1;
-
-    return [-lightX / length, -lightY / length];
-  }
-
-  /** Обводка открытой ломаной: без торцов, торец рисуется отдельно. */
-  private strokePolyline(
-    graphics: Graphics,
-    points: readonly ScenePoint[],
-    color: number,
-    width: number,
-    alpha: number,
-  ): void {
-    if (points.length < 2) {
+  /** Обводка замкнутого кольца силуэта. */
+  private strokeRing(graphics: Graphics, ring: readonly ScenePoint[], color: number, width: number): void {
+    if (ring.length < 2) {
       return;
     }
 
-    graphics.moveTo(points[0][0], points[0][1]);
-    for (let index = 1; index < points.length; index += 1) {
-      graphics.lineTo(points[index][0], points[index][1]);
+    graphics.moveTo(ring[0][0], ring[0][1]);
+    for (let index = 1; index < ring.length; index += 1) {
+      graphics.lineTo(ring[index][0], ring[index][1]);
     }
 
-    graphics.stroke({ color, width, alpha, join: 'round', cap: 'butt' });
-  }
-
-  /**
-   * Фаска верхней грани.
-   *
-   * Кромки уходят в мягкую тень, середина остаётся ровной: полоса читается
-   * плитой с оплывшими краями, а не полой коробкой из двух линий. Фаска
-   * симметрична: цепь заворачивает за угол, и подсветка, привязанная к свету,
-   * красила бы половину стены в чужую сторону.
-   */
-  private paintWallBevel(
-    graphics: Graphics,
-    geometry: { center: ScenePoint[]; left: ScenePoint[]; right: ScenePoint[] },
-    thickness: number,
-    dark: number,
-  ): void {
-    if (geometry.center.length < 2) {
-      return;
-    }
-
-    const width = Math.max(1, thickness * SCENE_WALL_MATERIAL.bevelShare);
-    const inset = Math.max(1, thickness * SCENE_WALL_MATERIAL.bevelInsetShare);
-    const half = Math.max(1e-6, thickness / 2);
-    const shift = Math.min(1, (inset + width / 2) / half);
-    const toward = (side: ScenePoint, center: ScenePoint): ScenePoint => [
-      side[0] + (center[0] - side[0]) * shift,
-      side[1] + (center[1] - side[1]) * shift,
-    ];
-
-    this.strokePolyline(
-      graphics,
-      geometry.center.map((center, index) => toward(geometry.left[index], center)),
-      dark,
-      width,
-      0.14,
-    );
-    this.strokePolyline(
-      graphics,
-      geometry.center.map((center, index) => toward(geometry.right[index], center)),
-      dark,
-      width,
-      0.14,
-    );
+    graphics.closePath();
+    graphics.stroke({ color, width, alpha: 0.9, join: 'miter', cap: 'butt' });
   }
 
   /**
@@ -383,7 +310,7 @@ export class SceneShapePainter {
   private paintWallSeams(
     graphics: Graphics,
     elementId: number,
-    geometry: { center: ScenePoint[] },
+    points: readonly ScenePoint[],
     thickness: number,
     color: number,
     stepIpari: number,
@@ -396,7 +323,6 @@ export class SceneShapePainter {
     const line = Math.max(1, 1 / zoom);
     const half = Math.max(1, thickness) / 2;
     let distance = jitter;
-    const points = geometry.center;
     for (let index = 1; index < points.length; index += 1) {
       const from = points[index - 1];
       const to = points[index];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Graphics } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
-import type { SceneWallChain } from '@/modules/Roleplay/Scene/Service/SceneWallService';
+import type { SceneWallBand } from '@/modules/Roleplay/Scene/Service/SceneWallService';
 import { SceneShapePainter } from '@/modules/Roleplay/Scene/Service/SceneShapePainter';
 
 const opening = (targetBoardId: number | null): SceneElement => ({
@@ -22,42 +22,31 @@ describe('SceneShapePainter', () => {
   const seamSegments = (graphics: Graphics): number => {
     const instructions = graphics.context.instructions;
     const last = instructions[instructions.length - 1] as unknown as {
+      action?: string;
       data?: { path?: { instructions?: unknown[] } };
     };
 
-    return last.data?.path?.instructions?.length ?? 0;
+    return last.action === 'stroke' ? (last.data?.path?.instructions?.length ?? 0) : 0;
   };
 
-  /** Число обводок: торцы у свободных концов добавляют по одной. */
-  const strokes = (graphics: Graphics): number =>
-    graphics.context.instructions.filter((instruction) => (instruction as { action?: string }).action === 'stroke')
-      .length;
+  /** Действия верхнего уровня: заливка и обводки. */
+  const actions = (graphics: Graphics): string[] =>
+    graphics.context.instructions.map((instruction) => (instruction as { action: string }).action);
 
-  const wallChain = (material?: string): SceneWallChain => ({
+  const band = (material?: string): SceneWallBand => ({
     elementId: 7,
     material,
     thickness: 16,
-    points: [
+    center: [
       [100, 100],
       [400, 100],
     ],
-    closed: false,
-    startFree: true,
-    endFree: true,
-  });
-
-  const cornerChain = (material?: string): SceneWallChain => ({
-    elementId: 7,
-    material,
-    thickness: 16,
-    points: [
-      [100, 100],
-      [400, 100],
-      [400, 400],
+    polygon: [
+      [100, 92],
+      [400, 92],
+      [400, 108],
+      [100, 108],
     ],
-    closed: false,
-    startFree: true,
-    endFree: true,
   });
 
   it('рисует площадку перехода и лестничный проём по-разному', () => {
@@ -70,39 +59,74 @@ describe('SceneShapePainter', () => {
     expect(hole.context.instructions.length).toBeGreaterThan(landing.context.instructions.length);
   });
 
-  it('стена получает материал: ребро, фаску и швы по шагу материала', () => {
-    const plaster = painter.paintWallChain(wallChain('plaster'), 64, 1);
-    const wood = painter.paintWallChain(wallChain('wood'), 64, 1);
-    const brick = painter.paintWallChain(wallChain('brick'), 64, 1);
+  it('верхняя грань стены — одна плоская заливка без полос', () => {
+    expect(actions(painter.paintWallTop([band('plaster')], 64, 1))).toEqual(['fill']);
+  });
 
-    // Тень, заливка, ребро и фаска есть у любого материала.
-    expect(plaster.context.instructions.length).toBeGreaterThan(4);
-    // Швы: у досок реже, у кирпича чаще.
-    expect(seamSegments(wood)).toBeGreaterThan(seamSegments(plaster));
+  it('швы идут по шагу материала: у кирпича чаще, у штукатурки их нет', () => {
+    const plaster = painter.paintWallTop([band('plaster')], 64, 1);
+    const wood = painter.paintWallTop([band('wood')], 64, 1);
+    const brick = painter.paintWallTop([band('brick')], 64, 1);
+
+    expect(seamSegments(plaster)).toBe(0);
+    expect(seamSegments(wood)).toBeGreaterThan(0);
     expect(seamSegments(brick)).toBeGreaterThan(seamSegments(wood));
   });
 
   it('неизвестный материал стены рисуется как штукатурка', () => {
-    const unknown = painter.paintWallChain(wallChain('gold'), 64, 1);
-    const plaster = painter.paintWallChain(wallChain('plaster'), 64, 1);
-
-    expect(unknown.context.instructions.length).toBe(plaster.context.instructions.length);
+    expect(actions(painter.paintWallTop([band('gold')], 64, 1))).toEqual(
+      actions(painter.paintWallTop([band('plaster')], 64, 1)),
+    );
   });
 
-  it('у цепи без свободных концов нет торцов', () => {
-    const open = painter.paintWallChain(cornerChain('plaster'), 64, 1);
-    const closed = painter.paintWallChain(
-      { ...cornerChain('plaster'), closed: true, startFree: false, endFree: false },
-      64,
+  it('обводка идёт по кольцам силуэта: внешний контур и дырка комнаты', () => {
+    const outline = painter.paintWallOutline(
+      [
+        {
+          material: 'plaster',
+          thickness: 16,
+          polygons: [
+            [
+              [
+                [0, 0],
+                [100, 0],
+                [100, 100],
+                [0, 100],
+              ],
+              [
+                [20, 20],
+                [80, 20],
+                [80, 80],
+                [20, 80],
+              ],
+            ],
+          ],
+        },
+      ],
       1,
     );
 
-    expect(strokes(closed)).toBeLessThan(strokes(open));
+    expect(actions(outline)).toEqual(['stroke', 'stroke']);
   });
 
-  it('стык стены рисуется в материале самой широкой ленты', () => {
-    const joint = painter.paintWallJoint([100, 0], 16, 1, 'wood');
+  it('тень стены — заливка каждого контура со своей прозрачностью', () => {
+    const shadow = painter.paintWallShadow(
+      [
+        [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+          ],
+        ],
+      ],
+      0.14,
+    );
 
-    expect(joint.context.instructions.length).toBeGreaterThan(0);
+    expect(actions(shadow)).toEqual(['fill']);
+    expect((shadow.context.instructions[0] as unknown as { data: { style: { alpha: number } } }).data.style.alpha).toBe(
+      0.14,
+    );
   });
 });

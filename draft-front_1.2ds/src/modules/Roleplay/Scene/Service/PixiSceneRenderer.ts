@@ -52,6 +52,7 @@ import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTexture
 import { sceneTerrainRank } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { sceneIslandShores } from '@/modules/Roleplay/Scene/Service/SceneIslandShoreService';
 import type { SceneIslandShore } from '@/modules/Roleplay/Scene/Service/SceneIslandShoreService';
+import { SCENE_WALL_MATERIAL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL_MATERIAL';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
@@ -2464,14 +2465,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
   /**
    * Стены одной сетью.
    *
-   * Соседние ленты сходятся в углах в общий узел, поэтому рисуются не по
-   * элементу, а цепями: угол получается митрой ленты. Отдельные фигуры на
-   * каждый элемент давали на стыке два торца — стена выглядела набором
-   * наезжающих прямоугольников.
+   * Стены рисуются силуэтом: полосы соседних лент объединяются булевой
+   * геометрией, поэтому нахлёст и Т-стык не видны, а в углу одна заливка.
+   * Порядок — тень, заливка, обводка: тень уходит под стену, обводка ложится
+   * поверх силуэта и обводит и внешний край, и край со стороны комнаты.
    *
-   * @param elements Элементы поля.
-   * @param boardId Поле.
-   * @param openings Проёмы поля: они режут стены на участки.
+   * @param walls Стены поля.
+   * @param openings Проёмы поля: они режут стены на полосы.
    */
   private drawWalls(walls: readonly SceneElement[], openings: readonly SceneElement[]): void {
     const layer = this.layers.obstacles;
@@ -2479,35 +2479,36 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    this.drawWallJoints(walls);
-    const resolution = this.model?.resolution ?? 64;
-    const zoom = this.zoom();
-    for (const chain of sceneWallService.chains(walls, openings)) {
-      layer.addChild(this.painter.paintWallChain(chain, resolution, zoom));
-    }
-  }
-
-  /**
-   * Уголки стыков.
-   *
-   * Митра сводит две ленты сама, поэтому уголок нужен только там, где сходятся
-   * три и более концов, где ленты разной толщины или материала, и на шве
-   * кольца. Рисуется до стен и без обводки: закрывает щель, не оставляя следа.
-   */
-  private drawWallJoints(walls: readonly SceneElement[]): void {
-    const layer = this.layers.obstacles;
-    const boardId = walls[0]?.boardId;
-    if (layer === undefined || boardId === undefined) {
+    const layout = sceneWallService.layout(walls, openings);
+    if (layout.bands.length === 0) {
       return;
     }
 
-    for (const joint of sceneWallService.joints(walls, boardId)) {
-      if (joint.count === 2 && !joint.closed && !joint.mixed) {
-        continue;
-      }
-
-      layer.addChild(this.painter.paintWallJoint(joint.point, joint.width, this.zoom(), joint.material));
+    const resolution = this.model?.resolution ?? 64;
+    const zoom = this.zoom();
+    const thickness = layout.outlines.reduce((max, outline) => Math.max(max, outline.thickness), 1);
+    const shift = this.wallShadowDirection(thickness);
+    for (const pass of SCENE_WALL_MATERIAL.shadow.layers) {
+      const offset: ScenePoint = [shift[0] * pass.shift, shift[1] * pass.shift];
+      layer.addChild(this.painter.paintWallShadow(sceneWallService.shadow(layout.area, offset), pass.alpha));
     }
+
+    layer.addChild(this.painter.paintWallTop(layout.bands, resolution, zoom));
+    layer.addChild(this.painter.paintWallOutline(layout.outlines, zoom));
+  }
+
+  /**
+   * Сдвиг тени на толщину стены.
+   *
+   * Свет общий для сцены (`SCENE_WALL_MATERIAL.light`), тень падает в
+   * противоположную ему сторону. Длина — в долях толщины: у толстой стены
+   * тень должна быть дальше.
+   */
+  private wallShadowDirection(thickness: number): ScenePoint {
+    const [lightX, lightY] = SCENE_WALL_MATERIAL.light;
+    const length = Math.hypot(lightX, lightY) || 1;
+
+    return [(-lightX / length) * thickness, (-lightY / length) * thickness];
   }
 
   /** Декор-спрайт; без ассета — прежний маркер. */

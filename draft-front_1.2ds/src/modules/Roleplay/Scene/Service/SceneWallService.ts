@@ -2,6 +2,13 @@ import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElemen
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
+// ESM-сборка пакета отдаёт булевы операции только объектом по умолчанию:
+// именованные импорты в браузере падают, хотя типы их объявляют.
+import polygonClipping from 'polygon-clipping';
+import type { MultiPolygon, Polygon } from 'polygon-clipping';
+import { SCENE_WALL_MATERIAL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL_MATERIAL';
+import { SceneCurveService } from '@/modules/Roleplay/Scene/Service/SceneCurveService';
+import { SceneRibbonService } from '@/modules/Roleplay/Scene/Service/SceneRibbonService';
 
 /**
  * Минимум элемента, нужный стенам.
@@ -35,52 +42,62 @@ export interface SceneWallPlacement {
   shape: SceneShape;
 }
 
-/** Стык стен: точка, где сходятся две и более ленты. */
-export interface SceneWallJoint {
-  /** Вершина стыка. */
-  point: ScenePoint;
-  /** Наибольшая толщина среди сходящихся стен. */
-  width: number;
-  /** Материал самой широкой из сходящихся стен. */
-  material?: string;
-  /** Сколько концов лент сходится в вершине. */
-  count: number;
-  /** Шов замкнутого кольца. */
-  closed: boolean;
-  /** Сходятся ленты разной толщины или материала: митра их не сведёт. */
-  mixed: boolean;
-}
-
-/** Участок стены в общей сети: элемент, материал, толщина и осевая. */
-export interface SceneWallPiece {
+/** Полоса стены: заливка верхней грани и её швы. */
+export interface SceneWallBand {
   /** Элемент, которому принадлежит участок. */
   elementId: number;
   /** Материал верхней грани. */
   material?: string;
   /** Толщина в единицах сцены. */
   thickness: number;
-  /** Осевая участка. */
-  points: ScenePoint[];
+  /** Осевая участка: по ней идут швы материала. */
+  center: ScenePoint[];
+  /** Замкнутый контур полосы для заливки. */
+  polygon: ScenePoint[];
 }
 
 /**
- * Цепь стены: соседние участки одной непрерывной лентой.
+ * Контур верхней грани по материалу.
  *
- * Пока стены рисуются по элементу, в каждом углу сходятся два прямоугольных
- * торца — стена читается набором наезжающих прямоугольников. Цепь сводит
- * участки в одну осевую, и лента сама делает минус на угле.
+ * Это объединение полос: перекрытия и стыки стен уже сведены булевой
+ * геометрией, поэтому обводка идёт по внешнему краю сети и по краю со стороны
+ * комнаты, а не по каждой ленте отдельно. Кольца: первое внешнее, остальные —
+ * дырки (комната внутри стен).
  */
-export interface SceneWallChain extends SceneWallPiece {
-  /** Кольцо: начало совпадает с концом, торцов нет. */
-  closed: boolean;
-  /** Начало свободно: у него рисуется торец. */
-  startFree: boolean;
-  /** Конец свободен. */
-  endFree: boolean;
+export interface SceneWallOutline {
+  /** Материал верхней грани. */
+  material?: string;
+  /** Наибольшая толщина в группе: по ней ширина обводки. */
+  thickness: number;
+  /** Кольца объединения. */
+  polygons: ScenePoint[][][];
+}
+
+/** Полоса до объединения: осевая, материал и толщина. */
+interface SceneWallDraft {
+  elementId: number;
+  material?: string;
+  thickness: number;
+  center: ScenePoint[];
+}
+
+/** Разметка стен поля для отрисовки. */
+export interface SceneWallLayout {
+  /** Полосы для заливки верхней грани. */
+  bands: SceneWallBand[];
+  /** Контуры по материалу для обводки. */
+  outlines: SceneWallOutline[];
+  /** Объединение всех стен: по нему считается тень. */
+  area: ScenePoint[][][];
 }
 
 /** Минимальная длина сегмента и проёма в единицах сцены. */
 const MIN_SIZE = 1;
+
+/** Шаг округления контуров: без него объединение даёт волосяные щели. */
+const ROUNDING = 100;
+
+const { difference, union } = polygonClipping;
 
 /**
  * Стены-ленты и проёмы в них.
@@ -95,6 +112,11 @@ const MIN_SIZE = 1;
  * находить стену и без явного id — по геометрии.
  */
 export class SceneWallService {
+  constructor(
+    private readonly curves: SceneCurveService = new SceneCurveService(),
+    private readonly ribbons: SceneRibbonService = new SceneRibbonService(curves),
+  ) {}
+
   /** Стена-лента. */
   isWall(element: SceneWallElement): boolean {
     return element.kind === 'obstacle' && element.shape.type === 'wall';
@@ -537,228 +559,103 @@ export class SceneWallService {
   }
 
   /**
-   * Стыки, которым нужен уголок.
+   * Разметка стен поля.
    *
-   * Вершина одной стены — её собственный угол: лента сама сходится митрой.
-   * Вершина, общая для двух и более лент, и шов замкнутого кольца — это стык,
-   * где два прямоугольных торца оставляют щель.
-   */
-  joints(elements: readonly SceneWallElement[], boardId: number): SceneWallJoint[] {
-    const joints = new Map<
-      string,
-      { point: ScenePoint; width: number; count: number; material?: string; closed: boolean; mixed: boolean }
-    >();
-    for (const element of elements) {
-      if (element.boardId !== boardId || !this.isWall(element) || element.shape.type !== 'wall') {
-        continue;
-      }
-
-      const points = element.shape.points;
-      if (points.length < 2) {
-        continue;
-      }
-
-      const thickness = element.shape.width;
-      const material = element.props.material;
-      const closed = this.isClosed(points);
-      const unique = closed ? points.slice(0, -1) : points;
-      const add = (point: ScenePoint): void => {
-        const key = `${point[0]},${point[1]}`;
-        const joint = joints.get(key) ?? { point, width: 0, count: 0, closed: false, mixed: false };
-        // Материал берётся у самой широкой стены: она задаёт вид угла, а
-        // тонкая примыкающая лента на нём всё равно не видна.
-        if (joint.count === 0) {
-          joint.material = material;
-        } else if (joint.material !== material) {
-          joint.mixed = true;
-        }
-
-        joint.mixed = joint.mixed || (joint.count > 0 && Math.abs(joint.width - thickness) > 1e-6);
-        if (thickness >= joint.width) {
-          joint.material = material;
-        }
-
-        joint.width = Math.max(joint.width, thickness);
-        joint.count += 1;
-        joint.closed = joint.closed || (closed && point === points[0]);
-        joints.set(key, joint);
-      };
-
-      for (const point of unique) {
-        add(point);
-      }
-
-      // Шов кольца: первая и последняя точки — одна вершина, но торец у неё
-      // один, поэтому считаем её дважды.
-      if (closed) {
-        add(points[0]);
-      }
-    }
-
-    return [...joints.values()]
-      .filter((joint) => joint.count >= 2)
-      .map((joint) => ({
-        point: joint.point,
-        width: joint.width,
-        material: joint.material,
-        count: joint.count,
-        closed: joint.closed,
-        mixed: joint.mixed,
-      }));
-  }
-
-  /**
-   * Непрерывные цепи стен.
-   *
-   * Участки режутся проёмами и принадлежат разным элементам, но в углах дома
-   * они сходятся в одну вершину. Цепь продолжает осевую через такой узел,
-   * поэтому угол рисуется митрой ленты, а не двумя торцами. Сводим только
-   * концы одинаковой толщины и материала: разные ленты дают видимый стык, и
-   * его закрывает уголок.
+   * Стены рисуются не по элементу, а общим силуэтом: полосы соседних стен
+   * объединяются булевой геометрией. Перекрытия, Т-стыки, три и более стен в
+   * узле и разная толщина сводятся сами — цепь по совпавшим концам этого не
+   * умела, и угол оставался двумя прямоугольными торцами.
    *
    * @param walls Стены поля.
-   * @param openings Проёмы поля.
-   *
-   * @returns Цепи по порядку обхода.
+   * @param openings Проёмы поля: они режут стены на полосы.
    */
-  chains(walls: readonly SceneWallElement[], openings: readonly SceneWallElement[]): SceneWallChain[] {
-    const pieces: SceneWallPiece[] = [];
+  layout(walls: readonly SceneWallElement[], openings: readonly SceneWallElement[]): SceneWallLayout {
+    const drafts: SceneWallDraft[] = [];
     for (const wall of walls) {
       if (!this.isWall(wall) || wall.shape.type !== 'wall') {
         continue;
       }
 
-      const material = wall.props.material;
-      const thickness = wall.shape.width;
+      const material = this.materialKey(wall.props.material);
+      const thickness = Math.max(MIN_SIZE, wall.shape.width);
       for (const segment of this.segments(wall, openings)) {
-        if (segment.type !== 'wall' || segment.points.length < 2) {
+        if (segment.type !== 'wall') {
           continue;
         }
 
-        pieces.push({ elementId: wall.id, material, thickness, points: segment.points });
+        for (const center of this.bandParts(segment.points)) {
+          drafts.push({ elementId: wall.id, material, thickness, center });
+        }
       }
     }
 
-    if (pieces.length === 0) {
+    const bands: SceneWallBand[] = [];
+    const groups = new Map<string, { material?: string; thickness: number; polygons: Polygon[] }>();
+    for (const draft of drafts) {
+      // Запас на митру: полоса с тупым торцом не заходит за осевую соседней,
+      // поэтому на угле остаётся ступенька в половину толщины.
+      const startPad = this.jointPad(draft, true, drafts);
+      const endPad = this.jointPad(draft, false, drafts);
+      const polygon = this.ribbons.outline(
+        draft.center,
+        [],
+        draft.center.map(() => draft.thickness),
+        1,
+        0,
+        startPad,
+        endPad,
+      );
+      if (polygon.length < 3) {
+        continue;
+      }
+
+      bands.push({ elementId: draft.elementId, material: draft.material, thickness: draft.thickness, center: draft.center, polygon });
+      const key = `${draft.material ?? ''}|${draft.thickness}`;
+      let group = groups.get(key);
+      if (group === undefined) {
+        group = { material: draft.material, thickness: draft.thickness, polygons: [] };
+        groups.set(key, group);
+      }
+
+      group.polygons.push([polygon]);
+    }
+
+    const outlines: SceneWallOutline[] = [];
+    let area: MultiPolygon = [];
+    for (const group of groups.values()) {
+      const merged = this.unionMany(group.polygons);
+      if (merged.length === 0) {
+        continue;
+      }
+
+      outlines.push({ material: group.material, thickness: group.thickness, polygons: this.round(merged) });
+      area = area.length === 0 ? merged : union(area, merged);
+    }
+
+    return { bands, outlines, area: this.round(area) };
+  }
+
+  /**
+   * Тень стены.
+   *
+   * Берётся сдвинутая копия всего силуэта за вычетом самого силуэта: под
+   * стеной тень не нужна, её закрывает заливка, а на углах копии соседних
+   * стен не складываются в двойную плотность. Комната остаётся светлой: у
+   * кольца стен сдвигается кольцо, а не сплошная плита.
+   *
+   * @param area Объединение стен.
+   * @param offset Сдвиг тени в единицах сцены.
+   */
+  shadow(area: ScenePoint[][][], offset: ScenePoint): ScenePoint[][][] {
+    if (area.length === 0) {
       return [];
     }
 
-    // Узел — конец участка. Вершины стен лежат в целых единицах сцены, поэтому
-    // округления до половины хватает, чтобы концы одного угла попали в ключ.
-    const nodeKey = (point: ScenePoint): string => `${Math.round(point[0] * 2)},${Math.round(point[1] * 2)}`;
-    const closedFlags = pieces.map((piece) => nodeKey(piece.points[0]) === nodeKey(piece.points[piece.points.length - 1]));
-    const ends: { piece: number; end: 0 | 1 }[] = [];
-    const buckets = new Map<string, number[]>();
-    for (let index = 0; index < pieces.length; index += 1) {
-      if (closedFlags[index]) {
-        continue;
-      }
+    const shifted: MultiPolygon = area.map((polygon) =>
+      polygon.map((ring) => ring.map((point): [number, number] => [point[0] + offset[0], point[1] + offset[1]])),
+    );
 
-      const points = pieces[index].points;
-      const keys = [nodeKey(points[0]), nodeKey(points[points.length - 1])];
-      for (const end of [0, 1] as const) {
-        const endIndex = ends.length;
-        ends.push({ piece: index, end });
-        const list = buckets.get(keys[end]) ?? [];
-        list.push(endIndex);
-        buckets.set(keys[end], list);
-      }
-    }
-
-    const link = new Map<number, number>();
-    for (const list of buckets.values()) {
-      if (list.length !== 2) {
-        continue;
-      }
-
-      const [first, second] = list;
-      const left = pieces[ends[first].piece];
-      const right = pieces[ends[second].piece];
-      if (left === right) {
-        continue;
-      }
-
-      if (Math.abs(left.thickness - right.thickness) > 1e-6 || (left.material ?? '') !== (right.material ?? '')) {
-        continue;
-      }
-
-      link.set(first, second);
-      link.set(second, first);
-    }
-
-    const used = new Set<number>();
-    const chains: SceneWallChain[] = [];
-    const walk = (startPiece: number): void => {
-      used.add(startPiece);
-      const points: ScenePoint[] = [...pieces[startPiece].points];
-      let cursor = startPiece * 2 + 1;
-      let endFree = true;
-      let closed = false;
-      for (;;) {
-        const next = link.get(cursor);
-        if (next === undefined) {
-          break;
-        }
-
-        const nextPiece = Math.floor(next / 2);
-        if (used.has(nextPiece)) {
-          // Вернулись в уже пройденный участок: цепь замкнулась кольцом.
-          closed = true;
-          endFree = false;
-          break;
-        }
-
-        used.add(nextPiece);
-        const entersStart = next === nextPiece * 2;
-        const tail = entersStart ? pieces[nextPiece].points : [...pieces[nextPiece].points].reverse();
-        points.push(...tail.slice(1));
-        cursor = nextPiece * 2 + (entersStart ? 1 : 0);
-      }
-
-      chains.push({
-        elementId: pieces[startPiece].elementId,
-        material: pieces[startPiece].material,
-        thickness: pieces[startPiece].thickness,
-        points,
-        closed,
-        startFree: !link.has(startPiece * 2),
-        endFree,
-      });
-    };
-
-    // Сначала цепи от свободных начал: так кольцо не съест хвост соседней цепи.
-    for (let index = 0; index < pieces.length; index += 1) {
-      if (closedFlags[index] || used.has(index) || link.has(index * 2)) {
-        continue;
-      }
-
-      walk(index);
-    }
-
-    for (let index = 0; index < pieces.length; index += 1) {
-      if (used.has(index)) {
-        continue;
-      }
-
-      if (closedFlags[index]) {
-        used.add(index);
-        chains.push({
-          elementId: pieces[index].elementId,
-          material: pieces[index].material,
-          thickness: pieces[index].thickness,
-          points: [...pieces[index].points],
-          closed: true,
-          startFree: false,
-          endFree: false,
-        });
-
-        continue;
-      }
-
-      walk(index);
-    }
-
-    return chains;
+    return this.round(difference(shifted, area));
   }
 
   /**
@@ -953,6 +850,168 @@ export class SceneWallService {
     }
 
     return result.length >= 2 ? result : points.map((point) => [point[0], point[1]]);
+  }
+
+  /**
+   * Полосы для заливки.
+   *
+   * Замкнутое кольцо режется на две половины: контур замкнутой ленты сходится
+   * сам с собой в шве, и заливка либо рвёт кольцо, либо закрывает дырку
+   * комнаты. Режем посередине отрезка, а не в вершине: у обеих половин торец
+   * на одном месте и с одним направлением, поэтому объединение сходится без
+   * клина на внешнем углу.
+   */
+  private bandParts(points: readonly ScenePoint[]): ScenePoint[][] {
+    const clean = this.dedupe(points);
+    if (!this.isClosed(clean) || clean.length < 4) {
+      return [clean];
+    }
+
+    const total = this.polylineLength(clean);
+    let passed = 0;
+    for (let index = 0; index < clean.length - 1; index += 1) {
+      const start = clean[index];
+      const end = clean[index + 1];
+      const length = Math.hypot(end[0] - start[0], end[1] - start[1]);
+      if (passed + length >= total / 2) {
+        const share = length <= 1e-6 ? 0 : (total / 2 - passed) / length;
+        const middle: ScenePoint = [start[0] + (end[0] - start[0]) * share, start[1] + (end[1] - start[1]) * share];
+
+        return [[...clean.slice(0, index + 1), middle], [middle, ...clean.slice(index + 1)]];
+      }
+
+      passed += length;
+    }
+
+    return [clean];
+  }
+
+  /**
+   * Запас на митру у конца полосы.
+   *
+   * Полоса обрывается тупым торцом, и на угле он не доходит до внешнего края
+   * соседней стены: остаётся ступенька в половину толщины. Конец, который
+   * упирается в другую стену, продлевается на половину толщины, делённую на
+   * синус угла между стенами: на прямом угле это ровно половина толщины, на
+   * остром — больше. Свободный конец (дверной откос, конец стены) остаётся как
+   * есть, а стык разных материалов и толщин не сводится: там митра неверна.
+   *
+   * @param own Полоса, чей конец проверяется.
+   * @param atStart Начало полосы или конец.
+   * @param drafts Все полосы поля.
+   */
+  private jointPad(own: SceneWallDraft, atStart: boolean, drafts: readonly SceneWallDraft[]): number {
+    const point = atStart ? own.center[0] : own.center[own.center.length - 1];
+    const direction = this.endDirection(own.center, atStart);
+    let pad = 0;
+    for (const other of drafts) {
+      if (other === own) {
+        continue;
+      }
+
+      if (this.materialKey(other.material) !== this.materialKey(own.material)) {
+        continue;
+      }
+
+      if (Math.abs(other.thickness - own.thickness) > 1e-6) {
+        continue;
+      }
+
+      const nearest = this.nearestSegment(other.center, point);
+      if (nearest === null || nearest.distance > other.thickness / 2 + 0.5) {
+        continue;
+      }
+
+      const cross = Math.abs(direction[0] * nearest.direction[1] - direction[1] * nearest.direction[0]);
+      if (cross < 0.2) {
+        // Полосы почти параллельны: продление ничего не закрывает.
+        continue;
+      }
+
+      pad = Math.max(pad, Math.min(own.thickness * 2, own.thickness / 2 / cross));
+    }
+
+    return pad;
+  }
+
+  /** Материал для сравнения: у старых стен без материала вид тот же, что у штукатурки. */
+  private materialKey(material: string | undefined): string {
+    return material !== undefined && material in SCENE_WALL_MATERIAL.materials ? material : SCENE_WALL_MATERIAL.default;
+  }
+
+  /** Направление концевого отрезка полосы. */
+  private endDirection(points: readonly ScenePoint[], atStart: boolean): ScenePoint {
+    const index = atStart ? 1 : points.length - 1;
+    const previous = atStart ? 0 : points.length - 2;
+    const dx = points[index][0] - points[previous][0];
+    const dy = points[index][1] - points[previous][1];
+    const length = Math.hypot(dx, dy) || 1;
+
+    return [dx / length, dy / length];
+  }
+
+  /** Ближайший отрезок ломаной: расстояние и направление. */
+  private nearestSegment(
+    points: readonly ScenePoint[],
+    point: ScenePoint,
+  ): { distance: number; direction: ScenePoint } | null {
+    let best: { distance: number; direction: ScenePoint } | null = null;
+    for (let index = 1; index < points.length; index += 1) {
+      const start = points[index - 1];
+      const end = points[index];
+      const dx = end[0] - start[0];
+      const dy = end[1] - start[1];
+      const length = Math.hypot(dx, dy);
+      if (length <= 1e-6) {
+        continue;
+      }
+
+      const share = Math.max(
+        0,
+        Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / (length * length)),
+      );
+      const distance = Math.hypot(point[0] - (start[0] + dx * share), point[1] - (start[1] + dy * share));
+      if (best === null || distance < best.distance) {
+        best = { distance, direction: [dx / length, dy / length] };
+      }
+    }
+
+    return best;
+  }
+
+  /** Объединение набора полос. */
+  private unionMany(polygons: readonly Polygon[]): MultiPolygon {
+    if (polygons.length === 0) {
+      return [];
+    }
+
+    let result: MultiPolygon = [polygons[0]];
+    for (let index = 1; index < polygons.length; index += 1) {
+      result = union(result, polygons[index]);
+    }
+
+    return result;
+  }
+
+  /**
+   * Округление контуров и отбрасывание вырожденных колец.
+   *
+   * Булева геометрия считает в числах с плавающей точкой: без округления на
+   * стыке двух полос остаётся волосяная щель, и обводка рисует по ней шов.
+   */
+  private round(geometry: MultiPolygon): ScenePoint[][][] {
+    return geometry
+      .map((polygon) =>
+        polygon
+          .map((ring) =>
+            ring.map((point): ScenePoint => [
+              Math.round(point[0] * ROUNDING) / ROUNDING,
+              Math.round(point[1] * ROUNDING) / ROUNDING,
+            ]),
+          )
+          .filter((ring) => ring.length >= 3),
+      )
+      .filter((polygon) => polygon.length > 0);
   }
 
   /** Точка уже есть среди вершин стены. */

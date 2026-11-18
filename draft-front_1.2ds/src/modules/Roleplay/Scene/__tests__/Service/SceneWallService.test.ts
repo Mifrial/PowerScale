@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneElementKind } from '@/modules/Roleplay/Scene/Enum/SceneElementKind';
 import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElementProps';
+import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SceneWallService, type SceneWallElement } from '@/modules/Roleplay/Scene/Service/SceneWallService';
 
@@ -320,83 +321,27 @@ describe('SceneWallService', () => {
     expect(service.length(host)).toBe(400);
   });
 
-  it('возвращает стыки углов и шов кольца', () => {
-    const corner = element(1, 'obstacle', {
-      type: 'wall',
-      points: [
-        [0, 0],
-        [100, 0],
-      ],
-      width: 8,
-    });
-    const side = element(2, 'obstacle', {
-      type: 'wall',
-      points: [
-        [100, 0],
-        [100, 100],
-      ],
-      width: 8,
-    });
-    const ring = element(3, 'obstacle', {
-      type: 'wall',
-      points: [
-        [200, 0],
-        [300, 0],
-        [300, 100],
-        [200, 0],
-      ],
-      width: 8,
+  /** Точка накрыта хотя бы одним контуром. */
+  const covers = (polygons: ScenePoint[][][], point: ScenePoint): boolean =>
+    polygons.some((polygon) => {
+      const ring = polygon[0];
+      let result = false;
+      for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
+        const [x1, y1] = ring[index];
+        const [x2, y2] = ring[previous];
+        if (y1 > point[1] !== y2 > point[1] && point[0] < ((x2 - x1) * (point[1] - y1)) / (y2 - y1) + x1) {
+          result = !result;
+        }
+      }
+
+      return result;
     });
 
-    const joints = service.joints([corner, side, ring], 1);
-
-    expect(joints).toContainEqual(expect.objectContaining({ point: [100, 0], width: 8, count: 2, closed: false }));
-    expect(joints).toContainEqual(expect.objectContaining({ point: [200, 0], width: 8, closed: true }));
-    expect(joints.some((joint) => joint.point[0] === 0 && joint.point[1] === 0)).toBe(false);
-  });
-
-  it('стык несёт материал самой широкой из сходящихся стен', () => {
-    const thin = element(
-      1,
-      'obstacle',
-      {
-        type: 'wall',
-        points: [
-          [0, 0],
-          [100, 0],
-        ],
-        width: 8,
-      },
-      { material: 'plaster' },
-    );
-    const thick = element(
-      2,
-      'obstacle',
-      {
-        type: 'wall',
-        points: [
-          [100, 0],
-          [100, 100],
-        ],
-        width: 16,
-      },
-      { material: 'wood' },
-    );
-
-    expect(service.joints([thin, thick], 1)).toEqual([
-      { point: [100, 0], width: 16, material: 'wood', count: 2, closed: false, mixed: true },
-    ]);
-  });
-
-  it('сводит две стены в углу в одну цепь', () => {
-    const horizontal = element(1, 'obstacle', {
-      type: 'wall',
-      points: [
-        [0, 0],
-        [200, 0],
-      ],
-      width: 8,
-    });
+  it('сводит стены в углу в один силуэт', () => {
+    const horizontal = wall([
+      [0, 0],
+      [200, 0],
+    ], 8);
     const vertical = element(2, 'obstacle', {
       type: 'wall',
       points: [
@@ -406,20 +351,102 @@ describe('SceneWallService', () => {
       width: 8,
     });
 
-    const chains = service.chains([horizontal, vertical], []);
+    const layout = service.layout([horizontal, vertical], []);
 
-    expect(chains).toHaveLength(1);
-    expect(chains[0].points).toEqual([
+    // Полос две, а силуэт один: в углу одна заливка и одно кольцо.
+    expect(layout.bands).toHaveLength(2);
+    expect(layout.outlines).toHaveLength(1);
+    expect(layout.outlines[0].polygons).toHaveLength(1);
+    expect(layout.outlines[0].polygons[0]).toHaveLength(1);
+  });
+
+  it('угол доходит до митры: полоса продлевается за осевую соседа', () => {
+    const horizontal = wall(
+      [
+        [0, 0],
+        [200, 0],
+      ],
+      8,
+    );
+    const vertical = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [200, 0],
+        [200, 200],
+      ],
+      width: 8,
+    });
+
+    const layout = service.layout([horizontal, vertical], []);
+
+    // Митра прямого угла — (204, -4); с тупыми торцами здесь была бы ступенька.
+    expect(covers(layout.area, [203, -3])).toBe(true);
+  });
+
+  it('сводит Т-стык и нахлёст в один силуэт', () => {
+    const host = wall([
+      [0, 0],
+      [400, 0],
+    ], 8);
+    const branch = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [200, -100],
+        [200, 100],
+      ],
+      width: 8,
+    });
+
+    const layout = service.layout([host, branch], []);
+
+    expect(layout.outlines).toHaveLength(1);
+    expect(layout.outlines[0].polygons).toHaveLength(1);
+  });
+
+  it('три стены в общем узле дают один силуэт', () => {
+    const left = wall([
+      [0, 100],
+      [100, 100],
+    ], 8);
+    const right = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [100, 100],
+        [200, 100],
+      ],
+      width: 8,
+    });
+    const down = element(3, 'obstacle', {
+      type: 'wall',
+      points: [
+        [100, 100],
+        [100, 200],
+      ],
+      width: 8,
+    });
+
+    expect(service.layout([left, right, down], []).outlines[0].polygons).toHaveLength(1);
+  });
+
+  it('кольцо стен даёт кольцо с дыркой комнаты', () => {
+    const ring = wall([
       [0, 0],
       [200, 0],
       [200, 200],
-    ]);
-    expect(chains[0].startFree).toBe(true);
-    expect(chains[0].endFree).toBe(true);
-    expect(chains[0].closed).toBe(false);
+      [0, 200],
+      [0, 0],
+    ], 20);
+
+    const layout = service.layout([ring], []);
+
+    expect(layout.bands).toHaveLength(2);
+    expect(layout.outlines).toHaveLength(1);
+    expect(layout.outlines[0].polygons).toHaveLength(1);
+    // Внешний контур и дырка комнаты: сплошная плита закрыла бы пол.
+    expect(layout.outlines[0].polygons[0]).toHaveLength(2);
   });
 
-  it('не сводит стены разного материала', () => {
+  it('стены разного материала дают два контура', () => {
     const plaster = element(
       1,
       'obstacle',
@@ -447,30 +474,49 @@ describe('SceneWallService', () => {
       { material: 'wood' },
     );
 
-    expect(service.chains([plaster, wood], [])).toHaveLength(2);
+    expect(service.layout([plaster, wood], []).outlines).toHaveLength(2);
   });
 
-  it('режет цепь проёмом и оставляет торцы у выреза', () => {
+  it('режет стену проёмом на две полосы', () => {
     const host = wall([
       [0, 100],
       [400, 100],
-    ]);
+    ], 8);
     const door = opening(
       [
         [150, 100],
         [250, 100],
       ],
       { kind: 'door', state: 'closed' },
+      8,
     );
 
-    const chains = service.chains([host], [door]);
+    const layout = service.layout([host], [door]);
 
-    expect(chains).toHaveLength(2);
-    expect(chains[0].endFree).toBe(true);
-    expect(chains[1].startFree).toBe(true);
-    expect(chains[1].points).toEqual([
-      [250, 100],
-      [400, 100],
-    ]);
+    expect(layout.bands).toHaveLength(2);
+    expect(layout.outlines).toHaveLength(1);
+    expect(layout.outlines[0].polygons).toHaveLength(2);
+  });
+
+  it('тень стены не заходит в комнату и не имеет дырок', () => {
+    const ring = wall([
+      [0, 0],
+      [200, 0],
+      [200, 200],
+      [0, 200],
+      [0, 0],
+    ], 20);
+
+    const layout = service.layout([ring], []);
+    const shadow = service.shadow(layout.area, [20, 0]);
+
+    expect(shadow.length).toBeGreaterThan(0);
+    for (const polygon of shadow) {
+      expect(polygon).toHaveLength(1);
+    }
+
+    // Комната остаётся светлой, тень уходит за стену в сторону сдвига.
+    expect(covers(shadow, [100, 100])).toBe(false);
+    expect(covers(shadow, [220, 100])).toBe(true);
   });
 });
