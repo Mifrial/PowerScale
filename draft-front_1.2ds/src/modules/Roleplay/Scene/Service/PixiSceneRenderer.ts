@@ -1059,6 +1059,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const bridgeElements = elements.filter((element) => this.isGroundDeck(element));
+    const walls = elements.filter(
+      (element) => element.kind === 'obstacle' && element.shape.type === 'wall',
+    );
     const openings = elements.filter((element) => element.kind === 'opening');
     const cut = this.cutRect(floor);
     const decorElements = elements
@@ -1071,8 +1074,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
       );
     // Стены рисуются одной сетью до остальных препятствий: в углах соседние
     // ленты сходятся в общий узел, и угол делается митрой, а не двумя торцами.
-    this.drawThresholds(elements, openings);
-    this.drawWalls(elements, board.id, openings);
+    this.drawThresholds(elements, walls, openings);
+    this.drawWalls(walls, openings);
 
     for (const element of elements) {
       if (
@@ -1097,7 +1100,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         continue;
       }
 
-      this.drawElement(element);
+      this.drawElement(element, walls);
     }
 
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution, insets);
@@ -2280,14 +2283,54 @@ export class PixiSceneRenderer implements ISceneRenderer {
     );
   }
 
-  private drawElement(element: SceneElement): void {
+  private drawElement(element: SceneElement, walls: readonly SceneElement[]): void {
     const layerName = this.layerFor(element);
     const layer = this.layers[layerName];
     if (layer === undefined) {
       return;
     }
 
-    layer.addChild(this.painter.paintElement(element, this.zoom()));
+    layer.addChild(this.painter.paintElement(this.openingInWall(element, walls), this.zoom()));
+  }
+
+  /**
+   * Проём — в толщине своей стены.
+   *
+   * Проём, поставленный пресетом, несёт толщину по умолчанию, а стена могла
+   * стать тоньше: окно рисовалось вдвое шире стены и читалось второй стеной.
+   * Данные не меняем — только рисунок: толщина берётся у стены, на осевой
+   * которой лежат оба конца проёма.
+   *
+   * @param element Элемент поля.
+   * @param walls Стены поля.
+   *
+   * @returns Элемент с толщиной стены.
+   */
+  private openingInWall(element: SceneElement, walls: readonly SceneElement[]): SceneElement {
+    if (element.kind !== 'opening' || element.shape.type !== 'wall' || element.shape.points.length < 2) {
+      return element;
+    }
+
+    const points = element.shape.points;
+    const start = points[0];
+    const end = points[points.length - 1];
+    for (const wall of walls) {
+      if (wall.shape.type !== 'wall') {
+        continue;
+      }
+
+      if (!sceneGeometryService.contains(wall.shape, start, 1) || !sceneGeometryService.contains(wall.shape, end, 1)) {
+        continue;
+      }
+
+      if (Math.abs(wall.shape.width - element.shape.width) < 0.5) {
+        return element;
+      }
+
+      return { ...element, shape: { ...element.shape, width: wall.shape.width } };
+    }
+
+    return element;
   }
 
   /**
@@ -2301,7 +2344,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * @param elements Элементы поля.
    * @param openings Проёмы поля.
    */
-  private drawThresholds(elements: readonly SceneElement[], openings: readonly SceneElement[]): void {
+  private drawThresholds(
+    elements: readonly SceneElement[],
+    walls: readonly SceneElement[],
+    openings: readonly SceneElement[],
+  ): void {
     const layer = this.layers.terrain;
     if (layer === undefined) {
       return;
@@ -2325,12 +2372,17 @@ export class PixiSceneRenderer implements ISceneRenderer {
         continue;
       }
 
-      const floor = this.thresholdFloor(floors, opening);
+      const sized = this.openingInWall(opening, walls);
+      if (sized.shape.type !== 'wall') {
+        continue;
+      }
+
+      const floor = this.thresholdFloor(floors, sized);
       if (floor === null) {
         continue;
       }
 
-      const points = opening.shape.points;
+      const points = sized.shape.points;
       const start = points[0];
       const end = points[points.length - 1];
       const dx = end[0] - start[0];
@@ -2340,7 +2392,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         continue;
       }
 
-      const half = Math.max(1, opening.shape.width) / 2;
+      const half = Math.max(1, sized.shape.width) / 2;
       const normalX = (-dy / length) * half;
       const normalY = (dx / length) * half;
       const band: ScenePoint[] = [
@@ -2421,24 +2473,13 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * @param boardId Поле.
    * @param openings Проёмы поля: они режут стены на участки.
    */
-  private drawWalls(
-    elements: readonly SceneElement[],
-    boardId: number,
-    openings: readonly SceneElement[],
-  ): void {
+  private drawWalls(walls: readonly SceneElement[], openings: readonly SceneElement[]): void {
     const layer = this.layers.obstacles;
-    if (layer === undefined) {
+    if (layer === undefined || walls.length === 0) {
       return;
     }
 
-    const walls = elements.filter(
-      (element) => element.boardId === boardId && element.kind === 'obstacle' && element.shape.type === 'wall',
-    );
-    if (walls.length === 0) {
-      return;
-    }
-
-    this.drawWallJoints(elements, boardId);
+    this.drawWallJoints(walls);
     const resolution = this.model?.resolution ?? 64;
     const zoom = this.zoom();
     for (const chain of sceneWallService.chains(walls, openings)) {
@@ -2453,13 +2494,14 @@ export class PixiSceneRenderer implements ISceneRenderer {
    * три и более концов, где ленты разной толщины или материала, и на шве
    * кольца. Рисуется до стен и без обводки: закрывает щель, не оставляя следа.
    */
-  private drawWallJoints(elements: readonly SceneElement[], boardId: number): void {
+  private drawWallJoints(walls: readonly SceneElement[]): void {
     const layer = this.layers.obstacles;
-    if (layer === undefined) {
+    const boardId = walls[0]?.boardId;
+    if (layer === undefined || boardId === undefined) {
       return;
     }
 
-    for (const joint of sceneWallService.joints(elements, boardId)) {
+    for (const joint of sceneWallService.joints(walls, boardId)) {
       if (joint.count === 2 && !joint.closed && !joint.mixed) {
         continue;
       }
