@@ -1107,10 +1107,10 @@
             "layers": [],
             "basis": null,
             "date": null,
-            "bytes": 47049,
-            "lines": 852,
+            "bytes": 47473,
+            "lines": 857,
             "modules": [],
-            "linksCount": 0,
+            "linksCount": 1,
             "brokenLinks": [],
             "backlinks": []
         },
@@ -2944,8 +2944,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 31950,
-            "lines": 446,
+            "bytes": 32144,
+            "lines": 448,
             "modules": [
                 "Roleplay/Character"
             ],
@@ -5505,8 +5505,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-26",
-            "bytes": 10913,
-            "lines": 174,
+            "bytes": 10999,
+            "lines": 175,
             "modules": [],
             "linksCount": 1,
             "brokenLinks": [],
@@ -5588,7 +5588,7 @@
             "layers": [],
             "basis": null,
             "date": "2026-09-26",
-            "bytes": 15541,
+            "bytes": 15544,
             "lines": 292,
             "modules": [],
             "linksCount": 2,
@@ -7261,7 +7261,7 @@
             ],
             "basis": null,
             "date": "2026-10-05",
-            "bytes": 2860,
+            "bytes": 2871,
             "lines": 30,
             "modules": [
                 "Roleplay/Rule"
@@ -7269,6 +7269,7 @@
             "linksCount": 2,
             "brokenLinks": [],
             "backlinks": [
+                "docs/review/formula-evaluator-refactor-plan-2026-09.md",
                 "docs/tr/character-plan-09.md",
                 "docs/tr/character-roadmap.md",
                 "docs/tr/game-plan-20.md",

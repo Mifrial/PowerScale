@@ -113,7 +113,7 @@ final class FormulaEvaluations implements IFormulaEvaluations
         }
 
         if ($node instanceof ToScalar) {
-            return $this->mediumBase($this->walkDimensional($node->getValue(), $context));
+            return $this->walkDimensional($node->getValue(), $context)->toInteger();
         }
 
         return $this->evaluateSize($node, $context);
@@ -201,21 +201,6 @@ final class FormulaEvaluations implements IFormulaEvaluations
         $delta = $from->getBase() + $step * $from->getSize() - ($to->getBase() + $step * $to->getSize());
 
         return intdiv($delta, $step);
-    }
-
-    /**
-     * База пары, перенесённой на средний размер.
-     *
-     * @param DimensionalNumber $number Пара.
-     *
-     * @return int База.
-     */
-    private function mediumBase(DimensionalNumber $number): int
-    {
-        $step = CharacteristicNumber::BASE_MAX - CharacteristicNumber::BASE_MIN + 1;
-        $shifted = $number->modify(-$number->getSize() * $step);
-
-        return $shifted->getBase();
     }
 
     /**

@@ -281,7 +281,7 @@ final class FormulaEvaluationTest extends TestCase
     }
 
     /**
-     * to_scalar берёт базу среднего размера, не floor(база × 2^размер).
+     * to_scalar сворачивает размерное значение в целое: floor(база × 2^размер).
      *
      * @return void
      */
@@ -289,7 +289,11 @@ final class FormulaEvaluationTest extends TestCase
     {
         $context = $this->context(['intellect' => new CharacteristicNumber(4, 1)]);
         $node = new ToScalar(new CharacteristicNode('intellect', 0));
-        self::assertSame(4, $this->evaluations->evaluateScalar($node, $context));
+        self::assertSame(8, $this->evaluations->evaluateScalar($node, $context));
+        self::assertSame(
+            16,
+            $this->evaluations->evaluateScalar($node, $this->context(['intellect' => new CharacteristicNumber(4, 2)])),
+        );
     }
 
     /**

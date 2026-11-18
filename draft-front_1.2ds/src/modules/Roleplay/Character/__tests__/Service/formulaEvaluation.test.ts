@@ -116,7 +116,7 @@ describe('FormulaEvaluationService', () => {
     ).toThrow(/strength/);
   });
 
-  it('to_scalar берёт базу размерной формулы в среднем размере, не toNumber', () => {
+  it('to_scalar сворачивает размерную формулу в целое, как toNumber', () => {
     const sized: FormulaContext = {
       ...context,
       characteristicValues: new Map([['intellect', { base: 4, size: 1 }]]),
@@ -129,7 +129,20 @@ describe('FormulaEvaluationService', () => {
         },
         sized,
       ),
-    ).toBe(4);
+    ).toBe(8);
+    const huge: FormulaContext = {
+      ...context,
+      characteristicValues: new Map([['intellect', { base: 4, size: 2 }]]),
+    };
+    expect(
+      service.evaluate(
+        {
+          type: 'to_scalar',
+          value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        },
+        huge,
+      ),
+    ).toBe(16);
   });
 
   it('characteristic_size возвращает размер характеристики (простое число)', () => {

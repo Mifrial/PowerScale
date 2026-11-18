@@ -32,7 +32,7 @@ export class FormulaEvaluationService {
         return level * (formula.multiplier ?? 1) + (formula.offset ?? 0);
       }
       case 'to_scalar':
-        return this.mediumSizeBase(this.evaluateDimensional(formula.value, context));
+        return this.evaluateDimensionalValue(this.evaluateDimensional(formula.value, context));
       case 'characteristic_size':
         // Нет характеристики — размер 0: лимит ОД считается и без неё. Это не подмена неизвестного узла.
         return context.characteristicValues.get(formula.characteristic_code)?.size ?? 0;
@@ -104,13 +104,6 @@ export class FormulaEvaluationService {
 
   evaluateDimensionalValue(value: DimensionalNumberValue): number {
     return new DimensionalNumber(value).toNumber();
-  }
-
-  /** База значения, перенесённого на средний размер. Целые размеры базу шкалы 3–5 не меняют. */
-  private mediumSizeBase(value: DimensionalNumberValue): number {
-    const step = CHARACTERISTIC_BASE_RANGE.max - CHARACTERISTIC_BASE_RANGE.min + 1;
-
-    return new DimensionalNumber(value).modify(-value.size * step, CHARACTERISTIC_BASE_RANGE).value.base;
   }
 
   private parameterValue(context: FormulaContext, code: string): number {

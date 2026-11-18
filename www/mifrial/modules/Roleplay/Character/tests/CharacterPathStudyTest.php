@@ -93,9 +93,12 @@ final class CharacterPathStudyTest extends TestCase
             [
                 $this->rule('arcanist', 'magic_path', []),
                 $this->rule('construction', 'ability', ['grants' => [$this->studyGrant(['arcanist'], [
-                    'type' => 'characteristic_floor_div',
-                    'characteristic_code' => 'intellect',
-                    'divisor' => 1,
+                    'type' => 'to_scalar',
+                    'value' => [
+                        'type' => 'characteristic',
+                        'characteristic_code' => 'intellect',
+                        'modifier' => 0,
+                    ],
                 ])]]),
                 $this->studyCard('heightened', 5),
             ],

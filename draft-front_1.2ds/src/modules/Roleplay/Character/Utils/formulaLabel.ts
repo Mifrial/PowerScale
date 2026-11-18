@@ -35,7 +35,7 @@ export function formulaLabel(
     case 'parameter_floor_div':
       return `⌊параметр «${formula.parameter_code}» / ${formula.divisor}⌋`;
     case 'to_scalar':
-      return `база (${formulaLabel(formula.value, resolveName)}) в среднем размере`;
+      return `значение (${formulaLabel(formula.value, resolveName)})`;
     case 'characteristic_size':
       return resolveName(formula.characteristic_code) ?? formula.characteristic_code;
     case 'characteristic_size_positive': {

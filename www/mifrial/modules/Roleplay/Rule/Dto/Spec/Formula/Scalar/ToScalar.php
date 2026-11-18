@@ -7,7 +7,9 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 
 /**
- * База размерного значения.
+ * Размерное значение, свёрнутое в целое.
+ *
+ * Величина — floor(база × 2^размер), как DimensionalNumber::toInteger().
  */
 final class ToScalar implements ScalarFormula
 {

@@ -121,7 +121,7 @@ describe('MagicStudyUnlockService', () => {
     const snapshot = {
       abilityLevels: new Map<string, number>(),
       abilityKeywords: new Map<string, Set<string>>(),
-      characteristicValues: new Map([['intellect', { base: 4, size: 1 }]]),
+      characteristicValues: new Map([['intellect', { base: 4, size: 0 }]]),
       resourceLimits: new Map<string, number | { base: number; size: number }>(),
       keywordCodes: new Set<string>(),
     };
@@ -135,9 +135,8 @@ describe('MagicStudyUnlockService', () => {
       {
         ...grant({
           max_cost: {
-            type: 'characteristic_floor_div' as const,
-            characteristic_code: 'intellect',
-            divisor: 1,
+            type: 'to_scalar' as const,
+            value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
           },
         }),
         donor_code: 'construction',

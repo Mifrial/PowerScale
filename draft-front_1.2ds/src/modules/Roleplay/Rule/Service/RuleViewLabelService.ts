@@ -68,7 +68,7 @@ export class RuleViewLabelService {
     if (node.type === 'literal') return this.dimensional(node.value);
     if (node.type === 'parameter') return `${node.parameter_code} × ${node.per_unit}`;
     if (node.type === 'parameter_floor_div') return `⌊${node.parameter_code} / ${node.divisor}⌋`;
-    if (node.type === 'to_scalar') return `база (${this.formula(node.value, rules)}) в среднем размере`;
+    if (node.type === 'to_scalar') return `значение (${this.formula(node.value, rules)})`;
     if (node.type === 'characteristic_size') return `размер «${this.ruleName(rules, node.characteristic_code)}»`;
     if (node.type === 'characteristic_size_positive') {
       return `max(0, размер «${this.ruleName(rules, node.characteristic_code)}»)`;
