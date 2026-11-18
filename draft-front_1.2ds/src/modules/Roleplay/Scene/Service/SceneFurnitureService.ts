@@ -195,6 +195,11 @@ export class SceneFurnitureService {
     graphics
       .roundRect(box.x + r * 0.5, box.y + r * 0.5, box.w - r, box.h - r, r * 0.7)
       .fill({ color: palette.light, alpha: 0.18 });
+    // Посуда на столе: без неё столешница читается просто доской.
+    graphics.circle(box.cx - box.short * 0.22, box.cy, box.short * 0.14).fill({ color: 0xe4d6bf, alpha: 0.95 });
+    graphics.circle(box.cx - box.short * 0.22, box.cy, box.short * 0.08).fill({ color: 0xb98552, alpha: 0.8 });
+    graphics.circle(box.cx + box.short * 0.18, box.cy - box.short * 0.12, box.short * 0.07).fill({ color: 0xe4d6bf });
+    graphics.circle(box.cx + box.short * 0.18, box.cy - box.short * 0.12, box.short * 0.035).fill({ color: 0x8a5a35 });
     // Швы досок вдоль длинной стороны.
     const lines = 4;
     const axis = box.horizontal ? box.h : box.w;
