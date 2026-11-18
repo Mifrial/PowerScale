@@ -13,6 +13,8 @@
 | `mud.jpg`     | грязь               | [brown_mud_02](https://polyhaven.com/a/brown_mud_02)                 |
 | `bed.jpg`     | дно водоёма, галька | [ganges_river_pebbles](https://polyhaven.com/a/ganges_river_pebbles) |
 | `wetsand.jpg` | мокрый берег        | [damp_beach_sand](https://polyhaven.com/a/damp_beach_sand)           |
+| `wood.jpg`    | пол из досок        | [WoodFloor051](https://ambientcg.com/view?id=WoodFloor051)           |
+| `tile.jpg`    | пол из плитки       | [Tiles141](https://ambientcg.com/view?id=Tiles141)                   |
 
 Все файлы приведены к 512×512 и бесшовны по краям. В коде они получают
 `addressMode: repeat` и мипмапы, поэтому не мерцают при отдалении карты.

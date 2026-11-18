@@ -682,6 +682,109 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Стена по умолчанию получает штукатурку.
+     *
+     * @return void
+     */
+    public function testWallMaterialDefaultsToPlaster(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'wall', 'points' => [[0, 0], [200, 0]], 'width' => 16],
+            'props' => [],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('plaster', $element['props']['material']);
+    }
+
+    /**
+     * Материал стены сохраняется в допустимом наборе.
+     *
+     * @return void
+     */
+    public function testWallMaterialIsKept(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'wall', 'points' => [[0, 0], [200, 0]], 'width' => 16],
+            'props' => ['material' => 'wood'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('wood', $element['props']['material']);
+    }
+
+    /**
+     * У препятствия не-стены материала нет: свойство отбрасывается.
+     *
+     * @return void
+     */
+    public function testObstacleRectHasNoMaterial(): void
+    {
+        $element = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 100, 'h' => 100],
+            'props' => ['material' => 'wood'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertArrayNotHasKey('material', $element['props']);
+    }
+
+    /**
+     * Неизвестный материал стены отвергается.
+     *
+     * @return void
+     */
+    public function testWallMaterialMustBeKnown(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'wall', 'points' => [[0, 0], [200, 0]], 'width' => 16],
+            'props' => ['material' => 'gold'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
+     * Пол из досок и плитки — террейн с пресетом скорости.
+     *
+     * @return void
+     */
+    public function testFloorKindsHaveSpeedPresets(): void
+    {
+        foreach (['wood' => 120, 'tile' => 120] as $kind => $speed) {
+            $element = $this->validate([
+                'id' => -1,
+                'boardId' => 10,
+                'kind' => 'terrain',
+                'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+                'props' => ['kind' => $kind],
+                'sortOrder' => 0,
+                'targetBoardId' => null,
+            ]);
+
+            self::assertSame($kind, $element['props']['kind']);
+            self::assertSame($speed, $element['props']['speed']);
+        }
+    }
+
+    /**
      * Проверяет один элемент на поле 1000×800.
      *
      * @param array<string|int, mixed> $row Элемент.

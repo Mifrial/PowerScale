@@ -1053,6 +1053,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
           left.sortOrder - right.sortOrder ||
           left.id - right.id,
       );
+    // Стыки лежат под стенами: квадрат закрывает щель угла, а ребро и фаска
+    // стены проходят поверх него и не рвутся.
+    this.drawWallJoints(elements, board.id);
+
     for (const element of elements) {
       if (
         element.kind === 'terrain' ||
@@ -1078,7 +1082,6 @@ export class PixiSceneRenderer implements ISceneRenderer {
       this.drawElement(element, openings);
     }
 
-    this.drawWallJoints(elements, board.id);
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution, insets);
     this.drawRoofHatchRims(board);
     this.applyContentClip(board, this.slabHoles(floor), cut);
@@ -2266,11 +2269,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    // Стена режется проёмами: под дверью и окном её полосы нет.
+    // Стены режутся проёмами: под дверью и окном её полосы нет. Одна фигура
+    // на всю стену — тень и фаска идут цельно, без швов на стыках участков.
     if (element.kind === 'obstacle' && element.shape.type === 'wall') {
-      for (const segment of sceneWallService.segments(element, openings)) {
-        layer.addChild(this.painter.paintWall(segment, this.zoom()));
-      }
+      const resolution = this.model?.resolution ?? 64;
+      const segments = sceneWallService.segments(element, openings);
+      layer.addChild(this.painter.paintWall(element, segments, resolution, this.zoom()));
 
       return;
     }
@@ -2286,7 +2290,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     for (const joint of sceneWallService.joints(elements, boardId)) {
-      layer.addChild(this.painter.paintWallJoint(joint.point, joint.width, this.zoom()));
+      layer.addChild(this.painter.paintWallJoint(joint.point, joint.width, this.zoom(), joint.material));
     }
   }
 

@@ -40,7 +40,7 @@ final class SceneElementValidator
         'stairs' => 100,
     ];
 
-    private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice'];
+    private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice', 'wood', 'tile'];
 
     /**
      * Пресеты скорости террейна: 100 — норма, 0 — непроходимо.
@@ -53,6 +53,8 @@ final class SceneElementValidator
         'mud' => 50,
         'water' => 20,
         'ice' => 70,
+        'wood' => 120,
+        'tile' => 120,
     ];
 
     /**
@@ -61,6 +63,14 @@ final class SceneElementValidator
     private const TERRAIN_SHORE_KINDS = ['none', 'grass', 'dirt', 'stone', 'sand', 'mud', 'ice'];
 
     private const OPENING_KINDS = ['door', 'window', 'gate', 'stairs', 'teleport'];
+
+    /**
+     * Материал стены: тон полосы, её ребро и швы.
+     *
+     * Материал есть только у стены-ленты: у прочих препятствий верх не
+     * показывается, и свойство там бессмысленно.
+     */
+    private const WALL_MATERIALS = ['plaster', 'wood', 'log', 'brick', 'stone'];
 
     private const OPENING_STATES = ['open', 'closed'];
 
@@ -135,6 +145,7 @@ final class SceneElementValidator
         );
         $props = $this->props(
             $kind,
+            $shape,
             $this->fields->optionalArrayValue($row, 'props', $path . '.props'),
             $path . '.props',
         );
@@ -526,6 +537,7 @@ final class SceneElementValidator
      * Свойства элемента по типу.
      *
      * @param string $kind Тип.
+     * @param array<string, mixed> $shape Проверенная геометрия.
      * @param array<string|int, mixed> $props Свойства.
      * @param string $path Путь.
      *
@@ -533,11 +545,11 @@ final class SceneElementValidator
      *
      * @throws SceneInvalidException Если свойства недопустимы.
      */
-    private function props(string $kind, array $props, string $path): array
+    private function props(string $kind, array $shape, array $props, string $path): array
     {
         return match ($kind) {
             'support' => $this->supportProps($props, $path),
-            'obstacle' => $this->obstacleProps($props, $path),
+            'obstacle' => $this->obstacleProps($props, $path, (string) ($shape['type'] ?? '')),
             'opening' => $this->openingProps($props, $path),
             'terrain' => $this->terrainProps($props, $path),
             'decor' => $this->decorProps($props, $path),
@@ -595,19 +607,34 @@ final class SceneElementValidator
      *
      * @param array<string|int, mixed> $props Свойства.
      * @param string $path Путь.
+     * @param string $shapeType Тип фигуры.
      *
      * @return array{props: array<string, mixed>, assetFileId: int|null} Свойства.
      *
      * @throws SceneInvalidException Если свойства недопустимы.
      */
-    private function obstacleProps(array $props, string $path): array
+    private function obstacleProps(array $props, string $path, string $shapeType): array
     {
+        $normalized = [
+            'blocksMovement' => $this->boolOrDefault($props, 'blocksMovement', $path . '.blocksMovement', true),
+            'blocksVision' => $this->boolOrDefault($props, 'blocksVision', $path . '.blocksVision', true),
+            'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
+        ];
+
+        // Материал — только у стены-ленты: у стены сверху видна её полоса, и
+        // тон, ребро и швы задаются материалом. У прочих препятствий верх не
+        // рисуется, поэтому поле молча отбрасывается, как глубина у суши.
+        if ($shapeType === 'wall') {
+            $material = $this->stringOrDefault($props, 'material', $path . '.material', 'plaster');
+            if (!in_array($material, self::WALL_MATERIALS, true)) {
+                throw new SceneInvalidException($path . '.material is unknown');
+            }
+
+            $normalized['material'] = $material;
+        }
+
         return [
-            'props' => [
-                'blocksMovement' => $this->boolOrDefault($props, 'blocksMovement', $path . '.blocksMovement', true),
-                'blocksVision' => $this->boolOrDefault($props, 'blocksVision', $path . '.blocksVision', true),
-                'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
-            ],
+            'props' => $normalized,
             'assetFileId' => null,
         ];
     }

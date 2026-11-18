@@ -25,6 +25,14 @@ export interface SceneElementProps {
   silhouette?: SceneSilhouette;
   role?: string;
   assetPublicId?: string;
+  /**
+   * Материал стены: `plaster`, `wood`, `log`, `brick`, `stone`.
+   *
+   * Есть только у стены-ленты: сверху видна её полоса, и материал задаёт тон,
+   * ребро, фаску и швы. У прочих препятствий верх не рисуется, и поле
+   * отбрасывается при сохранении.
+   */
+  material?: string;
   shoreKind?: string;
   shoreWidth?: number;
   /**

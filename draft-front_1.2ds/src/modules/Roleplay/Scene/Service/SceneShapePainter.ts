@@ -10,10 +10,10 @@ import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sc
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { SCENE_ROOF } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ROOF';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
+import { SCENE_WALL_MATERIAL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL_MATERIAL';
 
 /** Цвета стены и проёмов. */
-const WALL_FILL = 0x475569;
-const WALL_EDGE = 0xe2e8f0;
+const SHADOW_COLOR = 0x111827;
 const OPENING_FRAME = 0x78350f;
 const OPENING_EDGE = 0xd6a06a;
 const DOOR_LEAF = 0x7c2d12;
@@ -188,26 +188,65 @@ export class SceneShapePainter {
   }
 
   /**
-   * Стена-лента: заливка по контуру ленты, а не линия.
+   * Стена-лента: материал верхней грани, ребро, фаска, швы и тень на полу.
    *
-   * Линия с толщиной рисует только обводку и не даёт стене объёма; контур
-   * ленты даёт настоящую полосу с углами, как у реки.
+   * Стена видна сверху, поэтому объём читается не заливкой, а тремя вещами:
+   * тёмным ребром по краю, светлой фаской по осевой и мягкой тенью, которую
+   * полоса бросает на пол. Свет общий для сцены, а не для стены: иначе у
+   * каждой стены был бы свой источник.
    */
-  paintWall(shape: SceneShape, zoom: number): Graphics {
+  paintWall(element: SceneElement, segments: readonly SceneShape[], resolution: number, zoom: number): Graphics {
     const graphics = new Graphics();
-    if (shape.type !== 'wall' || shape.points.length < 2) {
+    const material = this.wallMaterialKey(element.props.material);
+    const palette = this.wallPalette(material);
+    const bands: { outline: ScenePoint[]; points: ScenePoint[]; thickness: number }[] = [];
+    for (const segment of segments) {
+      if (segment.type !== 'wall' || segment.points.length < 2) {
+        continue;
+      }
+
+      const thickness = Math.max(1, segment.width);
+      const widths = segment.points.map(() => thickness);
+      const outline = sceneRibbonService.outline(segment.points, [], widths, sceneCurveService.toleranceFor(zoom));
+      if (outline.length >= 3) {
+        bands.push({ outline, points: segment.points, thickness });
+      }
+    }
+
+    if (bands.length === 0) {
       return graphics;
     }
 
-    const widths = shape.points.map(() => Math.max(1, shape.width));
-    const outline = sceneRibbonService.outline(shape.points, [], widths, sceneCurveService.toleranceFor(zoom));
-    if (outline.length < 3) {
-      return graphics;
+    // Тень: сдвинутые копии полосы с падающей прозрачностью. Лежит под стеной,
+    // поэтому на пол попадает только наружная часть.
+    for (const layer of SCENE_WALL_MATERIAL.shadow.layers) {
+      for (const band of bands) {
+        const dx = SCENE_WALL_MATERIAL.shadow.direction[0] * band.thickness * layer.shift;
+        const dy = SCENE_WALL_MATERIAL.shadow.direction[1] * band.thickness * layer.shift;
+        const shifted = band.outline.map((point): ScenePoint => [point[0] + dx, point[1] + dy]);
+        graphics.poly(shifted.flat()).fill({ color: SHADOW_COLOR, alpha: layer.alpha });
+      }
     }
 
-    graphics.poly(outline.flat());
-    graphics.fill({ color: WALL_FILL, alpha: 0.95 });
-    graphics.stroke({ color: WALL_EDGE, width: Math.max(1, 1.5 / zoom), alpha: 0.85 });
+    for (const band of bands) {
+      graphics.poly(band.outline.flat()).fill({ color: palette.base, alpha: 1 });
+    }
+
+    // Ребро и фаска: обводка внутрь по контуру и светлая линия по осевой.
+    for (const band of bands) {
+      graphics.poly(band.outline.flat()).closePath().stroke({
+        color: palette.edge,
+        width: Math.max(1, band.thickness * SCENE_WALL_MATERIAL.edgeShare),
+        alignment: 1,
+        alpha: 0.9,
+        join: 'round',
+      });
+      this.paintWallTop(graphics, band.points, band.thickness, palette.top);
+    }
+
+    if (palette.seamStepIpari > 0) {
+      this.paintWallSeams(graphics, element.id, bands, palette.seam, palette.seamStepIpari, resolution, zoom);
+    }
 
     return graphics;
   }
@@ -217,15 +256,111 @@ export class SceneShapePainter {
    *
    * Две отдельные ленты встречаются прямоугольными торцами и оставляют
    * квадратную щель на внешнем углу. Квадрат по толщине закрывает её и
-   * совпадает с рёбрами стен на прямом угле.
+   * совпадает с рёбрами стен на прямом угле. Рисуется до стен, чтобы не
+   * перекрывать их фаску; материал берётся у самой широкой из сходящихся стен.
    */
-  paintWallJoint(point: ScenePoint, width: number, _zoom: number): Graphics {
+  paintWallJoint(point: ScenePoint, width: number, _zoom: number, material: string | undefined): Graphics {
     const graphics = new Graphics();
+    const palette = this.wallPalette(this.wallMaterialKey(material));
     const size = Math.max(1, width);
-    graphics.rect(point[0] - size / 2, point[1] - size / 2, size, size);
-    graphics.fill({ color: WALL_FILL, alpha: 0.95 });
+    graphics
+      .rect(point[0] - size / 2, point[1] - size / 2, size, size)
+      .fill({ color: palette.base, alpha: 1 });
+    graphics
+      .rect(point[0] - size / 2, point[1] - size / 2, size, size)
+      .stroke({ color: palette.edge, width: Math.max(1, size * SCENE_WALL_MATERIAL.edgeShare), alignment: 1, alpha: 0.9 });
 
     return graphics;
+  }
+
+  /** Палитра материала стены; неизвестный материал получает умолчание. */
+  private wallPalette(material: string) {
+    const materials: Record<
+      string,
+      { base: number; edge: number; top: number; seam: number; seamStepIpari: number }
+    > = SCENE_WALL_MATERIAL.materials;
+
+    return materials[material] ?? materials[SCENE_WALL_MATERIAL.default];
+  }
+
+  /** Ключ материала: неизвестное значение в старых сценах заменяется умолчанием. */
+  private wallMaterialKey(material: string | undefined): string {
+    return material !== undefined && material in SCENE_WALL_MATERIAL.materials ? material : SCENE_WALL_MATERIAL.default;
+  }
+
+  /** Светлая фаска: тонкая линия по осевой стены. */
+  private paintWallTop(graphics: Graphics, points: ScenePoint[], thickness: number, color: number): void {
+    if (points.length < 2) {
+      return;
+    }
+
+    graphics.moveTo(points[0][0], points[0][1]);
+    for (let index = 1; index < points.length; index += 1) {
+      graphics.lineTo(points[index][0], points[index][1]);
+    }
+
+    graphics.stroke({
+      color,
+      width: Math.max(1, thickness * SCENE_WALL_MATERIAL.topShare),
+      alpha: 0.35,
+      join: 'round',
+      cap: 'round',
+    });
+  }
+
+  /**
+   * Швы материала: поперечные линии через полосу.
+   *
+   * Шаг — в ипари от материала: у досок редкие торцы, у кирпича частая
+   * перевязка. Сдвиг детерминирован от id стены, поэтому швы не выстраиваются
+   * в линейку у соседних стен.
+   */
+  private paintWallSeams(
+    graphics: Graphics,
+    elementId: number,
+    bands: { points: ScenePoint[]; thickness: number }[],
+    color: number,
+    stepIpari: number,
+    resolution: number,
+    zoom: number,
+  ): void {
+    const step = Math.max(1, resolution * stepIpari);
+    const seed = Math.abs(Math.trunc(elementId)) * 2654435761;
+    const jitter = ((seed % 1024) / 1024) * step * 0.5;
+    const line = Math.max(1, 1 / zoom);
+    for (const band of bands) {
+      let distance = jitter;
+      for (let index = 1; index < band.points.length; index += 1) {
+        const from = band.points[index - 1];
+        const to = band.points[index];
+        const dx = to[0] - from[0];
+        const dy = to[1] - from[1];
+        const length = Math.hypot(dx, dy);
+        if (length < 1e-6) {
+          continue;
+        }
+
+        const dirX = dx / length;
+        const dirY = dy / length;
+        const normalX = -dirY;
+        const normalY = dirX;
+        const half = band.thickness / 2;
+        while (distance <= length) {
+          const x = from[0] + dirX * distance;
+          const y = from[1] + dirY * distance;
+          graphics.moveTo(x - normalX * half, y - normalY * half);
+          graphics.lineTo(x + normalX * half, y + normalY * half);
+          distance += step;
+        }
+
+        distance -= length;
+        if (distance <= 0) {
+          distance = step;
+        }
+      }
+    }
+
+    graphics.stroke({ color, width: line, alpha: 0.4, cap: 'butt' });
   }
 
   /**
@@ -512,6 +647,10 @@ export class SceneShapePainter {
         return 0x2563eb;
       case 'ice':
         return 0x93c5fd;
+      case 'wood':
+        return 0x9a6b45;
+      case 'tile':
+        return 0xbab4a8;
       default:
         return 0x4d7c0f;
     }

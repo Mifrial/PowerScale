@@ -41,6 +41,8 @@ export interface SceneWallJoint {
   point: ScenePoint;
   /** Наибольшая толщина среди сходящихся стен. */
   width: number;
+  /** Материал самой широкой из сходящихся стен. */
+  material?: string;
 }
 
 /** Минимальная длина сегмента и проёма в единицах сцены. */
@@ -508,7 +510,7 @@ export class SceneWallService {
    * где два прямоугольных торца оставляют щель.
    */
   joints(elements: readonly SceneWallElement[], boardId: number): SceneWallJoint[] {
-    const joints = new Map<string, { point: ScenePoint; width: number; count: number }>();
+    const joints = new Map<string, { point: ScenePoint; width: number; count: number; material?: string }>();
     for (const element of elements) {
       if (element.boardId !== boardId || !this.isWall(element) || element.shape.type !== 'wall') {
         continue;
@@ -519,12 +521,20 @@ export class SceneWallService {
         continue;
       }
 
+      const thickness = element.shape.width;
+      const material = element.props.material;
       const closed = this.isClosed(points);
       const unique = closed ? points.slice(0, -1) : points;
       const add = (point: ScenePoint): void => {
         const key = `${point[0]},${point[1]}`;
         const joint = joints.get(key) ?? { point, width: 0, count: 0 };
-        joint.width = Math.max(joint.width, element.shape.type === 'wall' ? element.shape.width : 0);
+        // Материал берётся у самой широкой стены: она задаёт вид угла, а
+        // тонкая примыкающая лента на нём всё равно не видна.
+        if (thickness >= joint.width) {
+          joint.material = material;
+        }
+
+        joint.width = Math.max(joint.width, thickness);
         joint.count += 1;
         joints.set(key, joint);
       };
@@ -542,7 +552,7 @@ export class SceneWallService {
 
     return [...joints.values()]
       .filter((joint) => joint.count >= 2)
-      .map((joint) => ({ point: joint.point, width: joint.width }));
+      .map((joint) => ({ point: joint.point, width: joint.width, material: joint.material }));
   }
 
   /**

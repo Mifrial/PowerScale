@@ -4,6 +4,8 @@ import sandUrl from '@/modules/Roleplay/Scene/Asset/Terrain/sand.jpg';
 import dirtUrl from '@/modules/Roleplay/Scene/Asset/Terrain/dirt.jpg';
 import stoneUrl from '@/modules/Roleplay/Scene/Asset/Terrain/stone.jpg';
 import mudUrl from '@/modules/Roleplay/Scene/Asset/Terrain/mud.jpg';
+import woodUrl from '@/modules/Roleplay/Scene/Asset/Terrain/wood.jpg';
+import tileUrl from '@/modules/Roleplay/Scene/Asset/Terrain/tile.jpg';
 import bedUrl from '@/modules/Roleplay/Scene/Asset/Terrain/bed.jpg';
 import wetsandUrl from '@/modules/Roleplay/Scene/Asset/Terrain/wetsand.jpg';
 import waterUrl from '@/modules/Roleplay/Scene/Asset/Terrain/water_surface.jpg';
@@ -21,6 +23,8 @@ export type SceneTerrainMaterial =
   | 'stone'
   | 'sand'
   | 'mud'
+  | 'wood'
+  | 'tile'
   | 'bed'
   | 'wetsand'
   | 'water'
@@ -38,6 +42,8 @@ const SOURCES: Record<SceneTerrainMaterial, string> = {
   stone: stoneUrl,
   sand: sandUrl,
   mud: mudUrl,
+  wood: woodUrl,
+  tile: tileUrl,
   bed: bedUrl,
   wetsand: wetsandUrl,
   water: waterUrl,
@@ -60,6 +66,10 @@ const PERIOD_IPARI: Record<SceneTerrainMaterial, number> = {
   stone: 1.6,
   sand: 1.6,
   mud: 1.6,
+  // Доски и плитка — пол: тайл крупнее природного, иначе швы превращаются в
+  // сетку и доска не читается.
+  wood: 1.8,
+  tile: 1.4,
   // Дно — не декорация под заливкой, а сама поверхность тела воды: при тайле
   // 1.5 ипари галька уходила в мипмап и дно читалось ровным серым.
   bed: 3,

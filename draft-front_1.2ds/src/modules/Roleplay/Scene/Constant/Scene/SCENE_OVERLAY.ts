@@ -15,6 +15,8 @@ const COST_COLORS: Record<SceneSurfaceKind, SceneOverlayColor> = {
   mud: { color: 0x92400e, alpha: 0.3 },
   ice: { color: 0x67e8f9, alpha: 0.28 },
   water: { color: 0x0ea5e9, alpha: 0.4 },
+  wood: { color: 0xb45309, alpha: 0.3 },
+  tile: { color: 0x94a3b8, alpha: 0.3 },
   bridge: { color: 0xfb923c, alpha: 0.46 },
   roof: { color: 0x9a3412, alpha: 0.46 },
   none: { color: 0x1e293b, alpha: 0.5 },

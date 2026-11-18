@@ -16,6 +16,7 @@ import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Sc
 import { SCENE_TERRAIN_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_KIND_OPTIONS';
 import { SCENE_TERRAIN_SHORE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_SHORE_OPTIONS';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
+import { SCENE_WALL_MATERIAL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL_MATERIAL';
 import {
   sceneDeckBaseElevation,
   sceneDeckClearance,
@@ -450,7 +451,7 @@ function patchNumber(
   patch({ [key]: Math.round(parsed) });
 }
 
-function patchText(key: 'label' | 'kind' | 'state' | 'role', value: string | null): void {
+function patchText(key: 'label' | 'kind' | 'state' | 'role' | 'material', value: string | null): void {
   patch({ [key]: value ?? '' });
 }
 
@@ -896,6 +897,17 @@ function onAssetCleared(publicId: string | null): void {
         :min="1"
         :max="100000"
         @update:model-value="(value) => emit('widthAll', value)"
+      />
+      <v-select
+        v-if="isWallElement"
+        :model-value="props.element.props.material ?? SCENE_WALL_MATERIAL.default"
+        :items="SCENE_WALL_MATERIAL.options"
+        label="Материал"
+        hint="Верхняя грань стены: тон, ребро и швы. У старой стены без материала — штукатурка."
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('material', value)"
       />
       <div v-if="isWallElement" class="scene-element-settings__row">
         <v-btn variant="tonal" size="small" prepend-icon="mdi-door" @click="emit('insertOpening', 'door')">

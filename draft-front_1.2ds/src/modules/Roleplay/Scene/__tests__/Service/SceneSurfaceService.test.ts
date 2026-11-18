@@ -72,6 +72,22 @@ describe('SceneSurfaceService', () => {
     expect(grid.costs[cellOf(grid, 13, 0)]).toBe(5);
   });
 
+  it('пол из досок и плитки — своя поверхность и скорость', () => {
+    const grid = service.build(
+      board(),
+      [
+        element(2, 'terrain', { type: 'rect', x: 0, y: 0, w: 64, h: 256 }, { kind: 'wood' }, 10),
+        element(3, 'terrain', { type: 'rect', x: 64, y: 0, w: 64, h: 256 }, { kind: 'tile' }, 20),
+      ],
+      64,
+    );
+
+    expect(grid.kinds[cellOf(grid, 1, 0)]).toBe('wood');
+    expect(grid.speeds[cellOf(grid, 1, 0)]).toBe(120);
+    expect(grid.kinds[cellOf(grid, 5, 0)]).toBe('tile');
+    expect(grid.speeds[cellOf(grid, 5, 0)]).toBe(120);
+  });
+
   it('вода перекрывает дорогу независимо от sortOrder', () => {
     const grid = service.build(
       board(),

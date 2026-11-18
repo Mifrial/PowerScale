@@ -2,7 +2,16 @@ import { FillPattern, Matrix, Texture } from 'pixi.js';
 import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
 
 /** Шаблоны террейна, для которых есть процедурная текстура. */
-export type SceneTerrainKind = 'grass' | 'dirt' | 'stone' | 'sand' | 'mud' | 'water' | 'ice';
+export type SceneTerrainKind =
+  | 'grass'
+  | 'dirt'
+  | 'stone'
+  | 'sand'
+  | 'mud'
+  | 'water'
+  | 'ice'
+  | 'wood'
+  | 'tile';
 
 /** Сторона процедурного тайла в пикселях. */
 const TEXTURE_SIZE = 256;
@@ -48,6 +57,16 @@ const PALETTES: Record<SceneTerrainKind, Palette> = {
     base: [176, 210, 224],
     light: [222, 242, 250],
     dark: [132, 172, 194],
+  },
+  wood: {
+    base: [150, 107, 72],
+    light: [190, 142, 96],
+    dark: [110, 76, 50],
+  },
+  tile: {
+    base: [186, 180, 168],
+    light: [216, 210, 198],
+    dark: [150, 145, 134],
   },
 };
 
@@ -375,6 +394,12 @@ export class SceneTerrainPatternService {
         this.cracks(context, palette, random, 22, 0.35);
         this.blotches(context, palette.light, random, 12, 0.18);
         break;
+      case 'wood':
+        this.planks(context, palette, random);
+        break;
+      case 'tile':
+        this.tiles(context, palette, random);
+        break;
     }
   }
 
@@ -495,6 +520,111 @@ export class SceneTerrainPatternService {
 
         context.stroke();
       }
+    }
+  }
+
+  /**
+   * Дощатый пол: ряды досок, торцы вразбежку и волокна.
+   *
+   * Тайл — четыре ряда; шов и торец рисуются с повтором у края, поэтому
+   * рисунок остаётся бесшовным. Тон ряда гуляет: доски из разных брёвен.
+   */
+  private planks(context: CanvasRenderingContext2D, palette: Palette, random: () => number): void {
+    const rows = 4;
+    const rowHeight = TEXTURE_SIZE / rows;
+    context.lineCap = 'butt';
+    for (let row = 0; row < rows; row += 1) {
+      const top = row * rowHeight;
+      const tone = random() > 0.5 ? palette.light : palette.dark;
+      context.fillStyle = `rgba(${tone[0]}, ${tone[1]}, ${tone[2]}, ${0.04 + random() * 0.08})`;
+      context.fillRect(0, top, TEXTURE_SIZE, rowHeight);
+
+      context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, 0.55)`;
+      context.lineWidth = 1.4;
+      context.beginPath();
+      context.moveTo(0, top + 0.5);
+      context.lineTo(TEXTURE_SIZE, top + 0.5);
+      context.stroke();
+      context.strokeStyle = `rgba(${palette.light[0]}, ${palette.light[1]}, ${palette.light[2]}, 0.22)`;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(0, top + 2);
+      context.lineTo(TEXTURE_SIZE, top + 2);
+      context.stroke();
+
+      const butt = random() * TEXTURE_SIZE;
+      context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, 0.5)`;
+      context.lineWidth = 1.2;
+      for (const [offsetX] of this.wrappedOffsets(butt, top, 8)) {
+        context.beginPath();
+        context.moveTo(butt + offsetX, top + 2);
+        context.lineTo(butt + offsetX, top + rowHeight - 1);
+        context.stroke();
+      }
+
+      for (let index = 0; index < 24; index += 1) {
+        const x = random() * TEXTURE_SIZE;
+        const y = top + 4 + random() * (rowHeight - 8);
+        const length = 8 + random() * 30;
+        const grain = random() > 0.5 ? palette.light : palette.dark;
+        context.strokeStyle = `rgba(${grain[0]}, ${grain[1]}, ${grain[2]}, ${0.05 + random() * 0.1})`;
+        context.lineWidth = 0.6 + random() * 0.6;
+        for (const [offsetX] of this.wrappedOffsets(x, y, length + 4)) {
+          context.beginPath();
+          context.moveTo(x + offsetX, y);
+          context.lineTo(x + offsetX + length, y);
+          context.stroke();
+        }
+      }
+    }
+  }
+
+  /**
+   * Плиточный пол: сетка швов, перепад тона и фаска по кромке.
+   *
+   * Плитки лежат в один размер без сдвига: у камня шов прямой, а шахматный
+   * порядок читался бы ковром. Кромка светлее у верхнего левого края — так
+   * плитка выглядит объёмной без отдельной текстуры нормалей.
+   */
+  private tiles(context: CanvasRenderingContext2D, palette: Palette, random: () => number): void {
+    const cells = 4;
+    const size = TEXTURE_SIZE / cells;
+    for (let row = 0; row < cells; row += 1) {
+      for (let column = 0; column < cells; column += 1) {
+        const x = column * size;
+        const y = row * size;
+        const tone = random() > 0.5 ? palette.light : palette.dark;
+        context.fillStyle = `rgba(${tone[0]}, ${tone[1]}, ${tone[2]}, ${0.03 + random() * 0.08})`;
+        context.fillRect(x + 1.5, y + 1.5, size - 3, size - 3);
+
+        context.lineWidth = 1;
+        context.strokeStyle = `rgba(${palette.light[0]}, ${palette.light[1]}, ${palette.light[2]}, 0.24)`;
+        context.beginPath();
+        context.moveTo(x + 1.5, y + size - 1.5);
+        context.lineTo(x + 1.5, y + 1.5);
+        context.lineTo(x + size - 1.5, y + 1.5);
+        context.stroke();
+        context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, 0.26)`;
+        context.beginPath();
+        context.moveTo(x + size - 1.5, y + 1.5);
+        context.lineTo(x + size - 1.5, y + size - 1.5);
+        context.lineTo(x + 1.5, y + size - 1.5);
+        context.stroke();
+      }
+    }
+
+    context.strokeStyle = `rgba(${palette.dark[0]}, ${palette.dark[1]}, ${palette.dark[2]}, 0.5)`;
+    context.lineWidth = 1.2;
+    for (let index = 0; index <= cells; index += 1) {
+      const position = Math.min(TEXTURE_SIZE - 0.5, index * size);
+      context.beginPath();
+      context.moveTo(0, position);
+      context.lineTo(TEXTURE_SIZE, position);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(position, 0);
+      context.lineTo(position, TEXTURE_SIZE);
+      context.stroke();
     }
   }
 

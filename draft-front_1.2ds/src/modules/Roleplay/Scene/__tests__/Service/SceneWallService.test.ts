@@ -354,4 +354,35 @@ describe('SceneWallService', () => {
     expect(joints).toContainEqual({ point: [200, 0], width: 8 });
     expect(joints.some((joint) => joint.point[0] === 0 && joint.point[1] === 0)).toBe(false);
   });
+
+  it('стык несёт материал самой широкой из сходящихся стен', () => {
+    const thin = element(
+      1,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [0, 0],
+          [100, 0],
+        ],
+        width: 8,
+      },
+      { material: 'plaster' },
+    );
+    const thick = element(
+      2,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [100, 0],
+          [100, 100],
+        ],
+        width: 16,
+      },
+      { material: 'wood' },
+    );
+
+    expect(service.joints([thin, thick], 1)).toEqual([{ point: [100, 0], width: 16, material: 'wood' }]);
+  });
 });

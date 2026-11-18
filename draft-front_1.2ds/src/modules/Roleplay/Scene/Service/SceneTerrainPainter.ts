@@ -31,7 +31,17 @@ const MATERIALS: Record<string, SceneTerrainMaterial | undefined> = {
   stone: 'stone',
   sand: 'sand',
   mud: 'mud',
+  wood: 'wood',
+  tile: 'tile',
 };
+
+/**
+ * Твёрдые полы: материал лежит плитой и не сыплется на соседей.
+ *
+ * Осыпь — это рваная кромка природной поверхности. У досок и плитки край
+ * режется по контуру: иначе доски вылезали бы на траву за полом.
+ */
+const HARD_SURFACES = new Set<string>(['wood', 'tile']);
 
 /**
  * Материалы террейна: поверхность, кромка и вода.
@@ -66,7 +76,8 @@ export class SceneTerrainPainter {
     // перекрыла бы мокрый край. У острова с берегом осыпь тоже не нужна:
     // наружу — вода, и трава не должна вылезать за урез.
     const hasShore = (element.props.shoreKind ?? 'none') !== 'none' && (element.props.shoreWidth ?? 0) > 0;
-    if (spill && !hasShore) {
+    const isHard = HARD_SURFACES.has(element.props.kind ?? '');
+    if (spill && !hasShore && !isHard) {
       this.paintSpill(container, element, element.props.kind, element.id, resolution, zoom, 0, true);
     }
 

@@ -7,4 +7,6 @@ export const SCENE_TERRAIN_KIND_OPTIONS = [
   { value: 'mud', title: 'Грязь' },
   { value: 'water', title: 'Вода' },
   { value: 'ice', title: 'Лёд' },
+  { value: 'wood', title: 'Доски' },
+  { value: 'tile', title: 'Плитка' },
 ];

@@ -37,6 +37,8 @@ const TERRAIN_SURFACE: Readonly<Record<string, SceneSurfaceKind>> = {
   mud: 'mud',
   ice: 'ice',
   water: 'water',
+  wood: 'wood',
+  tile: 'tile',
 };
 
 /**
