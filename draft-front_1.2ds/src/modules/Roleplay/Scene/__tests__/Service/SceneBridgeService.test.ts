@@ -93,6 +93,18 @@ describe('SceneBridgeService', () => {
     expect(brightness(SCENE_STAIRS.treadHigh)).toBeGreaterThan(brightness(SCENE_STAIRS.treadLow));
   });
 
+  it('тень верхней ступени ложится на нижнюю', () => {
+    const list = fills(service.paint(stairs(128), 64, 1));
+    const base = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === 1);
+    const shadow = list.slice(base + 1, base + 1 + SCENE_STAIRS.shadeSlices);
+    const brightness = (color: number): number =>
+      ((color >> 16) & 0xff) + ((color >> 8) & 0xff) + (color & 0xff);
+
+    expect(shadow).toHaveLength(SCENE_STAIRS.shadeSlices);
+    // Полосы идут от низкой кромки к высокой: у высокой тень плотнее.
+    expect(brightness(shadow[0].color)).toBeGreaterThan(brightness(shadow[shadow.length - 1].color));
+  });
+
   it('без подъёма марш — ровная плита без ступеней', () => {
     const flat = fills(service.paint(stairs(0), 64, 1));
 
