@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Texture } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
@@ -55,21 +56,29 @@ describe('SceneBridgeService', () => {
     expect(ramp?.context.instructions.length).toBeGreaterThan(0);
   });
 
-  /** Заливки верхнего уровня: цвет и прозрачность. */
-  const fills = (graphics: ReturnType<SceneBridgeService['paint']>): { color: number; alpha: number }[] =>
+  /** Заливки верхнего уровня: цвет, прозрачность и текстура. */
+  const fills = (
+    graphics: ReturnType<SceneBridgeService['paint']>,
+  ): { color: number; alpha: number; texture: unknown }[] =>
     (graphics?.context.instructions ?? [])
       .filter((instruction) => (instruction as { action?: string }).action === 'fill')
       .map((instruction) => {
-        const style = (instruction as unknown as { data?: { style?: { color?: number; alpha?: number } } }).data
-          ?.style;
+        const style = (
+          instruction as unknown as {
+            data?: { style?: { color?: number; alpha?: number; texture?: unknown } };
+          }
+        ).data?.style;
 
-        return { color: style?.color ?? -1, alpha: style?.alpha ?? 1 };
+        return { color: style?.color ?? -1, alpha: style?.alpha ?? 1, texture: style?.texture ?? null };
       });
 
   const stairs = (elevation: number, railing = false): SceneElement =>
     bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation, railing });
 
-  /** Носок ступени: единственная полупрозрачная заливка цвета носка. */
+  /** Подложка из материала: отдельная текстура, чтобы отличить её от заливки. */
+  const surface = (): Texture => Texture.EMPTY;
+
+  /** Носок ступени: полупрозрачная заливка цвета носка. */
   const noses = (graphics: ReturnType<SceneBridgeService['paint']>): number =>
     fills(graphics).filter(
       (fill) => fill.color === SCENE_STAIRS.nosingColor && fill.alpha === SCENE_STAIRS.nosingAlpha,
@@ -80,10 +89,36 @@ describe('SceneBridgeService', () => {
     expect(noses(service.paint(stairs(64), 64, 1))).toBe(4);
   });
 
+  it('подложка — материал пола, а без материала — ровный тон', () => {
+    const textured = fills(service.paint(stairs(128), 64, 1, 0, surface()));
+    const plain = fills(service.paint(stairs(128), 64, 1));
+
+    expect(textured.some((fill) => fill.texture === surface())).toBe(true);
+    expect(plain.some((fill) => fill.texture === surface())).toBe(false);
+    expect(plain.some((fill) => fill.color === SCENE_STAIRS.baseColor)).toBe(true);
+  });
+
+  it('подкрашивает подложку, чтобы марш не сливался с полом', () => {
+    const list = fills(service.paint(stairs(128), 64, 1, 0, surface()));
+    const base = list.findIndex((fill) => fill.texture === surface());
+    const tint = list.filter(
+      (fill) => fill.color === SCENE_STAIRS.surfaceTint && fill.alpha === SCENE_STAIRS.surfaceTintAlpha,
+    );
+
+    expect(base).toBeGreaterThanOrEqual(0);
+    expect(tint).toHaveLength(1);
+    // Подкраска лежит поверх материала, но под ступенями.
+    expect(base).toBeLessThan(list.indexOf(tint[0]));
+  });
+
   it('проступь светлеет к высокому концу марша', () => {
     const list = fills(service.paint(stairs(128), 64, 1));
-    const low = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === 1);
-    const high = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadHigh && fill.alpha === 1);
+    const low = list.findIndex(
+      (fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === SCENE_STAIRS.treadAlpha,
+    );
+    const high = list.findIndex(
+      (fill) => fill.color === SCENE_STAIRS.treadHigh && fill.alpha === SCENE_STAIRS.treadAlpha,
+    );
     const brightness = (color: number): number =>
       ((color >> 16) & 0xff) + ((color >> 8) & 0xff) + (color & 0xff);
 
@@ -95,14 +130,27 @@ describe('SceneBridgeService', () => {
 
   it('тень верхней ступени ложится на нижнюю', () => {
     const list = fills(service.paint(stairs(128), 64, 1));
-    const base = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === 1);
+    const base = list.findIndex(
+      (fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === SCENE_STAIRS.treadAlpha,
+    );
     const shadow = list.slice(base + 1, base + 1 + SCENE_STAIRS.shadeSlices);
-    const brightness = (color: number): number =>
-      ((color >> 16) & 0xff) + ((color >> 8) & 0xff) + (color & 0xff);
 
     expect(shadow).toHaveLength(SCENE_STAIRS.shadeSlices);
+    expect(shadow.every((fill) => fill.color === SCENE_STAIRS.shadeColor)).toBe(true);
     // Полосы идут от низкой кромки к высокой: у высокой тень плотнее.
-    expect(brightness(shadow[0].color)).toBeGreaterThan(brightness(shadow[shadow.length - 1].color));
+    expect(shadow[0].alpha).toBeLessThan(shadow[shadow.length - 1].alpha);
+  });
+
+  it('кладёт тень нижней ступени на пол за низким торцом', () => {
+    const list = fills(service.paint(stairs(128), 64, 1));
+    const foot = list.filter((fill) => fill.color === SCENE_STAIRS.footShadowColor);
+
+    expect(foot).toHaveLength(SCENE_STAIRS.footShadowStrips);
+    // Тень гаснет от торца к полу.
+    expect(foot[0].alpha).toBeGreaterThan(foot[foot.length - 1].alpha);
+    expect(fills(service.paint(stairs(0), 64, 1)).some((fill) => fill.color === SCENE_STAIRS.footShadowColor)).toBe(
+      false,
+    );
   });
 
   it('без подъёма марш — ровная плита без ступеней', () => {

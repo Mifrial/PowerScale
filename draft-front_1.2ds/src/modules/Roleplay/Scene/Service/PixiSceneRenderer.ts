@@ -48,6 +48,7 @@ import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/Scene
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
+import { SceneStairSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneStairSurface';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 import { sceneTerrainRank } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
 import { sceneIslandShores } from '@/modules/Roleplay/Scene/Service/SceneIslandShoreService';
@@ -169,6 +170,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private readonly patterns = new SceneTerrainPatternService();
 
   private readonly materials = new SceneTerrainTextureService();
+
+  /** Подложки маршей: материал пола, выложенный досками по проступям. */
+  private readonly stairSurfaces = new SceneStairSurfaceService(this.patterns, this.materials);
 
   private readonly painter = new SceneShapePainter();
 
@@ -774,6 +778,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.textures.destroy();
     this.patterns.destroy();
     this.materials.destroy();
+    this.stairSurfaces.destroy();
     this.grassTextures.destroy();
     this.decor.destroy();
     this.water.destroy();
@@ -1343,7 +1348,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
     for (const element of bridgeElements) {
       const blockedShare =
         element.props.kind === 'ramp' ? sceneRampBlockedShare(element, heightElements, resolution) : 0;
-      const painted = this.bridge.paint(element, resolution, this.zoom(), blockedShare);
+      // Подложка марша — материал пола: доски, камень или плитка из тех же
+      // текстур, что у террейна. Мосту и съезду материал не нужен.
+      const surface =
+        element.props.kind === 'stairs' && element.shape.type === 'rect'
+          ? this.stairSurfaces.surface(
+              element.props.material,
+              element.shape,
+              element.props.elevation ?? 0,
+              resolution,
+            )
+          : null;
+      const painted = this.bridge.paint(element, resolution, this.zoom(), blockedShare, surface);
       if (painted !== null) {
         ground.addChild(painted);
       }

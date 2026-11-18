@@ -72,6 +72,14 @@ final class SceneElementValidator
      */
     private const WALL_MATERIALS = ['plaster', 'wood', 'log', 'brick', 'stone'];
 
+    /**
+     * Материал подложки лестницы: тот же, что у пола.
+     *
+     * Марш лежит подложкой из материала пола, поэтому набор — материалы
+     * поверхностей, а не стен.
+     */
+    private const STAIR_MATERIALS = ['wood', 'stone', 'tile'];
+
     private const OPENING_STATES = ['open', 'closed'];
 
     private const MARKER_ROLES = ['player_start', 'npc_spawn', 'entrance', 'exit', 'loot', 'cover'];
@@ -601,6 +609,14 @@ final class SceneElementValidator
         // клетке стен, где полосы перил только сужают проход.
         if ($supportKind === 'stairs') {
             $normalized['railing'] = $this->boolOrDefault($props, 'railing', $path . '.railing', false);
+            // Материал подложки: доски по умолчанию, как пол дома. У старых
+            // лестниц без поля подложка тоже деревянная.
+            $material = $this->stringOrDefault($props, 'material', $path . '.material', 'wood');
+            if (!in_array($material, self::STAIR_MATERIALS, true)) {
+                throw new SceneInvalidException($path . '.material is unknown');
+            }
+
+            $normalized['material'] = $material;
         }
 
         return [

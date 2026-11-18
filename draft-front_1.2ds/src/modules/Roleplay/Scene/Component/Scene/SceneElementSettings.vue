@@ -874,6 +874,17 @@ function onAssetCleared(publicId: string | null): void {
         color="primary"
         @update:model-value="(value) => patch({ railing: value === true })"
       />
+      <v-select
+        v-if="isStairs"
+        :model-value="props.element.props.material ?? SCENE_STAIRS.materialDefault"
+        :items="SCENE_STAIRS.materialOptions"
+        label="Материал"
+        hint="Подложка марша: доски, камень или плитка. У досок доска идёт по проступи от края до края."
+        persistent-hint
+        density="compact"
+        variant="outlined"
+        @update:model-value="(value) => patchText('material', value)"
+      />
       <v-text-field
         :model-value="props.element.props.rotation ?? 0"
         label="Поворот"

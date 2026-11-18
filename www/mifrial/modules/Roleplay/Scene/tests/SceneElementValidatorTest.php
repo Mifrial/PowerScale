@@ -357,6 +357,58 @@ final class SceneElementValidatorTest extends TestCase
         self::assertSame('stairs', $element['props']['kind']);
         self::assertSame(100, $element['props']['speed']);
         self::assertFalse($element['props']['railing']);
+        self::assertSame('wood', $element['props']['material']);
+    }
+
+    /**
+     * Материал подложки есть только у лестницы и проверяется по списку.
+     *
+     * @return void
+     */
+    public function testStairsMaterial(): void
+    {
+        $stone = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'stairs', 'material' => 'stone'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $bridge = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'bridge', 'material' => 'stone'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('stone', $stone['props']['material']);
+        self::assertArrayNotHasKey('material', $bridge['props']);
+    }
+
+    /**
+     * Неизвестный материал подложки — ошибка, а не молчаливое дерево.
+     *
+     * @return void
+     */
+    public function testStairsMaterialUnknown(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('material is unknown');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'stairs', 'material' => 'plaster'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
     }
 
     /**

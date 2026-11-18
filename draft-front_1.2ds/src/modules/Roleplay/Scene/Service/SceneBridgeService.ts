@@ -1,9 +1,11 @@
 import { Graphics } from 'pixi.js';
+import type { Texture } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { sceneDeckFrame, sceneDeckRailShare, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
+import { sceneStairSteps } from '@/modules/Roleplay/Scene/Service/SceneStairSurface';
 
 /** Размеры настила, общие для моста и съезда. */
 interface DeckMetrics {
@@ -39,15 +41,26 @@ interface DeckMetrics {
  * зум.
  */
 export class SceneBridgeService {
-  /** Рисует мост, съезд или лестницу; `null` — элемент не прямоугольный. */
-  paint(element: SceneElement, resolution: number, zoom: number, blockedShare = 0): Graphics | null {
+  /**
+   * Рисует мост, съезд или лестницу; `null` — элемент не прямоугольный.
+   *
+   * `surface` — готовая подложка марша: материал пола, разложенный досками по
+   * проступям. Мост и съезд её не используют.
+   */
+  paint(
+    element: SceneElement,
+    resolution: number,
+    zoom: number,
+    blockedShare = 0,
+    surface: Texture | null = null,
+  ): Graphics | null {
     if (element.shape.type !== 'rect') {
       return null;
     }
 
     const metrics = this.metrics(element, resolution, zoom);
     if (element.props.kind === 'stairs') {
-      return this.paintStairs(metrics, resolution, element.props.railing === true);
+      return this.paintStairs(metrics, resolution, element.props.railing === true, surface);
     }
 
     return element.props.kind === 'ramp' ? this.paintRamp(metrics, blockedShare) : this.paintBridge(metrics);
@@ -81,7 +94,7 @@ export class SceneBridgeService {
   }
 
   /**
-   * Лестница: плоская подложка с мягкими ступенями.
+   * Лестница: подложка из материала пола и мягкие ступени.
    *
    * Тёмный подступенок и светлый носок отдельными плашками убраны: они читались
    * полосатым ковром. Вместо этого верхняя ступень бросает тень на нижнюю: она
@@ -93,36 +106,43 @@ export class SceneBridgeService {
    * разворачивает марш. Ширины носка, граней и теней — доли короткой стороны,
    * а не экранные пиксели: первый рендер при другом зуме не даёт широких полос.
    *
+   * Подложка — материал пола (`props.material`): у досок ряд приходится на
+   * проступь и идёт от края до края, волокна — вдоль ширины. Поверх лежит
+   * полупрозрачная подкраска, иначе марш сливается с полом. Под нижней ступенью
+   * на полу лежит своя тень: марш стоит над полом, а не врезан в него.
+   *
    * Перила — необязательные светлые балки по длинным сторонам. Их высота и
    * полоса в навигации те же, что у моста; включаются свойством `railing`.
    */
-  private paintStairs(metrics: DeckMetrics, resolution: number, railed: boolean): Graphics {
+  private paintStairs(
+    metrics: DeckMetrics,
+    resolution: number,
+    railed: boolean,
+    surface: Texture | null,
+  ): Graphics {
     const graphics = new Graphics();
-    this.paintShadow(graphics, metrics);
-
-    // Подложка: одна плоская доска без тёмной рамки.
-    graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.baseColor });
 
     // Ступени занимают всю подложку: внутренний отступ читался тёмной рамкой
     // вокруг марша. Борт задают перила или сама тень, а не кант.
-    const innerX = metrics.x;
-    const innerY = metrics.y;
-    const innerW = metrics.w;
-    const innerH = metrics.h;
-    const run = metrics.horizontal ? innerW : innerH;
-    const steps = this.stairSteps(metrics, resolution);
+    const run = metrics.horizontal ? metrics.w : metrics.h;
+    const steps = sceneStairSteps(metrics.rise, resolution);
     const tread = run / steps;
-    const start = metrics.horizontal ? innerX : innerY;
+    const start = metrics.horizontal ? metrics.x : metrics.y;
     const nosing = Math.max(0.5, metrics.short * SCENE_STAIRS.nosingShare);
-    const overlap = Math.min(0.5, tread * 0.04);
+
+    // Тень нижней ступени ложится на пол за низким торцом.
+    this.paintStairFootShadow(graphics, metrics, start);
+
+    // Подложка: материал пола, у досок рисунок повёрнут по маршу.
+    this.paintStairSurface(graphics, metrics, surface);
 
     /** Прямоугольник вдоль хода: `from…to` по длинной стороне. */
     const band = (from: number, to: number): void => {
       const length = Math.max(0.5, to - from);
       if (metrics.horizontal) {
-        graphics.rect(from, innerY, length, innerH);
+        graphics.rect(from, metrics.y, length, metrics.h);
       } else {
-        graphics.rect(innerX, from, innerW, length);
+        graphics.rect(metrics.x, from, metrics.w, length);
       }
     };
 
@@ -143,25 +163,26 @@ export class SceneBridgeService {
         continue;
       }
 
-      // Проступь: плоский тон, светлее к высокому концу.
+      // Проступь: полупрозрачный тон, светлее к высокому концу. Материал
+      // подложки остаётся виден — доска читается доской.
       band(from, to);
-      graphics.fill({ color: tone });
+      graphics.fill({ color: tone, alpha: SCENE_STAIRS.treadAlpha });
 
       // Тень верхней ступени падает на нижнюю: темнеет высокая кромка
-      // проступи, к низкой она сходит. Полосы непрозрачные, поэтому швов
-      // между ними не видно. У самой верхней ступени тени сверху нет.
+      // проступи, к низкой она сходит. У самой верхней ступени тени сверху
+      // нет.
       if (index < steps - 1) {
         const shadowFrom = Math.max(from, to - tread * SCENE_STAIRS.shadeShare);
-        const darkest = this.mixColor(tone, SCENE_STAIRS.shadeColor, SCENE_STAIRS.shadeAlpha);
         const span = Math.max(0.5, to - shadowFrom);
         const slices = Math.max(1, SCENE_STAIRS.shadeSlices);
         for (let slice = 0; slice < slices; slice += 1) {
+          // Полосы стыкуются вплотную: полупрозрачная заливка с нахлёстом
+          // темнела бы на каждом шве и читалась частой линейкой.
           const fromPart = shadowFrom + (span * slice) / slices;
           const toPart = shadowFrom + (span * (slice + 1)) / slices;
-          const grow = slice < slices - 1 ? overlap : 0;
-          band(fromPart, Math.min(to, toPart + grow));
+          band(fromPart, Math.min(to, toPart));
           const part = (slice + 0.5) / slices;
-          graphics.fill({ color: this.mixColor(tone, darkest, part) });
+          graphics.fill({ color: SCENE_STAIRS.shadeColor, alpha: SCENE_STAIRS.shadeAlpha * part });
         }
       }
 
@@ -178,6 +199,55 @@ export class SceneBridgeService {
     this.applyRotation(graphics, metrics);
 
     return graphics;
+  }
+
+  /**
+   * Подложка марша: материал пола, выложенный досками по проступям.
+   *
+   * Текстура уже собрана на геометрию марша и в локальных координатах, поэтому
+   * поворачивается вместе с элементом. Без неё остаётся ровный тон.
+   */
+  private paintStairSurface(
+    graphics: Graphics,
+    metrics: DeckMetrics,
+    surface: Texture | null,
+  ): void {
+    if (surface === null) {
+      graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.baseColor });
+    } else {
+      graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ texture: surface });
+    }
+
+    // Подкраска: марш светлее пола и не читается его вырезом.
+    graphics
+      .rect(metrics.x, metrics.y, metrics.w, metrics.h)
+      .fill({ color: SCENE_STAIRS.surfaceTint, alpha: SCENE_STAIRS.surfaceTintAlpha });
+  }
+
+  /**
+   * Тень нижней ступени на пол.
+   *
+   * Марш стоит над полом, поэтому низкий торец отбрасывает тень наружу — туда
+   * же, куда ступени выше бросают тень вниз по маршу. Полосы гаснут от торца.
+   */
+  private paintStairFootShadow(graphics: Graphics, metrics: DeckMetrics, start: number): void {
+    if (metrics.rise <= 0) {
+      return;
+    }
+
+    const depth = Math.max(1, metrics.short * SCENE_STAIRS.footShadowShare);
+    const strips = Math.max(1, SCENE_STAIRS.footShadowStrips);
+    for (let strip = 0; strip < strips; strip += 1) {
+      const offset = (depth * strip) / strips;
+      const size = Math.max(0.5, depth / strips);
+      const alpha = SCENE_STAIRS.footShadowAlpha * (1 - strip / strips);
+      if (metrics.horizontal) {
+        graphics.rect(start - offset - size, metrics.y, size, metrics.h);
+      } else {
+        graphics.rect(metrics.x, start - offset - size, metrics.w, size);
+      }
+      graphics.fill({ color: SCENE_STAIRS.footShadowColor, alpha });
+    }
   }
 
   /**
@@ -299,17 +369,6 @@ export class SceneBridgeService {
     return t < 0.5
       ? this.mixColor(SCENE_STAIRS.railLight, SCENE_STAIRS.railMid, t * 2)
       : this.mixColor(SCENE_STAIRS.railMid, SCENE_STAIRS.railDark, (t - 0.5) * 2);
-  }
-
-  /** Число ступеней марша по подъёму; без подъёма — одна плита. */
-  private stairSteps(metrics: DeckMetrics, resolution: number): number {
-    if (metrics.rise <= 0) {
-      return 1;
-    }
-
-    const riser = Math.max(1, Math.max(1, resolution) * SCENE_STAIRS.riserIpari);
-
-    return Math.max(2, Math.min(24, Math.round(metrics.rise / riser)));
   }
 
   /** Смешение двух цветов: тон проступи растёт к высокому концу. */
