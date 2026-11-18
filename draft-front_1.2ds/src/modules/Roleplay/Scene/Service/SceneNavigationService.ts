@@ -378,7 +378,8 @@ export class SceneNavigationService {
     agentRadius: number,
   ): SceneNavMesh | null {
     const own = elements.filter((element) => element.boardId === board.id);
-    const regions = this.buildRegions(board, own, resolution, agentRadius);
+    const built = this.buildRegions(board, own, resolution, agentRadius);
+    const regions = built.regions;
     if (regions.length === 0) {
       return null;
     }
@@ -389,7 +390,7 @@ export class SceneNavigationService {
     }
 
     this.link(triangles, resolution);
-    this.connectLevels(triangles, regions, resolution);
+    this.connectLevels(triangles, regions, resolution, built.barriers);
     const maxSpeed = Math.max(...regions.map((region) => region.speed));
 
     return {
@@ -419,6 +420,36 @@ export class SceneNavigationService {
   }
 
   /**
+   * Площадка перехода стоит на верху марша, а не на полу поля.
+   *
+   * Под такой площадкой не пол, а шахта лестницы. Если оставить там базовый
+   * слой, с верхней ступени в шахту можно спрыгнуть и остаться замурованным:
+   * выхода из закрытой клетки марша нет.
+   *
+   * @param pad Площадка перехода.
+   * @param elements Элементы поля.
+   * @param base Разрешение сцены.
+   *
+   * @returns true, если под площадкой лежит наклонный марш.
+   */
+  private landingAboveFlight(pad: SceneElement, elements: readonly SceneElement[], base: number): boolean {
+    if (pad.shape.type !== 'rect') {
+      return false;
+    }
+
+    const center: ScenePoint = [pad.shape.x + pad.shape.w / 2, pad.shape.y + pad.shape.h / 2];
+    const step = base * SCENE_NAVIGATION.stepIpari;
+
+    return elements.some(
+      (element) =>
+        element.boardId === pad.boardId &&
+        isSceneRamp(element) &&
+        sceneSurfaceElevation(element) > step &&
+        this.geometry.contains(element.shape, center, 1, sceneRotation(element)),
+    );
+  }
+
+  /**
    * Собирает непересекающиеся регионы по уровням.
    *
    * Базовый слой — террейн и опоры на земле: верхний элемент задаёт скорость.
@@ -431,7 +462,7 @@ export class SceneNavigationService {
     elements: readonly SceneElement[],
     resolution: number,
     agentRadius: number,
-  ): SceneNavRegion[] {
+  ): { regions: SceneNavRegion[]; barriers: { top: number; polygon: Polygon }[] } {
     const frame = this.rectPolygon(
       agentRadius,
       agentRadius,
@@ -439,7 +470,7 @@ export class SceneNavigationService {
       board.boundHeight - agentRadius * 2,
     );
     if (frame === null) {
-      return [];
+      return { regions: [], barriers: [] };
     }
 
     const base = Math.max(1, resolution);
@@ -447,6 +478,10 @@ export class SceneNavigationService {
     const bodyHeight = base * SCENE_NAVIGATION.bodyHeightIpari;
     const blockers: Polygon[] = [];
     const carves: Polygon[] = [];
+    /** Площадки перехода: твёрдый пол верхней ступени, а не проём в стене. */
+    const landingPads: Polygon[] = [];
+    /** Колодцы лестниц: их запас тела не действует под площадкой верхней ступени. */
+    const wellBlockers: Polygon[] = [];
     const positives: { element: SceneElement; speed: number }[] = [];
     const decks: {
       element: SceneElement;
@@ -520,13 +555,34 @@ export class SceneNavigationService {
       if (element.kind === 'opening') {
         const shape = this.polygonOf(element, resolution, agentRadius);
         if (shape === null) continue;
+        // Площадка перехода — не дверь в стене: это верхняя ступень марша,
+        // помеченная ромбом. Стены и мебель она не режет: вырез площадки с
+        // запасом радиуса тела прорезал бы соседнюю стену и пол под ней.
+        if (element.shape.type === 'rect' && element.props.kind === 'stairs' && element.targetBoardId !== null) {
+          landingPads.push(shape);
+          // Над маршем площадка — дверь, а не пол: под ней шахта лестницы.
+          // Оставить там базовый слой значит позволить спрыгнуть с верхней
+          // ступени в закрытую клетку марша и застрять без выхода.
+          if (this.landingAboveFlight(element, elements, base)) {
+            blockers.push(shape);
+          }
+          continue;
+        }
         // Окно не проход даже открытым: створка открывает вид, а не стену.
         // Дверь, ворота, лестница и телепорт при открытии вырезают проход.
         const passable = element.props.kind !== 'window';
         if (element.props.state === 'open' && passable) {
           carves.push(shape);
         } else {
-          blockers.push(shape);
+          // Колодец — лестничный проём без пары полей. Он остаётся
+          // препятствием, но под площадкой верхней ступени провала нет:
+          // площадка и есть твёрдый верх марша, поэтому запас её тела снимает
+          // запас колодца, а не режет стены вокруг.
+          if (element.props.kind === 'stairs' && element.targetBoardId === null && element.shape.type === 'rect') {
+            wellBlockers.push(shape);
+          } else {
+            blockers.push(shape);
+          }
           levelBlockers.push({ elevation: sceneSurfaceElevation(element), polygon: shape });
         }
         continue;
@@ -648,6 +704,13 @@ export class SceneNavigationService {
     }
 
     let blocked = this.unionMany(blockers);
+    if (wellBlockers.length > 0) {
+      const wells =
+        landingPads.length > 0
+          ? this.subtract(this.unionMany(wellBlockers), this.unionMany(landingPads))
+          : this.unionMany(wellBlockers);
+      blocked = this.unionMany([...this.polygonsOf(blocked), ...wells]);
+    }
     if (carves.length > 0) {
       blocked = this.subtract(blocked, this.unionMany(carves));
     }
@@ -802,7 +865,7 @@ export class SceneNavigationService {
       );
     });
 
-    return regions;
+    return { regions, barriers: obstacleTops };
   }
 
   /** Превращает булеву геометрию в регионы с уровнем и высотой. */
@@ -847,7 +910,12 @@ export class SceneNavigationService {
    * настил доступен только через съезд или другой настил. Соседние точки
    * одного треугольника склеиваются в один портал.
    */
-  private connectLevels(triangles: SceneNavTriangle[], regions: readonly SceneNavRegion[], resolution: number): void {
+  private connectLevels(
+    triangles: SceneNavTriangle[],
+    regions: readonly SceneNavRegion[],
+    resolution: number,
+    barriers: readonly { top: number; polygon: Polygon }[] = [],
+  ): void {
     const base = Math.max(1, resolution);
     const step = base * SCENE_NAVIGATION.stepIpari;
     const climb = base * SCENE_NAVIGATION.climbIpari;
@@ -954,6 +1022,7 @@ export class SceneNavigationService {
               region.level,
             );
             let below = -1;
+            let reached = 0;
             for (const offset of offsets) {
               below = this.locateBelow(
                 triangles,
@@ -961,10 +1030,19 @@ export class SceneNavigationService {
                 region.level,
               );
               if (below >= 0) {
+                reached = offset;
                 break;
               }
             }
             if (deckTriangle < 0 || below < 0) {
+              flush();
+              continue;
+            }
+
+            // Стена выше настила рвёт звено: проба «снаружи» иначе перескочила
+            // бы через неё и нашла землю по другую сторону. Именно так с
+            // верхней площадки лестницы открывался спуск сквозь стену дома.
+            if (this.linkBlocked(point, outward, reached, region, barriers, step)) {
               flush();
               continue;
             }
@@ -982,6 +1060,66 @@ export class SceneNavigationService {
         }
       }
     }
+  }
+
+  /**
+   * Перекрывает ли стена пробу от края настила наружу.
+   *
+   * Стена выше низкого края уровня отделяет настил от того, что лежит за
+   * ней: земля за стеной — не спуск с настила, а другой мир. Сравнение идёт
+   * с низом настила, поэтому у марша режется и его верхняя часть.
+   *
+   * @param from Край настила.
+   * @param outward Направление пробы.
+   * @param distance Длина пробы до найденного нижнего уровня.
+   * @param region Уровень настила.
+   * @param barriers Препятствия с верхом: стены и высокая мебель.
+   * @param step Порог шага, единицы сцены.
+   *
+   * @returns true, если проба пересекает стену.
+   */
+  private linkBlocked(
+    from: ScenePoint,
+    outward: ScenePoint,
+    distance: number,
+    region: SceneNavRegion,
+    barriers: readonly { top: number; polygon: Polygon }[],
+    step: number,
+  ): boolean {
+    if (barriers.length === 0 || distance <= 0) {
+      return false;
+    }
+
+    const low = region.slope === null ? region.elevation : Math.min(region.slope.low, region.slope.high);
+    const to: ScenePoint = [from[0] + outward[0] * distance, from[1] + outward[1] * distance];
+
+    return barriers.some(
+      (barrier) =>
+        barrier.top > low + step &&
+        barrier.polygon.some((ring) => {
+          for (let index = 1; index < ring.length; index += 1) {
+            const [ax, ay] = ring[index - 1];
+            const [bx, by] = ring[index];
+            if (this.segmentsCross(from, to, [ax, ay], [bx, by])) {
+              return true;
+            }
+          }
+
+          return false;
+        }),
+    );
+  }
+
+  /** Строгое пересечение двух отрезков: касание концом не считается. */
+  private segmentsCross(a: ScenePoint, b: ScenePoint, c: ScenePoint, d: ScenePoint): boolean {
+    const side = (p: ScenePoint, q: ScenePoint, r: ScenePoint): number =>
+      (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    const d1 = side(a, b, c);
+    const d2 = side(a, b, d);
+    const d3 = side(c, d, a);
+    const d4 = side(c, d, b);
+
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
   }
 
   /** Высота уровня в точке: у съезда — по наклону. */
@@ -2068,6 +2206,9 @@ export class SceneNavigationService {
           element.props.sill ?? '',
           element.props.walkable ?? '',
           element.props.railing ?? '',
+          // Площадка перехода не режет стену, а открытый марш без пары —
+          // режет: без пары полей поведение навигации разное.
+          element.targetBoardId ?? '',
           JSON.stringify(element.shape),
         ].join(':'),
       );

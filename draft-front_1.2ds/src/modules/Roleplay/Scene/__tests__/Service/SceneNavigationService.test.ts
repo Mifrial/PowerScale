@@ -711,6 +711,97 @@ describe('SceneNavigationService', () => {
     expect(crossesRect(route?.points ?? [], 492, 120, 16, 560)).toBe(false);
   });
 
+  it('не спрыгивает с торца настила через стену', () => {
+    // Настил стоит у стены, которая выше его уровня: проба «снаружи» иначе
+    // перескочила бы стену и нашла землю по другую сторону. Так с верхней
+    // площадки лестницы открывался спуск сквозь стену дома.
+    const wall = element(
+      3,
+      'obstacle',
+      {
+        type: 'wall',
+        width: 16,
+        points: [
+          [360, 10],
+          [360, 790],
+        ],
+      },
+      { blocksMovement: true, blocksVision: true, height: 160 },
+    );
+    const deck = rect(2, 'support', 400, 300, 300, 100, { kind: 'bridge', speed: 150, elevation: 120, height: 16 }, 20);
+    const through = service.route(board, [grass(), wall, deck], 64, [550, 350], [200, 350], {
+      ...options,
+      fromLevel: 1,
+    });
+    // Свободный торец по другую сторону — обычный спуск.
+    const free = service.route(board, [grass(), wall, deck], 64, [550, 350], [820, 350], {
+      ...options,
+      fromLevel: 1,
+    });
+
+    expect(through).toBeNull();
+    expect(free).not.toBeNull();
+    expect(free?.segments.some((segment) => segment.transition?.type === 'drop')).toBe(true);
+  });
+
+  it('площадка перехода не режет стену', () => {
+    // Площадка перехода — верхняя ступень марша, помеченная ромбом. Её вырез
+    // с запасом радиуса тела иначе прорезал бы соседнюю стену и открыл проход.
+    const wall = element(
+      2,
+      'obstacle',
+      {
+        type: 'wall',
+        width: 16,
+        points: [
+          [300, 408],
+          [700, 408],
+        ],
+      },
+      { blocksMovement: true, blocksVision: true, height: 128 },
+    );
+    const landing = (targetBoardId: number | null): SceneElement => ({
+      ...element(3, 'opening', { type: 'rect', x: 450, y: 380, w: 100, h: 56 }, { kind: 'stairs', state: 'open' }),
+      targetBoardId,
+    });
+
+    const withLanding = service.route(board, [grass(), wall, landing(2)], 64, [500, 350], [500, 470], options);
+    const plainStairs = service.route(board, [grass(), wall, landing(null)], 64, [500, 350], [500, 470], options);
+
+    expect(withLanding).not.toBeNull();
+    // Обход идёт вокруг торца стены, но сама стена под площадкой остаётся.
+    expect(crossesRect(withLanding?.points ?? [], 430, 398, 140, 20)).toBe(false);
+    // Открытый марш без пары — проход: он режет стену, и это видно по маршруту.
+    expect(plainStairs).not.toBeNull();
+    expect(crossesRect(plainStairs?.points ?? [], 430, 398, 140, 20)).toBe(true);
+  });
+
+  it('не оставляет пола под площадкой марша', () => {
+    // Верхняя ступень марша — площадка перехода. Под ней шахта лестницы, а не
+    // пол: иначе с кромки площадки можно спрыгнуть в закрытую клетку марша и
+    // застрять там без выхода.
+    const stairs = rect(2, 'support', 400, 200, 88, 400, {
+      kind: 'stairs',
+      elevation: 128,
+      height: 16,
+      speed: 100,
+      railing: false,
+      rotation: 0,
+    });
+    const landing = (targetBoardId: number | null, x: number): SceneElement => ({
+      ...rect(3, 'opening', x, 520, 88, 80, { kind: 'stairs', state: 'open' }, 9),
+      targetBoardId,
+    });
+    const underFlight = service.build(board, [grass(), stairs, landing(2, 400)], 64, options);
+    const aside = service.build(board, [grass(), stairs, landing(2, 700)], 64, options);
+
+    expect(underFlight).not.toBeNull();
+    expect(service.levelsAt(underFlight!, [444, 560]).map((level) => level.level)).not.toContain(0);
+    // Площадка в стороне от марша пол не режет: под ней обычный базовый слой.
+    expect(aside).not.toBeNull();
+    expect(service.levelsAt(aside!, [744, 560]).map((level) => level.level)).toContain(0);
+  });
+
   it('не пропускает через открытое окно', () => {
     // Окно открывает вид, а не проход: створка не режет стену в навигации.
     const wall = element(
