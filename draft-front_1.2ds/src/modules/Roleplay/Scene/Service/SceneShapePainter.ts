@@ -397,7 +397,17 @@ export class SceneShapePainter {
     this.paintBand(graphics, start, dir, normal, length - frame, length, thickness / 2, OPENING_JAMB, 1);
 
     if (kind === 'window') {
-      this.paintWindow(graphics, start, dir, normal, length, thickness, frame, zoom);
+      this.paintWindow(
+        graphics,
+        start,
+        dir,
+        normal,
+        length,
+        thickness,
+        frame,
+        zoom,
+        this.openingSill(element.props.material),
+      );
 
       return;
     }
@@ -441,9 +451,10 @@ export class SceneShapePainter {
   /**
    * Окно: стеклянная щель в стене, а не белая плита поперёк неё.
    *
-   * Сверху окно — проём с тонкими рамами по краям выреза: светлая полоса
-   * стекла между двумя узкими импостами. Толстые подоконники по сторонам
-   * делали окно шире стены и читались второй стеной.
+   * Сверху окно — вырез в стене с подоконником: полоса стены под стеклом
+   * остаётся, но темнее, иначе сквозь вырез видно пол и траву. Между двумя
+   * узкими импостами лежит светлая полоса стекла. Толстые подоконники по
+   * сторонам делали окно шире стены и читались второй стеной.
    */
   private paintWindow(
     graphics: Graphics,
@@ -454,10 +465,13 @@ export class SceneShapePainter {
     thickness: number,
     frame: number,
     zoom: number,
+    sillColor: number,
   ): void {
     const glassHalf = Math.max(1, thickness * 0.2);
     const rail = Math.max(1, 1.1 / zoom);
 
+    // Подоконник на всю толщину стены: стена под окном не исчезает.
+    this.paintBand(graphics, start, dir, normal, frame, length - frame, thickness / 2, sillColor, 1);
     this.paintBand(graphics, start, dir, normal, frame, length - frame, glassHalf, WINDOW_GLASS, 0.5);
     this.paintLine(
       graphics,
@@ -488,6 +502,26 @@ export class SceneShapePainter {
         0.95,
       );
     }
+  }
+
+  /**
+   * Цвет подоконника окна.
+   *
+   * Тон стены, но темнее: сверху подоконник читается полосой под стеклом, а
+   * не дырой. Материал приходит от стены, которую режет проём; у проёма без
+   * стены и у старой сцены — штукатурка.
+   *
+   * @param material Материал стены.
+   *
+   * @returns Цвет заливки подоконника.
+   */
+  private openingSill(material: string | undefined): number {
+    const palette = SCENE_WALL_MATERIAL.materials;
+    const key = (
+      material !== undefined && material in palette ? material : SCENE_WALL_MATERIAL.default
+    ) as keyof typeof palette;
+
+    return palette[key].sill;
   }
 
   /**
@@ -545,7 +579,8 @@ export class SceneShapePainter {
     for (let index = 0; index < steps; index += 1) {
       const from = start + tread * index;
       const length = Math.max(0.5, tread);
-      const tone = tones[Math.min(tones.length - 1, Math.floor((index / steps) * tones.length))] ?? SCENE_STAIRS.treadColor;
+      const tone =
+        tones[Math.min(tones.length - 1, Math.floor((index / steps) * tones.length))] ?? SCENE_STAIRS.treadColor;
       if (alongX) {
         graphics.rect(from, crossStart, length, crossSize).fill({ color: tone });
         graphics

@@ -19,13 +19,18 @@ export const SCENE_WALL_MATERIAL = {
     { value: 'stone', title: 'Камень' },
   ],
 
-  /** Палитра по материалу: база, обводка, шов и шаг швов. */
+  /**
+   * Палитра по материалу: база, обводка, шов, шаг швов и подоконник.
+   *
+   * Подоконник — тон стены, но темнее: сверху он читается полосой под
+   * стеклом, а не дырой в стене, сквозь которую видно пол.
+   */
   materials: {
-    plaster: { base: 0xd8cebb, edge: 0x9c9080, seam: 0xb3a691, seamStepIpari: 0 },
-    wood: { base: 0x9a6b45, edge: 0x503423, seam: 0x6a4529, seamStepIpari: 0.7 },
-    log: { base: 0x7b5232, edge: 0x3c2717, seam: 0x543722, seamStepIpari: 1.2 },
-    brick: { base: 0xa0563f, edge: 0x57301f, seam: 0x7d3f2d, seamStepIpari: 0.35 },
-    stone: { base: 0x8e8a80, edge: 0x4a4741, seam: 0x6e6a61, seamStepIpari: 0.9 },
+    plaster: { base: 0xd8cebb, edge: 0x9c9080, seam: 0xb3a691, seamStepIpari: 0, sill: 0xb8ac96 },
+    wood: { base: 0x9a6b45, edge: 0x503423, seam: 0x6a4529, seamStepIpari: 0.7, sill: 0x7a5233 },
+    log: { base: 0x7b5232, edge: 0x3c2717, seam: 0x543722, seamStepIpari: 1.2, sill: 0x604026 },
+    brick: { base: 0xa0563f, edge: 0x57301f, seam: 0x7d3f2d, seamStepIpari: 0.35, sill: 0x83422f },
+    stone: { base: 0x8e8a80, edge: 0x4a4741, seam: 0x6e6a61, seamStepIpari: 0.9, sill: 0x726e65 },
   },
 
   /**

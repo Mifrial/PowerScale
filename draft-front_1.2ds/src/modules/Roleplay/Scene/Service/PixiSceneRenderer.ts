@@ -47,7 +47,7 @@ import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatc
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
 import { SceneFurnitureService } from '@/modules/Roleplay/Scene/Service/SceneFurnitureService';
-import { sceneZoomNeedsRebuild } from '@/modules/Roleplay/Scene/Service/SceneZoom';
+import { SCENE_ZOOM_REBUILD_MS, sceneZoomNeedsRebuild } from '@/modules/Roleplay/Scene/Service/SceneZoom';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneStairSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneStairSurface';
@@ -284,6 +284,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
   /** Слои надо пересобрать под новый зум до следующего кадра. */
   private rebuildPending = false;
 
+  /** Отложенная пересборка: колесо присылает смены чаще, чем стоит собирать. */
+  private rebuildTimer: number | null = null;
+
+  /** Когда слои собраны: по нему считается пауза между пересборками. */
+  private builtAt = 0;
+
   private contextLost = false;
 
   private readonly handleContextLost = (event: Event): void => {
@@ -379,9 +385,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.viewport = viewport;
     this.applyViewport();
     // Толщины линий, фаски, тени и пороги считаются от зума при сборке.
-    // Пересобираем не сразу, а одним кадром: колесо присылает пачку смен.
+    // Пересобираем не сразу и не чаще паузы: колесо присылает пачку смен,
+    // а полная сборка сцены на каждое событие — это заметный лаг.
     if (previous !== null && Math.abs(previous.zoom - viewport.zoom) > 0.0001 && this.zoomNeedsRebuild(viewport.zoom)) {
       this.rebuildPending = true;
+      this.scheduleRebuild();
     }
 
     if (previous !== null && Math.abs(previous.zoom - viewport.zoom) > 0.0001) {
@@ -792,6 +800,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.grassTrail.reset();
     this.waterNodes = [];
     this.textures.destroy();
+    this.cancelRebuild();
     this.patterns.destroy();
     this.materials.destroy();
     this.stairSurfaces.destroy();
@@ -833,8 +842,45 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    // Пауза считается от последней сборки: непрерывный зум не должен
+    // запускать полную пересборку на каждый кадр тикера.
+    if (performance.now() - this.builtAt < SCENE_ZOOM_REBUILD_MS) {
+      this.scheduleRebuild();
+
+      return;
+    }
+
     this.rebuildPending = false;
     this.rebuild();
+  }
+
+  /**
+   * Откладывает пересборку на паузу.
+   *
+   * Тикер воды и следа может быть остановлен, поэтому одного кадра мало:
+   * таймер гарантирует, что собранная под старый зум картинка не останется
+   * до следующего действия пользователя.
+   */
+  private scheduleRebuild(): void {
+    if (this.rebuildTimer !== null) {
+      return;
+    }
+
+    this.rebuildTimer = window.setTimeout(() => {
+      this.rebuildTimer = null;
+      this.flushPendingRebuild();
+      this.requestFrame();
+    }, SCENE_ZOOM_REBUILD_MS);
+  }
+
+  /** Снимает отложенную пересборку при destroy. */
+  private cancelRebuild(): void {
+    if (this.rebuildTimer === null) {
+      return;
+    }
+
+    window.clearTimeout(this.rebuildTimer);
+    this.rebuildTimer = null;
   }
 
   private createWorld(): void {
@@ -935,6 +981,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     this.layers = this.activeField?.layers ?? {};
     this.fieldScale = this.activeField?.scale ?? 1;
     this.builtZoom = this.zoom();
+    this.builtAt = performance.now();
     this.boardBounds =
       activeBoard === undefined ? null : { x: 0, y: 0, width: activeBoard.boundWidth, height: activeBoard.boundHeight };
 
@@ -2357,11 +2404,16 @@ export class PixiSceneRenderer implements ISceneRenderer {
         continue;
       }
 
+      // Материал нужен окну: подоконник берёт тон стены, которую режет проём.
+      // Это копия для рисунка, в данных проёма поле не сохраняется.
+      const material = wall.props.material;
+      const props = material === undefined ? element.props : { ...element.props, material };
+
       if (Math.abs(wall.shape.width - element.shape.width) < 0.5) {
-        return element;
+        return props === element.props ? element : { ...element, props };
       }
 
-      return { ...element, shape: { ...element.shape, width: wall.shape.width } };
+      return { ...element, props, shape: { ...element.shape, width: wall.shape.width } };
     }
 
     return element;

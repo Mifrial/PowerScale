@@ -65,6 +65,65 @@ describe('SceneShapePainter', () => {
     );
   });
 
+  /** Пары координат всех заливок заданного цвета. */
+  const fillPairs = (graphics: Graphics, color: number): number[][] => {
+    const pairs: number[][] = [];
+    for (const instruction of graphics.context.instructions as unknown as {
+      action?: string;
+      data?: { style?: { color?: number }; path?: { instructions?: { action?: string; data?: unknown }[] } };
+    }[]) {
+      if (instruction.action !== 'fill' || instruction.data?.style?.color !== color) {
+        continue;
+      }
+      for (const path of instruction.data?.path?.instructions ?? []) {
+        if (path.action !== 'poly' || !Array.isArray(path.data)) {
+          continue;
+        }
+        // `poly` получает массив точек первым аргументом: [x0, y0, x1, y1, ...].
+        const points = path.data[0];
+        if (!Array.isArray(points)) {
+          continue;
+        }
+        for (let index = 0; index + 1 < points.length; index += 2) {
+          pairs.push([points[index] as number, points[index + 1] as number]);
+        }
+      }
+    }
+
+    return pairs;
+  };
+
+  /** Окно в стене толщиной 16 по линии y = 100. */
+  const windowOf = (material: string | undefined): SceneElement => ({
+    id: 2,
+    boardId: 1,
+    kind: 'opening',
+    shape: {
+      type: 'wall',
+      width: 16,
+      points: [
+        [100, 100],
+        [196, 100],
+      ],
+    },
+    props: { kind: 'window', state: 'closed', material },
+    sortOrder: 0,
+    targetBoardId: null,
+    asset: null,
+  });
+
+  it('подоконник закрывает всю толщину стены цветом материала', () => {
+    const pairs = fillPairs(painter.paintElement(windowOf('wood'), 1), 0x7a5233);
+
+    expect(pairs.length).toBeGreaterThan(0);
+    const ys = pairs.map((pair) => pair[1]);
+    // Стена толщиной 16 с осевой по y = 100: подоконник — от 92 до 108, а не
+    // узкая полоса у осевой. Иначе под окном остаётся дыра с травой.
+    expect(Math.min(...ys)).toBe(92);
+    expect(Math.max(...ys)).toBe(108);
+    expect(fillPairs(painter.paintElement(windowOf('plaster'), 1), 0xb8ac96).length).toBeGreaterThan(0);
+  });
+
   it('верхняя грань стены — одна плоская заливка без полос', () => {
     expect(actions(painter.paintWallTop([band('plaster')], 64, 1))).toEqual(['fill']);
   });
