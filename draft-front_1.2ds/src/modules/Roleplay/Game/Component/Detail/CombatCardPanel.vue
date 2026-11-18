@@ -655,6 +655,23 @@ async function abortCommittedAction(): Promise<void> {
   if (!key) return;
   const session = committedSessions.value[key];
   if (!session) return;
+  if (gamePhpMode.isEnabled()) {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) throw new Error('Бой ещё не известен');
+    await getGameApi().abortAction({
+      gameId: props.gameId,
+      idempotencyKey: createRandomId(),
+      battleId,
+      expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+    });
+    const next = { ...committedSessions.value };
+    delete next[key];
+    committedSessions.value = next;
+    emit('overlay-changed');
+
+    return;
+  }
   await committedActionFlowService.abort(props.gameId, session, props.rules, props.chatId, speaker.value, sendChat);
 }
 

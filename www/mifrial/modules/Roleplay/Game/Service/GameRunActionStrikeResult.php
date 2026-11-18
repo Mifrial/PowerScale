@@ -33,6 +33,8 @@ final class GameRunActionStrikeResult
         ];
         if (($result['debt'] ?? false) === true) {
             $response['debt'] = true;
+            $response['remaining'] = $result['remaining'] ?? 0;
+            $response['total'] = $result['total'] ?? 0;
         }
 
         return $response;

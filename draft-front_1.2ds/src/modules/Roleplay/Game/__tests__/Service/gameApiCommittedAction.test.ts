@@ -44,6 +44,56 @@ describe('GameApi committed action debt', () => {
     });
   });
 
+  it('долг касательного каста читается как незавершённое действие', async () => {
+    gamePhpBattleContext.rememberBattle(9, 4);
+    runAction.mockResolvedValue({
+      success: true,
+      data: {
+        battleId: 9,
+        characters: [],
+        npcs: [],
+        sheets: [],
+        actionDebt: {
+          'character:1': {
+            remaining: 7,
+            total: 12,
+            kind: 'strike',
+            actionRuleCode: 'swing',
+            payload: { spellCast: { spellCode: 'heightened-senses', pathCode: 'nolomancy' } },
+          },
+        },
+      },
+    });
+
+    const sessions = await api.getCommittedActionSessions(1);
+
+    expect(sessions['character:1']).toMatchObject({
+      actionRuleCode: 'heightened-senses',
+      remainingOd: 7,
+      totalOd: 12,
+    });
+  });
+
+  it('обычный долг удара остаётся окну удара', async () => {
+    gamePhpBattleContext.rememberBattle(9, 4);
+    runAction.mockResolvedValue({
+      success: true,
+      data: {
+        battleId: 9,
+        characters: [],
+        npcs: [],
+        sheets: [],
+        actionDebt: {
+          'character:1': { remaining: 3, total: 5, kind: 'strike', actionRuleCode: 'swing', payload: {} },
+        },
+      },
+    });
+
+    const sessions = await api.getCommittedActionSessions(1);
+
+    expect(sessions).toEqual({});
+  });
+
   it('без боя долгов нет', async () => {
     const sessions = await api.getCommittedActionSessions(1);
 

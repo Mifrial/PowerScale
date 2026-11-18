@@ -55,7 +55,9 @@ final class GameStrikeSpendAttacker
      *     debtHold: array<string, mixed>|null,
      *     cycle: array<string, mixed>|null,
      *     tokenSpend: array{resource: string, amount: int, source: string, mode: string}|null,
-     *     spent: int
+     *     spent: int,
+     *     remaining: int,
+     *     total: int
      * } Карта ожидания и удержанный долг.
      *
      * @throws GameInvalidException Если ресурс или атакующий невалидны.
@@ -85,9 +87,11 @@ final class GameStrikeSpendAttacker
         $this->write($game, $sheet, $spends, $inventory, $kind, $id, $snapshot, $subject);
 
         $spent = $costs['spent'];
-        if ($debt['planned']['open'] !== true) {
-            $remaining = $debt['planned']['slot']['remaining'] ?? 0;
-            $spent = max(0, $spent - (is_int($remaining) ? $remaining : 0));
+        $open = $debt['planned']['open'] === true;
+        $slot = $debt['planned']['slot'];
+        $remaining = $open ? 0 : (int) ($slot['remaining'] ?? 0);
+        if (!$open) {
+            $spent = max(0, $spent - $remaining);
         }
 
         return [
@@ -96,6 +100,8 @@ final class GameStrikeSpendAttacker
             'cycle' => $this->cycle($battle, $token, $debt['key']),
             'tokenSpend' => $token,
             'spent' => $spent,
+            'remaining' => $remaining,
+            'total' => $open ? $spent : (int) ($slot['total'] ?? 0),
         ];
     }
 

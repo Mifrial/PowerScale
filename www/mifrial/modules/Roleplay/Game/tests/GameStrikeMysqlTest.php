@@ -1286,6 +1286,106 @@ final class GameStrikeMysqlTest extends TestCase
     }
 
     /**
+     * Касание в долг: объявление ждёт оплаты и только потом открывает удар.
+     *
+     * @return void
+     */
+    public function testTouchSpellDebtOpensStrikeAfterPayment(): void
+    {
+        $scene = $this->spellScene(0);
+        $battleVersion = $this->rollSceneInitiative($scene);
+        $attack = [
+            'attacker' => ['type' => 'character', 'id' => $scene['hero']],
+            'defender' => ['type' => 'npc', 'id' => $scene['npcId']],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 1,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'spellCast' => [
+                'spellCode' => 'discharge',
+                'pathCode' => 'arcanist',
+                'parameters' => ['x' => ['base' => 4, 'size' => 0]],
+                'usedPower' => [
+                    'source' => ['kind' => 'characteristic', 'code' => 'magic-power'],
+                    'value' => ['base' => 5, 'size' => 1],
+                ],
+            ],
+        ];
+        $declared = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-debt-1',
+            'expectedVersion' => $battleVersion,
+            'action' => $this->strikeEnvelope($attack),
+        ]);
+        self::assertTrue($declared['success'], json_encode($declared));
+        self::assertTrue($declared['data']['debt'] ?? false, json_encode($declared));
+        self::assertGreaterThan(0, $declared['data']['total'] ?? 0);
+        self::assertSame($declared['data']['total'] ?? null, $declared['data']['remaining'] ?? null);
+        self::assertSame(0, $this->resourceCurrent($scene['hero'], 'action-points'));
+
+        $slot = $this->battleDebt($scene['gameId'], $scene['battleId'])['character:' . $scene['hero']] ?? null;
+        self::assertIsArray($slot);
+        self::assertSame('strike', $slot['kind'] ?? null);
+        self::assertSame('discharge', $slot['payload']['spellCast']['spellCode'] ?? null);
+
+        $heroEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-debt-hero',
+            'expectedBattleVersion' => $declared['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        ]);
+        self::assertTrue($heroEnd['success'], json_encode($heroEnd));
+
+        $npc = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($npc['success'], json_encode($npc));
+        $npcEnd = $this->dispatch('game.endTurn', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-debt-npc',
+            'expectedBattleVersion' => $heroEnd['data']['version'],
+            'expectedSheetVersion' => $npc['data']['actualVersion'],
+        ]);
+        self::assertTrue($npcEnd['success'], json_encode($npcEnd));
+
+        $beforePay = $this->resourceCurrent($scene['hero'], 'action-points');
+        $continue = $this->dispatch('game.continueAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-debt-continue',
+            'expectedBattleVersion' => $npcEnd['data']['version'],
+            'expectedSheetVersion' => $this->characterFacade()->get($scene['hero'])->getActualVersion(),
+        ]);
+        self::assertTrue($continue['success'], json_encode($continue));
+        self::assertTrue($continue['data']['opened'] ?? false, json_encode($continue));
+        self::assertGreaterThan(0, $continue['data']['strikeId'] ?? 0);
+        $paid = min($beforePay, (int) ($declared['data']['remaining'] ?? 0));
+        self::assertSame($beforePay - $paid, $this->resourceCurrent($scene['hero'], 'action-points'));
+        self::assertSame([], $this->battleDebt($scene['gameId'], $scene['battleId']));
+
+        $target = $this->dispatch('game.getNpc', [
+            'gameId' => $scene['gameId'],
+            'npcId' => $scene['npcId'],
+        ]);
+        self::assertTrue($target['success'], json_encode($target));
+        $closed = $this->dispatch('game.runAction', [
+            'gameId' => $scene['gameId'],
+            'battleId' => $scene['battleId'],
+            'idempotencyKey' => 'touch-debt-defense',
+            'expectedVersion' => $continue['data']['version'],
+            'action' => $this->strikeDefenseEnvelope(['reaction' => 'ignore'], $target['data']['actualVersion']),
+        ]);
+        self::assertTrue($closed['success'], json_encode($closed));
+        self::assertArrayHasKey('spellCast', $closed['data']);
+        self::assertTrue($closed['data']['spellCast']['castOk']);
+    }
+
+    /**
      * Эффект на себя не тикает в ход создания, но тикает в следующий свой ход.
      *
      * @return void

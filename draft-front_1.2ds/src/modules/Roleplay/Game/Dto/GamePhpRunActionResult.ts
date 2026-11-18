@@ -14,6 +14,10 @@ export interface GamePhpRunActionResult {
   version: number;
   strikeId?: number;
   debt?: boolean;
+  /** Остаток долга удара, если объявление ушло в долг. */
+  remaining?: number;
+  /** Полная цена действия, если объявление ушло в долг. */
+  total?: number;
   closed?: boolean;
   strikes?: GamePhpStrikeRow[];
   pendingStrikes?: { index: number; target: GamePhpParticipant }[];

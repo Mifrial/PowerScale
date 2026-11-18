@@ -246,6 +246,8 @@ const phpDeclaredStrike = ref<GamePhpOpenStrike | null>(null);
 const phpPendingStrike = ref<GamePhpOpenStrike | null>(null);
 const phpOverride = ref(false);
 const phpDebt = ref(false);
+const phpDebtRemaining = ref(0);
+const phpDebtTotal = ref(0);
 const phpWideTargets = ref<CombatEntityKey[]>([]);
 const phpWideConditions = ref<Record<string, WideTargetConditionsDraft>>({});
 const phpWideProjection = ref<GamePhpOpenWideStrike | null>(null);
@@ -1556,6 +1558,8 @@ watch(
       phpPendingStrike.value = null;
       phpOverride.value = false;
       phpDebt.value = false;
+      phpDebtRemaining.value = 0;
+      phpDebtTotal.value = 0;
       phpWideProjection.value = null;
       phpWideTargets.value = [];
       phpWideConditions.value = {};
@@ -1570,6 +1574,8 @@ watch(
       phpPendingStrike.value = null;
       phpOverride.value = false;
       phpDebt.value = false;
+      phpDebtRemaining.value = 0;
+      phpDebtTotal.value = 0;
     }
     phpWideProjection.value = props.openWideStrike ?? gamePhpBattleContext.openWideStrike;
     phpWideTargets.value = [];
@@ -4103,6 +4109,13 @@ function applyPhpWideResponse(result: GamePhpRunActionResult): void {
   });
 }
 
+/** Запоминает долг удара и его остаток из ответа объявления. */
+function rememberPhpDebt(declared: GamePhpRunActionResult): void {
+  phpDebt.value = declared.debt === true;
+  phpDebtRemaining.value = phpDebt.value && typeof declared.remaining === 'number' ? declared.remaining : 0;
+  phpDebtTotal.value = phpDebt.value && typeof declared.total === 'number' ? declared.total : 0;
+}
+
 async function submitPhpStrike(): Promise<boolean> {
   const wideAttack = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
   if (!phpDeclared.value) {
@@ -4130,7 +4143,7 @@ async function submitPhpStrike(): Promise<boolean> {
         : phpStrikeFromAttack(attackBody.attack as PhpSingleAttack);
       phpPendingStrike.value = phpDeclaredStrike.value;
       phpOverride.value = false;
-      phpDebt.value = declared.debt === true;
+      rememberPhpDebt(declared);
       phpWideChoices.value = [];
       if (declared.debt !== true) gamePhpBattleContext.rememberOpenStrike(phpDeclaredStrike.value);
 
@@ -4148,7 +4161,7 @@ async function submitPhpStrike(): Promise<boolean> {
     phpDeclaredStrike.value = null;
     phpPendingStrike.value = null;
     phpOverride.value = false;
-    phpDebt.value = declared.debt === true;
+    rememberPhpDebt(declared);
     gamePhpBattleContext.rememberOpenWideStrike(
       declared.debt === true || declared.strikeId === undefined
         ? null
@@ -4274,6 +4287,8 @@ async function continuePhpDebt(): Promise<void> {
     const result = await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, false);
     if (result.opened === true) {
       phpDebt.value = false;
+      phpDebtRemaining.value = 0;
+      phpDebtTotal.value = 0;
       phpDeclared.value = true;
       phpDeclaredStrike.value = phpPendingStrike.value;
       phpOverride.value = false;
@@ -4287,6 +4302,13 @@ async function continuePhpDebt(): Promise<void> {
       return;
     }
     phpDebt.value = true;
+    if (typeof result.remaining === 'number') phpDebtRemaining.value = result.remaining;
+    if (phpDebtRemaining.value <= 0) {
+      phpDebt.value = false;
+      close();
+
+      return;
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось продолжить';
   } finally {
@@ -4472,7 +4494,9 @@ const canSubmit = computed(() => {
     return (
       opponentKey.value !== null &&
       resolvedSelectedAction.value !== null &&
-      resolvedSelectedAction.value.odCost <= attackerAp.value &&
+      // Касание с заклинанием объявляется и при нехватке ОД: сервер спишет
+      // доступное и откроет долг, игрок доплатит в свой ход.
+      (Boolean(props.phpSpellCast) || resolvedSelectedAction.value.odCost <= attackerAp.value) &&
       lastStrikeService.canFollowUp(
         findRuleByRef(props.rules, resolvedSelectedAction.value.code),
         lastStrikeService.snapshotOf(attackerPendingEffects.value),
@@ -4565,6 +4589,16 @@ const canSubmit = computed(() => {
         </v-alert>
         <template v-else>
           <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
+          <v-alert v-if="phpDebt" type="info" variant="tonal" density="compact" class="mb-2" data-test="php-debt">
+            <div v-if="phpDebtTotal > 0">
+              {{ phpSpellCast ? 'Касание объявлено' : 'Удар объявлен' }} в долг ОД: оплачено
+              {{ phpDebtTotal - phpDebtRemaining }} из {{ phpDebtTotal }}, осталось {{ phpDebtRemaining }}.
+            </div>
+            <div v-else>{{ phpSpellCast ? 'Касание объявлено' : 'Удар объявлен' }} в долг ОД.</div>
+            <div class="text-caption mt-1">
+              Идёт ожидание оплаты: доплатите в свой ход, и эффект разрешится после полной оплаты.
+            </div>
+          </v-alert>
           <v-alert
             v-if="phpPendingDefense"
             type="warning"
@@ -4901,7 +4935,7 @@ const canSubmit = computed(() => {
           </v-alert>
         </template>
       </v-card-text>
-      <v-card-actions class="py-2 px-4">
+      <v-card-actions class="py-2 px-4 hit-dialog-actions">
         <v-btn v-if="hasReaction" variant="tonal" size="small" :disabled="busy" @click="requestReaction">
           {{ reactionActionLabel ?? 'Реакции' }}
         </v-btn>
@@ -4909,7 +4943,9 @@ const canSubmit = computed(() => {
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
         <template v-if="phpDebt">
           <v-btn variant="text" size="small" :disabled="busy" @click="abortPhpDebt">Отменить долг ОД</v-btn>
-          <v-btn color="primary" size="small" :loading="busy" @click="continuePhpDebt">Продолжить</v-btn>
+          <v-btn color="primary" size="small" :loading="busy" :disabled="attackerAp <= 0" @click="continuePhpDebt">
+            Продолжить
+          </v-btn>
         </template>
         <v-btn
           v-if="offer && myTurn"
@@ -4943,7 +4979,7 @@ const canSubmit = computed(() => {
           </v-btn>
         </template>
         <v-btn
-          v-else-if="!isPhpAwaiting"
+          v-else-if="!isPhpAwaiting && !phpDebt"
           color="primary"
           size="small"
           :loading="busy"
@@ -5010,6 +5046,10 @@ const canSubmit = computed(() => {
 }
 .hit-dialog-body > * {
   flex: 0 0 auto !important;
+}
+.hit-dialog-actions {
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 .hit-dialog :deep(.v-card-title),
 .hit-dialog :deep(.v-card-actions) {

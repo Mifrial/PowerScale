@@ -80,10 +80,7 @@ import type { GamePhpRunActionRequest } from '@/modules/Roleplay/Game/Dto/GamePh
 import type { GamePhpRunActionResult } from '@/modules/Roleplay/Game/Dto/GamePhpRunActionResult';
 import type { GamePhpSpellCastRequest } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastRequest';
 import type { GamePhpSpellCastResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellCastResult';
-import type {
-  GamePhpSpellChainDistance,
-  GamePhpSpellChainResult,
-} from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
+import type { GamePhpSpellChainDistance, GamePhpSpellChainResult } from '@/modules/Roleplay/Game/Dto/GamePhpSpellChain';
 import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
 import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
@@ -850,13 +847,16 @@ export class GameApi implements IGameApi {
     for (const [key, raw] of Object.entries(debt)) {
       if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) continue;
       const slot = raw as Record<string, unknown>;
-      // Удар и действие ведут свои окна; здесь только долг сотворения.
-      if (slot.kind !== 'spell') continue;
+      // Касание ведёт долг удара, но оплачивается как сотворение: его тоже
+      // нужно продолжить из окна «Продолжить/Бросить». Прочие удары и
+      // действия остаются в своих окнах.
+      const spellCode = this.debtSpellCode(slot);
+      if (slot.kind !== 'spell' && spellCode === null) continue;
       const remaining = typeof slot.remaining === 'number' ? slot.remaining : 0;
       sessions[key as CombatEntityKey] = {
         gameId,
         entityKey: key as CombatEntityKey,
-        actionRuleCode: typeof slot.actionRuleCode === 'string' ? slot.actionRuleCode : '',
+        actionRuleCode: spellCode ?? (typeof slot.actionRuleCode === 'string' ? slot.actionRuleCode : ''),
         remainingOd: remaining,
         totalOd: typeof slot.total === 'number' ? slot.total : remaining,
         targetKey: null,
@@ -867,6 +867,18 @@ export class GameApi implements IGameApi {
     }
 
     return sessions;
+  }
+
+  /** Код заклинания касания в слоте долга удара. */
+  private debtSpellCode(slot: Record<string, unknown>): string | null {
+    if (slot.kind !== 'strike') return null;
+    const payload = slot.payload ?? slot.attack;
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    const spell = (payload as Record<string, unknown>).spellCast;
+    if (spell === null || typeof spell !== 'object' || Array.isArray(spell)) return null;
+    const code = (spell as Record<string, unknown>).spellCode;
+
+    return typeof code === 'string' && code !== '' ? code : null;
   }
 
   async setCommittedActionSession(
@@ -1923,10 +1935,7 @@ export class GameApi implements IGameApi {
     }
     const hop = result.hop;
     if (hop) {
-      gamePhpBattleContext.rememberSheet(
-        `${hop.target.type}:${hop.target.id}`,
-        hop.sheetVersion,
-      );
+      gamePhpBattleContext.rememberSheet(`${hop.target.type}:${hop.target.id}`, hop.sheetVersion);
     }
   }
 

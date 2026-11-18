@@ -9423,8 +9423,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-16",
-            "bytes": 13695,
-            "lines": 139,
+            "bytes": 14372,
+            "lines": 140,
             "modules": [
                 "Roleplay/Rule"
             ],

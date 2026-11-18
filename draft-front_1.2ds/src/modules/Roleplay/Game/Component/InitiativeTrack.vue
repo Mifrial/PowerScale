@@ -107,6 +107,7 @@ const emit = defineEmits<{
   /** Открыть боевую карточку участника (entityKey: `character:{id}` | `npc:{id}`). */
   'open-card': [entityKey: string];
   'overlay-changed': [];
+  'strike-refresh': [];
   participants: [keys: string[]];
   'runtime-projections': [projections: GameRuntimeEntityProjection[]];
   'process-aborted': [payload: { entityKey: CombatEntityKey; name: string }];
@@ -647,7 +648,9 @@ async function afterPhpTurn(key: CombatEntityKey, result: GamePhpTurnResult): Pr
   if (scale !== null) initiative.value = scale;
   await promptPhpSustains(result);
   const next = scale === null ? undefined : scale.participants[scale.activeIndex ?? 0];
-  if (next && result.debt?.kind === 'spell') await promptCommittedContinue(next);
+  // Вид долга решает, попадёт ли он в сессии. Касание создаёт долг удара,
+  // но продолжить его нужно тем же вопросом, что и сотворение.
+  if (next && result.debt) await promptCommittedContinue(next);
 }
 
 function speakerFor(participant: NonNullable<typeof activeParticipant.value>): ChatSpeaker {
@@ -1032,6 +1035,8 @@ async function continueCommittedTurn(): Promise<void> {
       committedContinueSession.value = null;
       await loadOverlays();
       emit('overlay-changed');
+      // Долг удара открывает строку удара на сервере: окно нужно перечитать.
+      emit('strike-refresh');
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : 'Не удалось продолжить действие';
     } finally {

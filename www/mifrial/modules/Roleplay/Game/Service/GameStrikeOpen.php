@@ -114,7 +114,7 @@ final class GameStrikeOpen
      *
      * @param GameStrikeOpenRun $run Контекст записи.
      *
-     * @return array{debt: bool, strikeId: int, version: int, spent: int} Итог.
+     * @return array{debt: bool, strikeId: int, version: int, spent: int, remaining: int, total: int} Итог.
      *
      * @throws GameInvalidException Если выбор, строка или ресурс невалидны.
      */
@@ -196,7 +196,7 @@ final class GameStrikeOpen
      *
      * @param GameBattleRecord $battle Бой.
      * @param string $kind Вид удара.
-     * @param array{debt: bool, strikeId: int, version: int, spent: int} $opened Итог записи.
+     * @param array{debt: bool, strikeId: int, version: int, spent: int, remaining: int, total: int} $opened Итог записи.
      *
      * @return array<string, mixed> Итог.
      */
@@ -216,6 +216,8 @@ final class GameStrikeOpen
 
         if ($opened['debt']) {
             $result['debt'] = true;
+            $result['remaining'] = $opened['remaining'];
+            $result['total'] = $opened['total'];
         }
 
         return $result;

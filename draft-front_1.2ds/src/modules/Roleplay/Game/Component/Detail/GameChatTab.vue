@@ -2384,6 +2384,7 @@ onUnmounted(() => {
           @turn="onTurn"
           @open-card="onOpenCard"
           @overlay-changed="onOverlayChanged"
+          @strike-refresh="onStrikeRefresh"
           @participants="onInitiativeParticipants"
           @runtime-projections="onInitiativeRuntimeProjections"
           @process-aborted="onProcessAborted"
