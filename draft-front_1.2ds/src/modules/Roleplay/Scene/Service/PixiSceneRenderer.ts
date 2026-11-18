@@ -70,6 +70,22 @@ interface WaterEntry {
   node: SceneWaterNode;
 }
 
+/**
+ * Материалы, которые могут стать порогом двери, и их приоритет.
+ *
+ * Порог повторяет пол рядом. Если полы разные с двух сторон, побеждает более
+ * «пол»: доски и плитка важнее грунта улицы.
+ */
+const THRESHOLD_RANK: Record<string, number> = {
+  wood: 0,
+  tile: 0,
+  stone: 1,
+  ice: 2,
+  dirt: 3,
+  sand: 3,
+  mud: 3,
+};
+
 /** Этаж, нарисованный в своей группе мира корня. */
 interface SceneFieldRender {
   boardId: number;
@@ -1053,16 +1069,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
           left.sortOrder - right.sortOrder ||
           left.id - right.id,
       );
-    // Стыки лежат под стенами: квадрат закрывает щель угла, а ребро и фаска
-    // стены проходят поверх него и не рвутся.
-    this.drawWallJoints(elements, board.id);
+    // Стены рисуются одной сетью до остальных препятствий: в углах соседние
+    // ленты сходятся в общий узел, и угол делается митрой, а не двумя торцами.
+    this.drawThresholds(elements, openings);
+    this.drawWalls(elements, board.id, openings);
 
     for (const element of elements) {
       if (
         element.kind === 'terrain' ||
         element.kind === 'decor' ||
         this.isGroundDeck(element) ||
-        this.isFloorOpening(element)
+        this.isFloorOpening(element) ||
+        (element.kind === 'obstacle' && element.shape.type === 'wall')
       ) {
         continue;
       }
@@ -1079,7 +1097,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
         continue;
       }
 
-      this.drawElement(element, openings);
+      this.drawElement(element);
     }
 
     this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution, insets);
@@ -2262,27 +2280,179 @@ export class PixiSceneRenderer implements ISceneRenderer {
     );
   }
 
-  private drawElement(element: SceneElement, openings: readonly SceneElement[]): void {
+  private drawElement(element: SceneElement): void {
     const layerName = this.layerFor(element);
     const layer = this.layers[layerName];
     if (layer === undefined) {
       return;
     }
 
-    // Стены режутся проёмами: под дверью и окном её полосы нет. Одна фигура
-    // на всю стену — тень и фаска идут цельно, без швов на стыках участков.
-    if (element.kind === 'obstacle' && element.shape.type === 'wall') {
-      const resolution = this.model?.resolution ?? 64;
-      const segments = sceneWallService.segments(element, openings);
-      layer.addChild(this.painter.paintWall(element, segments, resolution, this.zoom()));
-
-      return;
-    }
-
     layer.addChild(this.painter.paintElement(element, this.zoom()));
   }
 
-  /** Уголки стыков: закрывают щели между отдельными лентами стен. */
+  /**
+   * Пороги: пол продолжается под дверью.
+   *
+   * Пол элемента террейна заканчивается на осевой стены, а проём занимает
+   * полную её толщину: в двери оставалась полоса чужого грунта, и пол под
+   * входом выглядел вырезанным. Порог — тот же материал, что у пола рядом,
+   * поэтому проём читается продолжением пола, а не дырой.
+   *
+   * @param elements Элементы поля.
+   * @param openings Проёмы поля.
+   */
+  private drawThresholds(elements: readonly SceneElement[], openings: readonly SceneElement[]): void {
+    const layer = this.layers.terrain;
+    if (layer === undefined) {
+      return;
+    }
+
+    const floors = elements.filter(
+      (element) => element.kind === 'terrain' && THRESHOLD_RANK[element.props.kind ?? ''] !== undefined,
+    );
+    if (floors.length === 0) {
+      return;
+    }
+
+    const resolution = this.model?.resolution ?? 64;
+    const zoom = this.zoom();
+    for (const opening of openings) {
+      if (opening.shape.type !== 'wall' || opening.shape.points.length < 2) {
+        continue;
+      }
+
+      if (opening.props.kind !== 'door' && opening.props.kind !== 'gate') {
+        continue;
+      }
+
+      const floor = this.thresholdFloor(floors, opening);
+      if (floor === null) {
+        continue;
+      }
+
+      const points = opening.shape.points;
+      const start = points[0];
+      const end = points[points.length - 1];
+      const dx = end[0] - start[0];
+      const dy = end[1] - start[1];
+      const length = Math.hypot(dx, dy);
+      if (length < 1) {
+        continue;
+      }
+
+      const half = Math.max(1, opening.shape.width) / 2;
+      const normalX = (-dy / length) * half;
+      const normalY = (dx / length) * half;
+      const band: ScenePoint[] = [
+        [start[0] + normalX, start[1] + normalY],
+        [end[0] + normalX, end[1] + normalY],
+        [end[0] - normalX, end[1] - normalY],
+        [start[0] - normalX, start[1] - normalY],
+      ];
+      this.terrain.paintSurface(
+        layer,
+        {
+          id: opening.id,
+          boardId: opening.boardId,
+          kind: 'terrain',
+          shape: { type: 'polygon', points: band },
+          props: { kind: floor.props.kind },
+          sortOrder: opening.sortOrder,
+          targetBoardId: null,
+          asset: null,
+        },
+        resolution,
+        zoom,
+        false,
+      );
+    }
+  }
+
+  /** Пол у проёма: ближайший подходящий террейн с той или другой стороны. */
+  private thresholdFloor(floors: readonly SceneElement[], opening: SceneElement): SceneElement | null {
+    if (opening.shape.type !== 'wall' || opening.shape.points.length < 2) {
+      return null;
+    }
+
+    const points = opening.shape.points;
+    const start = points[0];
+    const end = points[points.length - 1];
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const length = Math.hypot(dx, dy);
+    if (length < 1) {
+      return null;
+    }
+
+    const half = Math.max(1, opening.shape.width) / 2;
+    const normalX = -dy / length;
+    const normalY = dx / length;
+    const middle: ScenePoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+    let best: { floor: SceneElement; rank: number } | null = null;
+    for (const side of [1, -1]) {
+      const probe: ScenePoint = [
+        middle[0] + normalX * side * (half + 2),
+        middle[1] + normalY * side * (half + 2),
+      ];
+      for (const floor of floors) {
+        if (!sceneGeometryService.contains(floor.shape, probe, 0, 0)) {
+          continue;
+        }
+
+        const rank = THRESHOLD_RANK[floor.props.kind ?? ''] ?? 9;
+        if (best === null || rank < best.rank) {
+          best = { floor, rank };
+        }
+      }
+    }
+
+    return best === null ? null : best.floor;
+  }
+
+  /**
+   * Стены одной сетью.
+   *
+   * Соседние ленты сходятся в углах в общий узел, поэтому рисуются не по
+   * элементу, а цепями: угол получается митрой ленты. Отдельные фигуры на
+   * каждый элемент давали на стыке два торца — стена выглядела набором
+   * наезжающих прямоугольников.
+   *
+   * @param elements Элементы поля.
+   * @param boardId Поле.
+   * @param openings Проёмы поля: они режут стены на участки.
+   */
+  private drawWalls(
+    elements: readonly SceneElement[],
+    boardId: number,
+    openings: readonly SceneElement[],
+  ): void {
+    const layer = this.layers.obstacles;
+    if (layer === undefined) {
+      return;
+    }
+
+    const walls = elements.filter(
+      (element) => element.boardId === boardId && element.kind === 'obstacle' && element.shape.type === 'wall',
+    );
+    if (walls.length === 0) {
+      return;
+    }
+
+    this.drawWallJoints(elements, boardId);
+    const resolution = this.model?.resolution ?? 64;
+    const zoom = this.zoom();
+    for (const chain of sceneWallService.chains(walls, openings)) {
+      layer.addChild(this.painter.paintWallChain(chain, resolution, zoom));
+    }
+  }
+
+  /**
+   * Уголки стыков.
+   *
+   * Митра сводит две ленты сама, поэтому уголок нужен только там, где сходятся
+   * три и более концов, где ленты разной толщины или материала, и на шве
+   * кольца. Рисуется до стен и без обводки: закрывает щель, не оставляя следа.
+   */
   private drawWallJoints(elements: readonly SceneElement[], boardId: number): void {
     const layer = this.layers.obstacles;
     if (layer === undefined) {
@@ -2290,6 +2460,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     for (const joint of sceneWallService.joints(elements, boardId)) {
+      if (joint.count === 2 && !joint.closed && !joint.mixed) {
+        continue;
+      }
+
       layer.addChild(this.painter.paintWallJoint(joint.point, joint.width, this.zoom(), joint.material));
     }
   }

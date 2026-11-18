@@ -350,8 +350,8 @@ describe('SceneWallService', () => {
 
     const joints = service.joints([corner, side, ring], 1);
 
-    expect(joints).toContainEqual({ point: [100, 0], width: 8 });
-    expect(joints).toContainEqual({ point: [200, 0], width: 8 });
+    expect(joints).toContainEqual(expect.objectContaining({ point: [100, 0], width: 8, count: 2, closed: false }));
+    expect(joints).toContainEqual(expect.objectContaining({ point: [200, 0], width: 8, closed: true }));
     expect(joints.some((joint) => joint.point[0] === 0 && joint.point[1] === 0)).toBe(false);
   });
 
@@ -383,6 +383,94 @@ describe('SceneWallService', () => {
       { material: 'wood' },
     );
 
-    expect(service.joints([thin, thick], 1)).toEqual([{ point: [100, 0], width: 16, material: 'wood' }]);
+    expect(service.joints([thin, thick], 1)).toEqual([
+      { point: [100, 0], width: 16, material: 'wood', count: 2, closed: false, mixed: true },
+    ]);
+  });
+
+  it('сводит две стены в углу в одну цепь', () => {
+    const horizontal = element(1, 'obstacle', {
+      type: 'wall',
+      points: [
+        [0, 0],
+        [200, 0],
+      ],
+      width: 8,
+    });
+    const vertical = element(2, 'obstacle', {
+      type: 'wall',
+      points: [
+        [200, 0],
+        [200, 200],
+      ],
+      width: 8,
+    });
+
+    const chains = service.chains([horizontal, vertical], []);
+
+    expect(chains).toHaveLength(1);
+    expect(chains[0].points).toEqual([
+      [0, 0],
+      [200, 0],
+      [200, 200],
+    ]);
+    expect(chains[0].startFree).toBe(true);
+    expect(chains[0].endFree).toBe(true);
+    expect(chains[0].closed).toBe(false);
+  });
+
+  it('не сводит стены разного материала', () => {
+    const plaster = element(
+      1,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [0, 0],
+          [200, 0],
+        ],
+        width: 8,
+      },
+      { material: 'plaster' },
+    );
+    const wood = element(
+      2,
+      'obstacle',
+      {
+        type: 'wall',
+        points: [
+          [200, 0],
+          [200, 200],
+        ],
+        width: 8,
+      },
+      { material: 'wood' },
+    );
+
+    expect(service.chains([plaster, wood], [])).toHaveLength(2);
+  });
+
+  it('режет цепь проёмом и оставляет торцы у выреза', () => {
+    const host = wall([
+      [0, 100],
+      [400, 100],
+    ]);
+    const door = opening(
+      [
+        [150, 100],
+        [250, 100],
+      ],
+      { kind: 'door', state: 'closed' },
+    );
+
+    const chains = service.chains([host], [door]);
+
+    expect(chains).toHaveLength(2);
+    expect(chains[0].endFree).toBe(true);
+    expect(chains[1].startFree).toBe(true);
+    expect(chains[1].points).toEqual([
+      [250, 100],
+      [400, 100],
+    ]);
   });
 });

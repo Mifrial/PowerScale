@@ -43,6 +43,40 @@ export interface SceneWallJoint {
   width: number;
   /** Материал самой широкой из сходящихся стен. */
   material?: string;
+  /** Сколько концов лент сходится в вершине. */
+  count: number;
+  /** Шов замкнутого кольца. */
+  closed: boolean;
+  /** Сходятся ленты разной толщины или материала: митра их не сведёт. */
+  mixed: boolean;
+}
+
+/** Участок стены в общей сети: элемент, материал, толщина и осевая. */
+export interface SceneWallPiece {
+  /** Элемент, которому принадлежит участок. */
+  elementId: number;
+  /** Материал верхней грани. */
+  material?: string;
+  /** Толщина в единицах сцены. */
+  thickness: number;
+  /** Осевая участка. */
+  points: ScenePoint[];
+}
+
+/**
+ * Цепь стены: соседние участки одной непрерывной лентой.
+ *
+ * Пока стены рисуются по элементу, в каждом углу сходятся два прямоугольных
+ * торца — стена читается набором наезжающих прямоугольников. Цепь сводит
+ * участки в одну осевую, и лента сама делает минус на угле.
+ */
+export interface SceneWallChain extends SceneWallPiece {
+  /** Кольцо: начало совпадает с концом, торцов нет. */
+  closed: boolean;
+  /** Начало свободно: у него рисуется торец. */
+  startFree: boolean;
+  /** Конец свободен. */
+  endFree: boolean;
 }
 
 /** Минимальная длина сегмента и проёма в единицах сцены. */
@@ -510,7 +544,10 @@ export class SceneWallService {
    * где два прямоугольных торца оставляют щель.
    */
   joints(elements: readonly SceneWallElement[], boardId: number): SceneWallJoint[] {
-    const joints = new Map<string, { point: ScenePoint; width: number; count: number; material?: string }>();
+    const joints = new Map<
+      string,
+      { point: ScenePoint; width: number; count: number; material?: string; closed: boolean; mixed: boolean }
+    >();
     for (const element of elements) {
       if (element.boardId !== boardId || !this.isWall(element) || element.shape.type !== 'wall') {
         continue;
@@ -527,15 +564,23 @@ export class SceneWallService {
       const unique = closed ? points.slice(0, -1) : points;
       const add = (point: ScenePoint): void => {
         const key = `${point[0]},${point[1]}`;
-        const joint = joints.get(key) ?? { point, width: 0, count: 0 };
+        const joint = joints.get(key) ?? { point, width: 0, count: 0, closed: false, mixed: false };
         // Материал берётся у самой широкой стены: она задаёт вид угла, а
         // тонкая примыкающая лента на нём всё равно не видна.
+        if (joint.count === 0) {
+          joint.material = material;
+        } else if (joint.material !== material) {
+          joint.mixed = true;
+        }
+
+        joint.mixed = joint.mixed || (joint.count > 0 && Math.abs(joint.width - thickness) > 1e-6);
         if (thickness >= joint.width) {
           joint.material = material;
         }
 
         joint.width = Math.max(joint.width, thickness);
         joint.count += 1;
+        joint.closed = joint.closed || (closed && point === points[0]);
         joints.set(key, joint);
       };
 
@@ -552,7 +597,168 @@ export class SceneWallService {
 
     return [...joints.values()]
       .filter((joint) => joint.count >= 2)
-      .map((joint) => ({ point: joint.point, width: joint.width, material: joint.material }));
+      .map((joint) => ({
+        point: joint.point,
+        width: joint.width,
+        material: joint.material,
+        count: joint.count,
+        closed: joint.closed,
+        mixed: joint.mixed,
+      }));
+  }
+
+  /**
+   * Непрерывные цепи стен.
+   *
+   * Участки режутся проёмами и принадлежат разным элементам, но в углах дома
+   * они сходятся в одну вершину. Цепь продолжает осевую через такой узел,
+   * поэтому угол рисуется митрой ленты, а не двумя торцами. Сводим только
+   * концы одинаковой толщины и материала: разные ленты дают видимый стык, и
+   * его закрывает уголок.
+   *
+   * @param walls Стены поля.
+   * @param openings Проёмы поля.
+   *
+   * @returns Цепи по порядку обхода.
+   */
+  chains(walls: readonly SceneWallElement[], openings: readonly SceneWallElement[]): SceneWallChain[] {
+    const pieces: SceneWallPiece[] = [];
+    for (const wall of walls) {
+      if (!this.isWall(wall) || wall.shape.type !== 'wall') {
+        continue;
+      }
+
+      const material = wall.props.material;
+      const thickness = wall.shape.width;
+      for (const segment of this.segments(wall, openings)) {
+        if (segment.type !== 'wall' || segment.points.length < 2) {
+          continue;
+        }
+
+        pieces.push({ elementId: wall.id, material, thickness, points: segment.points });
+      }
+    }
+
+    if (pieces.length === 0) {
+      return [];
+    }
+
+    // Узел — конец участка. Вершины стен лежат в целых единицах сцены, поэтому
+    // округления до половины хватает, чтобы концы одного угла попали в ключ.
+    const nodeKey = (point: ScenePoint): string => `${Math.round(point[0] * 2)},${Math.round(point[1] * 2)}`;
+    const closedFlags = pieces.map((piece) => nodeKey(piece.points[0]) === nodeKey(piece.points[piece.points.length - 1]));
+    const ends: { piece: number; end: 0 | 1 }[] = [];
+    const buckets = new Map<string, number[]>();
+    for (let index = 0; index < pieces.length; index += 1) {
+      if (closedFlags[index]) {
+        continue;
+      }
+
+      const points = pieces[index].points;
+      const keys = [nodeKey(points[0]), nodeKey(points[points.length - 1])];
+      for (const end of [0, 1] as const) {
+        const endIndex = ends.length;
+        ends.push({ piece: index, end });
+        const list = buckets.get(keys[end]) ?? [];
+        list.push(endIndex);
+        buckets.set(keys[end], list);
+      }
+    }
+
+    const link = new Map<number, number>();
+    for (const list of buckets.values()) {
+      if (list.length !== 2) {
+        continue;
+      }
+
+      const [first, second] = list;
+      const left = pieces[ends[first].piece];
+      const right = pieces[ends[second].piece];
+      if (left === right) {
+        continue;
+      }
+
+      if (Math.abs(left.thickness - right.thickness) > 1e-6 || (left.material ?? '') !== (right.material ?? '')) {
+        continue;
+      }
+
+      link.set(first, second);
+      link.set(second, first);
+    }
+
+    const used = new Set<number>();
+    const chains: SceneWallChain[] = [];
+    const walk = (startPiece: number): void => {
+      used.add(startPiece);
+      const points: ScenePoint[] = [...pieces[startPiece].points];
+      let cursor = startPiece * 2 + 1;
+      let endFree = true;
+      let closed = false;
+      for (;;) {
+        const next = link.get(cursor);
+        if (next === undefined) {
+          break;
+        }
+
+        const nextPiece = Math.floor(next / 2);
+        if (used.has(nextPiece)) {
+          // Вернулись в уже пройденный участок: цепь замкнулась кольцом.
+          closed = true;
+          endFree = false;
+          break;
+        }
+
+        used.add(nextPiece);
+        const entersStart = next === nextPiece * 2;
+        const tail = entersStart ? pieces[nextPiece].points : [...pieces[nextPiece].points].reverse();
+        points.push(...tail.slice(1));
+        cursor = nextPiece * 2 + (entersStart ? 1 : 0);
+      }
+
+      chains.push({
+        elementId: pieces[startPiece].elementId,
+        material: pieces[startPiece].material,
+        thickness: pieces[startPiece].thickness,
+        points,
+        closed,
+        startFree: !link.has(startPiece * 2),
+        endFree,
+      });
+    };
+
+    // Сначала цепи от свободных начал: так кольцо не съест хвост соседней цепи.
+    for (let index = 0; index < pieces.length; index += 1) {
+      if (closedFlags[index] || used.has(index) || link.has(index * 2)) {
+        continue;
+      }
+
+      walk(index);
+    }
+
+    for (let index = 0; index < pieces.length; index += 1) {
+      if (used.has(index)) {
+        continue;
+      }
+
+      if (closedFlags[index]) {
+        used.add(index);
+        chains.push({
+          elementId: pieces[index].elementId,
+          material: pieces[index].material,
+          thickness: pieces[index].thickness,
+          points: [...pieces[index].points],
+          closed: true,
+          startFree: false,
+          endFree: false,
+        });
+
+        continue;
+      }
+
+      walk(index);
+    }
+
+    return chains;
   }
 
   /**
