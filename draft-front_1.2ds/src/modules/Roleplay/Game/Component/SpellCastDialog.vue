@@ -1333,11 +1333,6 @@ async function runPhpCast(): Promise<void> {
   }
   if (!assertHandsAvailable()) return;
   if (actionPointCost.value > casterAp.value.base) {
-    if (needsTouchAttack.value) {
-      error.value = 'Недостаточно ОД для сотворения';
-
-      return;
-    }
     if (!debtAccepted.value) {
       debtConfirmOpen.value = true;
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/Overview/CharacterOverviewService';
 
 const dim = (base: number, size = 0) => ({ base, size });
@@ -430,5 +431,34 @@ describe('CharacterOverviewService: шаг расы в дистанции', () =
     expect(overview.attacks[0].distanceMinValue).toEqual({ base: 1, size: 1 });
     expect(overview.attacks[0].reach).toBe(2);
     expect(overview.attacks[0].falloff).toEqual({ base: 2, size: 1 });
+  });
+
+  it('модификатор состояния подписан источником и именем состояния', () => {
+    const stateRules: Rule[] = [
+      base(null, 'reaction', 'characteristic', 'Реакция', { type: 'characteristic', group: 'primary' }),
+      base(null, 'sharpened-senses', 'state', 'Обострённые чувства', {
+        value_type: 'flag',
+        aggregation: 'independent',
+        effects: [],
+      } as Rule['spec']),
+    ];
+    const version = versionWith({
+      characteristics: [
+        {
+          ruleCode: 'reaction',
+          base: dim(3),
+          modifiers: [
+            { sourceRuleCode: 'sharpened-senses', sourceLabel: null, delta: 3, target: 'reaction', scope: null },
+          ],
+        },
+      ],
+    });
+
+    const overview = service.build(version, stateRules);
+    const reaction = overview.characteristics.find((item) => item.ruleCode === 'reaction');
+
+    expect(reaction ? new DimensionalNumber(reaction.value).toNumber() : null).toBe(6);
+    expect(reaction?.modifiers[0]?.source).toBe('Состояние (Обострённые чувства)');
+    expect(reaction?.modifiers[0]?.sourceRole).toBeNull();
   });
 });

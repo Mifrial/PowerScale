@@ -84,12 +84,18 @@ final class GameStrikeSpendAttacker
         $inventory = $this->inventory->resolve($game, $choice, $choices, $kind, $id, $debt['planned']['open'] === true);
         $this->write($game, $sheet, $spends, $inventory, $kind, $id, $snapshot, $subject);
 
+        $spent = $costs['spent'];
+        if ($debt['planned']['open'] !== true) {
+            $remaining = $debt['planned']['slot']['remaining'] ?? 0;
+            $spent = max(0, $spent - (is_int($remaining) ? $remaining : 0));
+        }
+
         return [
             'pending' => $costs['pending'],
             'debtHold' => $hold,
             'cycle' => $this->cycle($battle, $token, $debt['key']),
             'tokenSpend' => $token,
-            'spent' => $costs['spent'],
+            'spent' => $spent,
         ];
     }
 

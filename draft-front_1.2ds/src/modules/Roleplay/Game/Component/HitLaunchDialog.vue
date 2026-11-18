@@ -2873,6 +2873,11 @@ async function finishSpellAfterHit(
   if (!spellCastExecutionService.isSpellAvailableForUse(executionInput)) {
     throw new Error('Заклинание недоступно: путь не открыт или не хватает характеристик');
   }
+  const casterPoints = overviewOf(accepted.initiator);
+  const casterResource = casterPoints ? attackDamageService.actionPointsResource(casterPoints, props.rules) : null;
+  if (!casterResource || casterResource.current.base < ctx.spentAp) {
+    throw new Error('Недостаточно ОД для завершения сотворения');
+  }
   const spent = await spendAp(accepted.initiator, ctx.spentAp);
   if (spent !== ctx.spentAp) {
     throw new Error('Недостаточно ОД для завершения сотворения');

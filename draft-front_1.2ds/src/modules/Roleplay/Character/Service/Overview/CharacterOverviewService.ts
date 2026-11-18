@@ -190,7 +190,7 @@ export class CharacterOverviewService {
     const withStateLeaves = allCharacteristics.map((overview) => {
       const rule = reference.ruleByCode(overview.ruleCode);
       const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
-      if (!amount || this.stateDeltaAlreadyStored(overview, amount)) return overview;
+      if (!amount || this.stateDeltaAlreadyStored(overview, amount, reference)) return overview;
       const value = new DimensionalNumber(overview.value).modify(amount, CHARACTERISTIC_BASE_RANGE).value;
 
       return {
@@ -299,8 +299,19 @@ export class CharacterOverviewService {
   }
 
   /** Штраф состояния уже лежит в модификаторах листа — повторно не сдвигаем. */
-  private stateDeltaAlreadyStored(overview: CharacteristicOverview, amount: number): boolean {
-    return overview.modifiers.some((modifier) => modifier.source === 'От состояния' && modifier.delta === amount);
+  private stateDeltaAlreadyStored(
+    overview: CharacteristicOverview,
+    amount: number,
+    reference: CharacterReferenceService,
+  ): boolean {
+    const stored = overview.modifiers
+      .filter(
+        (modifier) =>
+          modifier.sourceRuleCode !== null && reference.ruleByCode(modifier.sourceRuleCode)?.type === 'state',
+      )
+      .reduce((sum, modifier) => sum + modifier.delta, 0);
+
+    return stored === amount;
   }
 
   /** Производные — min/max живых баз (после потолков), не снимок в версии. */
@@ -358,7 +369,9 @@ export class CharacterOverviewService {
     const stateSource = source?.rule?.type === 'state';
 
     return {
-      source: stateSource ? 'От состояния' : (modifier.sourceLabel ?? source?.name ?? 'Персонаж'),
+      source: stateSource
+        ? `Состояние (${source?.name ?? modifier.sourceRuleCode})`
+        : (modifier.sourceLabel ?? source?.name ?? 'Персонаж'),
       sourceRuleCode: modifier.sourceRuleCode,
       sourceHref: source?.href ?? null,
       sourceResolved: source?.isResolved ?? false,
@@ -373,7 +386,7 @@ export class CharacterOverviewService {
     };
   }
 
-  private sourceRoleOf(ruleType: string): string {
+  private sourceRoleOf(ruleType: string): string | null {
     switch (ruleType) {
       case 'ability':
         return 'от мастерства';
@@ -383,6 +396,8 @@ export class CharacterOverviewService {
         return 'от расы';
       case 'species':
         return 'от вида';
+      case 'state':
+        return null;
       default:
         return 'от правила';
     }
