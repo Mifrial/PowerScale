@@ -623,8 +623,8 @@ export class PixiSceneRenderer implements ISceneRenderer {
     if (portal.shape.type === 'rect') {
       graphics
         .rect(portal.shape.x, portal.shape.y, portal.shape.w, portal.shape.h)
-        .fill({ color: 0xfacc15, alpha: 0.18 })
-        .stroke({ color: 0xfacc15, width: Math.max(1, 4 / this.zoom()), alpha: 0.95 });
+        .fill({ color: 0xfacc15, alpha: 0.1 })
+        .stroke({ color: 0xfacc15, width: Math.max(1, 2.5 / this.zoom()), alpha: 0.85 });
     } else {
       this.painter.paint(
         graphics,
@@ -2258,6 +2258,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
       // Колодец в разрезанной плите не закрашивается: дыра настоящая, и
       // заливка «шахты» закрыла бы то, что видно сквозь неё.
       if (this.isSlabHole(element, boardId)) {
+        continue;
+      }
+
+      // Площадка перехода в предпросмотре не рисуется: её подсвечивает
+      // наведение, а постоянная рамка спорила со ступенями марша.
+      if (element.targetBoardId !== null && !this.isEdit()) {
         continue;
       }
 

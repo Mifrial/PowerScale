@@ -490,15 +490,16 @@ export class SceneShapePainter {
     }
   }
 
-  /** Старый свободный проём без стены: цветная полоса. */
   /**
    * Проём в полу: площадка перехода или лестничный проём.
    *
-   * Площадка — верхняя ступень марша и одновременно дверь на другой этаж:
-   * кромка и метка-ромб. Заливки нет: плита этажа под площадкой прорезана, и
-   * сквозь вырез видны настоящие ступени. Сплошная доска закрывала бы актора
-   * на верхних ступенях. Проём без цели — дырка в полу: тёмный колодец с
-   * убегающими вниз ступенями.
+   * Площадка — верхняя ступень марша и одновременно дверь на другой этаж.
+   * Заливки и рамки у неё нет: плита этажа под площадкой прорезана, сквозь
+   * вырез видны настоящие ступени, а постоянная рамка только спорила с ними.
+   * В предпросмотре площадку подсвечивает наведение мыши, в редакторе остаётся
+   * маленькая метка-ромб — иначе невыделенный портал не найти на поле.
+   *
+   * Проём без цели — дырка в полу: тёмный колодец с убегающими вниз ступенями.
    */
   private paintFloorOpening(graphics: Graphics, element: SceneElement, zoom: number): void {
     if (element.shape.type !== 'rect' || element.props.kind !== 'stairs') {
@@ -513,17 +514,13 @@ export class SceneShapePainter {
     const line = Math.max(1, 2 / zoom);
 
     if (element.targetBoardId !== null) {
-      // Площадка — только кромка и метка: ступени под ней настоящие.
-      graphics.rect(x, y, w, h).stroke({ color: SCENE_STAIRS.landingEdge, width: Math.max(1, 2 / zoom), alpha: 0.95 });
-      graphics
-        .rect(x + inset, y + inset, Math.max(1, w - inset * 2), Math.max(1, h - inset * 2))
-        .stroke({ color: SCENE_STAIRS.stringerColor, width: line, alpha: 0.8 });
+      // Метка площадки: только ромб, без рамки.
       const cx = x + w / 2;
       const cy = y + h / 2;
-      const radius = Math.max(2, Math.min(w, h) * 0.16);
+      const radius = Math.max(2, Math.min(w, h) * 0.12);
       graphics
         .poly([cx, cy - radius, cx + radius, cy, cx, cy + radius, cx - radius, cy])
-        .fill({ color: SCENE_STAIRS.landingMark, alpha: 0.9 });
+        .fill({ color: SCENE_STAIRS.landingMark, alpha: 0.8 });
 
       return;
     }
@@ -533,26 +530,33 @@ export class SceneShapePainter {
       .rect(x + inset, y + inset, Math.max(1, w - inset * 2), Math.max(1, h - inset * 2))
       .fill({ color: SCENE_STAIRS.shaftShadow });
 
-    // Ступени уходят вниз: поперёк проёма, с тенью у кромки.
+    // Ступени уходят вниз от ближней кромки: проступь темнеет в глубину,
+    // носок светится только у входа. Направление условное — у проёма без цели
+    // нет данных о том, с какой стороны марш; главное, что это ступени, а не
+    // чёрная дыра с линиями.
     const steps = 7;
+    const alongX = horizontal;
+    const runInner = (alongX ? w : h) - inset * 2;
+    const tread = runInner / steps;
+    const start = (alongX ? x : y) + inset;
+    const crossStart = (alongX ? y : x) + inset;
+    const crossSize = (alongX ? h : w) - inset * 2;
+    const tones = SCENE_STAIRS.shaftTreadTones;
     for (let index = 0; index < steps; index += 1) {
-      const t = (index + 0.5) / steps;
-      if (horizontal) {
-        const px = x + w * t;
-        this.paintLine(graphics, [px, y + inset], [px, y + h - inset], SCENE_STAIRS.treadColor, line, 0.85);
+      const from = start + tread * index;
+      const length = Math.max(0.5, tread);
+      const tone = tones[Math.min(tones.length - 1, Math.floor((index / steps) * tones.length))] ?? SCENE_STAIRS.treadColor;
+      if (alongX) {
+        graphics.rect(from, crossStart, length, crossSize).fill({ color: tone });
+        graphics
+          .rect(from, crossStart, line, crossSize)
+          .fill({ color: SCENE_STAIRS.nosingColor, alpha: 0.4 * (1 - index / steps) });
       } else {
-        const py = y + h * t;
-        this.paintLine(graphics, [x + inset, py], [x + w - inset, py], SCENE_STAIRS.treadColor, line, 0.85);
+        graphics.rect(crossStart, from, crossSize, length).fill({ color: tone });
+        graphics
+          .rect(crossStart, from, crossSize, line)
+          .fill({ color: SCENE_STAIRS.nosingColor, alpha: 0.4 * (1 - index / steps) });
       }
-    }
-
-    const stringer = Math.max(1, Math.min(w, h) * 0.08);
-    if (horizontal) {
-      graphics.rect(x, y, w, stringer).fill({ color: SCENE_STAIRS.stringerColor, alpha: 0.8 });
-      graphics.rect(x, y + h - stringer, w, stringer).fill({ color: SCENE_STAIRS.stringerColor, alpha: 0.8 });
-    } else {
-      graphics.rect(x, y, stringer, h).fill({ color: SCENE_STAIRS.stringerColor, alpha: 0.8 });
-      graphics.rect(x + w - stringer, y, stringer, h).fill({ color: SCENE_STAIRS.stringerColor, alpha: 0.8 });
     }
 
     graphics.rect(x, y, w, h).stroke({ color: SCENE_STAIRS.shaftEdge, width: Math.max(1, 3 / zoom), alpha: 1 });

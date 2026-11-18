@@ -49,14 +49,20 @@ describe('SceneShapePainter', () => {
     ],
   });
 
-  it('рисует площадку перехода и лестничный проём по-разному', () => {
+  it('площадка перехода — только метка, без рамки', () => {
     const landing = painter.paintElement(opening(2), 1);
+
+    // Только ромб с заливкой: постоянной рамки и внутреннего контура нет.
+    expect(actions(landing)).toEqual(['fill']);
+  });
+
+  it('лестничный проём — колодец со ступенями и кромкой', () => {
     const hole = painter.paintElement(opening(null), 1);
 
-    expect(landing.context.instructions.length).toBeGreaterThan(0);
-    expect(hole.context.instructions.length).toBeGreaterThan(0);
-    // Проём — тёмный колодец со ступенями: линий больше, чем у площадки.
-    expect(hole.context.instructions.length).toBeGreaterThan(landing.context.instructions.length);
+    expect(actions(hole)).toContain('stroke');
+    expect(hole.context.instructions.length).toBeGreaterThan(
+      painter.paintElement(opening(2), 1).context.instructions.length,
+    );
   });
 
   it('верхняя грань стены — одна плоская заливка без полос', () => {

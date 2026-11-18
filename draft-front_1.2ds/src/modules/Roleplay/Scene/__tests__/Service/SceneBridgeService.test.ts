@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
+import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
+import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
 
 const bridge = (shape: SceneElement['shape'], props: SceneElement['props'] = {}): SceneElement => ({
@@ -54,21 +56,57 @@ describe('SceneBridgeService', () => {
     expect(ramp?.context.instructions.length).toBeGreaterThan(0);
   });
 
-  it('рисует лестницу ступенями по подъёму', () => {
-    const low = service.paint(
-      bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation: 64 }),
-      64,
-      1,
-    );
-    const high = service.paint(
-      bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation: 128 }),
-      64,
-      1,
-    );
+  /** Заливки верхнего уровня: цвет и прозрачность. */
+  const fills = (graphics: ReturnType<SceneBridgeService['paint']>): { color: number; alpha: number }[] =>
+    (graphics?.context.instructions ?? [])
+      .filter((instruction) => (instruction as { action?: string }).action === 'fill')
+      .map((instruction) => {
+        const style = (instruction as unknown as { data?: { style?: { color?: number; alpha?: number } } }).data
+          ?.style;
 
-    expect(low?.context.instructions.length).toBeGreaterThan(0);
-    // Чем выше марш, тем больше ступеней.
-    expect(high?.context.instructions.length).toBeGreaterThan(low?.context.instructions.length ?? 0);
+        return { color: style?.color ?? -1, alpha: style?.alpha ?? 1 };
+      });
+
+  const stairs = (elevation: number): SceneElement =>
+    bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation });
+
+  it('рисует ступени по подъёму: на два ипари — восемь', () => {
+    const low = service.paint(stairs(64), 64, 1);
+    const high = service.paint(stairs(128), 64, 1);
+
+    // Каждая ступень — плита с подступенком и носком.
+    const risers = fills(high).filter((fill) => fill.color === SCENE_STAIRS.riserColor);
+    const noses = fills(high).filter((fill) => fill.color === SCENE_STAIRS.nosingColor);
+
+    expect(risers).toHaveLength(8);
+    expect(noses).toHaveLength(8);
+    expect(fills(low).filter((fill) => fill.color === SCENE_STAIRS.riserColor)).toHaveLength(4);
+  });
+
+  it('проступь светлеет к высокому концу марша', () => {
+    const known = new Set<number>([
+      SCENE_STAIRS.riserColor,
+      SCENE_STAIRS.nosingColor,
+      SCENE_STAIRS.edgeColor,
+      SCENE_STAIRS.stringerColor,
+      SCENE_STAIRS.stringerShadow,
+      SCENE_BRIDGE.shadowColor,
+    ]);
+    const treads = fills(service.paint(stairs(128), 64, 1)).filter(
+      (fill) => fill.alpha === 1 && !known.has(fill.color),
+    );
+    const brightness = treads.map((fill) => ((fill.color >> 16) & 0xff) + ((fill.color >> 8) & 0xff) + (fill.color & 0xff));
+
+    expect(treads).toHaveLength(8);
+    // Тон растёт от низкого конца к высокому: подъём читается без высоты.
+    expect(brightness).toEqual([...brightness].sort((left, right) => left - right));
+    expect(new Set(brightness).size).toBeGreaterThan(1);
+  });
+
+  it('без подъёма марш — ровная плита без подступенков', () => {
+    const flat = service.paint(stairs(0), 64, 1);
+
+    expect(fills(flat).filter((fill) => fill.color === SCENE_STAIRS.riserColor)).toHaveLength(0);
   });
 
   it('не рисует мост не по прямоугольнику', () => {

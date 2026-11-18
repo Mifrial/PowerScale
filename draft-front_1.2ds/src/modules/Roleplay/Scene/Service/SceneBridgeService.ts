@@ -83,72 +83,140 @@ export class SceneBridgeService {
   /**
    * Лестница: марш со ступенями и тетивами.
    *
-   * Ступени считаются от подъёма: марш на два ипари при ступени в четверть
-   * ипари даёт восемь ступеней. Ширина ступени — длинная сторона на число
-   * ступеней; линии идут поперёк хода.
+   * Ступень — плита, а не линия: проступь, тёмный подступенок и светлый носок
+   * на его верхнем ребре. Проступь светлеет к высокому концу — так подъём
+   * читается с одного взгляда, хотя сцена top-down и высота в рисунке не
+   * поднимается. Ступени считаются от `elevation`: марш на два ипари при
+   * ступени в четверть ипари даёт восемь ступеней. Направление подъёма — тот
+   * же локальный «+» оси, что у `sceneRampSlope`, поэтому `props.rotation`
+   * разворачивает марш вместе с рисунком.
    */
   private paintStairs(metrics: DeckMetrics, resolution: number): Graphics {
     const graphics = new Graphics();
     this.paintShadow(graphics, metrics);
 
-    const inset = Math.max(1, metrics.short * SCENE_STAIRS.inset);
+    // Корпус марша: тёмная кромка по всему прямоугольнику.
     graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.edgeColor });
-    graphics
-      .rect(
-        metrics.x + inset,
-        metrics.y + inset,
-        Math.max(1, metrics.w - inset * 2),
-        Math.max(1, metrics.h - inset * 2),
-      )
-      .fill({ color: SCENE_STAIRS.color });
 
-    const run = metrics.horizontal ? metrics.w : metrics.h;
-    const rise = Math.max(0, metrics.rise);
-    const riser = Math.max(1, Math.max(1, resolution) * SCENE_STAIRS.riserIpari);
-    const steps = Math.max(1, Math.round(rise / riser));
+    const inset = Math.max(1, metrics.short * SCENE_STAIRS.inset);
+    const innerX = metrics.x + inset;
+    const innerY = metrics.y + inset;
+    const innerW = Math.max(1, metrics.w - inset * 2);
+    const innerH = Math.max(1, metrics.h - inset * 2);
+    const run = metrics.horizontal ? innerW : innerH;
+    const steps = this.stairSteps(metrics, resolution);
     const tread = run / steps;
     const line = Math.max(1, metrics.line);
-    for (let index = 1; index < steps; index += 1) {
-      const offset = tread * index;
+    const riser = Math.max(1, Math.min(tread * 0.8, tread * SCENE_STAIRS.riserShare));
+
+    /** Прямоугольник вдоль хода: `from…to` по длинной стороне. */
+    const band = (from: number, to: number): void => {
+      const length = Math.max(0.5, to - from);
       if (metrics.horizontal) {
-        const px = metrics.x + offset;
-        graphics
-          .moveTo(px, metrics.y + inset)
-          .lineTo(px, metrics.y + metrics.h - inset)
-          .stroke({ color: SCENE_STAIRS.treadColor, width: line });
-        graphics
-          .moveTo(px + line, metrics.y + inset)
-          .lineTo(px + line, metrics.y + metrics.h - inset)
-          .stroke({ color: SCENE_STAIRS.highlightColor, width: line * 0.5, alpha: 0.35 });
+        graphics.rect(from, innerY, length, innerH);
       } else {
-        const py = metrics.y + offset;
-        graphics
-          .moveTo(metrics.x + inset, py)
-          .lineTo(metrics.x + metrics.w - inset, py)
-          .stroke({ color: SCENE_STAIRS.treadColor, width: line });
-        graphics
-          .moveTo(metrics.x + inset, py + line)
-          .lineTo(metrics.x + metrics.w - inset, py + line)
-          .stroke({ color: SCENE_STAIRS.highlightColor, width: line * 0.5, alpha: 0.35 });
+        graphics.rect(innerX, from, innerW, length);
       }
+    };
+
+    const start = metrics.horizontal ? innerX : innerY;
+    for (let index = 0; index < steps; index += 1) {
+      const from = start + tread * index;
+      const to = from + tread;
+
+      // Проступь: плоский тон, светлее к высокому концу.
+      band(from, to);
+      const share = steps === 1 ? 0 : index / (steps - 1);
+      graphics.fill({ color: this.mixColor(SCENE_STAIRS.treadLow, SCENE_STAIRS.treadHigh, share) });
+
+      if (steps === 1) {
+        // Без подъёма марш — ровная плита, а не одна ступень с подступенком.
+        continue;
+      }
+
+      // Подступенок у низкой стороны ступени и светлый носок на его ребре.
+      band(from, Math.min(to, from + riser));
+      graphics.fill({ color: SCENE_STAIRS.riserColor });
+      band(Math.min(to, from + riser), Math.min(to, from + riser + line));
+      graphics.fill({ color: SCENE_STAIRS.nosingColor, alpha: 0.6 });
     }
 
-    const stringer = Math.max(1, metrics.short * 0.07);
-    if (metrics.horizontal) {
-      graphics.rect(metrics.x, metrics.y, metrics.w, stringer).fill({ color: SCENE_STAIRS.stringerColor });
-      graphics
-        .rect(metrics.x, metrics.y + metrics.h - stringer, metrics.w, stringer)
-        .fill({ color: SCENE_STAIRS.stringerColor });
-    } else {
-      graphics.rect(metrics.x, metrics.y, stringer, metrics.h).fill({ color: SCENE_STAIRS.stringerColor });
-      graphics
-        .rect(metrics.x + metrics.w - stringer, metrics.y, stringer, metrics.h)
-        .fill({ color: SCENE_STAIRS.stringerColor });
-    }
+    // Верхний торец: тёмный стык с полом или площадкой перехода.
+    const top = (metrics.horizontal ? innerX : innerY) + run - line;
+    band(top, top + line);
+    graphics.fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.7 });
 
+    this.paintStairStringers(graphics, metrics);
     this.applyRotation(graphics, metrics);
 
     return graphics;
+  }
+
+  /**
+   * Тетивы марша: балки по краям, приподнятые над ступенями.
+   *
+   * Тетива светлее проступи, с тёмной внутренней кромкой и тенью внутрь
+   * марша: без неё край ступеней выглядит обрезанным, а не собранным в марш.
+   * Торцы закрыты тёмными заглушками.
+   */
+  private paintStairStringers(graphics: Graphics, metrics: DeckMetrics): void {
+    const width = Math.max(2, metrics.short * 0.07);
+    const line = Math.max(1, metrics.line);
+    const shadow = Math.max(1, metrics.short * 0.03);
+    const cap = Math.max(1, line * 1.5);
+
+    /** Одна балка: тело, внутренняя кромка, тень внутрь и заглушки. */
+    const beam = (x: number, y: number, w: number, h: number, inner: { x: number; y: number }): void => {
+      graphics.rect(x, y, w, h).fill({ color: SCENE_STAIRS.stringerColor });
+
+      if (inner.y !== 0) {
+        // Внутренняя сторона — по горизонтали: кромка и тень на ступенях.
+        const edgeY = inner.y > 0 ? y + h - line : y;
+        const shadowY = inner.y > 0 ? y + h : y - shadow;
+        graphics.rect(x, edgeY, w, line).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.85 });
+        graphics.rect(x, shadowY, w, shadow).fill({ color: SCENE_STAIRS.stringerShadow, alpha: 0.22 });
+      } else {
+        const edgeX = inner.x > 0 ? x + w - line : x;
+        const shadowX = inner.x > 0 ? x + w : x - shadow;
+        graphics.rect(edgeX, y, line, h).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.85 });
+        graphics.rect(shadowX, y, shadow, h).fill({ color: SCENE_STAIRS.stringerShadow, alpha: 0.22 });
+      }
+
+      graphics.rect(x, y, w, cap).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.9 });
+      graphics.rect(x, y + h - cap, w, cap).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.9 });
+    };
+
+    if (metrics.horizontal) {
+      beam(metrics.x, metrics.y, metrics.w, width, { x: 0, y: 1 });
+      beam(metrics.x, metrics.y + metrics.h - width, metrics.w, width, { x: 0, y: -1 });
+    } else {
+      beam(metrics.x, metrics.y, width, metrics.h, { x: 1, y: 0 });
+      beam(metrics.x + metrics.w - width, metrics.y, width, metrics.h, { x: -1, y: 0 });
+    }
+  }
+
+  /** Число ступеней марша по подъёму; без подъёма — одна плита. */
+  private stairSteps(metrics: DeckMetrics, resolution: number): number {
+    if (metrics.rise <= 0) {
+      return 1;
+    }
+
+    const riser = Math.max(1, Math.max(1, resolution) * SCENE_STAIRS.riserIpari);
+
+    return Math.max(2, Math.min(24, Math.round(metrics.rise / riser)));
+  }
+
+  /** Смешение двух цветов: тон проступи растёт к высокому концу. */
+  private mixColor(from: number, to: number, share: number): number {
+    const t = Math.max(0, Math.min(1, share));
+    const channel = (shift: number): number => {
+      const start = (from >> shift) & 0xff;
+      const end = (to >> shift) & 0xff;
+
+      return Math.round(start + (end - start) * t);
+    };
+
+    return (channel(16) << 16) | (channel(8) << 8) | channel(0);
   }
 
   /** Мягкая тень на воде: смещение растёт с подъёмом, но грань не рисуется. */
