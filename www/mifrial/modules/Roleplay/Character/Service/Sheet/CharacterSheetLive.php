@@ -51,6 +51,8 @@ final class CharacterSheetLive
 
     private readonly CharacterSheetItems $items;
 
+    private readonly CharacterRuntimeStates $runtimeStates;
+
     /**
      * Собирает части расчёта.
      *
@@ -90,6 +92,7 @@ final class CharacterSheetLive
             new CharacterSpellSourceBonus($evaluations),
         );
         $this->items = new CharacterSheetItems();
+        $this->runtimeStates = new CharacterRuntimeStates();
     }
 
     /**
@@ -110,7 +113,7 @@ final class CharacterSheetLive
         array $runtimeSenses = [],
         array $runtimeStates = [],
     ): array {
-        $sheet = $this->withRuntimeStates($sheet, $runtimeStates);
+        $sheet = $this->withRuntimeStates($slice, $sheet, $runtimeStates);
         $model = $this->model($choices);
         $validation = $this->sheets->validate($slice, $model);
         $chosen = $validation->getAbilityLevels();
@@ -153,44 +156,19 @@ final class CharacterSheetLive
     /**
      * Добавляет временные состояния цели в лист, не записывая их в хранилище.
      *
-     * Строки с одинаковым `runtimeId` не дублируются: пересчёт листа может
-     * идти повторно по уже дополненному листу.
+     * Временная строка сливается с хранимой по спеке состояния: флаг,
+     * `max` и `sum` дают одну эффективную строку, упадок — только старший
+     * ранг, `suppressed_state_codes` снимает подавленные строки.
      *
+     * @param CharacterRuleSlice $slice Срез ревизии.
      * @param array<string, mixed> $sheet Документ листа.
      * @param array<int, array<string, mixed>> $runtimeStates Временные состояния.
      *
      * @return array<string, mixed> Лист.
      */
-    private function withRuntimeStates(array $sheet, array $runtimeStates): array
+    private function withRuntimeStates(CharacterRuleSlice $slice, array $sheet, array $runtimeStates): array
     {
-        if ($runtimeStates === []) {
-            return $sheet;
-        }
-
-        $states = is_array($sheet['states'] ?? null) ? $sheet['states'] : [];
-        $known = [];
-        foreach ($states as $row) {
-            $id = is_array($row) ? ($row['runtimeId'] ?? null) : null;
-            if (is_string($id)) {
-                $known[$id] = true;
-            }
-        }
-
-        foreach ($runtimeStates as $row) {
-            $id = $row['runtimeId'] ?? null;
-            if (is_string($id) && isset($known[$id])) {
-                continue;
-            }
-
-            $states[] = $row;
-            if (is_string($id)) {
-                $known[$id] = true;
-            }
-        }
-
-        $sheet['states'] = array_values($states);
-
-        return $sheet;
+        return $this->runtimeStates->merge($slice, $sheet, $runtimeStates);
     }
 
     /**

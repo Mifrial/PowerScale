@@ -407,6 +407,28 @@ final class GameEndOfTurnMysqlTest extends TestCase
     }
 
     /**
+     * Хранимая «Слабость» и наложенная не дают двойного штрафа.
+     *
+     * @return void
+     */
+    public function testEndTurnRefillDoesNotStackStoredWeakness(): void
+    {
+        $scene = $this->battlePair();
+        $version = $this->mutate($scene['hero'], [[
+            'kind' => 'putState',
+            'stateRuleCode' => 'weak',
+        ]]);
+        $this->addRuntimeState($scene['gameId'], $scene['battleId'], $scene['hero'], 'weak-touch');
+
+        $ended = $this->endTurn($scene['gameId'], $scene['battleId'], 'runtime-weak', 2, $version);
+
+        self::assertTrue($ended['success'], json_encode($ended));
+        self::assertSame(3, $this->apOf($scene['hero']));
+        self::assertArrayHasKey('weak', $this->rowsByCode($scene['hero']));
+        self::assertCount(0, $this->activeEffectRows($scene['battleId']));
+    }
+
+    /**
      * Периодический урон наложенного эффекта бьёт в конце хода цели.
      *
      * @return void
@@ -1568,6 +1590,11 @@ final class GameEndOfTurnMysqlTest extends TestCase
                 'value_type' => 'flag',
                 'aggregation' => 'independent',
                 'decline_weakness' => true,
+                'effects' => [[
+                    'type' => 'resource_limit_modify',
+                    'resource_code' => 'ap',
+                    'amount' => -1,
+                ]],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('disabled', new RuleVersionBody('state', 'Disabled', '', [
                 'value_type' => 'flag',
@@ -1649,6 +1676,26 @@ final class GameEndOfTurnMysqlTest extends TestCase
                     'targeting' => 'none',
                     'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
                     'effects' => [['type' => 'state', 'state_code' => 'sluggish']],
+                ],
+                'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
+                'hit_resolution' => ['type' => 'attack'],
+                'action_components' => [[
+                    'type' => 'resource',
+                    'resource_code' => 'ap',
+                    'amount' => 1,
+                ], [
+                    'type' => 'somatic',
+                    'note' => 'touch',
+                ]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('weak-touch', new RuleVersionBody('ability', 'Weak touch', '', [
+                'type' => 'spell',
+                'spell' => [
+                    'power' => ['base' => 4, 'size' => -1],
+                    'control' => ['base' => 4, 'size' => -1],
+                    'targeting' => 'none',
+                    'duration' => ['type' => 'lingering', 'limit' => ['value' => 1, 'unit' => 'turn']],
+                    'effects' => [['type' => 'state', 'state_code' => 'weak']],
                 ],
                 'zones' => ['or' => ['kind' => 'array', 'levels_cost' => [1]]],
                 'hit_resolution' => ['type' => 'attack'],

@@ -8834,8 +8834,8 @@
             ],
             "basis": null,
             "date": "2026-11-16",
-            "bytes": 27470,
-            "lines": 341,
+            "bytes": 27811,
+            "lines": 342,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -9573,14 +9573,14 @@
             "kind": "plan",
             "state": "ЧАСТИЧНО",
             "stateSource": "token",
-            "statusRaw": "~ЧАСТИЧНО~, 2026-11-18. 23.0 и 23.1 закрыты: конец хода видит",
+            "statusRaw": "~ЧАСТИЧНО~, 2026-11-18. 23.0, 23.0.1 и 23.1 закрыты: конец хода",
             "layers": [
                 "PHP"
             ],
             "basis": "PHP",
             "date": "2026-11-18",
-            "bytes": 6913,
-            "lines": 94,
+            "bytes": 8702,
+            "lines": 108,
             "modules": [
                 "Roleplay/Rule"
             ],
@@ -9604,8 +9604,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-09",
-            "bytes": 49457,
-            "lines": 493,
+            "bytes": 50092,
+            "lines": 496,
             "modules": [
                 "Roleplay/Rule"
             ],
