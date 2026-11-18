@@ -3,6 +3,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
+import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import {
   sceneDeckBaseElevation,
@@ -38,11 +39,21 @@ export function sceneDeckFrame(element: Pick<SceneElement, 'kind' | 'shape' | 'p
   return { shape: element.shape, rotation: sceneRotation(element) };
 }
 
-/** Ширина полосы перил в единицах сцены: та же, что рисует `SceneBridgeService`. */
-export function sceneDeckRailWidth(frame: SceneDeckFrame): number {
+/**
+ * Ширина полосы перил в единицах сцены: та же, что рисует `SceneBridgeService`.
+ *
+ * У лестницы перила уже, чем у моста: марш обычно неширокий, и полоса в 10%
+ * короткой стороны вместе с запасом под тело съедала бы весь проход.
+ */
+export function sceneDeckRailWidth(frame: SceneDeckFrame, share: number = SCENE_BRIDGE.railWidth): number {
   const short = Math.min(frame.shape.w, frame.shape.h);
 
-  return Math.max(1, short * SCENE_BRIDGE.railWidth);
+  return Math.max(1, short * Math.max(0, share));
+}
+
+/** Доля короткой стороны под перила: у лестницы своя, у моста и съезда общая. */
+export function sceneDeckRailShare(element: Pick<SceneElement, 'props'>): number {
+  return element.props.kind === 'stairs' ? SCENE_STAIRS.railShare : SCENE_BRIDGE.railWidth;
 }
 
 /** Высота перил над настилом в единицах сцены. */
@@ -66,11 +77,17 @@ export function sceneDeckLocalPoint(frame: SceneDeckFrame, point: ScenePoint): S
  *
  * Ожидается, что точка внутри настила: вне его проверка ничего не значит.
  */
-export function sceneDeckRailAt(frame: SceneDeckFrame, point: ScenePoint, resolution: number, tolerance = 0): boolean {
+export function sceneDeckRailAt(
+  frame: SceneDeckFrame,
+  point: ScenePoint,
+  resolution: number,
+  tolerance = 0,
+  share: number = SCENE_BRIDGE.railWidth,
+): boolean {
   const local = sceneDeckLocalPoint(frame, point);
   const x = local[0] - frame.shape.x;
   const y = local[1] - frame.shape.y;
-  const rail = sceneDeckRailWidth(frame);
+  const rail = sceneDeckRailWidth(frame, share);
 
   if (frame.shape.w >= frame.shape.h) {
     return y <= rail + tolerance || y >= frame.shape.h - rail - tolerance;
@@ -102,9 +119,14 @@ export function sceneDeckEndEdge(frame: SceneDeckFrame, a: ScenePoint, b: SceneP
  * полосу из настила, чтобы тело не задевало перила. Сами полосы уровня перил
  * берутся без запаса — запас иначе накрыл бы землю за краем настила.
  */
-export function sceneDeckRailPolygons(frame: SceneDeckFrame, resolution: number, pad = 0): ScenePoint[][] {
+export function sceneDeckRailPolygons(
+  frame: SceneDeckFrame,
+  resolution: number,
+  pad = 0,
+  share: number = SCENE_BRIDGE.railWidth,
+): ScenePoint[][] {
   const shape = frame.shape;
-  const rail = sceneDeckRailWidth(frame);
+  const rail = sceneDeckRailWidth(frame, share);
   const bands: { x: number; y: number; w: number; h: number }[] = [];
   if (shape.w >= shape.h) {
     bands.push({ x: shape.x, y: shape.y - pad, w: shape.w, h: rail + pad });

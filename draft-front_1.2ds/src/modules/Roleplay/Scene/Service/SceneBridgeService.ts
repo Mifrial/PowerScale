@@ -2,7 +2,7 @@ import { Graphics } from 'pixi.js';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
-import { sceneDeckFrame, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
+import { sceneDeckFrame, sceneDeckRailShare, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 
 /** Размеры настила, общие для моста и съезда. */
@@ -47,7 +47,7 @@ export class SceneBridgeService {
 
     const metrics = this.metrics(element, resolution, zoom);
     if (element.props.kind === 'stairs') {
-      return this.paintStairs(metrics, resolution);
+      return this.paintStairs(metrics, resolution, element.props.railing === true, zoom);
     }
 
     return element.props.kind === 'ramp' ? this.paintRamp(metrics, blockedShare) : this.paintBridge(metrics);
@@ -81,33 +81,38 @@ export class SceneBridgeService {
   }
 
   /**
-   * Лестница: марш со ступенями и тетивами.
+   * Лестница: плоская подложка с мягкими ступенями.
    *
-   * Ступень — плита, а не линия: проступь, тёмный подступенок и светлый носок
-   * на его верхнем ребре. Проступь светлеет к высокому концу — так подъём
-   * читается с одного взгляда, хотя сцена top-down и высота в рисунке не
-   * поднимается. Ступени считаются от `elevation`: марш на два ипари при
-   * ступени в четверть ипари даёт восемь ступеней. Направление подъёма — тот
-   * же локальный «+» оси, что у `sceneRampSlope`, поэтому `props.rotation`
-   * разворачивает марш вместе с рисунком.
+   * Тёмный подступенок и светлый носок отдельными плашками убраны: они читались
+   * полосатым ковром. Вместо этого ступень — тень, которая от низкой кромки
+   * сходит к середине проступи, а на ребре остаётся тонкий носок. Проступь
+   * светлеет к высокому концу, поэтому подъём виден без высоты в рисунке.
+   * Ступени считаются от `elevation`: марш на два ипари при ступени в четверть
+   * ипари даёт восемь ступеней. Направление подъёма — тот же локальный «+» оси,
+   * что у `sceneRampSlope`, поэтому `props.rotation` разворачивает марш.
+   *
+   * Перила — необязательные светлые балки по длинным сторонам. Их высота и
+   * полоса в навигации те же, что у моста; включаются свойством `railing`.
    */
-  private paintStairs(metrics: DeckMetrics, resolution: number): Graphics {
+  private paintStairs(metrics: DeckMetrics, resolution: number, railed: boolean, zoom: number): Graphics {
     const graphics = new Graphics();
     this.paintShadow(graphics, metrics);
 
-    // Корпус марша: тёмная кромка по всему прямоугольнику.
-    graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.edgeColor });
+    // Подложка: одна плоская доска без тёмной рамки.
+    graphics.rect(metrics.x, metrics.y, metrics.w, metrics.h).fill({ color: SCENE_STAIRS.baseColor });
 
-    const inset = Math.max(1, metrics.short * SCENE_STAIRS.inset);
-    const innerX = metrics.x + inset;
-    const innerY = metrics.y + inset;
-    const innerW = Math.max(1, metrics.w - inset * 2);
-    const innerH = Math.max(1, metrics.h - inset * 2);
+    // Ступени занимают всю подложку: внутренний отступ читался тёмной рамкой
+    // вокруг марша. Борт задают перила или сама тень, а не кант.
+    const innerX = metrics.x;
+    const innerY = metrics.y;
+    const innerW = metrics.w;
+    const innerH = metrics.h;
     const run = metrics.horizontal ? innerW : innerH;
     const steps = this.stairSteps(metrics, resolution);
     const tread = run / steps;
-    const line = Math.max(1, metrics.line);
-    const riser = Math.max(1, Math.min(tread * 0.8, tread * SCENE_STAIRS.riserShare));
+    const start = metrics.horizontal ? innerX : innerY;
+    const nosing = Math.max(0.5, 1.6 / Math.max(0.001, zoom));
+    const overlap = Math.min(0.5, tread * 0.04);
 
     /** Прямоугольник вдоль хода: `from…to` по длинной стороне. */
     const band = (from: number, to: number): void => {
@@ -119,80 +124,147 @@ export class SceneBridgeService {
       }
     };
 
-    const start = metrics.horizontal ? innerX : innerY;
     for (let index = 0; index < steps; index += 1) {
       const from = start + tread * index;
       const to = from + tread;
-
-      // Проступь: плоский тон, светлее к высокому концу.
-      band(from, to);
       const share = steps === 1 ? 0 : index / (steps - 1);
-      graphics.fill({ color: this.mixColor(SCENE_STAIRS.treadLow, SCENE_STAIRS.treadHigh, share) });
+      const tone = this.mixColor(SCENE_STAIRS.treadLow, SCENE_STAIRS.treadHigh, share);
 
       if (steps === 1) {
-        // Без подъёма марш — ровная плита, а не одна ступень с подступенком.
+        // Без подъёма марш — ровная подложка. У одиночной ступени остаётся
+        // только носок: тень на всю проступь читалась бы пандусом.
+        if (metrics.rise > 0) {
+          band(from, Math.min(to, from + nosing));
+          graphics.fill({ color: SCENE_STAIRS.nosingColor, alpha: SCENE_STAIRS.nosingAlpha });
+        }
+
         continue;
       }
 
-      // Подступенок у низкой стороны ступени и светлый носок на его ребре.
-      band(from, Math.min(to, from + riser));
-      graphics.fill({ color: SCENE_STAIRS.riserColor });
-      band(Math.min(to, from + riser), Math.min(to, from + riser + line));
-      graphics.fill({ color: SCENE_STAIRS.nosingColor, alpha: 0.6 });
+      // Проступь: плоский тон, светлее к высокому концу.
+      band(from, to);
+      graphics.fill({ color: tone });
+
+      // Тень ступени: от низкой кромки к середине проступи. Полосы
+      // непрозрачные, поэтому швов между ними не видно.
+      const shadowTo = Math.min(to, from + tread * SCENE_STAIRS.shadeShare);
+      const darkest = this.mixColor(tone, SCENE_STAIRS.shadeColor, SCENE_STAIRS.shadeAlpha);
+      const span = Math.max(0.5, shadowTo - from);
+      const slices = Math.max(1, SCENE_STAIRS.shadeSlices);
+      for (let slice = 0; slice < slices; slice += 1) {
+        const fromPart = from + (span * slice) / slices;
+        const toPart = from + (span * (slice + 1)) / slices;
+        const grow = slice < slices - 1 ? overlap : 0;
+        band(fromPart, Math.min(to, toPart + grow));
+        const part = (slice + 0.5) / slices;
+        graphics.fill({ color: this.mixColor(darkest, tone, part) });
+      }
+
+      // Носок: тонкая светлая кромка на низкой стороне ступени.
+      band(from, Math.min(to, from + nosing));
+      graphics.fill({ color: SCENE_STAIRS.nosingColor, alpha: SCENE_STAIRS.nosingAlpha });
     }
 
-    // Верхний торец: тёмный стык с полом или площадкой перехода.
-    const top = (metrics.horizontal ? innerX : innerY) + run - line;
-    band(top, top + line);
-    graphics.fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.7 });
+    if (railed) {
+      this.paintStairRails(graphics, metrics);
+    }
 
-    this.paintStairStringers(graphics, metrics);
     this.applyRotation(graphics, metrics);
 
     return graphics;
   }
 
   /**
-   * Тетивы марша: балки по краям, приподнятые над ступенями.
+   * Перила марша: светлые балки по длинным сторонам.
    *
-   * Тетива светлее проступи, с тёмной внутренней кромкой и тенью внутрь
-   * марша: без неё край ступеней выглядит обрезанным, а не собранным в марш.
-   * Торцы закрыты тёмными заглушками.
+   * Поперёк балки идёт плавный градиент от светлой внешней кромки к тёмной
+   * внутренней; внутри марша лежит мягкая тень. Торцы закрыты заглушками,
+   * столбиков нет — перила остаются линией, а не забором.
    */
-  private paintStairStringers(graphics: Graphics, metrics: DeckMetrics): void {
-    const width = Math.max(2, metrics.short * 0.07);
-    const line = Math.max(1, metrics.line);
-    const shadow = Math.max(1, metrics.short * 0.03);
-    const cap = Math.max(1, line * 1.5);
+  private paintStairRails(graphics: Graphics, metrics: DeckMetrics): void {
+    const width = Math.max(1, metrics.rail);
+    const line = Math.max(0.5, metrics.line * 0.5);
+    const shadow = Math.max(1, metrics.short * SCENE_STAIRS.railShadowShare);
+    const cap = Math.max(1, metrics.line * 1.2);
+    const rainbow = 8;
 
-    /** Одна балка: тело, внутренняя кромка, тень внутрь и заглушки. */
-    const beam = (x: number, y: number, w: number, h: number, inner: { x: number; y: number }): void => {
-      graphics.rect(x, y, w, h).fill({ color: SCENE_STAIRS.stringerColor });
-
-      if (inner.y !== 0) {
-        // Внутренняя сторона — по горизонтали: кромка и тень на ступенях.
-        const edgeY = inner.y > 0 ? y + h - line : y;
-        const shadowY = inner.y > 0 ? y + h : y - shadow;
-        graphics.rect(x, edgeY, w, line).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.85 });
-        graphics.rect(x, shadowY, w, shadow).fill({ color: SCENE_STAIRS.stringerShadow, alpha: 0.22 });
-      } else {
-        const edgeX = inner.x > 0 ? x + w - line : x;
-        const shadowX = inner.x > 0 ? x + w : x - shadow;
-        graphics.rect(edgeX, y, line, h).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.85 });
-        graphics.rect(shadowX, y, shadow, h).fill({ color: SCENE_STAIRS.stringerShadow, alpha: 0.22 });
+    /** Одна балка: `outer` — внешняя кромка, `inner` — внутренняя. */
+    const beam = (
+      horizontal: boolean,
+      outer: number,
+      inner: number,
+      crossStart: number,
+      crossSize: number,
+    ): void => {
+      const span = inner - outer;
+      const sign = span >= 0 ? 1 : -1;
+      for (let slice = 0; slice < rainbow; slice += 1) {
+        const fromPart = outer + (span * slice) / rainbow;
+        const toPart = outer + (span * (slice + 1)) / rainbow;
+        const low = Math.min(fromPart, toPart);
+        const size = Math.max(0.5, Math.abs(toPart - fromPart));
+        if (horizontal) {
+          graphics.rect(crossStart, low, crossSize, size);
+        } else {
+          graphics.rect(low, crossStart, size, crossSize);
+        }
+        graphics.fill({ color: this.railTone((slice + 0.5) / rainbow) });
       }
 
-      graphics.rect(x, y, w, cap).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.9 });
-      graphics.rect(x, y + h - cap, w, cap).fill({ color: SCENE_STAIRS.edgeColor, alpha: 0.9 });
+      // Тёмная внутренняя грань.
+      const edge = inner - sign * line;
+      if (horizontal) {
+        graphics.rect(crossStart, Math.min(edge, edge + line), crossSize, line);
+      } else {
+        graphics.rect(Math.min(edge, edge + line), crossStart, line, crossSize);
+      }
+      graphics.fill({ color: SCENE_STAIRS.railDark, alpha: 0.65 });
+
+      // Мягкая тень на ступенях: три полосы, гаснущие от балки внутрь марша.
+      for (let stripe = 0; stripe < 3; stripe += 1) {
+        const fromPart = inner + sign * (shadow * stripe) / 3;
+        const size = Math.max(0.5, shadow / 3);
+        if (horizontal) {
+          graphics.rect(crossStart, Math.min(fromPart, fromPart + sign * size), crossSize, size);
+        } else {
+          graphics.rect(Math.min(fromPart, fromPart + sign * size), crossStart, size, crossSize);
+        }
+        graphics.fill({
+          color: SCENE_STAIRS.railShadow,
+          alpha: SCENE_STAIRS.railShadowAlpha * (1 - stripe / 3),
+        });
+      }
+
+      // Заглушки на торцах балки.
+      if (horizontal) {
+        graphics.rect(crossStart, Math.min(outer, inner), cap, width).fill({ color: SCENE_STAIRS.railDark, alpha: 0.9 });
+        graphics
+          .rect(crossStart + crossSize - cap, Math.min(outer, inner), cap, width)
+          .fill({ color: SCENE_STAIRS.railDark, alpha: 0.9 });
+      } else {
+        graphics.rect(Math.min(outer, inner), crossStart, width, cap).fill({ color: SCENE_STAIRS.railDark, alpha: 0.9 });
+        graphics
+          .rect(Math.min(outer, inner), crossStart + crossSize - cap, width, cap)
+          .fill({ color: SCENE_STAIRS.railDark, alpha: 0.9 });
+      }
     };
 
     if (metrics.horizontal) {
-      beam(metrics.x, metrics.y, metrics.w, width, { x: 0, y: 1 });
-      beam(metrics.x, metrics.y + metrics.h - width, metrics.w, width, { x: 0, y: -1 });
+      beam(true, metrics.y, metrics.y + width, metrics.x, metrics.w);
+      beam(true, metrics.y + metrics.h, metrics.y + metrics.h - width, metrics.x, metrics.w);
     } else {
-      beam(metrics.x, metrics.y, width, metrics.h, { x: 1, y: 0 });
-      beam(metrics.x + metrics.w - width, metrics.y, width, metrics.h, { x: -1, y: 0 });
+      beam(false, metrics.x, metrics.x + width, metrics.y, metrics.h);
+      beam(false, metrics.x + metrics.w, metrics.x + metrics.w - width, metrics.y, metrics.h);
     }
+  }
+
+  /** Тон перил: светлый край, тело и тёмная внутренняя грань. */
+  private railTone(share: number): number {
+    const t = Math.max(0, Math.min(1, share));
+
+    return t < 0.5
+      ? this.mixColor(SCENE_STAIRS.railLight, SCENE_STAIRS.railMid, t * 2)
+      : this.mixColor(SCENE_STAIRS.railMid, SCENE_STAIRS.railDark, (t - 0.5) * 2);
   }
 
   /** Число ступеней марша по подъёму; без подъёма — одна плита. */
@@ -526,7 +598,7 @@ export class SceneBridgeService {
       line: Math.max(1, 1.5 / Math.max(0.001, zoom)),
       rise,
       thickness,
-      rail: sceneDeckRailWidth(frame),
+      rail: sceneDeckRailWidth(frame, sceneDeckRailShare(element)),
       inset: Math.max(1, short * SCENE_BRIDGE.deckInset),
       planks: Math.max(1, Math.round((shape.w >= shape.h ? shape.w : shape.h) / (base * SCENE_BRIDGE.plankIpari))),
       rotation: sceneRotation(element),

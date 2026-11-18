@@ -120,7 +120,7 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     kind: 'support',
     shapeType: 'rect',
     // Марш на два ипари: высота дома. Длина и ширина — протяжкой.
-    props: { kind: 'stairs', height: 16, elevation: 128, speed: 100 },
+    props: { kind: 'stairs', height: 16, elevation: 128, speed: 100, railing: false },
   },
   {
     id: 'roof',

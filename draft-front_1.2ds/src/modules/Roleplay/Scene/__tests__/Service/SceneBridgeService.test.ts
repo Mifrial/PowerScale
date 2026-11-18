@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
-import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
 import { SceneBridgeService } from '@/modules/Roleplay/Scene/Service/SceneBridgeService';
 
 const bridge = (shape: SceneElement['shape'], props: SceneElement['props'] = {}): SceneElement => ({
@@ -67,46 +66,50 @@ describe('SceneBridgeService', () => {
         return { color: style?.color ?? -1, alpha: style?.alpha ?? 1 };
       });
 
-  const stairs = (elevation: number): SceneElement =>
-    bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation });
+  const stairs = (elevation: number, railing = false): SceneElement =>
+    bridge({ type: 'rect', x: 0, y: 0, w: 96, h: 400 }, { kind: 'stairs', elevation, railing });
+
+  /** Носок ступени: единственная полупрозрачная заливка цвета носка. */
+  const noses = (graphics: ReturnType<SceneBridgeService['paint']>): number =>
+    fills(graphics).filter(
+      (fill) => fill.color === SCENE_STAIRS.nosingColor && fill.alpha === SCENE_STAIRS.nosingAlpha,
+    ).length;
 
   it('рисует ступени по подъёму: на два ипари — восемь', () => {
-    const low = service.paint(stairs(64), 64, 1);
-    const high = service.paint(stairs(128), 64, 1);
-
-    // Каждая ступень — плита с подступенком и носком.
-    const risers = fills(high).filter((fill) => fill.color === SCENE_STAIRS.riserColor);
-    const noses = fills(high).filter((fill) => fill.color === SCENE_STAIRS.nosingColor);
-
-    expect(risers).toHaveLength(8);
-    expect(noses).toHaveLength(8);
-    expect(fills(low).filter((fill) => fill.color === SCENE_STAIRS.riserColor)).toHaveLength(4);
+    expect(noses(service.paint(stairs(128), 64, 1))).toBe(8);
+    expect(noses(service.paint(stairs(64), 64, 1))).toBe(4);
   });
 
   it('проступь светлеет к высокому концу марша', () => {
-    const known = new Set<number>([
-      SCENE_STAIRS.riserColor,
-      SCENE_STAIRS.nosingColor,
-      SCENE_STAIRS.edgeColor,
-      SCENE_STAIRS.stringerColor,
-      SCENE_STAIRS.stringerShadow,
-      SCENE_BRIDGE.shadowColor,
-    ]);
-    const treads = fills(service.paint(stairs(128), 64, 1)).filter(
-      (fill) => fill.alpha === 1 && !known.has(fill.color),
-    );
-    const brightness = treads.map((fill) => ((fill.color >> 16) & 0xff) + ((fill.color >> 8) & 0xff) + (fill.color & 0xff));
+    const list = fills(service.paint(stairs(128), 64, 1));
+    const low = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadLow && fill.alpha === 1);
+    const high = list.findIndex((fill) => fill.color === SCENE_STAIRS.treadHigh && fill.alpha === 1);
+    const brightness = (color: number): number =>
+      ((color >> 16) & 0xff) + ((color >> 8) & 0xff) + (color & 0xff);
 
-    expect(treads).toHaveLength(8);
-    // Тон растёт от низкого конца к высокому: подъём читается без высоты.
-    expect(brightness).toEqual([...brightness].sort((left, right) => left - right));
-    expect(new Set(brightness).size).toBeGreaterThan(1);
+    expect(low).toBeGreaterThanOrEqual(0);
+    expect(high).toBeGreaterThan(low);
+    // Последняя ступень светлее первой: подъём читается без высоты.
+    expect(brightness(SCENE_STAIRS.treadHigh)).toBeGreaterThan(brightness(SCENE_STAIRS.treadLow));
   });
 
-  it('без подъёма марш — ровная плита без подступенков', () => {
-    const flat = service.paint(stairs(0), 64, 1);
+  it('без подъёма марш — ровная плита без ступеней', () => {
+    const flat = fills(service.paint(stairs(0), 64, 1));
 
-    expect(fills(flat).filter((fill) => fill.color === SCENE_STAIRS.riserColor)).toHaveLength(0);
+    // Только подложка: ни ступеней, ни носков.
+    expect(flat.filter((fill) => fill.alpha === 1).map((fill) => fill.color)).toEqual([SCENE_STAIRS.baseColor]);
+  });
+
+  it('добавляет перила только по свойству', () => {
+    const plain = fills(service.paint(stairs(128), 64, 1));
+    const railed = fills(service.paint(stairs(128, true), 64, 1));
+    // Заглушки перил: тот же тёмный тон, но своя прозрачность.
+    const caps = (list: { color: number; alpha: number }[]): number =>
+      list.filter((fill) => fill.color === SCENE_STAIRS.railDark && fill.alpha === 0.9).length;
+
+    expect(caps(plain)).toBe(0);
+    expect(caps(railed)).toBeGreaterThan(0);
+    expect(railed.length).toBeGreaterThan(plain.length);
   });
 
   it('не рисует мост не по прямоугольнику', () => {

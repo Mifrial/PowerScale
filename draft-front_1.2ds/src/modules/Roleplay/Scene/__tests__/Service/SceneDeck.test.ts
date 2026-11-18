@@ -5,6 +5,7 @@ import type { SceneElementProps } from '@/modules/Roleplay/Scene/Dto/SceneElemen
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneShape } from '@/modules/Roleplay/Scene/Dto/SceneShape';
 import { SCENE_BRIDGE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_BRIDGE';
+import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import {
   sceneDeckBaseBlockers,
   sceneDeckEndEdge,
@@ -12,6 +13,7 @@ import {
   sceneDeckLocalPoint,
   sceneDeckRailAt,
   sceneDeckRailPolygons,
+  sceneDeckRailShare,
   sceneDeckRailSlope,
   sceneDeckRailWidth,
   sceneRampBaseBlocker,
@@ -73,6 +75,15 @@ describe('SceneDeck', () => {
     const frame = frameOf();
 
     expect(sceneDeckRailWidth(frame)).toBeCloseTo(100 * SCENE_BRIDGE.railWidth);
+  });
+
+  it('делает перила лестницы уже, чем у моста', () => {
+    const frame = frameOf({ kind: 'stairs' });
+    const share = sceneDeckRailShare(element(1, 'support', deckShape, { kind: 'stairs' }));
+
+    expect(share).toBe(SCENE_STAIRS.railShare);
+    expect(sceneDeckRailWidth(frame, share)).toBeCloseTo(100 * SCENE_STAIRS.railShare);
+    expect(sceneDeckRailWidth(frame, share)).toBeLessThan(sceneDeckRailWidth(frame));
   });
 
   it('переводит точку в локальную рамку с поворотом', () => {

@@ -26,6 +26,7 @@ import {
   sceneDeckFrame,
   sceneDeckRailHeight,
   sceneDeckRailPolygons,
+  sceneDeckRailShare,
   sceneDeckRailSlope,
   sceneRampBaseBlocker,
 } from '@/modules/Roleplay/Scene/Service/SceneDeck';
@@ -495,16 +496,21 @@ export class SceneNavigationService {
         const deck = isSceneDeck(element);
         const surface = this.surfaceOf(element);
         // У крыши нет торцов настила: на неё заходят с любой стороны, где
-        // рядом лестница. Рамка нужна только мосту и съезду.
+        // рядом лестница. Рамка нужна мосту, съезду и лестнице с перилами.
         const deckFrame = deck && !isWalkableRoof(element) ? sceneDeckFrame(element) : null;
-        // Лестница идёт в клетке стен: перила ей не нужны, а полосы перил
-        // отрезали бы марш по краям.
-        const railed = element.props.kind === 'bridge' || element.props.kind === 'ramp';
+        // Перила — у моста и съезда всегда, у лестницы по свойству: марш может
+        // идти в клетке стен, и полосы перил отрезали бы его по краям.
+        const railed =
+          element.props.kind === 'bridge' ||
+          element.props.kind === 'ramp' ||
+          (element.props.kind === 'stairs' && element.props.railing === true);
+        const railShare = sceneDeckRailShare(element);
         const railBlocks =
           deckFrame === null || !railed
             ? []
-            : sceneDeckRailPolygons(deckFrame, resolution, agentRadius).map((ring) => [ring] as Polygon);
-        const railRings = deckFrame === null || !railed ? [] : sceneDeckRailPolygons(deckFrame, resolution, 0);
+            : sceneDeckRailPolygons(deckFrame, resolution, agentRadius, railShare).map((ring) => [ring] as Polygon);
+        const railRings =
+          deckFrame === null || !railed ? [] : sceneDeckRailPolygons(deckFrame, resolution, 0, railShare);
         const slope = isSceneRamp(element) ? sceneRampSlope(element, elements, resolution) : null;
         const railElevation = elevation + sceneDeckRailHeight(resolution);
         const railSlope = slope === null ? null : sceneDeckRailSlope(slope, resolution);
@@ -1972,6 +1978,8 @@ export class SceneNavigationService {
           element.props.blocksMovement ?? '',
           element.props.state ?? '',
           element.props.sill ?? '',
+          element.props.walkable ?? '',
+          element.props.railing ?? '',
           JSON.stringify(element.shape),
         ].join(':'),
       );

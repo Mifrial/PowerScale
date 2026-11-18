@@ -478,6 +478,35 @@ describe('SceneNavigationService', () => {
     expect(along?.segments.every((segment) => segment.level === 0)).toBe(true);
   });
 
+  it('поднимает перила лестницы над маршем только по свойству', () => {
+    // Марш вдоль x: низкий конец у x=600, высокий у x=760. В середине марша
+    // верхняя полоса перил лежит на высоте половины подъёма плюс 0.5 ипари.
+    const stair = (railing: boolean): SceneElement =>
+      rect(
+        3,
+        'support',
+        600,
+        300,
+        160,
+        100,
+        { kind: 'stairs', speed: 100, elevation: 128, height: 16, railing },
+        15,
+      );
+    const withRails = service.build(board, [grass(), stair(true)], 64, options);
+    const without = service.build(board, [grass(), stair(false)], 64, options);
+    if (withRails === null || without === null) {
+      throw new Error('ожидалась сетка навигации');
+    }
+
+    // Перила — отдельные треугольники на высоте марша плюс 0.5 ипари.
+    const raised = (mesh: { triangles: { rail: boolean; surface: string; elevation: number }[] }): number =>
+      mesh.triangles.filter((triangle) => triangle.rail && triangle.surface === 'stairs' && triangle.elevation > 65)
+        .length;
+
+    expect(raised(withRails)).toBeGreaterThan(0);
+    expect(raised(without)).toBe(0);
+  });
+
   it('находит все уровни под точкой', () => {
     const water = rect(2, 'terrain', 450, 0, 100, 800, { kind: 'water', speed: 20 }, 10);
     const bridge = rect(

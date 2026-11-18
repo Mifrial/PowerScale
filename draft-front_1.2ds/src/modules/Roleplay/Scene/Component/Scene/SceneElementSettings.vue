@@ -10,6 +10,7 @@ import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene
 import { sceneDecorPreset, sceneDecorPresetProps } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_DECOR_PRESETS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
+import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_OPENING_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_OPENING_KIND_OPTIONS';
 import { SCENE_SUPPORT_KIND_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SUPPORT_KIND_OPTIONS';
@@ -30,6 +31,7 @@ import {
   type SceneDeckEnd,
   type SceneRampAttachment,
 } from '@/modules/Roleplay/Scene/Service/SceneRampAttachment';
+import { sceneDeckFrame, sceneDeckRailWidth } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { sceneDecorFootprintDefaults } from '@/modules/Roleplay/Scene/Service/SceneDecorFootprint';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
@@ -308,6 +310,33 @@ const isRamp = computed(
 
 /** Лестница: у неё свои подписи к толщине и подъёму. */
 const isStairs = computed(() => props.element.kind === 'support' && props.element.props.kind === 'stairs');
+
+/** Свободная ширина марша с перилами: полосы плюс запас под тело. */
+const stairsRailClearance = computed(() => {
+  if (!isStairs.value) {
+    return null;
+  }
+
+  const shape = props.element.shape;
+  if (shape.type !== 'rect') {
+    return null;
+  }
+
+  const frame = sceneDeckFrame(props.element);
+  if (frame === null) {
+    return null;
+  }
+
+  const rail = sceneDeckRailWidth(frame, SCENE_STAIRS.railShare);
+  const body = Math.max(1, props.resolution) * SCENE_NAVIGATION.agentRadiusIpari;
+
+  return Math.min(shape.w, shape.h) - 2 * (rail + body);
+});
+
+/** Перила включены, но съедают всю ширину марша: проход закрыт. */
+const stairsRailBlocked = computed(
+  () => props.element.props.railing === true && (stairsRailClearance.value ?? 0) <= 0,
+);
 
 /** Крыша: накрытие над стенами. Обычная — потолок, проходимая — настил. */
 const isRoof = computed(() => props.element.kind === 'support' && props.element.props.kind === 'roof');
@@ -829,6 +858,21 @@ function onAssetCleared(publicId: string | null): void {
         :min="0"
         :max="100000"
         @update:model-value="(value) => patch({ elevation: value })"
+      />
+      <v-switch
+        v-if="isStairs"
+        :model-value="props.element.props.railing === true"
+        :error="stairsRailBlocked"
+        label="Перила"
+        :hint="
+          stairsRailBlocked
+            ? 'Перила съедают всю ширину марша: с ними он станет непроходимым.'
+            : 'Выше ступеней на 0,5 ипари: с марша не спрыгнуть сбоку и по ним не пройти. Вход и выход — с торцов.'
+        "
+        persistent-hint
+        density="compact"
+        color="primary"
+        @update:model-value="(value) => patch({ railing: value === true })"
       />
       <v-text-field
         :model-value="props.element.props.rotation ?? 0"

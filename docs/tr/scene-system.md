@@ -154,7 +154,7 @@ created_at      DateTimeField, required, default now
 
 | `kind` | Назначение | `props` первого среза |
 |---|---|---|
-| `support` | Земля, настил, крыша, стойка, мост, съезд, лестница. | `kind`, `height`, `elevation`, `rotation`, `speed`; у крыши — `walkable` |
+| `support` | Земля, настил, крыша, стойка, мост, съезд, лестница. | `kind`, `height`, `elevation`, `rotation`, `speed`; у крыши — `walkable`, у лестницы — `railing` |
 | `obstacle` | Стена, ствол, мебель, непроходимый объём. | `blocksMovement`, `blocksVision`, `height`; у стены толщина — `shape.width` и материал — `material` |
 | `opening` | Дверь, окно, ворота, лестница, телепорт. | `kind`, `state`, `blocksVision`, у окна `sill` и `lintel`; цель — колонка `target_board_id` |
 | `terrain` | Грязь, лёд, вода, высокая трава, пол из досок и плитки. | `kind`, `shoreKind`, `shoreWidth`, `speed`, `label`, `overWater`, опционально `assetPublicId`; у воды — `depth` |
@@ -325,8 +325,10 @@ Game — для runtime-движения. `assetPublicId` — необязате
 Высоты — данные для Game, а не рисунок: top-down рендерер не поднимает настил
 над берегом. По `elevation`, `height` и поверхности под опорой Game считает
 зазор и рёбра доступа. Исключение — лестница: её подъём виден и в рисунке, но
-не боковой гранью, а ступенями (проступь, подступенок, носок) по тому же
-`elevation`. Пороги — `SCENE_NAVIGATION.stepIpari`,
+не боковой гранью, а мягкими ступенями по тому же `elevation`. Перила
+лестницы (`props.railing`, по умолчанию выключены) подняты на
+`SCENE_BRIDGE.railHeightIpari` и участвуют в навигации как отдельный уровень.
+Пороги — `SCENE_NAVIGATION.stepIpari`,
 `climbIpari`, `dropIpari` и `bodyHeightIpari`; вода остаётся проходимой
 поверхностью, поэтому маршрут под мостом возможен, если зазор достаточен.
 

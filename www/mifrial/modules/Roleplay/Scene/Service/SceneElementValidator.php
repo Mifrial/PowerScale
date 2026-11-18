@@ -596,6 +596,13 @@ final class SceneElementValidator
             $normalized['walkable'] = $this->boolOrDefault($props, 'walkable', $path . '.walkable', false);
         }
 
+        // Перила есть только у лестницы: у моста и съезда они всегда, а у
+        // остальных опор их нет. По умолчанию выключены: марш может идти в
+        // клетке стен, где полосы перил только сужают проход.
+        if ($supportKind === 'stairs') {
+            $normalized['railing'] = $this->boolOrDefault($props, 'railing', $path . '.railing', false);
+        }
+
         return [
             'props' => $normalized,
             'assetFileId' => null,

@@ -356,6 +356,37 @@ final class SceneElementValidatorTest extends TestCase
 
         self::assertSame('stairs', $element['props']['kind']);
         self::assertSame(100, $element['props']['speed']);
+        self::assertFalse($element['props']['railing']);
+    }
+
+    /**
+     * Перила есть только у лестницы и по умолчанию выключены.
+     *
+     * @return void
+     */
+    public function testStairsRailing(): void
+    {
+        $with = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'stairs', 'railing' => true],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $bridge = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'support',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'bridge', 'railing' => true],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertTrue($with['props']['railing']);
+        self::assertArrayNotHasKey('railing', $bridge['props']);
     }
 
     /**
