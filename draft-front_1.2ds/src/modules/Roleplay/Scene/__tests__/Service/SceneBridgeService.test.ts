@@ -84,9 +84,9 @@ describe('SceneBridgeService', () => {
       (fill) => fill.color === SCENE_STAIRS.nosingColor && fill.alpha === SCENE_STAIRS.nosingAlpha,
     ).length;
 
-  it('рисует ступени по подъёму: на два ипари — восемь', () => {
-    expect(noses(service.paint(stairs(128), 64, 1))).toBe(8);
-    expect(noses(service.paint(stairs(64), 64, 1))).toBe(4);
+  it('рисует ступени по подъёму: на два ипари — шестнадцать', () => {
+    expect(noses(service.paint(stairs(128), 64, 1))).toBe(16);
+    expect(noses(service.paint(stairs(64), 64, 1))).toBe(8);
   });
 
   it('подложка — материал пола, а без материала — ровный тон', () => {

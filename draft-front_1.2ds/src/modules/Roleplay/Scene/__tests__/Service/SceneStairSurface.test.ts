@@ -17,8 +17,8 @@ describe('sceneStairMaterial', () => {
 describe('sceneStairSteps', () => {
   it('считает ступени по подъёму', () => {
     expect(sceneStairSteps(0, 64)).toBe(1);
-    expect(sceneStairSteps(64, 64)).toBe(4);
-    expect(sceneStairSteps(128, 64)).toBe(8);
+    expect(sceneStairSteps(64, 64)).toBe(8);
+    expect(sceneStairSteps(128, 64)).toBe(16);
   });
 
   it('не разгоняет марш выше предела', () => {
