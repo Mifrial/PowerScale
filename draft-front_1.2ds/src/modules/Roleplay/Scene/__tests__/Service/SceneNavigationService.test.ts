@@ -482,16 +482,7 @@ describe('SceneNavigationService', () => {
     // Марш вдоль x: низкий конец у x=600, высокий у x=760. В середине марша
     // верхняя полоса перил лежит на высоте половины подъёма плюс 0.5 ипари.
     const stair = (railing: boolean): SceneElement =>
-      rect(
-        3,
-        'support',
-        600,
-        300,
-        160,
-        100,
-        { kind: 'stairs', speed: 100, elevation: 128, height: 16, railing },
-        15,
-      );
+      rect(3, 'support', 600, 300, 160, 100, { kind: 'stairs', speed: 100, elevation: 128, height: 16, railing }, 15);
     const withRails = service.build(board, [grass(), stair(true)], 64, options);
     const without = service.build(board, [grass(), stair(false)], 64, options);
     if (withRails === null || without === null) {
@@ -665,6 +656,93 @@ describe('SceneNavigationService', () => {
     });
 
     expect(down).toBeNull();
+  });
+
+  it('даёт забраться на низкую мебель и не пускает на высокий шкаф', () => {
+    const table = rect(2, 'obstacle', 400, 300, 100, 100, {
+      kind: 'table',
+      height: 51,
+      blocksMovement: true,
+      blocksVision: false,
+    });
+    const wardrobe = rect(3, 'obstacle', 600, 300, 100, 100, {
+      kind: 'wardrobe',
+      height: 128,
+      blocksMovement: true,
+      blocksVision: true,
+    });
+    const mesh = service.build(board, [grass(), table, wardrobe], 64, options);
+    expect(mesh).not.toBeNull();
+    const onTable = service.levelsAt(mesh!, [450, 350]);
+    const onWardrobe = service.levelsAt(mesh!, [650, 350]);
+
+    expect(onTable.some((level) => level.surface === 'furniture')).toBe(true);
+    expect(onWardrobe.some((level) => level.surface === 'furniture')).toBe(false);
+  });
+
+  it('не сходит с лестницы или её перил через стену', () => {
+    // Стена стоит вплотную к маршу: раньше маршрут поднимался на перила и
+    // «спрыгивал» с них наружу, потому что уровни настила и перил не резались
+    // стенами. Теперь обходить стену можно только вокруг торцов.
+    const wall = element(
+      2,
+      'obstacle',
+      {
+        type: 'wall',
+        width: 16,
+        points: [
+          [500, 100],
+          [500, 700],
+        ],
+      },
+      { blocksMovement: true, blocksVision: true, height: 128 },
+    );
+    const stairs = rect(3, 'support', 400, 200, 88, 400, {
+      kind: 'stairs',
+      elevation: 128,
+      height: 16,
+      speed: 100,
+      railing: true,
+      rotation: 0,
+    });
+    const route = service.route(board, [grass(), wall, stairs], 64, [450, 400], [600, 400], options);
+
+    expect(route).not.toBeNull();
+    expect(crossesRect(route?.points ?? [], 492, 120, 16, 560)).toBe(false);
+  });
+
+  it('не пропускает через открытое окно', () => {
+    // Окно открывает вид, а не проход: створка не режет стену в навигации.
+    const wall = element(
+      2,
+      'obstacle',
+      {
+        type: 'wall',
+        width: 16,
+        points: [
+          [500, 100],
+          [500, 700],
+        ],
+      },
+      { blocksMovement: true, blocksVision: true, height: 128 },
+    );
+    const window = element(
+      3,
+      'opening',
+      {
+        type: 'wall',
+        width: 16,
+        points: [
+          [500, 350],
+          [500, 450],
+        ],
+      },
+      { kind: 'window', state: 'open', blocksVision: false },
+    );
+    const route = service.route(board, [grass(), wall, window], 64, [400, 400], [600, 400], options);
+
+    expect(route).not.toBeNull();
+    expect(crossesRect(route?.points ?? [], 492, 120, 16, 560)).toBe(false);
   });
 
   it('проходит щель шириной 1 ипари телом 0.3 и не проходит 0.4', () => {

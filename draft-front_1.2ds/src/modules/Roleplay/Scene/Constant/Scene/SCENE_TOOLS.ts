@@ -1,4 +1,5 @@
 import type { SceneToolDefinition } from '@/modules/Roleplay/Scene/Dto/SceneToolDefinition';
+import { SCENE_FURNITURE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FURNITURE';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
 import { SCENE_WALL } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WALL';
 
@@ -261,6 +262,24 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     sillIpari: SCENE_WALL.windowSillIpari,
     lintelIpari: SCENE_WALL.windowLintelIpari,
   },
+  // Мебель — препятствие с подтипом: навигация и обзор уже работают, а
+  // рисунок процедурный. Низкие предметы дают верхний уровень для залезания.
+  ...SCENE_FURNITURE_OPTIONS.map((item): SceneToolDefinition => ({
+    id: `furniture-${item.value}`,
+    label: item.title,
+    icon: item.icon,
+    kind: 'obstacle',
+    shapeType: 'rect',
+    props: {
+      kind: item.value,
+      height: item.height,
+      material: item.material,
+      blocksMovement: item.blocksMovement,
+      blocksVision: item.blocksVision,
+    },
+    group: 'furniture',
+    variant: item.title,
+  })),
   {
     id: 'decor',
     label: 'Декор',

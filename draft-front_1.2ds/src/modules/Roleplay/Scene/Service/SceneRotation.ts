@@ -6,12 +6,13 @@ type RotatableElement = Pick<SceneElement, 'kind' | 'shape' | 'props'>;
 /**
  * Геометрический поворот опоры в градусах.
  *
- * Поворачиваются только прямоугольные опоры: мост, съезд, настил. У декора
- * `rotation` — это поворот спрайта, у остальных элементов геометрия осевая.
+ * Поворачиваются прямоугольные опоры и препятствия: мост, съезд, настил,
+ * мебель. У декора `rotation` — это поворот спрайта, у остальных элементов
+ * геометрия осевая.
  * Угол нормализуется в 0–359, чтобы сравнения и кэши не зависели от знака.
  */
 export function sceneRotation(element: RotatableElement): number {
-  if (element.kind !== 'support' || element.shape.type !== 'rect') {
+  if ((element.kind !== 'support' && element.kind !== 'obstacle') || element.shape.type !== 'rect') {
     return 0;
   }
 

@@ -574,6 +574,10 @@ export function useScenePreviewActors(options: ScenePreviewActorOptions) {
       return `На лестницу ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`;
     }
 
+    if (surface === 'furniture') {
+      return `На мебель ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`;
+    }
+
     return elevation > 0
       ? `На настил ${sceneUnits.formatUnits(Math.round(elevation), options.resolution())}`
       : 'На настил';

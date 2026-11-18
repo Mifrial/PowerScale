@@ -11,6 +11,7 @@ import {
 import { SceneGeometryService, type SceneShapeProbe } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import { SceneSightQuery, type SceneSightWall } from '@/modules/Roleplay/Scene/Service/SceneSightQuery';
 import { sceneBodyHeight, sceneSightEyeIpari } from '@/modules/Roleplay/Scene/Service/SceneSight';
+import { sceneObstacleTop, sceneWallTop } from '@/modules/Roleplay/Scene/Service/SceneCeiling';
 
 /** Точка взгляда на этаже: поле, локальная точка и рост тела. */
 export interface SceneFloorSightPoint {
@@ -238,10 +239,13 @@ export class SceneFloorSightService {
           continue;
         }
 
-        if (element.kind === 'obstacle' && element.shape.type === 'wall' && element.props.blocksVision !== false) {
-          const height = element.props.height;
+        if (element.kind === 'obstacle' && element.props.blocksVision !== false) {
+          // У стены верх задаёт потолок пола, у мебели — своя высота. Без
+          // высоты препятствие закрывает обзор до неба.
           const top =
-            typeof height === 'number' && Number.isFinite(height) ? level.elevation + Math.max(0, height) : SCENE_SIGHT_SKY;
+            element.shape.type === 'wall'
+              ? sceneWallTop(element, model.elements, resolution)
+              : sceneObstacleTop(element);
           level.walls.push({ probe: this.geometry.probe(element.shape), top: Math.min(SCENE_SIGHT_SKY, top) });
         }
       }
@@ -388,9 +392,7 @@ export class SceneFloorSightService {
     const level = scene.levels.get(from.boardId);
     const eyeBody = Math.max(1, from.height ?? sceneBodyHeight(scene.resolution));
     const eye =
-      (level?.elevation ?? 0) +
-      (from.surface ?? 0) +
-      sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
+      (level?.elevation ?? 0) + (from.surface ?? 0) + sceneSightEyeIpari(eyeBody, scene.resolution) * scene.resolution;
     const ceiling = this.ceiling(scene, from);
 
     return ceiling === null ? eye : Math.min(eye, Math.max(0, ceiling - 0.5));

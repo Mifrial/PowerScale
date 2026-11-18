@@ -43,6 +43,14 @@ final class SceneElementValidator
     private const TERRAIN_KINDS = ['grass', 'dirt', 'stone', 'sand', 'mud', 'water', 'ice', 'wood', 'tile'];
 
     /**
+     * Полы, у которых есть потолок.
+     *
+     * Только доски и плитка: это пол дома или комнаты. У остального террейна
+     * потолка нет, и поле молча отбрасывается.
+     */
+    private const FLOOR_KINDS = ['wood', 'tile'];
+
+    /**
      * Пресеты скорости террейна: 100 — норма, 0 — непроходимо.
      */
     private const TERRAIN_SPEEDS = [
@@ -71,6 +79,45 @@ final class SceneElementValidator
      * показывается, и свойство там бессмысленно.
      */
     private const WALL_MATERIALS = ['plaster', 'wood', 'log', 'brick', 'stone'];
+
+    /**
+     * Мебель — подтип препятствия с процедурным рисунком.
+     *
+     * Набор и умолчания совпадают с `SCENE_FURNITURE_OPTIONS` на фронте:
+     * низкая мебель проходима сверху, высокая закрывает обзор.
+     */
+    private const FURNITURE_KINDS = [
+        'bed',
+        'table',
+        'chair',
+        'bench',
+        'chest',
+        'wardrobe',
+        'shelf',
+        'barrel',
+        'rug',
+        'fireplace',
+    ];
+
+    private const FURNITURE_MATERIALS = ['wood', 'dark', 'stone', 'fabric'];
+
+    /**
+     * Умолчания мебели: высота в единицах сцены, материал, обзор.
+     *
+     * @var array<string, array{height: int, material: string, vision: bool}>
+     */
+    private const FURNITURE_DEFAULTS = [
+        'bed' => ['height' => 48, 'material' => 'dark', 'vision' => false],
+        'table' => ['height' => 51, 'material' => 'wood', 'vision' => false],
+        'chair' => ['height' => 58, 'material' => 'wood', 'vision' => false],
+        'bench' => ['height' => 58, 'material' => 'wood', 'vision' => false],
+        'chest' => ['height' => 45, 'material' => 'dark', 'vision' => false],
+        'wardrobe' => ['height' => 128, 'material' => 'dark', 'vision' => true],
+        'shelf' => ['height' => 115, 'material' => 'wood', 'vision' => true],
+        'barrel' => ['height' => 58, 'material' => 'wood', 'vision' => false],
+        'rug' => ['height' => 0, 'material' => 'fabric', 'vision' => false],
+        'fireplace' => ['height' => 96, 'material' => 'stone', 'vision' => true],
+    ];
 
     /**
      * Материал подложки лестницы: тот же, что у пола.
@@ -638,11 +685,49 @@ final class SceneElementValidator
      */
     private function obstacleProps(array $props, string $path, string $shapeType): array
     {
+        $furniture = $this->fields->optionalStringValue($props, 'kind', $path . '.kind');
+        if ($furniture !== null && !in_array($furniture, self::FURNITURE_KINDS, true)) {
+            throw new SceneInvalidException($path . '.kind is unknown');
+        }
+
+        $defaults = $furniture === null ? null : self::FURNITURE_DEFAULTS[$furniture];
         $normalized = [
-            'blocksMovement' => $this->boolOrDefault($props, 'blocksMovement', $path . '.blocksMovement', true),
-            'blocksVision' => $this->boolOrDefault($props, 'blocksVision', $path . '.blocksVision', true),
-            'height' => $this->intOrDefault($props, 'height', $path . '.height', 0, 0, 100000),
+            'blocksMovement' => $this->boolOrDefault(
+                $props,
+                'blocksMovement',
+                $path . '.blocksMovement',
+                $furniture === null ? true : $furniture !== 'rug',
+            ),
+            'blocksVision' => $this->boolOrDefault(
+                $props,
+                'blocksVision',
+                $path . '.blocksVision',
+                $defaults['vision'] ?? true,
+            ),
+            'height' => $this->intOrDefault(
+                $props,
+                'height',
+                $path . '.height',
+                $defaults['height'] ?? 0,
+                0,
+                100000,
+            ),
         ];
+
+        if ($furniture !== null) {
+            $normalized['kind'] = $furniture;
+            $material = $this->stringOrDefault(
+                $props,
+                'material',
+                $path . '.material',
+                $defaults['material'],
+            );
+            if (!in_array($material, self::FURNITURE_MATERIALS, true)) {
+                throw new SceneInvalidException($path . '.material is unknown');
+            }
+
+            $normalized['material'] = $material;
+        }
 
         // Материал — только у стены-ленты: у стены сверху видна её полоса, и
         // тон, ребро и швы задаются материалом. У прочих препятствий верх не
@@ -753,6 +838,18 @@ final class SceneElementValidator
         // молча отбрасывается, чтобы старые сцены не обрастали мусором.
         if ($terrainKind === 'water') {
             $normalized['depth'] = $this->intOrDefault($props, 'depth', $path . '.depth', 0, 0, 100000);
+        }
+
+        // Потолок есть только у пола: у старого пола поля нет, и сцена берёт
+        // высоту этажа по умолчанию. Явный 0 — открытое небо.
+        if (in_array($terrainKind, self::FLOOR_KINDS, true) && array_key_exists('ceiling', $props)) {
+            $normalized['ceiling'] = $this->fields->intValue(
+                $props,
+                'ceiling',
+                $path . '.ceiling',
+                0,
+                100000,
+            );
         }
 
         return [

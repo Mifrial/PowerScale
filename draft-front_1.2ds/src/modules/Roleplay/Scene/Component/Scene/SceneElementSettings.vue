@@ -9,6 +9,11 @@ import SceneDistanceField from '@/modules/Roleplay/Scene/Component/Scene/SceneDi
 import { SCENE_ASSET_COLLECTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_ASSET_COLLECTIONS';
 import { sceneDecorPreset, sceneDecorPresetProps } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_DECOR_PRESETS';
 import { SCENE_MARKER_ROLE_OPTIONS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_MARKER_ROLE_OPTIONS';
+import { SCENE_FLOOR } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FLOOR';
+import {
+  SCENE_FURNITURE_MATERIALS,
+  SCENE_FURNITURE_OPTIONS,
+} from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FURNITURE';
 import { SCENE_NAVIGATION } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_NAVIGATION';
 import { SCENE_STAIRS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_STAIRS';
 import { SCENE_SURFACE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_SURFACE';
@@ -37,6 +42,7 @@ import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import type { SceneDecorZone } from '@/modules/Roleplay/Scene/Dto/SceneVertexTarget';
 import type { SceneFootprint, SceneSilhouette } from '@/modules/Roleplay/Scene/Dto/SceneFootprint';
 import { sceneUnits } from '@/modules/Roleplay/Scene/Service/Instance/sceneUnits';
+import { sceneWallCeiling } from '@/modules/Roleplay/Scene/Service/SceneCeiling';
 
 const AssetLibraryField = defineAsyncComponent(() => import('@/modules/Library/Asset/Component/AssetLibraryField.vue'));
 
@@ -111,6 +117,32 @@ const currentSpeed = computed(() => props.element.props.speed ?? defaultSpeed.va
 
 /** Стена-лента: у неё есть толщина и в неё можно вставлять проёмы. */
 const isWallElement = computed(() => props.element.kind === 'obstacle' && props.element.shape.type === 'wall');
+
+/** Мебель: препятствие с известным подтипом. */
+const isFurniture = computed(
+  () =>
+    props.element.kind === 'obstacle' &&
+    SCENE_FURNITURE_OPTIONS.some((option) => option.value === props.element.props.kind),
+);
+
+/** Пол из досок или плитки: у него есть потолок. */
+const isFloorElement = computed(
+  () => props.element.kind === 'terrain' && ['wood', 'tile'].includes(props.element.props.kind ?? ''),
+);
+
+/** Потолок пола; без явного поля — высота этажа по умолчанию. */
+const floorCeiling = computed(
+  () => props.element.props.ceiling ?? SCENE_FLOOR.storeyIpari * Math.max(1, props.resolution),
+);
+
+/** Верх стены от потолка пола; `null` — стена стоит не на полу. */
+const wallCeiling = computed(() =>
+  isWallElement.value ? sceneWallCeiling(props.element, props.elements, props.resolution) : null,
+);
+
+const wallCeilingText = computed(() =>
+  wallCeiling.value === null ? '' : `${sceneUnits.formatUnits(wallCeiling.value, props.resolution)} ипари`,
+);
 /** Толщина стены, единицы сцены. */
 const wallThickness = computed(() => (props.element.shape.type === 'wall' ? props.element.shape.width : 0));
 
@@ -334,9 +366,7 @@ const stairsRailClearance = computed(() => {
 });
 
 /** Перила включены, но съедают всю ширину марша: проход закрыт. */
-const stairsRailBlocked = computed(
-  () => props.element.props.railing === true && (stairsRailClearance.value ?? 0) <= 0,
-);
+const stairsRailBlocked = computed(() => props.element.props.railing === true && (stairsRailClearance.value ?? 0) <= 0);
 
 /** Крыша: накрытие над стенами. Обычная — потолок, проходимая — настил. */
 const isRoof = computed(() => props.element.kind === 'support' && props.element.props.kind === 'roof');
@@ -497,6 +527,22 @@ function patchOpeningKind(value: string | null): void {
 }
 
 /** Смена подтипа: если скорость ещё пресетная, подставляем пресет нового типа. */
+/** Смена предмета мебели: высота и обзор по умолчанию берутся у подтипа. */
+function patchFurnitureKind(value: string | null): void {
+  const option = SCENE_FURNITURE_OPTIONS.find((item) => item.value === value);
+  if (option === undefined) {
+    return;
+  }
+
+  patch({
+    kind: option.value,
+    height: option.height,
+    material: option.material,
+    blocksMovement: option.blocksMovement,
+    blocksVision: option.blocksVision,
+  });
+}
+
 function patchKind(value: string | null): void {
   const kind = value ?? '';
   const previous = props.element.props.kind ?? (props.element.kind === 'support' ? 'ground' : 'grass');
@@ -920,6 +966,28 @@ function onAssetCleared(publicId: string | null): void {
     </template>
 
     <template v-if="props.element.kind === 'obstacle'">
+      <v-select
+        v-if="isFurniture"
+        :model-value="props.element.props.kind"
+        :items="SCENE_FURNITURE_OPTIONS"
+        item-title="title"
+        item-value="value"
+        label="Предмет"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="patchFurnitureKind"
+      />
+      <v-select
+        v-if="isFurniture"
+        :model-value="props.element.props.material ?? 'wood'"
+        :items="SCENE_FURNITURE_MATERIALS"
+        label="Материал"
+        density="compact"
+        variant="outlined"
+        hide-details
+        @update:model-value="(value) => patchText('material', value)"
+      />
       <v-switch
         :model-value="props.element.props.blocksMovement ?? true"
         label="Блокирует движение"
@@ -934,7 +1002,18 @@ function onAssetCleared(publicId: string | null): void {
         hide-details
         @update:model-value="(value) => patchFlag('blocksVision', value)"
       />
+      <v-text-field
+        v-if="isWallElement && wallCeiling !== null"
+        :model-value="wallCeilingText"
+        label="До потолка"
+        hint="Верх стены берётся от потолка пола, а не из высоты."
+        persistent-hint
+        density="compact"
+        variant="outlined"
+        readonly
+      />
       <SceneDistanceField
+        v-else
         :model-value="props.element.props.height ?? 0"
         :resolution="props.resolution"
         label="Высота, ипари"
@@ -1142,6 +1221,16 @@ function onAssetCleared(publicId: string | null): void {
         :min="0"
         :max="props.resolution * 3"
         @update:model-value="(value) => patch({ depth: value })"
+      />
+      <SceneDistanceField
+        v-if="isFloorElement"
+        :model-value="floorCeiling"
+        :resolution="props.resolution"
+        label="Потолок, ипари"
+        hint="Верх стен на этом полу. 0 — открытое небо; без поля — два ипари."
+        :min="0"
+        :max="100000"
+        @update:model-value="(value) => patch({ ceiling: value })"
       />
       <v-switch
         v-if="props.element.props.kind !== 'water'"

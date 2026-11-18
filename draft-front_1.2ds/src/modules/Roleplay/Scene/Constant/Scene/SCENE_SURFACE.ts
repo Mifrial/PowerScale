@@ -18,6 +18,7 @@ export const SCENE_SURFACE = {
     water: 20,
     bridge: 150,
     roof: 100,
+    furniture: 100,
     wood: 120,
     tile: 120,
     none: 0,

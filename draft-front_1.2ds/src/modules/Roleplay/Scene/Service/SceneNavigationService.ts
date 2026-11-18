@@ -32,6 +32,8 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneDeck';
 import { SceneGeometryService } from '@/modules/Roleplay/Scene/Service/SceneGeometryService';
 import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
+import { sceneObstacleTop, sceneWallTop } from '@/modules/Roleplay/Scene/Service/SceneCeiling';
+import { sceneFurnitureKind } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_FURNITURE';
 import type { SceneRampSlope } from '@/modules/Roleplay/Scene/Dto/SceneRampSlope';
 import {
   isSceneDeck,
@@ -402,6 +404,21 @@ export class SceneNavigationService {
   }
 
   /**
+   * Препятствия, которые перекрывают уровень настила.
+   *
+   * Уровень выше верхушки забора проходит над ним; стена дома выше марша
+   * перекрывает марш. Берём самый низкий край уровня: если стена выше низкой
+   * части лестницы, она режет и её.
+   */
+  private obstacleCuts(
+    obstacleTops: readonly { top: number; polygon: Polygon }[],
+    clipLow: number,
+    step: number,
+  ): Polygon[] {
+    return obstacleTops.filter((obstacle) => obstacle.top > clipLow + step).map((obstacle) => obstacle.polygon);
+  }
+
+  /**
    * Собирает непересекающиеся регионы по уровням.
    *
    * Базовый слой — террейн и опоры на земле: верхний элемент задаёт скорость.
@@ -440,6 +457,8 @@ export class SceneNavigationService {
       frame: SceneDeckFrame | null;
       railBlocks: Polygon[];
       blockers: Polygon[];
+      /** Низ уровня: по нему решается, какие препятствия его перекрывают. */
+      clipLow: number;
     }[] = [];
     const rails: {
       speed: number;
@@ -451,8 +470,14 @@ export class SceneNavigationService {
       blockers: Polygon[];
       order: number;
       id: number;
+      /** Низ перил: по нему режется полоса стеной. */
+      clipLow: number;
     }[] = [];
     const levelBlockers: { elevation: number; polygon: Polygon }[] = [];
+    /** Препятствия с верхом: стены и мебель, которые нельзя пройти по настилу. */
+    const obstacleTops: { top: number; polygon: Polygon }[] = [];
+    /** Верх мебели, на который можно забраться. */
+    const furnitureTops: { element: SceneElement; top: number; speed: number }[] = [];
 
     for (const element of elements) {
       if (element.kind === 'obstacle') {
@@ -461,6 +486,26 @@ export class SceneNavigationService {
           if (blocker !== null) {
             blockers.push(blocker);
             levelBlockers.push({ elevation: sceneSurfaceElevation(element), polygon: blocker });
+            // Верх препятствия нужен настилам: стена дома не должна давать
+            // сойти с лестницы или перил наружу. У стены верх задаёт потолок
+            // пола, а не собственная высота.
+            const top =
+              element.shape.type === 'wall' ? sceneWallTop(element, elements, resolution) : sceneObstacleTop(element);
+            obstacleTops.push({ top, polygon: blocker });
+
+            // Мебель ниже порога лазания даёт проходимый верх: на стол можно
+            // забраться, но не пройти сквозь него. Шкаф и камин выше порога
+            // остаются только препятствием.
+            const furniture = sceneFurnitureKind(element.props.kind);
+            const height = element.props.height ?? 0;
+            const climb = base * SCENE_NAVIGATION.climbIpari;
+            if (furniture !== null && height > 0 && height <= climb) {
+              furnitureTops.push({
+                element,
+                top: sceneSurfaceElevation(element) + height,
+                speed: SCENE_SURFACE.speeds.furniture,
+              });
+            }
           }
         }
         continue;
@@ -475,7 +520,10 @@ export class SceneNavigationService {
       if (element.kind === 'opening') {
         const shape = this.polygonOf(element, resolution, agentRadius);
         if (shape === null) continue;
-        if (element.props.state === 'open') {
+        // Окно не проход даже открытым: створка открывает вид, а не стену.
+        // Дверь, ворота, лестница и телепорт при открытии вырезают проход.
+        const passable = element.props.kind !== 'window';
+        if (element.props.state === 'open' && passable) {
           carves.push(shape);
         } else {
           blockers.push(shape);
@@ -546,6 +594,7 @@ export class SceneNavigationService {
               frame: deckFrame,
               railBlocks,
               blockers: deckBlockers,
+              clipLow: slope === null ? elevation : Math.min(slope.low, slope.high),
             });
             for (const ring of railRings) {
               rails.push({
@@ -558,6 +607,7 @@ export class SceneNavigationService {
                 blockers: deckBlockers,
                 order: element.sortOrder,
                 id: element.id,
+                clipLow: railSlope === null ? railElevation : Math.min(railSlope.low, railSlope.high),
               });
             }
           }
@@ -588,6 +638,7 @@ export class SceneNavigationService {
                 blockers: floorBlockers,
                 order: element.sortOrder,
                 id: element.id,
+                clipLow: railSlope === null ? railElevation : Math.min(railSlope.low, railSlope.high),
               });
             }
           }
@@ -661,6 +712,12 @@ export class SceneNavigationService {
       if (deck.railBlocks.length > 0) {
         region = this.subtract(region, this.unionMany(deck.railBlocks));
       }
+      // Стена выше настила перекрывает его: иначе с марша или перил можно
+      // сойти прямо в стену. Высокий мост над низким забором остаётся целым.
+      const deckCuts = this.obstacleCuts(obstacleTops, deck.clipLow, step);
+      if (deckCuts.length > 0) {
+        region = this.subtract(region, deckCuts);
+      }
       region = this.intersect(region, [frame]);
       levelEntries.push({
         polygon: region,
@@ -680,6 +737,10 @@ export class SceneNavigationService {
       if (rail.blockers.length > 0) {
         region = this.subtract(region, this.unionMany(rail.blockers));
       }
+      const railCuts = this.obstacleCuts(obstacleTops, rail.clipLow, step);
+      if (railCuts.length > 0) {
+        region = this.subtract(region, railCuts);
+      }
       region = this.intersect(region, [frame]);
       levelEntries.push({
         polygon: region,
@@ -691,6 +752,32 @@ export class SceneNavigationService {
         frame: rail.frame,
         order: rail.order,
         id: rail.id,
+      });
+    }
+
+    // Верх мебели — такой же уровень, как настил: на него входят с земли
+    // шагом или лазанием и спрыгивают обратно.
+    for (const item of furnitureTops) {
+      const shape = this.polygonOf(item.element, resolution, 0);
+      if (shape === null) {
+        continue;
+      }
+
+      let region = this.intersect([shape], [frame]);
+      const cuts = this.obstacleCuts(obstacleTops, item.top, step);
+      if (cuts.length > 0) {
+        region = this.subtract(region, cuts);
+      }
+      levelEntries.push({
+        polygon: region,
+        speed: item.speed,
+        elevation: item.top,
+        slope: null,
+        rail: false,
+        surface: 'furniture',
+        frame: null,
+        order: item.element.sortOrder,
+        id: item.element.id,
       });
     }
 
@@ -1966,6 +2053,7 @@ export class SceneNavigationService {
           element.props.height ?? '',
           element.props.elevation ?? '',
           element.props.depth ?? '',
+          element.props.ceiling ?? '',
           element.props.shoreWidth ?? '',
           element.props.rotation ?? '',
           element.props.scale ?? '',

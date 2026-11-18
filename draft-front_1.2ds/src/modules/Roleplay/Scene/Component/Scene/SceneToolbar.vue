@@ -23,6 +23,7 @@ const GROUP_LABELS: Record<string, string> = {
   terrain: 'Террейн',
   opening: 'Проём',
   wall: 'Стена',
+  furniture: 'Мебель',
 };
 
 /** Группы, у которых на кнопке виден активный вариант, а не имя группы. */

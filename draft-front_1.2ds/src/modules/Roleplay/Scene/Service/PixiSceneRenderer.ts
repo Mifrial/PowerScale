@@ -46,6 +46,8 @@ import type { SceneRoofHatch } from '@/modules/Roleplay/Scene/Service/SceneRoofH
 import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
 import { SceneTerrainBlendService } from '@/modules/Roleplay/Scene/Service/SceneTerrainBlendService';
 import { SceneTerrainPainter } from '@/modules/Roleplay/Scene/Service/SceneTerrainPainter';
+import { SceneFurnitureService } from '@/modules/Roleplay/Scene/Service/SceneFurnitureService';
+import { sceneZoomNeedsRebuild } from '@/modules/Roleplay/Scene/Service/SceneZoom';
 import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneStairSurfaceService } from '@/modules/Roleplay/Scene/Service/SceneStairSurface';
@@ -169,6 +171,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   private readonly patterns = new SceneTerrainPatternService();
 
+  /** Мебель: процедурный рисунок сверху. */
+  private readonly furniture = new SceneFurnitureService();
+
   private readonly materials = new SceneTerrainTextureService();
 
   /** Подложки маршей: материал пола, выложенный досками по проступям. */
@@ -238,6 +243,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private waterTickerActive = false;
 
   private readonly handleWaterTick = (ticker: { deltaMS: number }): void => {
+    this.flushPendingRebuild();
     // Долгий кадр не должен разом прокручивать воду: иначе после подвисания
     // картинка дёргается. Ограничиваем шаг времени, вода просто чуть
     // отстаёт от реального времени.
@@ -255,6 +261,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
   private trailTickerActive = false;
 
   private readonly handleTrailTick = (ticker: { deltaMS: number }): void => {
+    this.flushPendingRebuild();
     // След гаснет по времени: стоящий актор не оставляет круга, а прошедший —
     // полосу, которая распрямляется за trailRelaxMs.
     const alive = this.grassTrail.advance(Math.min(ticker.deltaMS, 50));
@@ -270,6 +277,12 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
   /** Запрошенный через rAF кадр, пока тикер не запущен. */
   private frameHandle: number | null = null;
+
+  /** Зум, под который собраны текущие слои. */
+  private builtZoom = 1;
+
+  /** Слои надо пересобрать под новый зум до следующего кадра. */
+  private rebuildPending = false;
 
   private contextLost = false;
 
@@ -365,8 +378,10 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const previous = this.viewport;
     this.viewport = viewport;
     this.applyViewport();
-    if (this.shouldRetessellate(previous, viewport)) {
-      this.retessellate();
+    // Толщины линий, фаски, тени и пороги считаются от зума при сборке.
+    // Пересобираем не сразу, а одним кадром: колесо присылает пачку смен.
+    if (previous !== null && Math.abs(previous.zoom - viewport.zoom) > 0.0001 && this.zoomNeedsRebuild(viewport.zoom)) {
+      this.rebuildPending = true;
     }
 
     if (previous !== null && Math.abs(previous.zoom - viewport.zoom) > 0.0001) {
@@ -649,6 +664,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
+    this.flushPendingRebuild();
     this.app.render();
   }
 
@@ -800,28 +816,24 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /**
-   * Нужно ли пересобрать геометрию после смены зума.
+   * Нужно ли пересобрать слои под новый зум.
    *
-   * Тесселяция кривых зависит от масштаба: при сильном приближении старые
-   * сэмплы становятся видны как углы. Пересобираем только на заметных шагах,
-   * чтобы не платить за каждый тик колеса.
+   * Сравниваем с зумом, под который они уже собраны, а не с предыдущим
+   * событием колеса: при плавном приближении старые толщины линий и тени
+   * видны сразу, и ждать двукратного шага нельзя. Порог в один процент
+   * отсекает дрожание, но не даёт картинке «поплыть».
    */
-  private shouldRetessellate(previous: SceneViewport | null, next: SceneViewport): boolean {
-    if (previous === null || previous.zoom <= 0 || this.model === null) {
-      return false;
-    }
-
-    const ratio = next.zoom / previous.zoom;
-
-    return ratio > 2 || ratio < 0.5;
+  private zoomNeedsRebuild(zoom: number): boolean {
+    return this.model !== null && sceneZoomNeedsRebuild(this.builtZoom, zoom);
   }
 
-  /** Пересобирает слои видимых этажей под текущий зум. */
-  private retessellate(): void {
-    if (this.model === null || this.world === null) {
+  /** Пересобирает слои видимых этажей, если зум успел измениться. */
+  private flushPendingRebuild(): void {
+    if (!this.rebuildPending || this.model === null || this.world === null) {
       return;
     }
 
+    this.rebuildPending = false;
     this.rebuild();
   }
 
@@ -901,6 +913,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
    */
   private rebuild(): void {
     this.clearAll();
+    this.rebuildPending = false;
     this.waterNodes = [];
     const model = this.model;
     if (model === null || this.world === null) {
@@ -921,6 +934,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const activeBoard = model.boards.find((board) => board.id === model.activeBoardId);
     this.layers = this.activeField?.layers ?? {};
     this.fieldScale = this.activeField?.scale ?? 1;
+    this.builtZoom = this.zoom();
     this.boardBounds =
       activeBoard === undefined ? null : { x: 0, y: 0, width: activeBoard.boundWidth, height: activeBoard.boundHeight };
 
@@ -1065,9 +1079,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     const bridgeElements = elements.filter((element) => this.isGroundDeck(element));
-    const walls = elements.filter(
-      (element) => element.kind === 'obstacle' && element.shape.type === 'wall',
-    );
+    const walls = elements.filter((element) => element.kind === 'obstacle' && element.shape.type === 'wall');
     const openings = elements.filter((element) => element.kind === 'opening');
     const cut = this.cutRect(floor);
     const decorElements = elements
@@ -1352,12 +1364,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       // текстур, что у террейна. Мосту и съезду материал не нужен.
       const surface =
         element.props.kind === 'stairs' && element.shape.type === 'rect'
-          ? this.stairSurfaces.surface(
-              element.props.material,
-              element.shape,
-              element.props.elevation ?? 0,
-              resolution,
-            )
+          ? this.stairSurfaces.surface(element.props.material, element.shape, element.props.elevation ?? 0, resolution)
           : null;
       const painted = this.bridge.paint(element, resolution, this.zoom(), blockedShare, surface);
       if (painted !== null) {
@@ -2313,7 +2320,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
       return;
     }
 
-    layer.addChild(this.painter.paintElement(this.openingInWall(element, walls), this.zoom()));
+    const sized = this.openingInWall(element, walls);
+    // Мебель рисуется процедурно по подтипу; остальные препятствия — как
+    // раньше, фигурой с заливкой и обводкой.
+    const furniture = element.kind === 'obstacle' ? this.furniture.paint(sized) : null;
+    layer.addChild(furniture ?? this.painter.paintElement(sized, this.zoom()));
   }
 
   /**
@@ -2465,10 +2476,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const middle: ScenePoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
     let best: { floor: SceneElement; rank: number } | null = null;
     for (const side of [1, -1]) {
-      const probe: ScenePoint = [
-        middle[0] + normalX * side * (half + 2),
-        middle[1] + normalY * side * (half + 2),
-      ];
+      const probe: ScenePoint = [middle[0] + normalX * side * (half + 2), middle[1] + normalY * side * (half + 2)];
       for (const floor of floors) {
         if (!sceneGeometryService.contains(floor.shape, probe, 0, 0)) {
           continue;

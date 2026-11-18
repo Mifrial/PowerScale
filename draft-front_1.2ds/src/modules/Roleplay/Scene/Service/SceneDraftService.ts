@@ -903,6 +903,10 @@ export class SceneDraftService {
         element.props.elevation = this.scaleLength(element.props.elevation, factor);
       }
 
+      if (typeof element.props.ceiling === 'number') {
+        element.props.ceiling = this.scaleLength(element.props.ceiling, factor);
+      }
+
       if (typeof element.props.offset === 'number') {
         element.props.offset = this.scaleLength(element.props.offset, factor);
       }

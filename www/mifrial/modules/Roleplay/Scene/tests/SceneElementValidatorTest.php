@@ -196,6 +196,56 @@ final class SceneElementValidatorTest extends TestCase
     }
 
     /**
+     * Потолок есть только у пола: у досок и плитки, не у травы и воды.
+     *
+     * @return void
+     */
+    public function testFloorCeilingBelongsToFloor(): void
+    {
+        $wood = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'wood', 'ceiling' => 128],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $grass = $this->validate([
+            'id' => -2,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'grass', 'ceiling' => 128],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(128, $wood['props']['ceiling']);
+        self::assertArrayNotHasKey('ceiling', $grass['props']);
+    }
+
+    /**
+     * Явный ноль — открытое небо: поле не выбрасывается.
+     *
+     * @return void
+     */
+    public function testFloorCeilingZeroIsOpenSky(): void
+    {
+        $tile = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'terrain',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
+            'props' => ['kind' => 'tile', 'ceiling' => 0],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame(0, $tile['props']['ceiling']);
+    }
+
+    /**
      * Без глубины вода остаётся вровень с берегом.
      *
      * @return void
@@ -406,6 +456,61 @@ final class SceneElementValidatorTest extends TestCase
             'kind' => 'support',
             'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 200, 'h' => 100],
             'props' => ['kind' => 'stairs', 'material' => 'plaster'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+    }
+
+    /**
+     * Мебель — подтип препятствия со своими умолчаниями.
+     *
+     * @return void
+     */
+    public function testFurnitureDefaults(): void
+    {
+        $wardrobe = $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 77, 'h' => 38],
+            'props' => ['kind' => 'wardrobe'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+        $rug = $this->validate([
+            'id' => -2,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 154, 'h' => 102],
+            'props' => ['kind' => 'rug'],
+            'sortOrder' => 0,
+            'targetBoardId' => null,
+        ]);
+
+        self::assertSame('wardrobe', $wardrobe['props']['kind']);
+        self::assertSame(128, $wardrobe['props']['height']);
+        self::assertSame('dark', $wardrobe['props']['material']);
+        self::assertTrue($wardrobe['props']['blocksVision']);
+        self::assertFalse($rug['props']['blocksMovement']);
+        self::assertSame(0, $rug['props']['height']);
+    }
+
+    /**
+     * Неизвестный предмет мебели — ошибка, а не молчаливое препятствие.
+     *
+     * @return void
+     */
+    public function testFurnitureKindUnknown(): void
+    {
+        $this->expectException(SceneInvalidException::class);
+        $this->expectExceptionMessage('kind is unknown');
+
+        $this->validate([
+            'id' => -1,
+            'boardId' => 10,
+            'kind' => 'obstacle',
+            'shape' => ['type' => 'rect', 'x' => 0, 'y' => 0, 'w' => 50, 'h' => 50],
+            'props' => ['kind' => 'throne'],
             'sortOrder' => 0,
             'targetBoardId' => null,
         ]);

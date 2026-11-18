@@ -26,6 +26,7 @@ import {
 } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneRotation } from '@/modules/Roleplay/Scene/Service/SceneRotation';
 import { sceneRoofHatches } from '@/modules/Roleplay/Scene/Service/SceneRoofHatch';
+import { sceneObstacleTop, sceneWallTop } from '@/modules/Roleplay/Scene/Service/SceneCeiling';
 import { signedDistanceField } from '@/modules/Roleplay/Scene/Service/SceneSurfaceDistance';
 
 /** Тип поверхности по виду террейна. */
@@ -370,7 +371,7 @@ export class SceneSurfaceService {
       const toleranceOf = element.shape.type === 'wall' ? tolerance : 0;
       // Высота стены — верх её полосы обзора: низкий забор видно поверх, а
       // стена дома (выше глаз) закрывает. Без высоты стена по-прежнему до неба.
-      const top = this.occluderTop(element, grid.resolution);
+      const top = this.occluderTop(element, elements, grid.resolution);
       this.paintShape(
         grid,
         element.shape,
@@ -464,13 +465,16 @@ export class SceneSurfaceService {
   }
 
   /** Верх перекрытия препятствия в ипари; без высоты — до неба. */
-  private occluderTop(element: SceneElement, resolution: number): number {
-    const height = element.props.height;
-    if (typeof height !== 'number' || !Number.isFinite(height)) {
+  private occluderTop(element: SceneElement, elements: readonly SceneElement[], resolution: number): number {
+    const top =
+      element.kind === 'obstacle' && element.shape.type === 'wall'
+        ? sceneWallTop(element, elements, resolution)
+        : sceneObstacleTop(element);
+    if (!Number.isFinite(top)) {
       return Number.POSITIVE_INFINITY;
     }
 
-    return Math.max(0, height) / Math.max(1, resolution);
+    return Math.max(0, top - sceneSurfaceElevation(element)) / Math.max(1, resolution);
   }
 
   /** Скорость декора: явная или непроходимость по умолчанию. */
@@ -484,11 +488,7 @@ export class SceneSurfaceService {
   }
 
   /** Проёмы: дверь режет стену, окно оставляет подоконник. */
-  private paintOpenings(
-    grid: SceneSurfaceGrid,
-    elements: readonly SceneElement[],
-    resolution: number,
-  ): void {
+  private paintOpenings(grid: SceneSurfaceGrid, elements: readonly SceneElement[], resolution: number): void {
     // Стены нужны окну: верх стены над перемычкой берётся у той стены, которую
     // проём режет. В самой клетке его уже нет — `paintObstacles` вырезал стену
     // под проёмом, поэтому окно читало бы «стену до неба».
@@ -499,7 +499,7 @@ export class SceneSurfaceService {
       )
       .map((element) => ({
         probe: this.geometry.probe(element.shape, 0),
-        top: this.occluderTop(element, resolution),
+        top: this.occluderTop(element, elements, resolution),
       }));
 
     for (const element of elements) {
