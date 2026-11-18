@@ -54,4 +54,26 @@ describe('signedDistanceField', () => {
       expect(value).toBeLessThan(0);
     }
   });
+
+  it('считает остров берегом: внутри дырки минус, у кромки мель', () => {
+    // Остров — дырка в воде: у его уреза глубина такая же маленькая, как у
+    // внешнего берега, а в середине дырки суша.
+    const { mask, cols } = maskOf([
+      '#########',
+      '#########',
+      '#########',
+      '###...###',
+      '###...###',
+      '###...###',
+      '#########',
+      '#########',
+      '#########',
+    ]);
+    const signed = signedDistanceField(mask, cols, 9);
+
+    expect(signed[4 * cols + 4]).toBeLessThan(0);
+    expect(signed[3 * cols + 2]).toBeCloseTo(0.5);
+    expect(signed[2 * cols + 4]).toBeCloseTo(0.5);
+    expect(signed[1 * cols + 1]).toBeGreaterThan(1);
+  });
 });

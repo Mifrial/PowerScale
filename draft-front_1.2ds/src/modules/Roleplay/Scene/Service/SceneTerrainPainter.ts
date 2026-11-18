@@ -12,7 +12,9 @@ import type {
 } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SCENE_TERRAIN_BLEND } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_TERRAIN_BLEND';
 import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
+import { SCENE_WATER_SHADER } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_WATER_SHADER';
 import { patternOffset } from '@/modules/Roleplay/Scene/Service/SceneTerrainPatternService';
+import { sceneWaterDepth } from '@/modules/Roleplay/Scene/Service/SceneHeight';
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
@@ -46,7 +48,13 @@ export class SceneTerrainPainter {
   ) {}
 
   /** Поверхность террейна: материал плюс крупная вариация. */
-  paintSurface(container: Container, element: SceneElement, resolution: number, zoom: number): Graphics {
+  paintSurface(
+    container: Container,
+    element: SceneElement,
+    resolution: number,
+    zoom: number,
+    spill = true,
+  ): Graphics {
     const graphics = new Graphics();
     this.trace(graphics, element.shape, zoom);
     graphics.fill({ fill: this.materialPattern(element.props.kind, element.id, resolution), alpha: 1 });
@@ -55,9 +63,10 @@ export class SceneTerrainPainter {
     this.paintMacro(container, element, resolution, zoom);
     // Осыпь поверх края: тот же материал, но рваной полосой наружу. Если у
     // элемента есть кромка, наружу уходит её материал, и вторая осыпь только
-    // перекрыла бы мокрый край.
+    // перекрыла бы мокрый край. У острова с берегом осыпь тоже не нужна:
+    // наружу — вода, и трава не должна вылезать за урез.
     const hasShore = (element.props.shoreKind ?? 'none') !== 'none' && (element.props.shoreWidth ?? 0) > 0;
-    if (!hasShore) {
+    if (spill && !hasShore) {
       this.paintSpill(container, element, element.props.kind, element.id, resolution, zoom, 0, true);
     }
 
@@ -125,7 +134,25 @@ export class SceneTerrainPainter {
     depth: number,
     endPads: readonly [number, number] = [0, 0],
   ): void {
-    const width = element.props.shoreWidth ?? 0;
+    this.paintSlope(container, element.shape, element.props.shoreWidth ?? 0, depth, resolution, zoom, 0, endPads);
+  }
+
+  /**
+   * Откос берега по контуру: полосы темнеют к урезу.
+   *
+   * `alignment` задаёт сторону: 0 — наружу (берег материка лежит снаружи воды),
+   * 1 — внутрь (берег острова лежит внутри его контура, а вода снаружи).
+   */
+  private paintSlope(
+    container: Container,
+    shape: SceneShape,
+    width: number,
+    depth: number,
+    resolution: number,
+    zoom: number,
+    alignment: number,
+    endPads: readonly [number, number],
+  ): void {
     if (depth <= 0 || width <= 0) {
       return;
     }
@@ -140,11 +167,11 @@ export class SceneTerrainPainter {
     const graphics = new Graphics();
     for (const [share, alpha] of bands) {
       const bandWidth = Math.max(1, width * share);
-      if (element.shape.type === 'path') {
+      if (shape.type === 'path') {
         const outline = sceneRibbonService.outline(
-          element.shape.points,
-          element.shape.handles ?? [],
-          element.shape.widths,
+          shape.points,
+          shape.handles ?? [],
+          shape.widths,
           sceneCurveService.toleranceFor(zoom),
           bandWidth,
           endPads[0],
@@ -153,9 +180,9 @@ export class SceneTerrainPainter {
         // Полоса идёт только по берегу: внутренность вырезается, чтобы тень не
         // просвечивала сквозь полупрозрачную воду.
         const water = sceneRibbonService.outline(
-          element.shape.points,
-          element.shape.handles ?? [],
-          element.shape.widths,
+          shape.points,
+          shape.handles ?? [],
+          shape.widths,
           sceneCurveService.toleranceFor(zoom),
           0,
           endPads[0],
@@ -166,12 +193,79 @@ export class SceneTerrainPainter {
         continue;
       }
 
-      this.trace(graphics, element.shape, zoom, endPads);
+      this.trace(graphics, shape, zoom, endPads);
       graphics.stroke({
         color: BANK_COLOR,
         width: bandWidth,
         alpha: alpha * strength,
-        alignment: 0,
+        alignment,
+        join: 'round',
+      });
+    }
+
+    container.addChild(graphics);
+  }
+
+  /**
+   * Берег острова: сухая часть, которую рисует вода.
+   *
+   * Вода задаёт материал и ширину, а сам берег лежит на суше — внутри контура
+   * острова. Поэтому полоса, откос и мокрый край идут внутрь, а не наружу:
+   * снаружи уже вода с мелью и накатом, который считает поле глубины.
+   */
+  paintIslandShore(
+    container: Container,
+    island: SceneElement,
+    water: SceneElement,
+    resolution: number,
+    zoom: number,
+  ): void {
+    const kind = water.props.shoreKind ?? 'none';
+    const width = water.props.shoreWidth ?? 0;
+    if (kind === 'none' || width <= 0) {
+      return;
+    }
+
+    const graphics = new Graphics();
+    this.trace(graphics, island.shape, zoom);
+    graphics.stroke({
+      fill: this.materialPattern(kind, water.id + 17, resolution),
+      width,
+      alignment: 1,
+      alpha: 1,
+      join: 'round',
+    });
+    container.addChild(graphics);
+
+    this.paintSlope(container, island.shape, width, sceneWaterDepth(water), resolution, zoom, 1, [0, 0]);
+    this.paintWetBand(container, island.shape, resolution, zoom);
+  }
+
+  /**
+   * Мокрый песок у уреза острова.
+   *
+   * У материка его рисует шейдер тела воды, но остров лежит выше воды, и этот
+   * слой перекрыт его поверхностью. Поэтому тот же цвет и та же ширина, что у
+   * шейдера, повторяются здесь — иначе берег острова выглядит суше материка.
+   */
+  private paintWetBand(container: Container, shape: SceneShape, resolution: number, zoom: number): void {
+    const [red, green, blue] = SCENE_WATER_SHADER.wetColor;
+    const color = (Math.round(red * 255) << 16) | (Math.round(green * 255) << 8) | Math.round(blue * 255);
+    const width = Math.max(1, resolution * SCENE_WATER_SHADER.wetWidthIpari);
+    const alpha = SCENE_WATER_SHADER.wetAlpha;
+    const bands: [number, number][] = [
+      [1, alpha * 0.25],
+      [0.6, alpha * 0.35],
+      [0.3, alpha * 0.5],
+    ];
+    const graphics = new Graphics();
+    for (const [share, bandAlpha] of bands) {
+      this.trace(graphics, shape, zoom);
+      graphics.stroke({
+        color,
+        width: Math.max(1, width * share),
+        alpha: bandAlpha,
+        alignment: 1,
         join: 'round',
       });
     }

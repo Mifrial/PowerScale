@@ -154,10 +154,9 @@ export const SCENE_TOOLS: SceneToolDefinition[] = [
     icon: 'mdi-island',
     kind: 'terrain',
     shapeType: 'polygon',
-    props: { kind: 'grass', label: '', speed: 100, overWater: true, shoreKind: 'sand' },
+    props: { kind: 'grass', label: '', speed: 100, overWater: true },
     group: 'terrain',
     variant: 'Остров',
-    shoreWidthIpari: 0.5,
   },
   {
     id: 'terrain-path',

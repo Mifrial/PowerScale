@@ -6,6 +6,7 @@ import type { SceneBoard } from '@/modules/Roleplay/Scene/Dto/SceneBoard';
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneGrassTuft } from '@/modules/Roleplay/Scene/Dto/SceneGrassTuft';
+import type { SceneGrassInset } from '@/modules/Roleplay/Scene/Dto/SceneGrassInset';
 import type {
   SceneOverlayBand,
   SceneOverlayMask,
@@ -49,6 +50,8 @@ import { SceneTerrainPatternService } from '@/modules/Roleplay/Scene/Service/Sce
 import { SceneTerrainTextureService } from '@/modules/Roleplay/Scene/Service/SceneTerrainTextureService';
 import { SceneTextureCache } from '@/modules/Roleplay/Scene/Service/SceneTextureCache';
 import { sceneTerrainRank } from '@/modules/Roleplay/Scene/Service/SceneSurfaceService';
+import { sceneIslandShores } from '@/modules/Roleplay/Scene/Service/SceneIslandShoreService';
+import type { SceneIslandShore } from '@/modules/Roleplay/Scene/Service/SceneIslandShoreService';
 import { sceneWallService } from '@/modules/Roleplay/Scene/Service/Instance/sceneWallService';
 import { SceneWaterService, isShaderWater } from '@/modules/Roleplay/Scene/Service/SceneWaterService';
 import { SCENE_RENDERER_PREFERENCE } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_RENDERER_PREFERENCE';
@@ -982,6 +985,35 @@ export class PixiSceneRenderer implements ISceneRenderer {
     const zoom = this.zoom();
     const waterElements = terrainElements.filter((element) => element.props.kind === 'water');
     const islandElements = terrainElements.filter((element) => element.props.overWater === true);
+    // Острова — дырки воды: контур суши уходит в поле глубины до того, как
+    // вода начнёт печь мель, накат и мокрый песок. Сухой берег рисуется на
+    // стороне острова теми же свойствами воды.
+    const shores = sceneIslandShores(terrainElements, resolution);
+    const beachByIsland = new Map<number, SceneIslandShore>();
+    const insets = new Map<number, SceneGrassInset>();
+    const holesByWater = new Map<number, ScenePoint[][]>();
+    for (const shore of shores) {
+      const holes = holesByWater.get(shore.water.id);
+      if (holes === undefined) {
+        holesByWater.set(shore.water.id, [shore.contour]);
+      } else {
+        holes.push(shore.contour);
+      }
+
+      const width = shore.water.props.shoreWidth ?? 0;
+      if ((shore.water.props.shoreKind ?? 'none') === 'none' || width <= 0) {
+        continue;
+      }
+
+      beachByIsland.set(shore.island.id, shore);
+      insets.set(shore.island.id, { contour: shore.contour, distance: width });
+    }
+
+    this.water.clearIslands();
+    for (const [waterId, holes] of holesByWater) {
+      this.water.setIslands(waterId, holes);
+    }
+
     for (const element of terrainElements) {
       if (element.props.overWater === true) {
         continue;
@@ -996,7 +1028,18 @@ export class PixiSceneRenderer implements ISceneRenderer {
 
     // Остров лежит поверх воды и её плёнки, но под стенами, настилами и декором.
     for (const element of islandElements) {
-      this.drawTerrain(element, this.layers.islands);
+      const beach = beachByIsland.get(element.id);
+      if (beach === undefined) {
+        this.drawTerrain(element, this.layers.islands);
+        continue;
+      }
+
+      // Свой берег у острова не рисуется: воду слушает вода, иначе полос было
+      // бы две — сухая снаружи и мель внутри, а урез потерялся бы между ними.
+      this.drawTerrain(element, this.layers.islands, { shore: false, spill: false });
+      if (this.layers.islands !== undefined) {
+        this.terrain.paintIslandShore(this.layers.islands, element, beach.water, resolution, zoom);
+      }
     }
 
     const bridgeElements = elements.filter((element) => this.isGroundDeck(element));
@@ -1036,7 +1079,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     }
 
     this.drawWallJoints(elements, board.id);
-    this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution);
+    this.drawProps(board, bridgeElements, decorElements, terrainElements, waterElements, resolution, insets);
     this.drawRoofHatchRims(board);
     this.applyContentClip(board, this.slabHoles(floor), cut);
 
@@ -1257,6 +1300,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     terrainElements: SceneElement[],
     waterElements: SceneElement[],
     resolution: number,
+    insets: ReadonlyMap<number, SceneGrassInset>,
   ): void {
     const layer = this.layers.decor;
     const ground = this.layers.ground;
@@ -1292,7 +1336,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
     ];
     const carpet = this.editing
       ? []
-      : this.grass.band(this.grass.placeCarpet(grassElements, bounds, resolution), resolution);
+      : this.grass.band(this.grass.placeCarpet(grassElements, bounds, resolution, insets), resolution);
     const props = [
       ...carpet.map((band, index) => ({
         anchorY: band.y,
@@ -1324,7 +1368,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
           },
         };
       }),
-      ...(this.editing ? [] : this.grass.placeClumps(grassElements, bounds, resolution)).map((tuft) => ({
+      ...(this.editing ? [] : this.grass.placeClumps(grassElements, bounds, resolution, insets)).map((tuft) => ({
         anchorY: tuft.y,
         rank: 0,
         order: 0,
@@ -2056,7 +2100,11 @@ export class PixiSceneRenderer implements ISceneRenderer {
   }
 
   /** Террейн: кромка, поверхность или вода. */
-  private drawTerrain(element: SceneElement, layer: Container | undefined = this.layers.terrain): void {
+  private drawTerrain(
+    element: SceneElement,
+    layer: Container | undefined = this.layers.terrain,
+    options: { shore?: boolean; spill?: boolean } = {},
+  ): void {
     if (layer === undefined) {
       return;
     }
@@ -2067,7 +2115,9 @@ export class PixiSceneRenderer implements ISceneRenderer {
     // У шейдерной воды мокрый берег и кромка считаются в шейдере тела:
     // гладкая полоса paintWaterBank дала бы вторую параллельную линию.
     const shaderWater = element.props.kind === 'water' && isShaderWater(element);
-    this.terrain.paintShore(layer, element, resolution, zoom, endPads, !shaderWater);
+    if (options.shore ?? true) {
+      this.terrain.paintShore(layer, element, resolution, zoom, endPads, !shaderWater);
+    }
     if (element.props.kind === 'water') {
       // Откос рисуется под телом воды: видимой остаётся только полоса снаружи
       // уреза. Шейдерная вода тоже получает откос — он лежит на берегу, а не
@@ -2094,7 +2144,7 @@ export class PixiSceneRenderer implements ISceneRenderer {
       }
     }
 
-    this.terrain.paintSurface(layer, element, resolution, zoom);
+    this.terrain.paintSurface(layer, element, resolution, zoom, options.spill ?? true);
   }
 
   /** Толща воды: градиент глубины и каустика под актёрами. */

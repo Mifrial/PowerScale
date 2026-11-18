@@ -3,6 +3,7 @@ import type { Container } from 'pixi.js';
 import type { SceneBounds } from '@/modules/Roleplay/Scene/Dto/SceneBounds';
 import type { SceneElement } from '@/modules/Roleplay/Scene/Dto/SceneElement';
 import type { SceneGrassBand } from '@/modules/Roleplay/Scene/Dto/SceneGrassBand';
+import type { SceneGrassInset } from '@/modules/Roleplay/Scene/Dto/SceneGrassInset';
 import type { SceneGrassTuft } from '@/modules/Roleplay/Scene/Dto/SceneGrassTuft';
 import type { ScenePoint } from '@/modules/Roleplay/Scene/Dto/ScenePoint';
 import { SCENE_GRASS } from '@/modules/Roleplay/Scene/Constant/Scene/SCENE_GRASS';
@@ -43,12 +44,23 @@ export class SceneGrassService {
   ) {}
 
   /** Короткий ковёр: один меш, лежит под декором. */
-  placeCarpet(elements: readonly SceneElement[], board: SceneBounds, resolution: number): SceneGrassTuft[] {
-    return this.scatter(elements, board, resolution, {
-      heightIpari: SCENE_GRASS.carpetHeightIpari,
-      spacingIpari: SCENE_GRASS.carpetSpacingIpari,
-      limit: SCENE_GRASS.carpetLimit,
-    });
+  placeCarpet(
+    elements: readonly SceneElement[],
+    board: SceneBounds,
+    resolution: number,
+    insets?: ReadonlyMap<number, SceneGrassInset>,
+  ): SceneGrassTuft[] {
+    return this.scatter(
+      elements,
+      board,
+      resolution,
+      {
+        heightIpari: SCENE_GRASS.carpetHeightIpari,
+        spacingIpari: SCENE_GRASS.carpetSpacingIpari,
+        limit: SCENE_GRASS.carpetLimit,
+      },
+      insets,
+    );
   }
 
   /**
@@ -76,12 +88,23 @@ export class SceneGrassService {
   }
 
   /** Высокие пучки: спрайты в Y-сортировке с декором и акторами. */
-  placeClumps(elements: readonly SceneElement[], board: SceneBounds, resolution: number): SceneGrassTuft[] {
-    return this.scatter(elements, board, resolution, {
-      heightIpari: SCENE_GRASS.clumpHeightIpari,
-      spacingIpari: SCENE_GRASS.clumpSpacingIpari,
-      limit: SCENE_GRASS.clumpLimit,
-    });
+  placeClumps(
+    elements: readonly SceneElement[],
+    board: SceneBounds,
+    resolution: number,
+    insets?: ReadonlyMap<number, SceneGrassInset>,
+  ): SceneGrassTuft[] {
+    return this.scatter(
+      elements,
+      board,
+      resolution,
+      {
+        heightIpari: SCENE_GRASS.clumpHeightIpari,
+        spacingIpari: SCENE_GRASS.clumpSpacingIpari,
+        limit: SCENE_GRASS.clumpLimit,
+      },
+      insets,
+    );
   }
 
   /** Рисует высокий пучок в слой; якорь — снизу по центру. */
@@ -114,19 +137,20 @@ export class SceneGrassService {
     board: SceneBounds,
     resolution: number,
     layer: TuftLayer,
+    insets?: ReadonlyMap<number, SceneGrassInset>,
   ): SceneGrassTuft[] {
     const base = Math.max(1, resolution);
     // Раскладка не зависит от зума: иначе трава появляется только после
     // пересборки сцены и пропадает при отдалении. Плотность задаёт шаг в
     // мировых единицах, а масштаб делает камера.
     const spacing = this.spacingFor(elements, board, base, layer);
-    const key = this.cacheKey(elements, board, base, layer, spacing);
+    const key = this.cacheKey(elements, board, base, layer, spacing, insets);
     const cached = this.cache.get(key);
     if (cached !== undefined) {
       return cached;
     }
 
-    const tufts = this.scatterNow(elements, board, base, layer, spacing);
+    const tufts = this.scatterNow(elements, board, base, layer, spacing, insets);
     this.remember(key, tufts);
 
     return tufts;
@@ -179,6 +203,7 @@ export class SceneGrassService {
     base: number,
     layer: TuftLayer,
     spacing: number,
+    insets?: ReadonlyMap<number, SceneGrassInset>,
   ): SceneGrassTuft[] {
     const spill = base * SCENE_TERRAIN_BLEND.spillIpari;
     const tufts: SceneGrassTuft[] = [];
@@ -202,6 +227,7 @@ export class SceneGrassService {
           };
         });
       const area = this.geometry.probe(element.shape);
+      const inset = insets?.get(element.id);
       const bounds = area.bounds;
       const minX = Math.max(board.x, bounds.x);
       const maxX = Math.min(board.x + board.width, bounds.x + bounds.width);
@@ -221,6 +247,11 @@ export class SceneGrassService {
           }
 
           if (!area.contains(point, 0) || this.blocked(blockers, point)) {
+            continue;
+          }
+
+          // Берег острова лежит на его же суше: трава не должна на него заходить.
+          if (inset !== undefined && this.geometry.distanceToPolyline(point, inset.contour, true) < inset.distance) {
             continue;
           }
 
@@ -269,10 +300,11 @@ export class SceneGrassService {
     base: number,
     layer: TuftLayer,
     spacing: number,
+    insets?: ReadonlyMap<number, SceneGrassInset>,
   ): string {
     const shapes = elements.map(
       (element) =>
-        `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${element.props.overWater === true ? 1 : 0}:${JSON.stringify(element.shape)}`,
+        `${element.id}:${element.props.kind}:${element.props.rotation ?? 0}:${element.props.shoreKind ?? 'none'}:${element.props.shoreWidth ?? 0}:${element.props.overWater === true ? 1 : 0}:${insets?.get(element.id)?.distance ?? 0}:${JSON.stringify(element.shape)}`,
     );
 
     return `${spacing}|${layer.heightIpari}|${base}|${board.x},${board.y},${board.width},${board.height}|${shapes.join(';')}`;

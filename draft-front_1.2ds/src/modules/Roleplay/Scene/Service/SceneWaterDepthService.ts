@@ -39,6 +39,9 @@ const DEEP_ALPHA = 0.88;
 /** Амплитуда шума глубины в ипари: кромка мелководья гуляет вдоль берега. */
 const NOISE_IPARI = 0.4;
 
+/** Пустой список островов: общий экземпляр, чтобы не аллоцировать на каждый вызов. */
+const NO_HOLES: readonly ScenePoint[][] = [];
+
 /** Поле глубины водоёма: сетка расстояний, текстура данных и готовая рампа. */
 export interface SceneWaterDepth {
   /** Границы поля: силуэт воды плюс запас под накат. */
@@ -77,9 +80,23 @@ export interface SceneWaterDepth {
 export class SceneWaterDepthService {
   private readonly cache = new Map<number, { key: string; field: SceneWaterDepth }>();
 
-  /** Поле элемента; повторный вызов возвращает закэшированное. */
-  field(element: SceneElement, resolution: number, endPads: readonly [number, number] = [0, 0]): SceneWaterDepth {
-    const key = `${Math.max(1, resolution)}|${endPads[0]},${endPads[1]}|${JSON.stringify(element.shape)}`;
+  /** Ключ дырок по массиву контуров: контуры те же между вызовами, хэш — один раз. */
+  private readonly holeKeys = new WeakMap<readonly ScenePoint[][], string>();
+
+  /**
+   * Поле элемента; повторный вызов возвращает закэшированное.
+   *
+   * @param holes Контуры суши внутри воды: острова. Из маски вырезаются, чтобы
+   * мель, накат и мокрый песок считались и у берега острова, а не только у
+   * внешнего уреза водоёма.
+   */
+  field(
+    element: SceneElement,
+    resolution: number,
+    endPads: readonly [number, number] = [0, 0],
+    holes: readonly ScenePoint[][] = NO_HOLES,
+  ): SceneWaterDepth {
+    const key = `${Math.max(1, resolution)}|${endPads[0]},${endPads[1]}|${JSON.stringify(element.shape)}|${this.holesKey(holes)}`;
     const cached = this.cache.get(element.id);
     if (cached !== undefined && cached.key === key) {
       return cached.field;
@@ -94,7 +111,7 @@ export class SceneWaterDepthService {
       }
     }
 
-    const field = this.bake(element, resolution, endPads);
+    const field = this.bake(element, resolution, endPads, holes);
     this.cache.set(element.id, { key, field });
 
     return field;
@@ -106,8 +123,9 @@ export class SceneWaterDepthService {
     resolution: number,
     point: ScenePoint,
     endPads: readonly [number, number] = [0, 0],
+    holes: readonly ScenePoint[][] = NO_HOLES,
   ): number {
-    const field = this.field(element, resolution, endPads);
+    const field = this.field(element, resolution, endPads, holes);
     const column = Math.round((point[0] - field.bounds.x) / field.cell - 0.5);
     const row = Math.round((point[1] - field.bounds.y) / field.cell - 0.5);
     if (column < 0 || row < 0 || column >= field.cols || row >= field.rows) {
@@ -115,6 +133,28 @@ export class SceneWaterDepthService {
     }
 
     return field.depth[row * field.cols + column];
+  }
+
+  /** Ключ дырок для кэша: контуры сравниваются по геометрии, а не по ссылке. */
+  private holesKey(holes: readonly ScenePoint[][]): string {
+    if (holes.length === 0) {
+      return '';
+    }
+
+    const cached = this.holeKeys.get(holes);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const key = holes
+      .map(
+        (contour) =>
+          `${contour.length}:${contour.map((point) => `${Math.round(point[0])},${Math.round(point[1])}`).join(';')}`,
+      )
+      .join('|');
+    this.holeKeys.set(holes, key);
+
+    return key;
   }
 
   /** Освобождает текстуры и кэш. */
@@ -130,7 +170,12 @@ export class SceneWaterDepthService {
     this.cache.clear();
   }
 
-  private bake(element: SceneElement, resolution: number, endPads: readonly [number, number]): SceneWaterDepth {
+  private bake(
+    element: SceneElement,
+    resolution: number,
+    endPads: readonly [number, number],
+    holes: readonly ScenePoint[][],
+  ): SceneWaterDepth {
     const water = sceneGeometryService.bounds(element.shape);
     // Конец реки — не берег: даже если вода обрывается внутри поля, глубина
     // не должна выклиниваться. Поле всегда продлевает оба конца, а геометрия
@@ -152,7 +197,7 @@ export class SceneWaterDepthService {
     // иначе выборка по мировым координатам уезжала бы на краю поля.
     const bounds: SceneBounds = { x: originX, y: originY, width: cols * cell, height: rows * cell };
 
-    const mask = this.rasterize(element.shape, contour, bounds, cell, cols, rows);
+    const mask = this.rasterize(element.shape, contour, bounds, cell, cols, rows, holes);
     const signed = signedDistanceField(mask, cols, rows);
     const noise = this.noiseOf(element.id);
     // Цвет уходит в глубину уже в пределах мелководной полосы: иначе узкая
@@ -243,6 +288,7 @@ export class SceneWaterDepthService {
     cell: number,
     cols: number,
     rows: number,
+    holes: readonly ScenePoint[][],
   ): Float32Array {
     const canvas = document.createElement('canvas');
     canvas.width = cols;
@@ -278,6 +324,28 @@ export class SceneWaterDepthService {
     }
 
     context.fill();
+
+    // Острова — дырки: вода должна знать, где кончается суша, иначе у берега
+    // острова не будет ни мели, ни наката, ни мокрого песка.
+    if (holes.length > 0) {
+      context.globalCompositeOperation = 'destination-out';
+      context.beginPath();
+      for (const hole of holes) {
+        if (hole.length < 3) {
+          continue;
+        }
+
+        context.moveTo(toX(hole[0][0]), toY(hole[0][1]));
+        for (let index = 1; index < hole.length; index += 1) {
+          context.lineTo(toX(hole[index][0]), toY(hole[index][1]));
+        }
+
+        context.closePath();
+      }
+
+      context.fill();
+      context.globalCompositeOperation = 'source-over';
+    }
 
     const pixels = context.getImageData(0, 0, cols, rows).data;
     for (let index = 0; index < cols * rows; index += 1) {

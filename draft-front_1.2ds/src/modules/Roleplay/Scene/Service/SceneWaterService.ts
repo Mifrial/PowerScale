@@ -21,6 +21,9 @@ import { SceneWaterSurfaceShader } from '@/modules/Roleplay/Scene/Service/SceneW
 import { sceneCurveService } from '@/modules/Roleplay/Scene/Service/Instance/sceneCurveService';
 import { sceneRibbonService } from '@/modules/Roleplay/Scene/Service/Instance/sceneRibbonService';
 
+/** Общий пустой список островов: без них поле глубины не должно аллоцировать. */
+const NO_ISLANDS: readonly ScenePoint[][] = [];
+
 /** Река на шейдерах: тело рисует дно само, отдельная текстура дна не нужна. */
 export function isShaderRiver(element: SceneElement): boolean {
   return SCENE_WATER_SHADER.river && SCENE_WATER_RIVER.enabled && element.shape.type === 'path';
@@ -209,7 +212,31 @@ export class SceneWaterService {
 
   private readonly riverSurface = new SceneRiverSurfaceShader();
 
+  /**
+   * Острова по воде: контуры суши, которые вода вырезает из поля глубины.
+   *
+   * Реестр заполняет рендерер перед рисованием этажа: поле глубины печётся на
+   * элемент и кэшируется, поэтому дырки должны быть известны до первого
+   * `field`/`depthAt` этого этажа.
+   */
+  private readonly islands = new Map<number, readonly ScenePoint[][]>();
+
   constructor(private readonly materials: SceneTerrainTextureService) {}
+
+  /** Контуры островов для воды; пустой список — дырок нет. */
+  setIslands(waterId: number, holes: readonly ScenePoint[][]): void {
+    this.islands.set(waterId, holes);
+  }
+
+  /** Сбрасывает острова перед пересборкой этажа. */
+  clearIslands(): void {
+    this.islands.clear();
+  }
+
+  /** Дырки воды: общий пустой список, если островов нет. */
+  private holesOf(elementId: number): readonly ScenePoint[][] {
+    return this.islands.get(elementId) ?? NO_ISLANDS;
+  }
 
   /** Толща: градиент глубины и каустика по дну. */
   paintBody(
@@ -227,7 +254,7 @@ export class SceneWaterService {
       return this.paintStillBody(layer, element, resolution, zoom, endPads);
     }
 
-    const field = this.depths.field(element, resolution, endPads);
+    const field = this.depths.field(element, resolution, endPads, this.holesOf(element.id));
     const sprite = new Sprite(field.texture);
     sprite.position.set(field.bounds.x, field.bounds.y);
     sprite.width = field.bounds.width;
@@ -438,7 +465,7 @@ export class SceneWaterService {
     point: ScenePoint,
     endPads: readonly [number, number] = [0, 0],
   ): number {
-    return this.depths.depthAt(element, resolution, point, endPads);
+    return this.depths.depthAt(element, resolution, point, endPads, this.holesOf(element.id));
   }
 
   /**
@@ -457,7 +484,7 @@ export class SceneWaterService {
   ): SceneWaterNode | null {
     const bed = this.materials.texture('bed');
     const sand = this.materials.texture('sand');
-    const field = this.depths.field(element, resolution, endPads);
+    const field = this.depths.field(element, resolution, endPads, this.holesOf(element.id));
     // Тело и поверхность должны покрывать не только силуэт, но и запас под
     // кромку: у замкнутой воды это квад поля, у ленты — расширенный меш.
     const mesh = this.stillMesh(element, field, zoom, resolution, endPads);
@@ -604,7 +631,7 @@ export class SceneWaterService {
       return null;
     }
 
-    const field = this.depths.field(element, resolution, endPads);
+    const field = this.depths.field(element, resolution, endPads, this.holesOf(element.id));
     const base = Math.max(1, resolution);
     // Пятна живут в той же координате, что и маска, которую красили
     // красным на поверхности.
@@ -777,7 +804,7 @@ export class SceneWaterService {
       return null;
     }
 
-    const field = this.depths.field(element, resolution, endPads);
+    const field = this.depths.field(element, resolution, endPads, this.holesOf(element.id));
     const base = Math.max(1, resolution);
     const waveOf = (
       periodIpari: number,
@@ -883,7 +910,7 @@ export class SceneWaterService {
     zoom: number,
     endPads: readonly [number, number],
   ): SceneWaterNode | null {
-    const field = this.depths.field(element, resolution, endPads);
+    const field = this.depths.field(element, resolution, endPads, this.holesOf(element.id));
     const mesh = this.stillMesh(element, field, zoom, resolution, endPads);
     if (mesh === null) {
       return null;
@@ -971,6 +998,7 @@ export class SceneWaterService {
 
   /** Освобождает закэшированные поля глубины. */
   destroy(): void {
+    this.islands.clear();
     this.depths.destroy();
   }
 

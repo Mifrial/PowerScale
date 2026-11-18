@@ -116,6 +116,70 @@ describe('SceneGrassService', () => {
     expect(onIsland.length).toBeGreaterThan(0);
   });
 
+  it('не сеет траву на берегу острова: отступает от контура', () => {
+    const lake = element(
+      2,
+      { type: 'rect', x: 200, y: 200, w: 600, h: 600 },
+      { kind: 'water', shoreKind: 'sand', shoreWidth: 70 },
+    );
+    const island = element(3, { type: 'rect', x: 350, y: 350, w: 300, h: 300 }, { kind: 'grass', overWater: true });
+    const insets = new Map([
+      [
+        3,
+        {
+          contour: [
+            [350, 350],
+            [650, 350],
+            [650, 650],
+            [350, 650],
+          ] as [number, number][],
+          distance: 40,
+        },
+      ],
+    ]);
+    const tufts = service.placeCarpet([grass(), lake, island], board, 64, insets);
+    const onIsland = tufts.filter((tuft) => tuft.x > 350 && tuft.x < 650 && tuft.y > 350 && tuft.y < 650);
+
+    expect(onIsland.length).toBeGreaterThan(0);
+    for (const tuft of onIsland) {
+      const edge = Math.min(tuft.x - 350, 650 - tuft.x, tuft.y - 350, 650 - tuft.y);
+      expect(edge).toBeGreaterThanOrEqual(40);
+    }
+  });
+
+  it('сбрасывает раскладку при смене отступа от берега', () => {
+    const lake = element(
+      2,
+      { type: 'rect', x: 200, y: 200, w: 600, h: 600 },
+      { kind: 'water', shoreKind: 'sand', shoreWidth: 70 },
+    );
+    const island = element(3, { type: 'rect', x: 350, y: 350, w: 300, h: 300 }, { kind: 'grass', overWater: true });
+    const elements = [grass(), lake, island];
+    const plain = service.placeCarpet(elements, board, 64);
+    const inset = service.placeCarpet(
+      elements,
+      board,
+      64,
+      new Map([
+        [
+          3,
+          {
+            contour: [
+              [350, 350],
+              [650, 350],
+              [650, 650],
+              [350, 650],
+            ] as [number, number][],
+            distance: 40,
+          },
+        ],
+      ]),
+    );
+
+    expect(inset).not.toBe(plain);
+    expect(inset.length).toBeLessThan(plain.length);
+  });
+
   it('не сажает траву в русло реки и на его кромку', () => {
     const river = element(
       2,
