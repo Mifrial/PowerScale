@@ -3530,8 +3530,8 @@
             "layers": [],
             "basis": null,
             "date": "2026-08-30",
-            "bytes": 51759,
-            "lines": 161,
+            "bytes": 52636,
+            "lines": 162,
             "modules": [],
             "linksCount": 21,
             "brokenLinks": [],
@@ -8046,8 +8046,8 @@
             ],
             "basis": "МОК",
             "date": "2026-11-17",
-            "bytes": 71396,
-            "lines": 747,
+            "bytes": 73017,
+            "lines": 760,
             "modules": [
                 "Roleplay/Scene"
             ],
@@ -8081,8 +8081,8 @@
             ],
             "basis": "PHP",
             "date": "2026-11-17",
-            "bytes": 73228,
-            "lines": 785,
+            "bytes": 74559,
+            "lines": 798,
             "modules": [
                 "Roleplay/Scene"
             ],
